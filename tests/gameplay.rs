@@ -10,6 +10,7 @@ fn player_can_move_and_jump_in_sequence() {
         PlayerInput {
             move_axis: 1.0,
             jump_pressed: false,
+            ..PlayerInput::default()
         },
         0.25,
     );
@@ -19,6 +20,7 @@ fn player_can_move_and_jump_in_sequence() {
         PlayerInput {
             move_axis: 0.0,
             jump_pressed: true,
+            ..PlayerInput::default()
         },
         0.0,
     );
@@ -36,6 +38,7 @@ fn player_cannot_leave_the_room_horizontally() {
         PlayerInput {
             move_axis: -1.0,
             jump_pressed: false,
+            ..PlayerInput::default()
         },
         10.0,
     );
@@ -45,6 +48,7 @@ fn player_cannot_leave_the_room_horizontally() {
         PlayerInput {
             move_axis: 1.0,
             jump_pressed: false,
+            ..PlayerInput::default()
         },
         10.0,
     );

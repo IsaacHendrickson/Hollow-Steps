@@ -4,4 +4,5 @@
 //! gameplay state so it can be tested without opening a window.
 
 pub mod game;
+pub mod item;
 pub mod player;
