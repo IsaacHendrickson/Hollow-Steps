@@ -65,12 +65,14 @@ fn large_step_uses_final_position_for_pickup() {
     let mut game = near_item();
     game.update(
         PlayerInput {
-            move_axis: 1.0,
+            // Walk toward the wall without an exit to isolate pickup behavior.
+            move_axis: -1.0,
             pickup_pressed: true,
             ..PlayerInput::default()
         },
         10.0,
     );
+    assert_eq!(game.player().position().x, 16.0);
     assert_eq!(game.items().len(), 1);
     assert!(game.player().collected_items().is_empty());
 }

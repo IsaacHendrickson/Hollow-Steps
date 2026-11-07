@@ -98,7 +98,7 @@ fn dead_health_cannot_underflow_and_respawn_clears_player_motion() {
     assert_eq!(player.health().current(), 0);
     player.update(PlayerInput::default(), 10.0, BOUNDS);
     assert!(!player.take_damage());
-    player.respawn(350.0, BOUNDS);
+    player.respawn(Vec2::new(350.0, 436.0), BOUNDS);
     assert_eq!(player.position(), Vec2::new(350.0, 436.0));
     assert_eq!(player.velocity(), Vec2::ZERO);
     assert!(player.is_grounded());
@@ -131,7 +131,7 @@ fn game_contact_damages_once_per_second_then_respawns_at_room_spawn() {
         game.update(PlayerInput::default(), 1.0);
         assert_eq!(game.player().health().current(), expected);
     }
-    assert_eq!(game.player().position().x, game.room().spawn_x);
+    assert_eq!(game.player().position(), game.room().spawn);
     assert_eq!(game.player().velocity(), Vec2::ZERO);
     assert!(game.player().is_grounded());
     assert!(game.player().health().is_invincible());

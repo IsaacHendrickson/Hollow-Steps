@@ -87,8 +87,8 @@ impl Player {
         self.health.take_damage()
     }
 
-    pub fn respawn(&mut self, spawn_x: f32, bounds: WorldBounds) {
-        self.place_on_floor(spawn_x, bounds);
+    pub fn respawn(&mut self, spawn: Vec2, bounds: WorldBounds) {
+        self.place_at(spawn, bounds);
         self.health.respawn();
     }
 
@@ -119,15 +119,19 @@ impl Player {
     /// Places the player on the floor and clears movement left over from a
     /// previous life or room transition.
     pub fn place_on_floor(&mut self, x: f32, bounds: WorldBounds) {
-        self.position = Vec2::new(
-            x.clamp(
-                bounds.left + self.config.size.x / 2.0,
-                bounds.right - self.config.size.x / 2.0,
-            ),
-            bounds.floor_y - self.config.size.y / 2.0,
+        self.place_at(
+            Vec2::new(x, bounds.floor_y - self.config.size.y / 2.0),
+            bounds,
         );
+    }
+
+    /// Places the player at a room spawn, preserving inventory and clearing
+    /// velocity. Spawns above the floor remain airborne.
+    pub fn place_at(&mut self, position: Vec2, bounds: WorldBounds) {
+        self.position = position;
         self.velocity = Vec2::ZERO;
-        self.grounded = true;
+        self.resolve_horizontal_bounds(bounds);
+        self.resolve_floor(bounds);
     }
 
     /// Advances the player by one simulation step.
@@ -285,5 +289,27 @@ mod tests {
         assert_eq!(player.position().y, 436.0);
         assert_eq!(player.velocity().y, 0.0);
         assert!(player.is_grounded());
+    }
+
+    #[test]
+    fn room_spawn_preserves_height_and_inventory_but_clears_movement() {
+        let mut player = player_on_floor();
+        player.collect_item(Item::AmberShard);
+        player.update(
+            PlayerInput {
+                move_axis: 1.0,
+                jump_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.1,
+            BOUNDS,
+        );
+
+        player.place_at(Vec2::new(100.0, 200.0), BOUNDS);
+
+        assert_eq!(player.position(), Vec2::new(100.0, 200.0));
+        assert_eq!(player.velocity(), Vec2::ZERO);
+        assert!(!player.is_grounded());
+        assert_eq!(player.collected_items(), &[Item::AmberShard]);
     }
 }
