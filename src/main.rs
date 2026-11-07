@@ -1,3 +1,4 @@
+use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::health::MAX_HEALTH;
 use hollow_steps::item::ITEM_SIZE;
@@ -20,10 +21,17 @@ async fn main() {
 
     loop {
         let delta_seconds = get_frame_time().min(1.0 / 15.0);
+        if is_key_pressed(KeyCode::I) || (game.inventory_open() && is_key_pressed(KeyCode::Escape))
+        {
+            game.toggle_inventory();
+        }
         let input = read_player_input();
         game.update(input, delta_seconds);
 
         draw_scene(&game);
+        if game.inventory_open() {
+            draw_inventory(&game);
+        }
         next_frame().await;
     }
 }
@@ -113,6 +121,16 @@ fn draw_scene(game: &GameState) {
             );
         }
     }
+    for coin in game.coins() {
+        draw_circle(coin.position.x, coin.position.y, COIN_RADIUS, GOLD);
+        draw_circle_lines(
+            coin.position.x,
+            coin.position.y,
+            COIN_RADIUS - 2.0,
+            1.0,
+            YELLOW,
+        );
+    }
     for enemy in &game.room().enemies {
         let top_left = enemy.position() - enemy.size() / 2.0;
         draw_rectangle(
@@ -135,7 +153,7 @@ fn draw_scene(game: &GameState) {
         },
     );
     draw_text(
-        "Move: A/D or arrows    Jump: Space/Z    Pick up: Up",
+        "Move: A/D or arrows    Jump: Space/Z    Pick up: Up    Inventory: I",
         24.0,
         36.0,
         24.0,
@@ -149,7 +167,11 @@ fn draw_scene(game: &GameState) {
         WHITE,
     );
     draw_text(
-        format!("Items collected: {}", player.collected_items().len()),
+        format!(
+            "Coins: {}    Items: {}",
+            game.coin_count(),
+            player.collected_items().len()
+        ),
         24.0,
         64.0,
         22.0,
@@ -161,5 +183,47 @@ fn draw_scene(game: &GameState) {
         120.0,
         22.0,
         WHITE,
+    );
+}
+
+fn draw_inventory(game: &GameState) {
+    draw_rectangle(
+        0.0,
+        0.0,
+        VIEW_WIDTH,
+        VIEW_HEIGHT,
+        Color::from_rgba(0, 0, 0, 180),
+    );
+    draw_rectangle(
+        200.0,
+        130.0,
+        560.0,
+        310.0,
+        Color::from_rgba(28, 32, 50, 255),
+    );
+    draw_rectangle_lines(200.0, 130.0, 560.0, 310.0, 2.0, GRAY);
+    draw_text("Inventory", 232.0, 180.0, 36.0, WHITE);
+    draw_text(
+        format!("Coins: {}", game.coin_count()),
+        232.0,
+        224.0,
+        26.0,
+        GOLD,
+    );
+    draw_text("Collected items", 232.0, 270.0, 24.0, WHITE);
+    let items = game.player().collected_items();
+    if items.is_empty() {
+        draw_text("No items collected yet", 232.0, 306.0, 22.0, LIGHTGRAY);
+    } else {
+        for (index, item) in items.iter().enumerate() {
+            draw_text(item.name(), 232.0, 306.0 + index as f32 * 28.0, 22.0, GOLD);
+        }
+    }
+    draw_text(
+        "Paused  |  I or Esc to return",
+        232.0,
+        408.0,
+        22.0,
+        LIGHTGRAY,
     );
 }

@@ -1,5 +1,6 @@
 use macroquad::math::{Rect, Vec2};
 
+use crate::coin::{Coin, COIN_RADIUS};
 use crate::enemy::Enemy;
 use crate::item::{Item, WorldItem, ITEM_SIZE};
 use crate::player::WorldBounds;
@@ -71,6 +72,7 @@ pub struct Room {
     /// Default player-center respawn point for this room.
     pub spawn: Vec2,
     pub enemies: Vec<Enemy>,
+    pub(crate) coins: Vec<Coin>,
     pub(crate) items: Vec<WorldItem>,
 }
 
@@ -96,6 +98,11 @@ pub fn test_rooms() -> [Room; 2] {
     [
         Room {
             id: RoomId::First,
+            coins: [360.0, 410.0, 460.0]
+                .map(|x| Coin {
+                    position: Vec2::new(x, FLOOR_Y - COIN_RADIUS),
+                })
+                .to_vec(),
             spawn: Vec2::new(180.0, FLOOR_Y - 24.0),
             enemies: vec![Enemy::new(
                 560.0,
@@ -120,6 +127,11 @@ pub fn test_rooms() -> [Room; 2] {
         },
         Room {
             id: RoomId::Second,
+            coins: [300.0, 350.0, 400.0]
+                .map(|x| Coin {
+                    position: Vec2::new(x, 400.0 - COIN_RADIUS),
+                })
+                .to_vec(),
             spawn: Vec2::new(160.0, 376.0),
             enemies: vec![],
             bounds: Rect::new(80.0, 40.0, 800.0, 360.0),
