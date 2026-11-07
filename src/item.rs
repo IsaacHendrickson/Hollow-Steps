@@ -8,12 +8,14 @@ pub const PICKUP_REACH: f32 = 24.0;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Item {
     AmberShard,
+    Dash,
 }
 
 impl Item {
     pub fn name(self) -> &'static str {
         match self {
             Self::AmberShard => "Amber Shard",
+            Self::Dash => "Dash",
         }
     }
 }

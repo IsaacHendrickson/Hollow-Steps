@@ -40,6 +40,7 @@ fn read_player_input() -> PlayerInput {
         move_axis,
         jump_pressed: is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Z),
         pickup_pressed: is_key_pressed(KeyCode::Up),
+        dash_pressed: is_key_pressed(KeyCode::LeftShift) || is_key_pressed(KeyCode::RightShift),
     }
 }
 
@@ -101,7 +102,7 @@ fn draw_scene(game: &GameState) {
         Color::from_rgba(220, 231, 255, 255),
     );
     draw_text(
-        "Move: A/D or arrows    Jump: Space/Z    Pick up: Up",
+        "Move: A/D or arrows    Jump: Space/Z    Pick up: Up    Dash: Shift",
         24.0,
         36.0,
         24.0,
