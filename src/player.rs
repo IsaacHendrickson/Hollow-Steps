@@ -1,5 +1,6 @@
 use macroquad::math::Vec2;
 
+use crate::health::Health;
 use crate::item::Item;
 
 pub const DASH_SPEED: f32 = 800.0;
@@ -73,6 +74,7 @@ pub struct Player {
     dash_remaining: f32,
     dash_cooldown: f32,
     air_dash_used: bool,
+    health: Health,
 }
 
 impl Player {
@@ -88,7 +90,21 @@ impl Player {
             dash_remaining: 0.0,
             dash_cooldown: 0.0,
             air_dash_used: false,
+            health: Health::default(),
         }
+    }
+
+    pub fn health(&self) -> &Health {
+        &self.health
+    }
+
+    pub fn take_damage(&mut self) -> bool {
+        self.health.take_damage()
+    }
+
+    pub fn respawn(&mut self, spawn: Vec2, bounds: WorldBounds) {
+        self.place_at(spawn, bounds);
+        self.health.respawn();
     }
 
     pub fn collected_items(&self) -> &[Item] {
@@ -118,23 +134,32 @@ impl Player {
     /// Places the player on the floor and clears movement left over from a
     /// previous life or room transition.
     pub fn place_on_floor(&mut self, x: f32, bounds: WorldBounds) {
-        self.position = Vec2::new(
-            x.clamp(
-                bounds.left + self.config.size.x / 2.0,
-                bounds.right - self.config.size.x / 2.0,
-            ),
-            bounds.floor_y - self.config.size.y / 2.0,
+        self.place_at(
+            Vec2::new(x, bounds.floor_y - self.config.size.y / 2.0),
+            bounds,
         );
+    }
+
+    /// Places the player at a room spawn, preserving inventory and clearing
+    /// velocity. Spawns above the floor remain airborne.
+    pub fn place_at(&mut self, position: Vec2, bounds: WorldBounds) {
+        self.position = position;
         self.velocity = Vec2::ZERO;
-        self.grounded = true;
         self.dash_remaining = 0.0;
         self.dash_cooldown = 0.0;
         self.air_dash_used = false;
+        self.resolve_horizontal_bounds(bounds);
+        self.resolve_floor(bounds);
     }
 
     /// Advances the player by one simulation step.
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32, bounds: WorldBounds) {
-        let delta_seconds = delta_seconds.max(0.0);
+        let delta_seconds = if delta_seconds.is_finite() {
+            delta_seconds.max(0.0)
+        } else {
+            0.0
+        };
+        self.health.update(delta_seconds);
         let move_axis = input.move_axis.clamp(-1.0, 1.0);
 
         if self.dash_remaining == 0.0 && move_axis != 0.0 {
@@ -313,6 +338,28 @@ mod tests {
         assert_eq!(player.position().y, 436.0);
         assert_eq!(player.velocity().y, 0.0);
         assert!(player.is_grounded());
+    }
+
+    #[test]
+    fn room_spawn_preserves_height_and_inventory_but_clears_movement() {
+        let mut player = player_on_floor();
+        player.collect_item(Item::AmberShard);
+        player.update(
+            PlayerInput {
+                move_axis: 1.0,
+                jump_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.1,
+            BOUNDS,
+        );
+
+        player.place_at(Vec2::new(100.0, 200.0), BOUNDS);
+
+        assert_eq!(player.position(), Vec2::new(100.0, 200.0));
+        assert_eq!(player.velocity(), Vec2::ZERO);
+        assert!(!player.is_grounded());
+        assert_eq!(player.collected_items(), &[Item::AmberShard]);
     }
 }
 

@@ -1,5 +1,6 @@
 use hollow_steps::game::GameState;
 use hollow_steps::player::PlayerInput;
+use hollow_steps::room::RoomId;
 
 #[test]
 fn player_can_move_and_jump_in_sequence() {
@@ -31,7 +32,7 @@ fn player_can_move_and_jump_in_sequence() {
 }
 
 #[test]
-fn player_cannot_leave_the_room_horizontally() {
+fn player_stays_within_the_active_room_horizontally() {
     let mut game = GameState::new();
 
     game.update(
@@ -43,6 +44,7 @@ fn player_cannot_leave_the_room_horizontally() {
         10.0,
     );
     assert_eq!(game.player().position().x, 16.0);
+    assert_eq!(game.room().id, RoomId::First);
 
     game.update(
         PlayerInput {
@@ -52,5 +54,17 @@ fn player_cannot_leave_the_room_horizontally() {
         },
         10.0,
     );
-    assert_eq!(game.player().position().x, 944.0);
+    assert_eq!(game.room().id, RoomId::Second);
+    assert!(game.player().position().x >= game.world_bounds().left + game.player().size().x / 2.0);
+    assert!(game.player().position().x <= game.world_bounds().right - game.player().size().x / 2.0);
+
+    game.update(
+        PlayerInput {
+            move_axis: 1.0,
+            ..PlayerInput::default()
+        },
+        10.0,
+    );
+    assert_eq!(game.room().id, RoomId::Second);
+    assert_eq!(game.player().position().x, 864.0);
 }
