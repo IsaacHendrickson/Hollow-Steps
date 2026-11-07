@@ -101,6 +101,26 @@ src/main.rs            translates input and renders the result
 tests/<system>.rs      public behavior or cross-system tests
 ```
 
+## Branch and sync workflow
+
+Do this for every task, without being asked:
+
+1. Work on a feature branch named `feature/<short-name>`. Never commit
+   directly to `main`. If the task continues an existing feature branch, use
+   that branch.
+2. Before finishing, merge the latest `main` into the working branch.
+3. If the merge conflicts, resolve it keeping both sets of changes. Do not
+   blindly take one side (for example with `-X ours` or `-X theirs`), and do
+   not drop code from either side. If the correct result is unclear, stop and
+   explain the conflict in the handoff instead of guessing.
+4. After merging, run `cargo fmt`, `cargo test`, and
+   `cargo clippy --all-targets --all-features -- -D warnings`, and fix any
+   failures.
+5. Push the working branch to the remote.
+6. If the push or pull request creation fails (for example because of
+   network or permission limits), say so in the handoff and include the exact
+   branch name so the owner can finish it by hand.
+
 ## Testing
 
 Agents should be able to verify almost everything without a window.
