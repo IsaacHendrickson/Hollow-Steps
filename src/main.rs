@@ -44,6 +44,7 @@ fn read_player_input() -> PlayerInput {
 }
 
 fn draw_scene(game: &GameState) {
+    let room = game.room();
     let bounds = game.world_bounds();
     let player = game.player();
     let player_position = player.position();
@@ -65,6 +66,24 @@ fn draw_scene(game: &GameState) {
         4.0,
         Color::from_rgba(111, 122, 164, 255),
     );
+    draw_rectangle_lines(
+        room.bounds.x,
+        room.bounds.y,
+        room.bounds.w,
+        room.bounds.h,
+        2.0,
+        Color::from_rgba(62, 70, 103, 255),
+    );
+    for exit in &room.exits {
+        let zone = exit.zone(room.bounds);
+        draw_rectangle(
+            zone.x,
+            zone.y,
+            zone.w,
+            zone.h,
+            Color::from_rgba(82, 172, 164, 100),
+        );
+    }
     for item in game.items() {
         let nearby = item.can_pick_up(player);
         let top_left = item.position - ITEM_SIZE / 2.0;
@@ -111,6 +130,13 @@ fn draw_scene(game: &GameState) {
         format!("Items collected: {}", player.collected_items().len()),
         24.0,
         64.0,
+        22.0,
+        WHITE,
+    );
+    draw_text(
+        format!("Room: {:?} (walk into the green exit)", room.id),
+        24.0,
+        92.0,
         22.0,
         WHITE,
     );
