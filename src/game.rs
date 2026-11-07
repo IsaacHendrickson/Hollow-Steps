@@ -30,7 +30,7 @@ impl GameState {
         let rooms = test_rooms();
         let world_bounds = rooms[RoomId::First.index()].world_bounds();
         let mut player = Player::new(Vec2::new(180.0, 0.0), PlayerConfig::default());
-        player.place_on_floor(180.0, world_bounds);
+        player.place_at(rooms[RoomId::First.index()].spawn, world_bounds);
 
         Self {
             player,
@@ -58,6 +58,22 @@ impl GameState {
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32) {
         self.player
             .update(input, delta_seconds, self.world_bounds());
+        let room = &mut self.rooms[self.current_room.index()];
+        let bounds = room.world_bounds();
+        for enemy in &mut room.enemies {
+            enemy.update(self.player.position(), delta_seconds, bounds);
+        }
+        if room
+            .enemies
+            .iter()
+            .any(|enemy| enemy.touches(self.player.position(), self.player.size()))
+        {
+            self.player.take_damage();
+        }
+        if self.player.health().current() == 0 {
+            self.player.respawn(room.spawn, bounds);
+            return;
+        }
         if input.pickup_pressed {
             let room = &mut self.rooms[self.current_room.index()];
             if let Some(index) = room
@@ -107,6 +123,31 @@ mod tests {
         );
 
         assert_eq!(game.player().position().x, 125.0);
+    }
+
+    #[test]
+    fn death_uses_current_room_spawn_and_inactive_enemies_stay_frozen() {
+        let mut game = GameState::new();
+        game.current_room = RoomId::Second;
+        let first_enemy_position = game.rooms[RoomId::First.index()].enemies[0].position();
+        let bounds = game.world_bounds();
+        let room = &mut game.rooms[RoomId::Second.index()];
+        room.spawn = Vec2::new(350.0, 200.0);
+        room.enemies
+            .push(crate::enemy::Enemy::new(500.0, 500.0, 0.0, 0.0, bounds));
+        game.player.place_on_floor(500.0, bounds);
+        for expected in [4, 3, 2, 1, 5] {
+            game.update(PlayerInput::default(), 1.0);
+            assert_eq!(game.player.health().current(), expected);
+        }
+        assert_eq!(game.room().id, RoomId::Second);
+        assert_eq!(game.player.position(), game.room().spawn);
+        assert!(!game.player.is_grounded());
+        assert_eq!(game.player.velocity(), Vec2::ZERO);
+        assert_eq!(
+            game.rooms[RoomId::First.index()].enemies[0].position(),
+            first_enemy_position
+        );
     }
 
     #[test]

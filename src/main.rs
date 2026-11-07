@@ -1,4 +1,5 @@
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
+use hollow_steps::health::MAX_HEALTH;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
 use macroquad::prelude::*;
@@ -112,12 +113,26 @@ fn draw_scene(game: &GameState) {
             );
         }
     }
+    for enemy in &game.room().enemies {
+        let top_left = enemy.position() - enemy.size() / 2.0;
+        draw_rectangle(
+            top_left.x,
+            top_left.y,
+            enemy.size().x,
+            enemy.size().y,
+            MAROON,
+        );
+    }
     draw_rectangle(
         player_position.x - player_size.x / 2.0,
         player_position.y - player_size.y / 2.0,
         player_size.x,
         player_size.y,
-        Color::from_rgba(220, 231, 255, 255),
+        if player.health().flash_on() {
+            WHITE
+        } else {
+            Color::from_rgba(110, 160, 230, 255)
+        },
     );
     draw_text(
         "Move: A/D or arrows    Jump: Space/Z    Pick up: Up",
@@ -125,6 +140,13 @@ fn draw_scene(game: &GameState) {
         36.0,
         24.0,
         Color::from_rgba(220, 231, 255, 255),
+    );
+    draw_text(
+        format!("Health: {}/{}", player.health().current(), MAX_HEALTH),
+        24.0,
+        92.0,
+        22.0,
+        WHITE,
     );
     draw_text(
         format!("Items collected: {}", player.collected_items().len()),
@@ -136,7 +158,7 @@ fn draw_scene(game: &GameState) {
     draw_text(
         format!("Room: {:?} (walk into the green exit)", room.id),
         24.0,
-        92.0,
+        120.0,
         22.0,
         WHITE,
     );
