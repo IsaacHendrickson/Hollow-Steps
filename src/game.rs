@@ -42,8 +42,7 @@ impl GameState {
     }
 
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32) {
-        self.player
-            .update(input, delta_seconds, self.world_bounds);
+        self.player.update(input, delta_seconds, self.world_bounds);
     }
 }
 

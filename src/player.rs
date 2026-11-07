@@ -112,8 +112,8 @@ impl Player {
             self.grounded = false;
         }
 
-        self.velocity.y = (self.velocity.y + self.config.gravity * delta_seconds)
-            .min(self.config.max_fall_speed);
+        self.velocity.y =
+            (self.velocity.y + self.config.gravity * delta_seconds).min(self.config.max_fall_speed);
         self.position += self.velocity * delta_seconds;
 
         self.resolve_horizontal_bounds(bounds);
