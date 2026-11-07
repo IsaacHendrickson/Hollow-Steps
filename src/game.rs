@@ -1,5 +1,6 @@
 use macroquad::math::Vec2;
 
+use crate::item::{Item, WorldItem, ITEM_SIZE};
 use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
 
 pub const VIEW_WIDTH: f32 = 960.0;
@@ -14,6 +15,7 @@ pub const FLOOR_Y: f32 = 460.0;
 pub struct GameState {
     player: Player,
     world_bounds: WorldBounds,
+    items: Vec<WorldItem>,
 }
 
 impl Default for GameState {
@@ -30,11 +32,19 @@ impl GameState {
         Self {
             player,
             world_bounds,
+            items: vec![WorldItem {
+                item: Item::AmberShard,
+                position: Vec2::new(300.0, FLOOR_Y - ITEM_SIZE.y / 2.0),
+            }],
         }
     }
 
     pub fn player(&self) -> &Player {
         &self.player
+    }
+
+    pub fn items(&self) -> &[WorldItem] {
+        &self.items
     }
 
     pub fn world_bounds(&self) -> WorldBounds {
@@ -43,6 +53,16 @@ impl GameState {
 
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32) {
         self.player.update(input, delta_seconds, self.world_bounds);
+        if input.pickup_pressed {
+            if let Some(index) = self
+                .items
+                .iter()
+                .position(|item| item.can_pick_up(&self.player))
+            {
+                let item = self.items.remove(index);
+                self.player.collect_item(item.item);
+            }
+        }
     }
 }
 
@@ -66,6 +86,7 @@ mod tests {
             PlayerInput {
                 move_axis: -1.0,
                 jump_pressed: false,
+                ..PlayerInput::default()
             },
             0.25,
         );

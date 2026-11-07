@@ -1,4 +1,5 @@
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
+use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
 use macroquad::prelude::*;
 
@@ -38,6 +39,7 @@ fn read_player_input() -> PlayerInput {
     PlayerInput {
         move_axis,
         jump_pressed: is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Z),
+        pickup_pressed: is_key_pressed(KeyCode::Up),
     }
 }
 
@@ -63,6 +65,34 @@ fn draw_scene(game: &GameState) {
         4.0,
         Color::from_rgba(111, 122, 164, 255),
     );
+    for item in game.items() {
+        let nearby = item.can_pick_up(player);
+        let top_left = item.position - ITEM_SIZE / 2.0;
+        draw_rectangle(
+            top_left.x,
+            top_left.y,
+            ITEM_SIZE.x,
+            ITEM_SIZE.y,
+            if nearby { YELLOW } else { GOLD },
+        );
+        if nearby {
+            draw_rectangle_lines(
+                top_left.x - 3.0,
+                top_left.y - 3.0,
+                ITEM_SIZE.x + 6.0,
+                ITEM_SIZE.y + 6.0,
+                2.0,
+                WHITE,
+            );
+            draw_text(
+                format!("Up: pick up {}", item.item.name()),
+                top_left.x - 80.0,
+                top_left.y - 16.0,
+                20.0,
+                WHITE,
+            );
+        }
+    }
     draw_rectangle(
         player_position.x - player_size.x / 2.0,
         player_position.y - player_size.y / 2.0,
@@ -71,10 +101,17 @@ fn draw_scene(game: &GameState) {
         Color::from_rgba(220, 231, 255, 255),
     );
     draw_text(
-        "Move: A/D or arrows    Jump: Space/Z",
+        "Move: A/D or arrows    Jump: Space/Z    Pick up: Up",
         24.0,
         36.0,
         24.0,
         Color::from_rgba(220, 231, 255, 255),
+    );
+    draw_text(
+        format!("Items collected: {}", player.collected_items().len()),
+        24.0,
+        64.0,
+        22.0,
+        WHITE,
     );
 }

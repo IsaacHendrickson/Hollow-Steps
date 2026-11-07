@@ -1,5 +1,7 @@
 use macroquad::math::Vec2;
 
+use crate::item::Item;
+
 /// A single frame of player intent.
 ///
 /// `jump_pressed` is an edge-triggered input: it should be true only on the
@@ -8,6 +10,8 @@ use macroquad::math::Vec2;
 pub struct PlayerInput {
     pub move_axis: f32,
     pub jump_pressed: bool,
+    /// Edge-triggered pickup intent (Up).
+    pub pickup_pressed: bool,
 }
 
 /// Tunable values that define how the player feels.
@@ -51,12 +55,13 @@ impl WorldBounds {
 }
 
 /// Player gameplay state.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Player {
     position: Vec2,
     velocity: Vec2,
     config: PlayerConfig,
     grounded: bool,
+    collected_items: Vec<Item>,
 }
 
 impl Player {
@@ -67,7 +72,16 @@ impl Player {
             velocity: Vec2::ZERO,
             config,
             grounded: false,
+            collected_items: Vec::new(),
         }
+    }
+
+    pub fn collected_items(&self) -> &[Item] {
+        &self.collected_items
+    }
+
+    pub(crate) fn collect_item(&mut self, item: Item) {
+        self.collected_items.push(item);
     }
 
     pub fn position(&self) -> Vec2 {
@@ -166,6 +180,7 @@ mod tests {
             PlayerInput {
                 move_axis: 1.0,
                 jump_pressed: false,
+                ..PlayerInput::default()
             },
             0.5,
             BOUNDS,
@@ -183,6 +198,7 @@ mod tests {
             PlayerInput {
                 move_axis: 1.0,
                 jump_pressed: false,
+                ..PlayerInput::default()
             },
             10.0,
             BOUNDS,
@@ -199,6 +215,7 @@ mod tests {
             PlayerInput {
                 move_axis: 0.0,
                 jump_pressed: true,
+                ..PlayerInput::default()
             },
             0.0,
             BOUNDS,
@@ -220,6 +237,7 @@ mod tests {
             PlayerInput {
                 move_axis: 0.0,
                 jump_pressed: true,
+                ..PlayerInput::default()
             },
             0.0,
             BOUNDS,
@@ -229,6 +247,7 @@ mod tests {
             PlayerInput {
                 move_axis: 0.0,
                 jump_pressed: true,
+                ..PlayerInput::default()
             },
             0.1,
             BOUNDS,
