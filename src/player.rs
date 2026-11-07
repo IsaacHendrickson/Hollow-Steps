@@ -1,5 +1,6 @@
 use macroquad::math::Vec2;
 
+use crate::health::Health;
 use crate::item::Item;
 
 /// A single frame of player intent.
@@ -62,6 +63,7 @@ pub struct Player {
     config: PlayerConfig,
     grounded: bool,
     collected_items: Vec<Item>,
+    health: Health,
 }
 
 impl Player {
@@ -73,7 +75,21 @@ impl Player {
             config,
             grounded: false,
             collected_items: Vec::new(),
+            health: Health::default(),
         }
+    }
+
+    pub fn health(&self) -> &Health {
+        &self.health
+    }
+
+    pub fn take_damage(&mut self) -> bool {
+        self.health.take_damage()
+    }
+
+    pub fn respawn(&mut self, spawn_x: f32, bounds: WorldBounds) {
+        self.place_on_floor(spawn_x, bounds);
+        self.health.respawn();
     }
 
     pub fn collected_items(&self) -> &[Item] {
@@ -116,7 +132,12 @@ impl Player {
 
     /// Advances the player by one simulation step.
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32, bounds: WorldBounds) {
-        let delta_seconds = delta_seconds.max(0.0);
+        let delta_seconds = if delta_seconds.is_finite() {
+            delta_seconds.max(0.0)
+        } else {
+            0.0
+        };
+        self.health.update(delta_seconds);
         let move_axis = input.move_axis.clamp(-1.0, 1.0);
 
         self.velocity.x = move_axis * self.config.move_speed;

@@ -1,5 +1,6 @@
 use macroquad::math::Vec2;
 
+use crate::enemy::Enemy;
 use crate::item::{Item, WorldItem, ITEM_SIZE};
 use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
 
@@ -14,8 +15,16 @@ pub const FLOOR_Y: f32 = 460.0;
 #[derive(Debug)]
 pub struct GameState {
     player: Player,
-    world_bounds: WorldBounds,
+    room: Room,
     items: Vec<WorldItem>,
+}
+
+/// Current room content; the spawn is a floor position expressed as center x.
+#[derive(Debug)]
+pub struct Room {
+    pub bounds: WorldBounds,
+    pub spawn_x: f32,
+    pub enemies: Vec<Enemy>,
 }
 
 impl Default for GameState {
@@ -31,7 +40,11 @@ impl GameState {
 
         Self {
             player,
-            world_bounds,
+            room: Room {
+                bounds: world_bounds,
+                spawn_x: 180.0,
+                enemies: vec![Enemy::new(560.0, 800.0, 90.0, 180.0, world_bounds)],
+            },
             items: vec![WorldItem {
                 item: Item::AmberShard,
                 position: Vec2::new(300.0, FLOOR_Y - ITEM_SIZE.y / 2.0),
@@ -48,11 +61,29 @@ impl GameState {
     }
 
     pub fn world_bounds(&self) -> WorldBounds {
-        self.world_bounds
+        self.room.bounds
+    }
+
+    pub fn room(&self) -> &Room {
+        &self.room
     }
 
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32) {
-        self.player.update(input, delta_seconds, self.world_bounds);
+        self.player.update(input, delta_seconds, self.room.bounds);
+        for enemy in &mut self.room.enemies {
+            enemy.update(self.player.position(), delta_seconds, self.room.bounds);
+        }
+        if self
+            .room
+            .enemies
+            .iter()
+            .any(|enemy| enemy.touches(self.player.position(), self.player.size()))
+        {
+            self.player.take_damage();
+        }
+        if self.player.health().current() == 0 {
+            self.player.respawn(self.room.spawn_x, self.room.bounds);
+        }
         if input.pickup_pressed {
             if let Some(index) = self
                 .items
