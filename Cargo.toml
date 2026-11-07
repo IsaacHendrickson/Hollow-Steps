@@ -1,0 +1,9 @@
+[package]
+name = "hollow-steps"
+version = "0.1.0"
+edition = "2021"
+description = "A small, modular 2D action-platformer prototype"
+license = "MIT"
+
+[dependencies]
+macroquad = "0.4"
