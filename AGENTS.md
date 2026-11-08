@@ -56,10 +56,21 @@ describe an unexecuted check as passing.
 
 ## Architecture
 
-The repository currently has three layers:
+The repository has three layers: gameplay modules, the game state that
+composes them, and the Macroquad front end.
 
-- `src/player.rs`: player input, movement rules, collision resolution, and
-  player-focused tests. This layer owns gameplay facts, not rendering.
+Gameplay modules (pure rules, no rendering):
+
+- `src/player.rs`: player input, movement rules (including dash),
+  collision resolution, and player-focused tests.
+- `src/health.rs`: player health, damage, and invincibility.
+- `src/enemy.rs`: enemy behavior.
+- `src/item.rs`: world items and pickup.
+- `src/coin.rs`: collectible coins.
+- `src/room.rs`: rooms, exits, and room transitions.
+
+Composition and front end:
+
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
@@ -69,6 +80,8 @@ The repository currently has three layers:
 
 The library target (`src/lib.rs`) exposes reusable gameplay modules. Integration
 tests live in `tests/` and verify behavior through the public API.
+
+When you add, rename, or remove a module, update this list in the same change.
 
 ## Coordinate and simulation conventions
 
@@ -123,6 +136,23 @@ pushed to GitHub.
    say so in the handoff and include the exact branch name so the owner can
    finish it by hand. If a pull request cannot be created, give the
    `https://github.com/<owner>/<repo>/pull/new/<branch>` link instead.
+
+## Keeping existing features intact
+
+Features have disappeared before because a branch was built from an older
+`main` or a merge dropped one side. Prevent this:
+
+- Keep `FEATURES.md` in the repository root: one line per feature, naming the
+  module and test file that cover it. Create it if it is missing. Update it in
+  the same change that adds, changes, or removes a feature.
+- Before finishing a task, read `FEATURES.md` and confirm every listed feature
+  still exists in the code and its tests still run and pass.
+- When resolving a merge conflict, never remove code or tests that belong to
+  another feature. After merging, the test count must not drop unless a test
+  was deliberately removed and the handoff says why.
+- If `main` is missing something the task expects (for example, a feature
+  that exists only on another branch), stop and say so in the handoff instead
+  of rebuilding it.
 
 ## Testing
 
