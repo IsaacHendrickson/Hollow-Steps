@@ -28,6 +28,11 @@ cargo clippy --all-targets --all-features -- -D warnings
 - `Shift`: after collecting Dash, dash horizontally in the facing direction at
   800 units/second for 0.2 seconds. Dash starts have a 0.5 second cooldown;
   only one air dash is available until landing.
+- `I`: open/close the inventory screen to see coins and collected items.
+  Gameplay pauses while it is open; `Esc` also closes it.
+- Touch a gold coin to collect it automatically, including while airborne.
+  Each coin adds one to the balance and stays collected through room travel
+  and respawn for the current game session.
 - `Up`: pick up a nearby item while standing on the floor. The Amber Shard
   and Dash items highlight and show a prompt when in reach; collected items leave
   the world and stay in the player's inventory for the current game session.

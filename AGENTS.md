@@ -103,23 +103,26 @@ tests/<system>.rs      public behavior or cross-system tests
 
 ## Branch and sync workflow
 
-Do this for every task, without being asked:
+Do this for every task, without being asked. Work is not finished until it is
+pushed to GitHub.
 
 1. Work on a feature branch named `feature/<short-name>`. Never commit
    directly to `main`. If the task continues an existing feature branch, use
    that branch.
-2. Before finishing, merge the latest `main` into the working branch.
-3. If the merge conflicts, resolve it keeping both sets of changes. Do not
+2. Commit your changes to that branch.
+3. Merge the latest `main` into the working branch.
+4. If the merge conflicts, resolve it keeping both sets of changes. Do not
    blindly take one side (for example with `-X ours` or `-X theirs`), and do
    not drop code from either side. If the correct result is unclear, stop and
    explain the conflict in the handoff instead of guessing.
-4. After merging, run `cargo fmt`, `cargo test`, and
+5. After merging, run `cargo fmt`, `cargo test`, and
    `cargo clippy --all-targets --all-features -- -D warnings`, and fix any
    failures.
-5. Push the working branch to the remote.
-6. If the push or pull request creation fails (for example because of
-   network or permission limits), say so in the handoff and include the exact
-   branch name so the owner can finish it by hand.
+6. Push the working branch to `origin`.
+7. If the push fails (for example because of network or permission limits),
+   say so in the handoff and include the exact branch name so the owner can
+   finish it by hand. If a pull request cannot be created, give the
+   `https://github.com/<owner>/<repo>/pull/new/<branch>` link instead.
 
 ## Testing
 
@@ -170,6 +173,7 @@ End each task with a brief message in this shape and nothing more:
 Changed: <files>
 Checked: <commands run and whether each passed>
 Not checked: <anything that could not be run, or needs a manual playtest>
+Branch: <branch name> (pushed: yes/no, merged main: yes/no)
 ```
 
 ## First-slice invariants
