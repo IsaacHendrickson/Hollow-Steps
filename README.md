@@ -48,6 +48,7 @@ above; Windows needs no extra system libraries.
   only one air dash is available until landing.
 - `I`: open/close the inventory screen to see coins and collected items.
   Gameplay pauses while it is open; `Esc` also closes it.
+- `F2`: open/close the room editor (gameplay pauses).
 - `F5`: reload all room files and their enemy/behavior definitions, including
   while the inventory is open. Errors appear on screen; fix the files and
   press `F5` again to retry. Use the mouse wheel to scroll long errors.
@@ -91,7 +92,7 @@ travel, and inactive rooms and the inventory pause freeze boss timers.
 
 ## Room design
 
-Room geometry is defined in Rust in `src/room.rs`, with rectangular bounds, a floor,
+Default room geometry is defined in Rust in `src/room.rs`, with rectangular bounds, a floor,
 and exits anchored to the left, right, top, or bottom edge. Exit spans are
 offsets along that edge; each exit stores a destination room and player-center
 spawn coordinate in that room. Overlapping an exit with the player's body
@@ -125,7 +126,8 @@ All timers use simulation delta time; rendering only reads state.
 Enemy state machines use RON in `assets/behaviors/`; entity definitions in
 `assets/entities/` select a behavior by its file stem. Room enemy-placement
 files in `assets/rooms/` reference entity definition names and supply patrol
-endpoints. Room geometry, items, exits, and bosses remain in `src/room.rs`.
+endpoints. Optional room `layout` data overrides geometry, items, spawn, and exits;
+bosses and coins remain in `src/room.rs`.
 `serde` provides strict deserialization and `ron` parses the asset format;
 neither adds rendering or an ECS to the simulation. Assets load when
 constructing the rooms and on `F5`, with file paths included in validation errors.
@@ -219,7 +221,7 @@ column. `GameState::try_new(asset_directory)` returns errors for callers;
 `GameState::new()` loads the repository's `assets/` and fails with that context
 if the data is invalid. No window is needed to load or test assets.
 
-`GameState::reload_rooms()` re-reads all three room files and the enemy/behavior
+`GameState::reload_rooms()` re-reads the built-in and saved custom room files and the enemy/behavior
 definitions from the same asset directory used at startup. Changes apply only
 after the entire load succeeds. Room-file errors are reported together; a
 failed reload leaves the running world intact and allows another attempt.
@@ -227,3 +229,43 @@ A successful reload clears the error panel and replaces every room's enemy
 list with fresh placements, resetting enemy health, positions, and AI timers
 and removing existing summons. The current room, player movement/health,
 inventory, collected coins/items, pause state, and boss progress are preserved.
+
+## Room editor design
+
+F2 pauses gameplay and opens the room editor; F2 again returns to play.
+The editor uses Macroquad's built-in immediate-mode UI (already a dependency)
+for buttons and scrollable definition/room lists, avoiding another UI runtime.
+Mouse input and preview drawing stay in `main.rs`; `editor.rs` owns window-free
+place, move, delete, validation, and serialization rules. Edits use authored RON
+placements rather than enemies that have moved or pickups already collected.
+
+Rooms retain the legacy `enemies` field and gain optional `layout` data for
+bounds, floor, spawn, items, and exits. Missing layout uses the original room
+geometry and items, so existing content stays compatible. Enemy positions
+remain floor-bound: placing snaps to the floor, moving shifts both patrol
+endpoints without changing their separation. Items use free center coordinates.
+Exits stay anchored to their original edge; dragging slides their span along it.
+Spawn and exit destination markers can be dragged separately. Save validates
+all geometry, entity references, and exit destinations before serializing, then
+writes a sibling temporary file and renames it over the room file.
+
+New room creates an empty draft with the current room's geometry and a unique
+`room_N.ron` filename. Save registers it as `Custom(N)` in the room list and game;
+these files are loaded at startup. Exits can target any saved room. Room IDs are
+stable numeric IDs, independent of list order. Coins and bosses remain existing
+gameplay content and are outside this editor's scope.
+
+Choose an entity in the **Entity** list, click **Place**, then click the room.
+Choose **Select / drag** to move entities, the blue respawn marker, or a green
+exit span. Right-click an enemy/item or select it and press Delete to remove it.
+Select an exit, choose a **Target**, and click **Set exit target**; use
+**Edit destination spawn** to drag its purple arrival marker in the target
+room's coordinate space. **Back to room** restores the current-room view.
+**Add exit** creates a span on the chosen **Edge** so new rooms can be connected.
+**Save room** applies the draft to gameplay and disk; errors remain visible in
+the footer and preserve the draft, running room, and previous file.
+Closing with F2, opening another room, or choosing New room discards unsaved
+changes. A star next to the room ID marks unsaved changes. Saving resets that
+room's editable enemies/items and places the player at its spawn, while keeping
+inventory, coins, and boss progress. F5 retains its existing enemy-only reload
+behavior for already loaded rooms; restart or use editor Save to apply layouts.

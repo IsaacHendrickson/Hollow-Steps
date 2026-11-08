@@ -3,11 +3,15 @@ use hollow_steps::boss_special::{
     BossSpecials, SpecialAttack, BOSS_MAX_HEALTH, RING_RADIUS, SLAM_RADIUS,
 };
 use hollow_steps::coin::COIN_RADIUS;
+use hollow_steps::editor::{EditorSession, Placement, RoomLayout, Selection};
 use hollow_steps::game::{GameState, SPECIAL_BOSS_SIZE, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::health::MAX_HEALTH;
+use hollow_steps::item::Item;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
+use hollow_steps::room::RoomEdge;
 use macroquad::prelude::*;
+use macroquad::ui::{hash, root_ui, widgets};
 
 fn window_conf() -> Conf {
     Conf {
@@ -24,9 +28,21 @@ async fn main() {
     let mut game = GameState::new();
     let mut reload_result = None;
     let mut reload_scroll = 0;
+    let mut editor_ui = EditorUi::default();
 
     loop {
         let delta_seconds = get_frame_time().min(1.0 / 15.0);
+        if is_key_pressed(KeyCode::F2) {
+            if let Err(error) = game.toggle_editor() {
+                reload_result = Some(Err(error));
+            }
+            editor_ui = EditorUi::default();
+        }
+        if game.editor().is_some() {
+            draw_editor(&mut game, &mut editor_ui);
+            next_frame().await;
+            continue;
+        }
         if is_key_pressed(KeyCode::F5) {
             reload_result = Some(game.reload_rooms());
             reload_scroll = 0;
@@ -453,4 +469,437 @@ fn draw_inventory(game: &GameState) {
         22.0,
         LIGHTGRAY,
     );
+}
+
+#[derive(Default)]
+struct EditorUi {
+    definition: usize,
+    room: usize,
+    target: usize,
+    edge: usize,
+    placing: bool,
+    selected: Option<Selection>,
+    dragging: Option<(Selection, Vec2)>,
+    destination: Option<usize>,
+}
+
+// All canvas transforms, hit testing, mouse translation, and drawing are front-end only.
+struct EditorCanvas {
+    origin: Vec2,
+    scale: f32,
+    bounds: Rect,
+}
+impl EditorCanvas {
+    fn new(layout: &RoomLayout) -> Self {
+        let bounds = layout.rect();
+        let scale = (680.0 / bounds.w).min(360.0 / bounds.h);
+        Self {
+            origin: vec2(20.0, 90.0),
+            scale,
+            bounds,
+        }
+    }
+    fn screen(&self, point: Vec2) -> Vec2 {
+        self.origin + (point - self.bounds.point()) * self.scale
+    }
+    fn world(&self, point: Vec2) -> Vec2 {
+        (point - self.origin) / self.scale + self.bounds.point()
+    }
+    fn rect(&self, rect: Rect) -> Rect {
+        let p = self.screen(rect.point());
+        Rect::new(p.x, p.y, rect.w * self.scale, rect.h * self.scale)
+    }
+}
+
+fn editor_markers(
+    editor: &EditorSession,
+    destination: Option<usize>,
+) -> Vec<(Selection, Rect, Color)> {
+    let body =
+        |p: Vec2, size: Vec2| Rect::new(p.x - size.x / 2.0, p.y - size.y / 2.0, size.x, size.y);
+    if let Some(i) = destination {
+        return editor
+            .draft
+            .layout
+            .exits
+            .get(i)
+            .map(|exit| {
+                vec![(
+                    Selection::Destination(i),
+                    body(exit.spawn.into(), vec2(32.0, 48.0)),
+                    PURPLE,
+                )]
+            })
+            .unwrap_or_default();
+    }
+    let mut markers = Vec::new();
+    for (i, enemy) in editor.draft.enemies.iter().enumerate() {
+        if let Ok(size) = editor.definitions.size(&enemy.definition) {
+            markers.push((
+                Selection::Enemy(i),
+                body(
+                    vec2(
+                        enemy.patrol_left,
+                        editor.draft.layout.floor_y - size.y / 2.0,
+                    ),
+                    size,
+                ),
+                RED,
+            ));
+        }
+    }
+    for (i, item) in editor.draft.layout.items.iter().enumerate() {
+        markers.push((
+            Selection::Item(i),
+            body(item.position.into(), ITEM_SIZE),
+            GOLD,
+        ));
+    }
+    for (i, exit) in editor.draft.layout.exits.iter().enumerate() {
+        markers.push((
+            Selection::Exit(i),
+            exit.exit().zone(editor.draft.layout.rect()),
+            GREEN,
+        ));
+    }
+    markers.push((
+        Selection::Spawn,
+        body(editor.draft.layout.spawn.into(), vec2(32.0, 48.0)),
+        SKYBLUE,
+    ));
+    markers
+}
+
+fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
+    clear_background(Color::from_rgba(16, 18, 31, 255));
+    let mut save = false;
+    let mut open = None;
+    let editor = game.editor_mut().expect("editor open");
+    let definitions = editor
+        .definitions
+        .names()
+        .map(|name| format!("Enemy: {name}"))
+        .chain(["Item: Amber Shard".into(), "Item: Dash".into()])
+        .collect::<Vec<_>>();
+    let names = definitions.iter().map(String::as_str).collect::<Vec<_>>();
+    let room_names = editor
+        .rooms
+        .iter()
+        .map(|(id, _)| format!("{id:?}"))
+        .collect::<Vec<_>>();
+    let room_labels = room_names.iter().map(String::as_str).collect::<Vec<_>>();
+    state.definition = state.definition.min(names.len().saturating_sub(1));
+    state.room = state.room.min(room_labels.len().saturating_sub(1));
+    state.target = state.target.min(room_labels.len().saturating_sub(1));
+    widgets::Window::new(
+        hash!("room editor"),
+        vec2(720.0, 0.0),
+        vec2(240.0, VIEW_HEIGHT),
+    )
+    .label("Room editor (F2)")
+    .movable(false)
+    .ui(&mut root_ui(), |ui| {
+        ui.label(
+            None,
+            &format!("{:?}{}", editor.id, if editor.dirty { " *" } else { "" }),
+        );
+        if ui.button(None, "Save room") {
+            save = true;
+        }
+        if ui.button(None, "New room (discard draft)") {
+            editor.new_room();
+            *state = EditorUi::default();
+        }
+        editor_list(ui, hash!("rooms"), "Rooms", &room_labels, &mut state.room);
+        if ui.button(None, "Open (discard draft)") {
+            open = editor.rooms.get(state.room).map(|(id, _)| *id);
+        }
+        ui.separator();
+        editor_list(
+            ui,
+            hash!("definitions"),
+            "Entity",
+            &names,
+            &mut state.definition,
+        );
+        if ui.button(None, if state.placing { "[Place]" } else { "Place" }) {
+            state.placing = true;
+            state.destination = None;
+            state.selected = None;
+        }
+        if ui.button(
+            None,
+            if !state.placing {
+                "[Select / drag]"
+            } else {
+                "Select / drag"
+            },
+        ) {
+            state.placing = false;
+        }
+        if ui.button(None, "Delete enemy / item") {
+            if let Some(selection) = state.selected {
+                match editor.draft.delete(selection) {
+                    Ok(()) => {
+                        state.selected = None;
+                        editor.dirty = true;
+                    }
+                    Err(error) => editor.message = error,
+                }
+            }
+        }
+        ui.separator();
+        ui.combo_box(
+            hash!("edge"),
+            "Edge",
+            &["Left", "Right", "Top", "Bottom"],
+            &mut state.edge,
+        );
+        editor_list(
+            ui,
+            hash!("target"),
+            "Exit target",
+            &room_labels,
+            &mut state.target,
+        );
+        if ui.button(None, "Add exit") {
+            if let Some((id, layout)) = editor.rooms.get(state.target) {
+                state.selected = Some(editor.draft.add_exit(
+                    [
+                        RoomEdge::Left,
+                        RoomEdge::Right,
+                        RoomEdge::Top,
+                        RoomEdge::Bottom,
+                    ][state.edge],
+                    *id,
+                    layout.spawn.into(),
+                ));
+                editor.dirty = true;
+                state.placing = false;
+                state.destination = None;
+            }
+        }
+        if let Some(Selection::Exit(i) | Selection::Destination(i)) = state.selected {
+            if ui.button(None, "Set exit target") {
+                if let Some((id, layout)) = editor.rooms.get(state.target) {
+                    if let Err(error) = editor.draft.set_exit_target(i, *id, layout.spawn.into()) {
+                        editor.message = error;
+                    } else {
+                        editor.dirty = true;
+                    }
+                }
+            }
+            if ui.button(None, "Edit destination spawn") {
+                state.destination = Some(i);
+                state.selected = Some(Selection::Destination(i));
+                state.placing = false;
+            }
+        }
+        if state.destination.is_some() && ui.button(None, "Back to room") {
+            state.destination = None;
+            state.selected = None;
+        }
+        ui.separator();
+        ui.label(None, "Blue: room spawn");
+        ui.label(None, "Green: exit span");
+        ui.label(None, "Purple: arrival spawn");
+    });
+
+    let layout = state
+        .destination
+        .and_then(|i| editor.draft.layout.exits.get(i))
+        .and_then(|exit| {
+            editor
+                .catalog()
+                .into_iter()
+                .find(|(id, _)| *id == exit.target_room)
+                .map(|(_, layout)| layout)
+        })
+        .unwrap_or_else(|| editor.draft.layout.clone());
+    let canvas = EditorCanvas::new(&layout);
+    let area = canvas.rect(layout.rect());
+    draw_rectangle_lines(area.x, area.y, area.w, area.h, 2.0, LIGHTGRAY);
+    if state.destination.is_some() {
+        for exit in &layout.exits {
+            let r = canvas.rect(exit.exit().zone(layout.rect()));
+            draw_rectangle_lines(r.x, r.y, r.w, r.h, 2.0, GREEN);
+        }
+    }
+    let floor = canvas.screen(vec2(layout.bounds.0, layout.floor_y));
+    draw_line(floor.x, floor.y, area.right(), floor.y, 3.0, GRAY);
+    draw_text(
+        format!(
+            "{:?} - {}",
+            editor.id,
+            if state.destination.is_some() {
+                "destination room view"
+            } else {
+                "authored room"
+            }
+        ),
+        20.0,
+        30.0,
+        24.0,
+        WHITE,
+    );
+    draw_text(
+        "F2: close (discard unsaved) | Drag: move | Right click / Del: delete",
+        20.0,
+        58.0,
+        17.0,
+        LIGHTGRAY,
+    );
+    let markers = editor_markers(editor, state.destination);
+    let mouse = Vec2::from(mouse_position());
+    let world = canvas.world(mouse);
+    let over_canvas = area.contains(mouse) && mouse.x < 710.0 && !root_ui().is_mouse_over(mouse);
+    if is_mouse_button_pressed(MouseButton::Left) && over_canvas {
+        if state.placing && state.destination.is_none() {
+            let enemy_count = names.len() - 2;
+            let placement = if state.definition < enemy_count {
+                Placement::Enemy(
+                    editor
+                        .definitions
+                        .names()
+                        .nth(state.definition)
+                        .expect("definition index")
+                        .into(),
+                )
+            } else {
+                Placement::Item(if state.definition == enemy_count {
+                    Item::AmberShard
+                } else {
+                    Item::Dash
+                })
+            };
+            match editor.draft.place(placement, world, &editor.definitions) {
+                Ok(selection) => {
+                    state.selected = Some(selection);
+                    editor.dirty = true;
+                    editor.message.clear();
+                }
+                Err(error) => editor.message = error,
+            }
+        } else {
+            let hit = markers.iter().rev().find(|(_, rect, _)| {
+                let r = canvas.rect(*rect);
+                Rect::new(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0).contains(mouse)
+            });
+            state.selected = hit.map(|(selection, _, _)| *selection);
+            state.dragging = hit.map(|(selection, rect, _)| (*selection, world - rect.center()));
+        }
+    }
+    if is_mouse_button_down(MouseButton::Left) && over_canvas {
+        if let Some((selection, offset)) = state.dragging {
+            match editor
+                .draft
+                .move_to(selection, world - offset, &editor.definitions)
+            {
+                Ok(()) => {
+                    editor.dirty = true;
+                    editor.message.clear();
+                }
+                Err(error) => editor.message = error,
+            }
+        }
+    }
+    if is_mouse_button_released(MouseButton::Left) {
+        state.dragging = None;
+    }
+    if (is_mouse_button_pressed(MouseButton::Right) && over_canvas)
+        || is_key_pressed(KeyCode::Delete)
+    {
+        let selection = if is_mouse_button_pressed(MouseButton::Right) {
+            markers
+                .iter()
+                .rev()
+                .find(|(_, rect, _)| rect.contains(world))
+                .map(|(selection, _, _)| *selection)
+        } else {
+            state.selected
+        };
+        if let Some(selection) = selection {
+            match editor.draft.delete(selection) {
+                Ok(()) => {
+                    state.selected = None;
+                    state.dragging = None;
+                    editor.dirty = true;
+                }
+                Err(error) => editor.message = error,
+            }
+        }
+    }
+    for (selection, rect, color) in editor_markers(editor, state.destination) {
+        let r = canvas.rect(rect);
+        draw_rectangle(
+            r.x,
+            r.y,
+            r.w,
+            r.h,
+            Color::new(color.r, color.g, color.b, 0.45),
+        );
+        draw_rectangle_lines(
+            r.x,
+            r.y,
+            r.w,
+            r.h,
+            if state.selected == Some(selection) {
+                3.0
+            } else {
+                1.0
+            },
+            if state.selected == Some(selection) {
+                WHITE
+            } else {
+                color
+            },
+        );
+    }
+    // Wrap status text in the canvas footer so long filesystem/validation errors stay readable.
+    let mut line = String::new();
+    let mut y = 475.0;
+    for word in editor.message.split_whitespace() {
+        if measure_text(format!("{line} {word}"), None, 17, 1.0).width > 675.0 {
+            draw_text(&line, 20.0, y, 17.0, ORANGE);
+            y += 19.0;
+            line.clear();
+        }
+        line.push_str(word);
+        line.push(' ');
+    }
+    draw_text(&line, 20.0, y, 17.0, ORANGE);
+    if save {
+        state.dragging = None;
+        if let Err(error) = game.save_editor() {
+            game.editor_mut().expect("open").message = format!("Save failed: {error}");
+        }
+    }
+    if let Some(id) = open {
+        if let Err(error) = game.edit_room(id) {
+            game.editor_mut().expect("open").message = error;
+        }
+        *state = EditorUi::default();
+    }
+}
+
+fn editor_list(
+    ui: &mut macroquad::ui::Ui,
+    id: u64,
+    label: &str,
+    names: &[&str],
+    selected: &mut usize,
+) {
+    ui.label(None, label);
+    widgets::Group::new(id, vec2(210.0, 70.0)).ui(ui, |ui| {
+        for (index, name) in names.iter().enumerate() {
+            let text = if index == *selected {
+                format!("> {name}")
+            } else {
+                (*name).to_owned()
+            };
+            if ui.button(None, text) {
+                *selected = index;
+            }
+        }
+    });
 }
