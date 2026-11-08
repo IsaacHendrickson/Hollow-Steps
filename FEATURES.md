@@ -1,5 +1,6 @@
 # Features
 
+- Continuous integration: `.github/workflows/ci.yml`; formatting, tests, and Clippy on Linux and Windows for pull requests and pushes to `main`.
 - Walking, gravity, floor and wall collision: `src/player.rs`; `src/player.rs` unit tests, `tests/gameplay.rs`.
 - Variable jump height, coyote time, and jump buffering: `src/player.rs`; `tests/jumping.rs`.
 - Directional melee swing, short hitbox, cooldown, and one hit per enemy per swing: `src/combat.rs`, `src/player.rs`, `src/game.rs`; `tests/combat.rs`, `src/game.rs` unit tests.
