@@ -1,3 +1,4 @@
+use hollow_steps::enemy::ENEMY_MAX_HEALTH;
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::health::MAX_HEALTH;
 use hollow_steps::item::ITEM_SIZE;
@@ -41,6 +42,8 @@ fn read_player_input() -> PlayerInput {
         move_axis,
         jump_pressed: is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Z),
         pickup_pressed: is_key_pressed(KeyCode::Up),
+        jump_held: is_key_down(KeyCode::Space) || is_key_down(KeyCode::Z),
+        attack_pressed: is_key_pressed(KeyCode::X),
     }
 }
 
@@ -122,6 +125,24 @@ fn draw_scene(game: &GameState) {
             enemy.size().y,
             MAROON,
         );
+        draw_rectangle(top_left.x, top_left.y - 8.0, enemy.size().x, 4.0, DARKGRAY);
+        draw_rectangle(
+            top_left.x,
+            top_left.y - 8.0,
+            enemy.size().x * f32::from(enemy.health()) / f32::from(ENEMY_MAX_HEALTH),
+            4.0,
+            RED,
+        );
+    }
+    if let Some(hitbox) = player.attack().hitbox(player_position, player_size) {
+        draw_rectangle(
+            hitbox.x,
+            hitbox.y,
+            hitbox.w,
+            hitbox.h,
+            Color::from_rgba(255, 231, 160, 150),
+        );
+        draw_rectangle_lines(hitbox.x, hitbox.y, hitbox.w, hitbox.h, 2.0, GOLD);
     }
     draw_rectangle(
         player_position.x - player_size.x / 2.0,
@@ -135,10 +156,10 @@ fn draw_scene(game: &GameState) {
         },
     );
     draw_text(
-        "Move: A/D or arrows    Jump: Space/Z    Pick up: Up",
+        "Move: A/D or arrows   Jump: hold Space/Z   Attack: X   Pick up: Up",
         24.0,
         36.0,
-        24.0,
+        22.0,
         Color::from_rgba(220, 231, 255, 255),
     );
     draw_text(

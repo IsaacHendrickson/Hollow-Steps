@@ -24,7 +24,13 @@ cargo clippy --all-targets --all-features -- -D warnings
 ## Current controls
 
 - `A`/`D` or the left/right arrow keys: move
-- `Space` or `Z`: jump
+- `Space` or `Z`: jump; hold to rise higher, release for a shorter jump.
+  Jump input is buffered for 0.12 seconds before landing; coyote time allows
+  a jump for 0.1 seconds after leaving support.
+- `X`: swing in the last movement direction, including while airborne.
+  The hitbox extends 38 pixels for 0.12 seconds with a 0.35-second cooldown.
+  Each swing hits each enemy once; enemies take three hits to defeat and
+  are knocked back on impact. Their health bars show remaining health.
 - `Up`: pick up a nearby item while standing on the floor. The Amber Shard
   highlights and shows a prompt when in reach; collected items leave the world
   and stay in the player's inventory for the current game session.
@@ -58,4 +64,6 @@ room walls, and return to their patrol interval when the player leaves range.
 `Player` owns pure health/timer state; `GameState` resolves rectangular contact
 and respawns at the room spawn with full health, cleared velocity, and a fresh
 one-second grace period. Items and enemy positions persist through respawn.
+Defeated enemies stay removed when revisiting a room. Room transitions and
+respawns cancel active swings and pending jump assistance.
 All timers use simulation delta time; rendering only reads state.
