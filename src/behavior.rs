@@ -5,18 +5,18 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use macroquad::math::Vec2;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::player::WorldBounds;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct BehaviorDefinition {
     pub initial_state: String,
     pub states: Vec<State>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct State {
     pub name: String,
@@ -24,7 +24,7 @@ pub struct State {
     pub transitions: Vec<Transition>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
     MoveTowardPlayer { speed: f32 },
@@ -34,7 +34,7 @@ pub enum Action {
     Telegraph { seconds: f32 },
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Condition {
     TimerElapsed(f32),
@@ -44,7 +44,7 @@ pub enum Condition {
     ActionFinished,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Transition {
     pub target: String,

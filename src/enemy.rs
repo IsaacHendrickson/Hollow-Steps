@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use macroquad::math::Vec2;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::behavior::{
     load_behaviors, read_ron, ron_files, Action, Behavior, BehaviorContext, BehaviorDefinition,
@@ -17,7 +17,7 @@ pub const KNOCKBACK_SECONDS: f32 = 0.16;
 
 pub const ENEMY_SIZE: Vec2 = Vec2::new(36.0, 36.0);
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct EnemyDefinition {
     pub name: String,
@@ -87,6 +87,29 @@ impl EnemyDefinitions {
         }
         Ok(Self {
             entities,
+            behaviors,
+        })
+    }
+
+    pub fn from_definitions(
+        entities: impl IntoIterator<Item = EnemyDefinition>,
+        behaviors: BTreeMap<String, Arc<BehaviorDefinition>>,
+    ) -> Result<Self, String> {
+        for behavior in behaviors.values() {
+            behavior.validate()?;
+        }
+        let mut result = BTreeMap::new();
+        for entity in entities {
+            entity.validate()?;
+            if !behaviors.contains_key(&entity.behavior) {
+                return Err(format!("missing behavior {:?}", entity.behavior));
+            }
+            if result.insert(entity.name.clone(), entity).is_some() {
+                return Err("duplicate entity name".into());
+            }
+        }
+        Ok(Self {
+            entities: result,
             behaviors,
         })
     }

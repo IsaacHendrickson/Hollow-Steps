@@ -20,3 +20,5 @@
 - F2 paused room editor, mouse placement/movement/deletion, entity list, spawn/exit editing, validated atomic RON saves, and persistent custom rooms: `src/editor.rs`, `src/game.rs`, `src/main.rs`, `src/room.rs`; `tests/editor.rs`, plus manual playtest.
 
 - Behavioral tests use fixed room/entity/behavior fixtures independently of editable game assets; one shipped-content validation smoke test: `tests/fixtures/`, `tests/support/mod.rs`, `tests/shipped_rooms.rs`, `src/game.rs`, `src/room.rs`; existing behavioral suites.
+
+- Selected-enemy entity and behavior side panel, state/link editing, shared-name reference updates, and validated staged RON saves: `src/definition_editor.rs`, `src/editor.rs`, `src/main.rs`; `tests/definition_editor.rs`, plus manual playtest.
