@@ -1,7 +1,10 @@
 use hollow_steps::boss::{Boss, BossState};
+use hollow_steps::boss_special::{
+    BossSpecials, SpecialAttack, BOSS_MAX_HEALTH, RING_RADIUS, SLAM_RADIUS,
+};
 use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::enemy::ENEMY_MAX_HEALTH;
-use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
+use hollow_steps::game::{GameState, SPECIAL_BOSS_SIZE, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::health::MAX_HEALTH;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
@@ -164,6 +167,9 @@ fn draw_scene(game: &GameState) {
     if let Some(boss) = &room.boss {
         draw_boss(boss);
     }
+    if let Some(boss) = &room.boss_special {
+        draw_boss_special(boss, bounds.floor_y);
+    }
     if let Some(hitbox) = player.attack().hitbox(player_position, player_size) {
         draw_rectangle(
             hitbox.x,
@@ -258,8 +264,71 @@ fn draw_boss(boss: &Boss) {
         BossState::Dead => DARKGRAY,
     };
     draw_rectangle(top_left.x, top_left.y, boss.size().x, boss.size().y, color);
+    draw_boss_health(u32::from(boss.health()), u32::from(boss.max_health()));
+    let cue = match boss.state() {
+        BossState::Idle => "Recovering",
+        BossState::Telegraphing => boss.current_attack().name,
+        BossState::Attacking => "Attack!",
+        BossState::Dead => "Defeated - exits open",
+    };
+    draw_text(cue, 300.0, 206.0, 22.0, WHITE);
+}
+
+fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
+    if !boss.is_defeated() {
+        if boss.active_attack() == Some(SpecialAttack::Slam) {
+            draw_rectangle(
+                boss.position().x - SLAM_RADIUS,
+                floor_y - 12.0,
+                SLAM_RADIUS * 2.0,
+                12.0,
+                RED,
+            );
+        }
+        for ring in boss.rings() {
+            let color = if ring.exploded() { ORANGE } else { RED };
+            draw_circle_lines(
+                ring.position().x,
+                ring.position().y,
+                RING_RADIUS,
+                3.0,
+                color,
+            );
+        }
+        let top_left = boss.position() - SPECIAL_BOSS_SIZE / 2.0;
+        draw_rectangle(
+            top_left.x,
+            top_left.y,
+            SPECIAL_BOSS_SIZE.x,
+            SPECIAL_BOSS_SIZE.y,
+            if boss.is_telegraphing() {
+                ORANGE
+            } else {
+                PURPLE
+            },
+        );
+    } else if boss.is_death_effect_active() {
+        draw_circle(
+            boss.position().x,
+            boss.position().y,
+            SPECIAL_BOSS_SIZE.x,
+            WHITE,
+        );
+    }
+    draw_boss_health(boss.health(), BOSS_MAX_HEALTH);
+    let cue = match boss.active_attack() {
+        Some(SpecialAttack::Slam) => "Slam - move out of the red zone!",
+        Some(SpecialAttack::Summon) => "Summoning enemies",
+        Some(SpecialAttack::Rings) => "Rings - avoid the red circles!",
+        None if boss.is_defeated() => "Defeated - collect the coins!",
+        None => "Recovering",
+    };
+    draw_text(cue, 300.0, 206.0, 22.0, WHITE);
+}
+
+fn draw_boss_health(health: u32, max_health: u32) {
     draw_text(
-        format!("Ash Warden: {}/{}", boss.health(), boss.max_health()),
+        format!("Ash Warden: {health}/{max_health}"),
         300.0,
         156.0,
         26.0,
@@ -269,17 +338,10 @@ fn draw_boss(boss: &Boss) {
     draw_rectangle(
         300.0,
         166.0,
-        360.0 * f32::from(boss.health()) / f32::from(boss.max_health()),
+        360.0 * health as f32 / max_health as f32,
         12.0,
         RED,
     );
-    let cue = match boss.state() {
-        BossState::Idle => "Recovering",
-        BossState::Telegraphing => boss.current_attack().name,
-        BossState::Attacking => "Attack!",
-        BossState::Dead => "Defeated - exits open",
-    };
-    draw_text(cue, 300.0, 206.0, 22.0, WHITE);
 }
 
 fn draw_inventory(game: &GameState) {

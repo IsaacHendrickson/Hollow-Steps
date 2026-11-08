@@ -1,5 +1,6 @@
-use macroquad::math::Vec2;
+use macroquad::math::{Rect, Vec2};
 
+use crate::boss_special::SpecialAttack;
 use crate::coin::Coin;
 use crate::item::WorldItem;
 use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
@@ -9,6 +10,8 @@ pub use crate::room::FLOOR_Y;
 
 pub const VIEW_WIDTH: f32 = 960.0;
 pub const VIEW_HEIGHT: f32 = 540.0;
+pub const SPECIAL_BOSS_SIZE: Vec2 = Vec2::new(48.0, 48.0);
+const SPECIAL_ATTACK_INTERVAL: f32 = 3.0;
 
 /// The top-level gameplay state for the current prototype.
 ///
@@ -21,6 +24,11 @@ pub struct GameState {
     current_room: RoomId,
     coin_count: u32,
     inventory_open: bool,
+    special_attack_timer: f32,
+    next_special_attack: SpecialAttack,
+    last_special_hit: Option<u64>,
+    spawned_enemy_count: usize,
+    spawned_coin_count: usize,
 }
 
 impl Default for GameState {
@@ -41,6 +49,11 @@ impl GameState {
             current_room: RoomId::First,
             coin_count: 0,
             inventory_open: false,
+            special_attack_timer: 0.0,
+            next_special_attack: SpecialAttack::Slam,
+            last_special_hit: None,
+            spawned_enemy_count: 0,
+            spawned_coin_count: 0,
         }
     }
 
@@ -80,10 +93,39 @@ impl GameState {
         if self.inventory_open {
             return;
         }
+        let delta_seconds = if delta_seconds.is_finite() {
+            delta_seconds.max(0.0)
+        } else {
+            0.0
+        };
         self.player
             .update(input, delta_seconds, self.world_bounds());
         let room = &mut self.rooms[self.current_room.index()];
         let bounds = room.world_bounds();
+        let mut special_damage = 0;
+        if let Some(boss) = &mut room.boss_special {
+            special_damage = boss.update(delta_seconds, self.player.position(), bounds);
+            if !boss.is_defeated() {
+                self.special_attack_timer += delta_seconds;
+                if self.special_attack_timer >= SPECIAL_ATTACK_INTERVAL && !boss.is_telegraphing() {
+                    self.special_attack_timer %= SPECIAL_ATTACK_INTERVAL;
+                    boss.start_attack(self.next_special_attack, self.player.position(), bounds);
+                    self.next_special_attack = match self.next_special_attack {
+                        SpecialAttack::Slam => SpecialAttack::Summon,
+                        SpecialAttack::Summon => SpecialAttack::Rings,
+                        SpecialAttack::Rings => SpecialAttack::Slam,
+                    };
+                }
+            }
+            // The module exposes immutable spawn lists. Import each spawn once
+            // so the room's existing combat, drawing, and pickup code owns it.
+            room.enemies
+                .extend_from_slice(&boss.summoned_enemies()[self.spawned_enemy_count..]);
+            self.spawned_enemy_count = boss.summoned_enemies().len();
+            room.coins
+                .extend_from_slice(&boss.coins()[self.spawned_coin_count..]);
+            self.spawned_coin_count = boss.coins().len();
+        }
         for enemy in &mut room.enemies {
             enemy.update(self.player.position(), delta_seconds, bounds);
         }
@@ -105,12 +147,30 @@ impl GameState {
                     boss.hit(self.player.attack().id());
                 }
             }
+            if let Some(boss) = &mut room.boss_special {
+                let top_left = boss.position() - SPECIAL_BOSS_SIZE / 2.0;
+                let body = Rect::new(
+                    top_left.x,
+                    top_left.y,
+                    SPECIAL_BOSS_SIZE.x,
+                    SPECIAL_BOSS_SIZE.y,
+                );
+                let swing_id = self.player.attack().id();
+                if hitbox.overlaps(&body) && self.last_special_hit != Some(swing_id) {
+                    boss.damage_boss(1);
+                    self.last_special_hit = Some(swing_id);
+                }
+                if boss.is_defeated() {
+                    special_damage = 0;
+                }
+            }
         }
         room.enemies.retain(|enemy| !enemy.is_dead());
-        if room
-            .enemies
-            .iter()
-            .any(|enemy| enemy.touches(self.player.position(), self.player.size()))
+        if special_damage > 0
+            || room
+                .enemies
+                .iter()
+                .any(|enemy| enemy.touches(self.player.position(), self.player.size()))
             || room
                 .boss
                 .as_ref()
@@ -158,6 +218,183 @@ impl GameState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn warden_game() -> GameState {
+        let mut game = GameState::new();
+        game.rooms[2].boss_special = None;
+        game.rooms[2].boss = Some(crate::boss::Boss::ash_warden(Vec2::new(
+            560.0,
+            FLOOR_Y - 40.0,
+        )));
+        game
+    }
+
+    fn special_game() -> GameState {
+        let mut game = GameState::new();
+        game.current_room = RoomId::Boss;
+        game.player.place_on_floor(240.0, game.world_bounds());
+        game
+    }
+
+    #[test]
+    fn special_attacks_cycle_every_three_seconds_and_apply_health_damage() {
+        let mut game = special_game();
+        assert!(game.room().exits_locked());
+        for (wait, kind, windup) in [
+            (3.0, SpecialAttack::Slam, 0.5),
+            (2.5, SpecialAttack::Summon, 1.0),
+            (2.0, SpecialAttack::Rings, 1.0),
+            (2.0, SpecialAttack::Slam, 0.5),
+        ] {
+            game.update(PlayerInput::default(), wait);
+            assert_eq!(
+                game.room().boss_special.as_ref().unwrap().active_attack(),
+                Some(kind)
+            );
+            let health = game.player.health().current();
+            game.update(PlayerInput::default(), 0.0);
+            assert_eq!(game.player.health().current(), health);
+            game.update(PlayerInput::default(), windup);
+            if kind == SpecialAttack::Slam {
+                assert_eq!(game.player.health().current(), health - 1);
+                assert!(game.player.health().is_invincible());
+            }
+            assert!(!game.room().boss_special.as_ref().unwrap().is_telegraphing());
+        }
+        assert!(game
+            .room()
+            .boss_special
+            .as_ref()
+            .unwrap()
+            .rings()
+            .iter()
+            .all(|ring| ring.exploded()));
+    }
+
+    #[test]
+    fn specials_pause_in_inactive_rooms_and_inventory_and_ignore_invalid_time() {
+        let mut game = GameState::new();
+        game.update(PlayerInput::default(), 100.0);
+        assert_eq!(game.special_attack_timer, 0.0);
+        game.current_room = RoomId::Boss;
+        game.player.place_on_floor(240.0, game.world_bounds());
+        for dt in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+            game.update(PlayerInput::default(), dt);
+        }
+        assert_eq!(game.special_attack_timer, 0.0);
+        game.update(PlayerInput::default(), 3.0);
+        game.toggle_inventory();
+        game.update(PlayerInput::default(), 100.0);
+        assert!(game.room().boss_special.as_ref().unwrap().is_telegraphing());
+        assert_eq!(game.player.health().current(), 5);
+        game.toggle_inventory();
+        game.update(PlayerInput::default(), 0.5);
+        assert_eq!(game.player.health().current(), 4);
+        game.update(PlayerInput::default(), f32::MAX);
+        assert!(game.special_attack_timer.is_finite());
+    }
+
+    #[test]
+    fn summoned_enemies_use_room_combat_knockback_contact_and_stay_dead() {
+        let mut game = special_game();
+        let bounds = game.world_bounds();
+        game.rooms[2].boss_special.as_mut().unwrap().start_attack(
+            SpecialAttack::Summon,
+            game.player.position(),
+            bounds,
+        );
+        game.update(PlayerInput::default(), 1.0);
+        assert_eq!(game.room().enemies.len(), 2);
+        game.player.place_on_floor(120.0, bounds);
+        game.update(PlayerInput::default(), 0.0);
+        assert_eq!(game.player.health().current(), 4);
+        game.player.place_on_floor(80.0, bounds);
+        let swing = PlayerInput {
+            attack_pressed: true,
+            ..PlayerInput::default()
+        };
+        game.update(swing, 0.0);
+        assert_eq!(game.room().enemies[0].health(), 2);
+        game.update(PlayerInput::default(), 0.1);
+        assert!(game.room().enemies[0].position().x > 120.0);
+        game.rooms[2].enemies[0].hit(100, 1.0);
+        game.rooms[2].enemies[0].hit(101, 1.0);
+        game.update(PlayerInput::default(), 0.0);
+        game.update(PlayerInput::default(), 0.0);
+        assert_eq!(game.room().enemies.len(), 1);
+    }
+
+    #[test]
+    fn special_melee_hits_once_per_swing_respects_facing_and_range() {
+        let mut game = special_game();
+        game.player.place_on_floor(520.0, game.world_bounds());
+        let swing = PlayerInput {
+            attack_pressed: true,
+            ..PlayerInput::default()
+        };
+        game.update(swing, 0.0);
+        game.update(swing, 0.0);
+        assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 99);
+        game.update(PlayerInput::default(), crate::combat::ATTACK_COOLDOWN);
+        game.update(
+            PlayerInput {
+                move_axis: -1.0,
+                ..swing
+            },
+            0.0,
+        );
+        assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 99);
+        game.player.place_on_floor(800.0, game.world_bounds());
+        game.update(PlayerInput::default(), crate::combat::ATTACK_COOLDOWN);
+        game.update(swing, 0.0);
+        assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 99);
+    }
+
+    #[test]
+    fn special_death_unlocks_arena_and_coins_are_collected_without_respawning() {
+        let mut game = special_game();
+        game.rooms[2].boss_special.as_mut().unwrap().damage_boss(99);
+        game.player.place_on_floor(520.0, game.world_bounds());
+        game.update(
+            PlayerInput {
+                attack_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.0,
+        );
+        assert!(game.room().boss_special.as_ref().unwrap().is_defeated());
+        assert!(!game.room().exits_locked());
+        assert!(game.coins().is_empty());
+        game.update(
+            PlayerInput::default(),
+            crate::boss_special::DEATH_EFFECT_SECONDS,
+        );
+        assert_eq!(game.coins().len() as u32 + game.coin_count(), 20);
+        let position = game.coins()[0].position;
+        game.player.place_at(position, game.world_bounds());
+        let count = game.coin_count();
+        game.update(PlayerInput::default(), 0.0);
+        assert!(game.coin_count() > count);
+        let remaining = game.coins().len();
+        game.update(PlayerInput::default(), 0.0);
+        assert_eq!(game.coins().len(), remaining);
+        game.player.place_on_floor(16.0, game.world_bounds());
+        game.update(PlayerInput::default(), 0.0);
+        assert_eq!(game.room().id, RoomId::Second);
+        game.update(
+            PlayerInput {
+                move_axis: 1.0,
+                ..PlayerInput::default()
+            },
+            10.0,
+        );
+        assert_eq!(game.room().id, RoomId::Boss);
+        game.update(PlayerInput::default(), 100.0);
+        assert!(game.room().boss_special.as_ref().unwrap().is_defeated());
+        assert_eq!(game.coins().len(), remaining);
+        assert_eq!(game.coins().len() as u32 + game.coin_count(), 20);
+        assert!(game.room().enemies.is_empty());
+    }
 
     #[test]
     fn contact_collects_all_touching_coins_once_without_pickup_input() {
@@ -448,7 +685,7 @@ mod tests {
 
     #[test]
     fn boss_melee_respects_range_facing_and_one_hit_per_swing() {
-        let mut game = GameState::new();
+        let mut game = warden_game();
         game.current_room = RoomId::Boss;
         game.player.place_on_floor(500.0, game.world_bounds());
         let swing = PlayerInput {
@@ -474,7 +711,7 @@ mod tests {
 
     #[test]
     fn lethal_boss_swing_prevents_contact_unlocks_exit_and_death_persists() {
-        let mut game = GameState::new();
+        let mut game = warden_game();
         game.current_room = RoomId::Boss;
         for id in 100..129 {
             game.rooms[2].boss.as_mut().unwrap().hit(id);
@@ -510,7 +747,7 @@ mod tests {
 
     #[test]
     fn boss_contact_deals_one_damage_respects_immunity_and_respawn_keeps_lock() {
-        let mut game = GameState::new();
+        let mut game = warden_game();
         game.current_room = RoomId::Boss;
         game.player.place_on_floor(560.0, game.world_bounds());
         game.update(PlayerInput::default(), 0.0);
@@ -528,7 +765,7 @@ mod tests {
 
     #[test]
     fn boss_attack_damages_player_only_after_telegraph() {
-        let mut game = GameState::new();
+        let mut game = warden_game();
         game.current_room = RoomId::Boss;
         game.player.place_on_floor(440.0, game.world_bounds());
         game.update(PlayerInput::default(), crate::boss::BOSS_PAUSE);
@@ -541,7 +778,7 @@ mod tests {
 
     #[test]
     fn inactive_rooms_and_inventory_pause_boss_timers() {
-        let mut game = GameState::new();
+        let mut game = warden_game();
         game.update(PlayerInput::default(), 10.0);
         assert_eq!(
             game.rooms[2].boss.as_ref().unwrap().state(),

@@ -48,13 +48,21 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 ## Boss architecture
 
+The playable arena uses `src/boss_special.rs`: a 100-health boss cycles Slam,
+Summon, and Rings roughly every three seconds. Move out of the red slam zone
+and pending red rings; orange rings have already exploded. Summoned enemies
+use normal enemy combat. Each melee swing deals one boss damage, and defeat
+unlocks the exit and drops twenty collectible coins after a brief effect.
+Inventory and inactive rooms pause the encounter. The game imports each enemy
+and coin spawn once into the room's existing lists for combat and collection.
+
 `src/boss.rs` is simulation-only. A boss owns health and an ordered list of
 `BossAttack` definitions: each is a named rectangle relative to the boss with
-telegraph, active, and cooldown durations. New bosses reuse the same state
-machine by supplying a different list; there is no boss-specific dispatch in
-the game loop. Telegraphs preview exactly the area that becomes dangerous.
-The Ash Warden has 30 health, deals one contact/attack damage, and alternates a
-low sweep (jump over it) with a crown flare (stay low beside it).
+telegraph, active, and cooldown durations. Bosses using this engine reuse its
+state machine by supplying a different list. Telegraphs preview exactly the
+area that becomes dangerous. The reusable Ash Warden example has 30 health,
+deals one contact/attack damage, and alternates a low sweep (jump over it) with
+a crown flare (stay low beside it).
 
 The states are idle, telegraphing, attacking, and dead. Idle includes the
 outgoing attack's cooldown plus a short pause before the next telegraph.

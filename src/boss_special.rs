@@ -26,8 +26,12 @@ pub struct Ring {
 }
 
 impl Ring {
-    pub fn position(&self) -> Vec2 { self.position }
-    pub fn exploded(&self) -> bool { self.exploded }
+    pub fn position(&self) -> Vec2 {
+        self.position
+    }
+    pub fn exploded(&self) -> bool {
+        self.exploded
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -65,15 +69,33 @@ impl BossSpecials {
         }
     }
 
-    pub fn position(&self) -> Vec2 { self.position }
-    pub fn health(&self) -> u32 { self.health }
-    pub fn is_defeated(&self) -> bool { self.defeated }
-    pub fn is_telegraphing(&self) -> bool { self.active.is_some() }
-    pub fn active_attack(&self) -> Option<SpecialAttack> { self.active.map(|attack| attack.kind) }
-    pub fn rings(&self) -> &[Ring] { &self.rings }
-    pub fn summoned_enemies(&self) -> &[Enemy] { &self.summoned_enemies }
-    pub fn coins(&self) -> &[Coin] { &self.coins }
-    pub fn is_death_effect_active(&self) -> bool { self.death_effect_remaining > 0.0 }
+    pub fn position(&self) -> Vec2 {
+        self.position
+    }
+    pub fn health(&self) -> u32 {
+        self.health
+    }
+    pub fn is_defeated(&self) -> bool {
+        self.defeated
+    }
+    pub fn is_telegraphing(&self) -> bool {
+        self.active.is_some()
+    }
+    pub fn active_attack(&self) -> Option<SpecialAttack> {
+        self.active.map(|attack| attack.kind)
+    }
+    pub fn rings(&self) -> &[Ring] {
+        &self.rings
+    }
+    pub fn summoned_enemies(&self) -> &[Enemy] {
+        &self.summoned_enemies
+    }
+    pub fn coins(&self) -> &[Coin] {
+        &self.coins
+    }
+    pub fn is_death_effect_active(&self) -> bool {
+        self.death_effect_remaining > 0.0
+    }
 
     pub fn start_attack(
         &mut self,
@@ -81,22 +103,33 @@ impl BossSpecials {
         player_position: Vec2,
         bounds: WorldBounds,
     ) {
-        if self.defeated || self.active.is_some() { return; }
+        if self.defeated || self.active.is_some() {
+            return;
+        }
         let target_x = player_position.x.clamp(bounds.left, bounds.right);
         self.position.x = target_x;
         if kind == SpecialAttack::Slam {
             self.position.y = bounds.floor_y - 180.0;
         }
-        self.active = Some(ActiveAttack { kind, elapsed: 0.0, target_x });
+        self.active = Some(ActiveAttack {
+            kind,
+            elapsed: 0.0,
+            target_x,
+        });
         if kind == SpecialAttack::Rings {
             self.rings = (0..3)
-                .map(|_| Ring { position: self.random_arena_position(bounds), exploded: false })
+                .map(|_| Ring {
+                    position: self.random_arena_position(bounds),
+                    exploded: false,
+                })
                 .collect();
         }
     }
 
     pub fn damage_boss(&mut self, amount: u32) {
-        if self.defeated { return; }
+        if self.defeated {
+            return;
+        }
         self.health = self.health.saturating_sub(amount);
         if self.health == 0 {
             self.defeated = true;
@@ -115,24 +148,29 @@ impl BossSpecials {
         let dt = delta_seconds.max(0.0);
         if self.defeated {
             if self.death_effect_remaining > 0.0 {
-                self.death_effect_remaining =
-                    (self.death_effect_remaining - dt).max(0.0);
+                self.death_effect_remaining = (self.death_effect_remaining - dt).max(0.0);
                 if self.death_effect_remaining == 0.0 && self.coins.is_empty() {
                     self.coins = (0..20)
-                        .map(|_| Coin { position: self.random_arena_position(bounds) })
+                        .map(|_| Coin {
+                            position: self.random_arena_position(bounds),
+                        })
                         .collect();
                 }
             }
             return 0;
         }
 
-        let Some(attack) = self.active.as_mut() else { return 0; };
+        let Some(attack) = self.active.as_mut() else {
+            return 0;
+        };
         attack.elapsed += dt;
         let threshold = match attack.kind {
             SpecialAttack::Slam => SLAM_TELEGRAPH_SECONDS,
             SpecialAttack::Summon | SpecialAttack::Rings => SUMMON_WINDUP_SECONDS,
         };
-        if attack.elapsed < threshold { return 0; }
+        if attack.elapsed < threshold {
+            return 0;
+        }
 
         let kind = attack.kind;
         let target_x = attack.target_x;
@@ -151,10 +189,14 @@ impl BossSpecials {
                 0
             }
             SpecialAttack::Rings => {
-                for ring in &mut self.rings { ring.exploded = true; }
-                u32::from(self.rings.iter().any(|ring| {
-                    ring.position.distance(player_position) <= RING_RADIUS
-                }))
+                for ring in &mut self.rings {
+                    ring.exploded = true;
+                }
+                u32::from(
+                    self.rings
+                        .iter()
+                        .any(|ring| ring.position.distance(player_position) <= RING_RADIUS),
+                )
             }
         }
     }
@@ -166,7 +208,8 @@ impl BossSpecials {
     }
 
     fn next_random(&mut self) -> f32 {
-        self.random_state = self.random_state
+        self.random_state = self
+            .random_state
             .wrapping_mul(1_664_525)
             .wrapping_add(1_013_904_223);
         self.random_state as f32 / u32::MAX as f32
