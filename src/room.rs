@@ -158,7 +158,19 @@ pub fn test_rooms() -> [Room; 3] {
 
 pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
     let definitions = EnemyDefinitions::load(assets)?;
-    Ok([
+    let mut errors = Vec::new();
+    let mut load_enemies = |file: &str, bounds| match load_room_enemies(
+        &assets.join("rooms").join(file),
+        &definitions,
+        bounds,
+    ) {
+        Ok(enemies) => enemies,
+        Err(error) => {
+            errors.push(error);
+            Vec::new()
+        }
+    };
+    let rooms = [
         Room {
             id: RoomId::First,
             boss: None,
@@ -169,11 +181,7 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
                 })
                 .to_vec(),
             spawn: Vec2::new(180.0, FLOOR_Y - 24.0),
-            enemies: load_room_enemies(
-                &assets.join("rooms/first.ron"),
-                &definitions,
-                WorldBounds::new(0.0, 960.0, FLOOR_Y),
-            )?,
+            enemies: load_enemies("first.ron", WorldBounds::new(0.0, 960.0, FLOOR_Y)),
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
             exits: vec![Exit {
@@ -204,11 +212,7 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
                 })
                 .to_vec(),
             spawn: Vec2::new(160.0, 376.0),
-            enemies: load_room_enemies(
-                &assets.join("rooms/second.ron"),
-                &definitions,
-                WorldBounds::new(80.0, 880.0, 400.0),
-            )?,
+            enemies: load_enemies("second.ron", WorldBounds::new(80.0, 880.0, 400.0)),
             bounds: Rect::new(80.0, 40.0, 800.0, 360.0),
             floor_y: 400.0,
             exits: vec![
@@ -234,11 +238,7 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
             spawn: Vec2::new(160.0, 436.0),
-            enemies: load_room_enemies(
-                &assets.join("rooms/boss.ron"),
-                &definitions,
-                WorldBounds::new(0.0, 960.0, FLOOR_Y),
-            )?,
+            enemies: load_enemies("boss.ron", WorldBounds::new(0.0, 960.0, FLOOR_Y)),
             boss: None,
             boss_special: Some(BossSpecials::new(Vec2::new(560.0, FLOOR_Y - 24.0))),
             coins: vec![],
@@ -251,7 +251,12 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
             }],
             items: vec![],
         },
-    ])
+    ];
+    if errors.is_empty() {
+        Ok(rooms)
+    } else {
+        Err(errors.join("\n"))
+    }
 }
 
 #[cfg(test)]

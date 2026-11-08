@@ -22,9 +22,15 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut game = GameState::new();
+    let mut reload_result = None;
+    let mut reload_scroll = 0;
 
     loop {
         let delta_seconds = get_frame_time().min(1.0 / 15.0);
+        if is_key_pressed(KeyCode::F5) {
+            reload_result = Some(game.reload_rooms());
+            reload_scroll = 0;
+        }
         if is_key_pressed(KeyCode::I) || (game.inventory_open() && is_key_pressed(KeyCode::Escape))
         {
             game.toggle_inventory();
@@ -35,6 +41,9 @@ async fn main() {
         draw_scene(&game);
         if game.inventory_open() {
             draw_inventory(&game);
+        }
+        if let Some(result) = &reload_result {
+            draw_reload_result(result, &mut reload_scroll);
         }
         next_frame().await;
     }
@@ -230,6 +239,67 @@ fn draw_scene(game: &GameState) {
         22.0,
         WHITE,
     );
+    draw_text("F5: reload room files", 24.0, 148.0, 18.0, LIGHTGRAY);
+}
+
+fn draw_reload_result(result: &Result<(), String>, scroll: &mut usize) {
+    let Err(error) = result else {
+        draw_rectangle(16.0, VIEW_HEIGHT - 48.0, VIEW_WIDTH - 32.0, 36.0, BLACK);
+        draw_text("Rooms reloaded", 28.0, VIEW_HEIGHT - 24.0, 22.0, GREEN);
+        return;
+    };
+
+    const VISIBLE_LINES: usize = 8;
+    const FONT_SIZE: u16 = 18;
+    let mut lines = Vec::new();
+    for paragraph in error.lines() {
+        let mut line = String::new();
+        for character in paragraph.chars() {
+            line.push(character);
+            if measure_text(&line, None, FONT_SIZE, 1.0).width > VIEW_WIDTH - 72.0 {
+                line.pop();
+                lines.push(std::mem::take(&mut line));
+                line.push(character);
+            }
+        }
+        lines.push(line);
+    }
+    let max_scroll = lines.len().saturating_sub(VISIBLE_LINES);
+    *scroll = (*scroll as f32 - mouse_wheel().1).clamp(0.0, max_scroll as f32) as usize;
+    let top = VIEW_HEIGHT - 260.0;
+    draw_rectangle(
+        16.0,
+        top,
+        VIEW_WIDTH - 32.0,
+        248.0,
+        Color::from_rgba(28, 12, 18, 245),
+    );
+    draw_text(
+        "Room reload failed - F5 to retry",
+        28.0,
+        top + 28.0,
+        22.0,
+        RED,
+    );
+    for (index, line) in lines.iter().skip(*scroll).take(VISIBLE_LINES).enumerate() {
+        draw_text(
+            line,
+            28.0,
+            top + 56.0 + index as f32 * 22.0,
+            FONT_SIZE as f32,
+            WHITE,
+        );
+    }
+    let hint = if max_scroll > 0 {
+        format!(
+            "Mouse wheel: scroll errors ({}/{})",
+            *scroll + 1,
+            max_scroll + 1
+        )
+    } else {
+        "Fix the files, then press F5 to retry".to_owned()
+    };
+    draw_text(&hint, 28.0, top + 232.0, 18.0, LIGHTGRAY);
 }
 
 fn draw_boss(boss: &Boss) {
