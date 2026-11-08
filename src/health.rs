@@ -39,10 +39,14 @@ impl Health {
     }
 
     pub fn take_damage(&mut self) -> bool {
-        if self.is_invincible() || self.current == 0 {
+        self.take_damage_amount(1)
+    }
+
+    pub fn take_damage_amount(&mut self, amount: u8) -> bool {
+        if amount == 0 || self.is_invincible() || self.current == 0 {
             return false;
         }
-        self.current -= 1;
+        self.current = self.current.saturating_sub(amount);
         self.invincibility_remaining = INVINCIBILITY_SECONDS;
         true
     }

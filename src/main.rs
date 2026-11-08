@@ -3,7 +3,6 @@ use hollow_steps::boss_special::{
     BossSpecials, SpecialAttack, BOSS_MAX_HEALTH, RING_RADIUS, SLAM_RADIUS,
 };
 use hollow_steps::coin::COIN_RADIUS;
-use hollow_steps::enemy::ENEMY_MAX_HEALTH;
 use hollow_steps::game::{GameState, SPECIAL_BOSS_SIZE, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::health::MAX_HEALTH;
 use hollow_steps::item::ITEM_SIZE;
@@ -159,7 +158,7 @@ fn draw_scene(game: &GameState) {
         draw_rectangle(
             top_left.x,
             top_left.y - 8.0,
-            enemy.size().x * f32::from(enemy.health()) / f32::from(ENEMY_MAX_HEALTH),
+            enemy.size().x * f32::from(enemy.health()) / f32::from(enemy.max_health()),
             4.0,
             RED,
         );
