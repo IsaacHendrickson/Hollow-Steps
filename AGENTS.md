@@ -65,6 +65,7 @@ Gameplay modules (pure rules, no rendering):
   collision resolution, and player-focused tests.
 - `src/health.rs`: player health, damage, and invincibility.
 - `src/enemy.rs`: enemy behavior, health, knockback, and death.
+- `src/boss.rs`: boss health, reusable timed attacks, state machine, and death.
 - `src/combat.rs`: melee swing hitboxes, duration, and cooldown.
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.

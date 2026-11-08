@@ -1,5 +1,6 @@
 use macroquad::math::{Rect, Vec2};
 
+use crate::boss::Boss;
 use crate::coin::{Coin, COIN_RADIUS};
 use crate::enemy::Enemy;
 use crate::item::{Item, WorldItem, ITEM_SIZE};
@@ -12,6 +13,7 @@ pub const EXIT_DEPTH: f32 = 32.0;
 pub enum RoomId {
     First,
     Second,
+    Boss,
 }
 
 impl RoomId {
@@ -19,6 +21,7 @@ impl RoomId {
         match self {
             Self::First => 0,
             Self::Second => 1,
+            Self::Boss => 2,
         }
     }
 }
@@ -72,6 +75,7 @@ pub struct Room {
     /// Default player-center respawn point for this room.
     pub spawn: Vec2,
     pub enemies: Vec<Enemy>,
+    pub boss: Option<Boss>,
     pub(crate) coins: Vec<Coin>,
     pub(crate) items: Vec<WorldItem>,
 }
@@ -82,6 +86,9 @@ impl Room {
     }
 
     pub fn exit_at(&self, position: Vec2, size: Vec2) -> Option<&Exit> {
+        if self.exits_locked() {
+            return None;
+        }
         let body = Rect::new(
             position.x - size.x / 2.0,
             position.y - size.y / 2.0,
@@ -92,12 +99,17 @@ impl Room {
             .iter()
             .find(|exit| exit.zone(self.bounds).overlaps(&body))
     }
+
+    pub fn exits_locked(&self) -> bool {
+        self.boss.as_ref().is_some_and(|boss| !boss.is_dead())
+    }
 }
 
-pub fn test_rooms() -> [Room; 2] {
+pub fn test_rooms() -> [Room; 3] {
     [
         Room {
             id: RoomId::First,
+            boss: None,
             coins: [360.0, 410.0, 460.0]
                 .map(|x| Coin {
                     position: Vec2::new(x, FLOOR_Y - COIN_RADIUS),
@@ -133,6 +145,7 @@ pub fn test_rooms() -> [Room; 2] {
         },
         Room {
             id: RoomId::Second,
+            boss: None,
             coins: [300.0, 350.0, 400.0]
                 .map(|x| Coin {
                     position: Vec2::new(x, 400.0 - COIN_RADIUS),
@@ -142,12 +155,38 @@ pub fn test_rooms() -> [Room; 2] {
             enemies: vec![],
             bounds: Rect::new(80.0, 40.0, 800.0, 360.0),
             floor_y: 400.0,
+            exits: vec![
+                Exit {
+                    edge: RoomEdge::Left,
+                    offset: 264.0,
+                    length: 96.0,
+                    target_room: RoomId::First,
+                    spawn: Vec2::new(860.0, 436.0),
+                },
+                Exit {
+                    edge: RoomEdge::Right,
+                    offset: 264.0,
+                    length: 96.0,
+                    target_room: RoomId::Boss,
+                    spawn: Vec2::new(160.0, 436.0),
+                },
+            ],
+            items: vec![],
+        },
+        Room {
+            id: RoomId::Boss,
+            bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
+            floor_y: FLOOR_Y,
+            spawn: Vec2::new(160.0, 436.0),
+            enemies: vec![],
+            boss: Some(Boss::ash_warden(Vec2::new(560.0, FLOOR_Y - 40.0))),
+            coins: vec![],
             exits: vec![Exit {
                 edge: RoomEdge::Left,
-                offset: 264.0,
+                offset: FLOOR_Y - 96.0,
                 length: 96.0,
-                target_room: RoomId::First,
-                spawn: Vec2::new(860.0, 436.0),
+                target_room: RoomId::Second,
+                spawn: Vec2::new(780.0, 376.0),
             }],
             items: vec![],
         },
@@ -160,7 +199,7 @@ mod tests {
 
     #[test]
     fn exit_detection_requires_the_player_body_to_reach_the_zone() {
-        let [room, _] = test_rooms();
+        let [room, _, _] = test_rooms();
         let size = Vec2::new(32.0, 48.0);
         let boundary = room.exits[0].zone(room.bounds).x - size.x / 2.0;
         let floor_center = room.floor_y - size.y / 2.0;
@@ -175,7 +214,7 @@ mod tests {
 
     #[test]
     fn exits_are_anchored_to_all_four_edges() {
-        let [mut room, _] = test_rooms();
+        let [mut room, _, _] = test_rooms();
         room.bounds = Rect::new(40.0, 30.0, 400.0, 240.0);
         let size = Vec2::new(16.0, 16.0);
         for (edge, zone, inside, outside) in [

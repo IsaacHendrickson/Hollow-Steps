@@ -1,3 +1,4 @@
+use hollow_steps::boss::{Boss, BossState};
 use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::enemy::ENEMY_MAX_HEALTH;
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
@@ -94,8 +95,15 @@ fn draw_scene(game: &GameState) {
             zone.y,
             zone.w,
             zone.h,
-            Color::from_rgba(82, 172, 164, 100),
+            if room.exits_locked() {
+                Color::from_rgba(220, 65, 70, 190)
+            } else {
+                Color::from_rgba(82, 172, 164, 100)
+            },
         );
+        if room.exits_locked() {
+            draw_rectangle_lines(zone.x, zone.y, zone.w, zone.h, 3.0, RED);
+        }
     }
     for item in game.items() {
         let nearby = item.can_pick_up(player);
@@ -153,6 +161,9 @@ fn draw_scene(game: &GameState) {
             RED,
         );
     }
+    if let Some(boss) = &room.boss {
+        draw_boss(boss);
+    }
     if let Some(hitbox) = player.attack().hitbox(player_position, player_size) {
         draw_rectangle(
             hitbox.x,
@@ -200,12 +211,75 @@ fn draw_scene(game: &GameState) {
         WHITE,
     );
     draw_text(
-        format!("Room: {:?} (walk into the green exit)", room.id),
+        format!(
+            "Room: {:?} ({})",
+            room.id,
+            if room.exits_locked() {
+                "exits locked until the boss falls"
+            } else {
+                "walk into a green exit"
+            }
+        ),
         24.0,
         120.0,
         22.0,
         WHITE,
     );
+}
+
+fn draw_boss(boss: &Boss) {
+    if let Some(area) = boss.attack_area() {
+        let active = boss.state() == BossState::Attacking;
+        draw_rectangle(
+            area.x,
+            area.y,
+            area.w,
+            area.h,
+            if active {
+                Color::from_rgba(240, 65, 70, 160)
+            } else {
+                Color::from_rgba(250, 200, 70, 60)
+            },
+        );
+        draw_rectangle_lines(
+            area.x,
+            area.y,
+            area.w,
+            area.h,
+            3.0,
+            if active { RED } else { GOLD },
+        );
+    }
+    let top_left = boss.position() - boss.size() / 2.0;
+    let color = match boss.state() {
+        BossState::Idle => PURPLE,
+        BossState::Telegraphing => ORANGE,
+        BossState::Attacking => MAROON,
+        BossState::Dead => DARKGRAY,
+    };
+    draw_rectangle(top_left.x, top_left.y, boss.size().x, boss.size().y, color);
+    draw_text(
+        format!("Ash Warden: {}/{}", boss.health(), boss.max_health()),
+        300.0,
+        156.0,
+        26.0,
+        WHITE,
+    );
+    draw_rectangle(300.0, 166.0, 360.0, 12.0, DARKGRAY);
+    draw_rectangle(
+        300.0,
+        166.0,
+        360.0 * f32::from(boss.health()) / f32::from(boss.max_health()),
+        12.0,
+        RED,
+    );
+    let cue = match boss.state() {
+        BossState::Idle => "Recovering",
+        BossState::Telegraphing => boss.current_attack().name,
+        BossState::Attacking => "Attack!",
+        BossState::Dead => "Defeated - exits open",
+    };
+    draw_text(cue, 300.0, 206.0, 22.0, WHITE);
 }
 
 fn draw_inventory(game: &GameState) {
