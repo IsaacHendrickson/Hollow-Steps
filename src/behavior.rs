@@ -24,24 +24,85 @@ pub struct State {
     pub transitions: Vec<Transition>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum Action {
-    MoveTowardPlayer { speed: f32 },
-    MoveAwayFromPlayer { speed: f32 },
-    Patrol { speed: f32 },
-    Wait { seconds: f32 },
-    Telegraph { seconds: f32 },
+/// The loader enum and editor catalog are generated together. Add variants here.
+macro_rules! actions {
+    ($( $variant:ident => $name:literal { $( $field:ident = $default:expr ),+ } ),+ $(,)?) => {
+        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+        #[serde(rename_all = "snake_case", deny_unknown_fields)]
+        pub enum Action { $( $variant { $( $field: f32 ),+ } ),+ }
+        impl Action {
+            pub const TYPES: &'static [&'static str] = &[$($name),+];
+            pub fn defaults(kind: usize) -> Option<Self> {
+                let name = Self::TYPES.get(kind)?;
+                Some(match *name { $( $name => Self::$variant { $($field: $default),+ }, )+ _ => return None })
+            }
+            pub fn kind(&self) -> usize {
+                let name = match self { $(Self::$variant { .. } => $name),+ };
+                Self::TYPES.iter().position(|n| *n == name).expect("generated catalog")
+            }
+            pub fn parameters(&self) -> Vec<(&'static str, String)> {
+                match self { $(Self::$variant { $($field),+ } => vec![$((stringify!($field), $field.to_string())),+]),+ }
+            }
+            pub fn set_parameter(&mut self, index: usize, text: &str) -> Result<(), String> {
+                let value = parse_nonnegative(text)?;
+                let fields: Vec<&mut f32> = match self { $(Self::$variant { $($field),+ } => vec![$($field),+]),+ };
+                let field = fields.into_iter().nth(index).ok_or("missing parameter")?;
+                *field = value;
+                Ok(())
+            }
+        }
+    }
+}
+actions! {
+    MoveTowardPlayer => "move_toward_player" { speed = 100.0 },
+    MoveAwayFromPlayer => "move_away_from_player" { speed = 100.0 },
+    Patrol => "patrol" { speed = 80.0 },
+    Wait => "wait" { seconds = 1.0 },
+    Telegraph => "telegraph" { seconds = 0.5 },
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum Condition {
-    TimerElapsed(f32),
-    PlayerDistanceLessThan(f32),
-    PlayerDistanceGreaterThan(f32),
-    HealthBelow(u8),
-    ActionFinished,
+macro_rules! conditions {
+    ($( $variant:ident => $name:literal ($ty:ty, $label:literal, $default:expr) ),+; $( $unit:ident => $unit_name:literal ),+ $(,)?) => {
+        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+        #[serde(rename_all = "snake_case")]
+        pub enum Condition { $($variant($ty),)+ $($unit),+ }
+        impl Condition {
+            pub const TYPES: &'static [&'static str] = &[$($name,)+ $($unit_name),+];
+            pub fn defaults(kind: usize) -> Option<Self> {
+                Some(match *Self::TYPES.get(kind)? { $($name => Self::$variant($default),)+ $($unit_name => Self::$unit,)+ _ => return None })
+            }
+            pub fn kind(&self) -> usize {
+                let name = match self { $(Self::$variant(_) => $name,)+ $(Self::$unit => $unit_name),+ };
+                Self::TYPES.iter().position(|n| *n == name).expect("generated catalog")
+            }
+            pub fn parameter(&self) -> Option<(&'static str, String)> {
+                match self { $(Self::$variant(value) => Some(($label, value.to_string())),)+ $(Self::$unit => None),+ }
+            }
+            pub fn set_parameter(&mut self, text: &str) -> Result<(), String> {
+                parse_nonnegative(text)?;
+                match self {
+                    $(Self::$variant(value) => *value = text.parse::<$ty>().map_err(|_| concat!("expected ", stringify!($ty), " value"))?,)+
+                    $(Self::$unit => return Err("condition has no value".into())),+
+                }
+                Ok(())
+            }
+        }
+    }
+}
+conditions! {
+    TimerElapsed => "timer_elapsed" (f32, "seconds", 1.0),
+    PlayerDistanceLessThan => "player_distance_less_than" (f32, "distance", 150.0),
+    PlayerDistanceGreaterThan => "player_distance_greater_than" (f32, "distance", 150.0),
+    HealthBelow => "health_below" (u8, "health (0..255)", 2);
+    ActionFinished => "action_finished",
+}
+
+pub fn parse_nonnegative(text: &str) -> Result<f32, String> {
+    let value = text
+        .parse::<f32>()
+        .map_err(|_| "expected a number".to_owned())?;
+    nonnegative(value)?;
+    Ok(value)
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]

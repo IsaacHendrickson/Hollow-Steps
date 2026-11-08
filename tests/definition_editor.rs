@@ -267,3 +267,217 @@ fn entity_fields_parse_all_properties_and_reject_bad_values() {
     assert!(hollow_steps::definition_editor::set_initial_state(&mut b, 9).is_err());
     assert_eq!(b, before);
 }
+
+#[test]
+fn structured_catalogs_round_trip_through_the_loader() {
+    use hollow_steps::definition_editor::{ActionInput, StateInputs, TransitionInput};
+    let mut b = behavior();
+    let mut inputs = StateInputs::default();
+    for kind in 0..Action::TYPES.len() {
+        let input = ActionInput::new(kind).unwrap();
+        assert_eq!(input.build().unwrap().kind(), kind);
+        inputs.add_action(kind).unwrap();
+    }
+    for kind in 0..Condition::TYPES.len() {
+        let input = TransitionInput::new("idle".into(), kind).unwrap();
+        assert_eq!(
+            input.build(&["idle".into()]).unwrap().condition.kind(),
+            kind
+        );
+        inputs.add_transition("idle".into(), kind).unwrap();
+    }
+    inputs.apply(&mut b.states[0], &["idle".into()]).unwrap();
+    let loaded = BehaviorDefinition::from_ron(&serialize(&b).unwrap()).unwrap();
+    assert_eq!(loaded, b);
+    assert!(ActionInput::new(Action::TYPES.len()).is_err());
+    assert!(TransitionInput::new("idle".into(), Condition::TYPES.len()).is_err());
+}
+
+#[test]
+fn structured_edits_add_remove_reorder_values_targets_and_inversion() {
+    use hollow_steps::definition_editor::{move_row, remove_row, StateInputs};
+    let mut b = behavior();
+    add_state(&mut b, "attack".into()).unwrap();
+    let names = vec!["idle".into(), "attack".into()];
+    let mut inputs = StateInputs::from_state(&b.states[0]);
+    let patrol = Action::TYPES.iter().position(|n| *n == "patrol").unwrap();
+    inputs.add_action(patrol).unwrap();
+    inputs.actions[1].values[0] = "42.5".into();
+    move_row(&mut inputs.actions, 1, true).unwrap();
+    assert!(move_row(&mut inputs.actions, 0, true).is_err());
+    assert!(move_row(&mut inputs.actions, 1, false).is_err());
+    assert!(move_row(&mut inputs.actions, usize::MAX, false).is_err());
+    remove_row(&mut inputs.actions, 1).unwrap();
+    assert!(remove_row(&mut inputs.actions, 1).is_err());
+    inputs.add_transition("attack".into(), 0).unwrap();
+    inputs.transitions[1].value = "0".into();
+    inputs.transitions[1].invert = true;
+    move_row(&mut inputs.transitions, 0, false).unwrap();
+    inputs.apply(&mut b.states[0], &names).unwrap();
+    assert_eq!(b.states[0].actions, vec![Action::Patrol { speed: 42.5 }]);
+    assert_eq!(b.states[0].transitions[0].target, "attack");
+    assert!(b.states[0].transitions[0].invert);
+    assert_eq!(
+        b.states[0].transitions[0].condition,
+        Condition::TimerElapsed(0.0)
+    );
+    remove_row(&mut inputs.transitions, 1).unwrap();
+    let finished = Condition::TYPES
+        .iter()
+        .position(|n| *n == "action_finished")
+        .unwrap();
+    inputs.transitions[0].change_kind(finished).unwrap();
+    assert!(inputs.transitions[0].value.is_empty());
+    inputs.apply(&mut b.states[0], &names).unwrap();
+    assert_eq!(
+        b.states[0].transitions[0].condition,
+        Condition::ActionFinished
+    );
+    remove_row(&mut inputs.actions, 0).unwrap();
+    remove_row(&mut inputs.transitions, 0).unwrap();
+    inputs.apply(&mut b.states[0], &names).unwrap();
+    assert!(b.states[0].actions.is_empty() && b.states[0].transitions.is_empty());
+}
+
+#[test]
+fn invalid_structured_numbers_preserve_model_and_report_field_errors() {
+    use hollow_steps::definition_editor::{ActionInput, StateInputs, TransitionInput};
+    let mut b = behavior();
+    let before = b.states[0].clone();
+    let names = vec!["idle".into()];
+    for kind in 0..Action::TYPES.len() {
+        for text in ["", "no", "NaN", "inf", "-1", "1e99"] {
+            let mut input = ActionInput::new(kind).unwrap();
+            input.values[0] = text.into();
+            assert!(input.build().is_err(), "{kind}: {text}");
+            let inputs = StateInputs {
+                actions: vec![input],
+                transitions: vec![],
+            };
+            assert!(inputs.apply(&mut b.states[0], &names).is_err());
+            assert_eq!(b.states[0], before);
+        }
+    }
+    for kind in 0..Condition::TYPES.len() {
+        let template = Condition::defaults(kind).unwrap();
+        if template.parameter().is_none() {
+            continue;
+        }
+        for text in ["", "NaN", "inf", "-1", "1e99"] {
+            let mut row = TransitionInput::new("idle".into(), kind).unwrap();
+            row.value = text.into();
+            assert!(row.build(&names).is_err());
+        }
+        let mut row = TransitionInput::new("missing".into(), kind).unwrap();
+        assert!(row.build(&names).is_err());
+        row.target = "idle".into();
+        row.value = "0".into();
+        assert!(row.build(&names).is_ok());
+    }
+    let health = Condition::TYPES
+        .iter()
+        .position(|n| *n == "health_below")
+        .unwrap();
+    let mut row = TransitionInput::new("idle".into(), health).unwrap();
+    for value in ["256", "1.5"] {
+        row.value = value.into();
+        assert!(row.build(&names).is_err());
+    }
+    row.value = "255".into();
+    assert!(row.build(&names).is_ok());
+}
+
+#[test]
+fn structured_save_then_reload_preserves_action_and_transition_order() {
+    use hollow_steps::definition_editor::{move_row, StateInputs};
+    let assets = Assets::new();
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    game.toggle_editor().unwrap();
+    let editor = game.editor_mut().unwrap();
+    let b = editor.content.behaviors.get_mut("patrol").unwrap();
+    let names = b.states.iter().map(|s| s.name.clone()).collect::<Vec<_>>();
+    let mut inputs = StateInputs::default();
+    for kind in 0..Action::TYPES.len() {
+        inputs.add_action(kind).unwrap();
+    }
+    move_row(&mut inputs.actions, 0, false).unwrap();
+    inputs.actions[0].values[0] = "123.25".into();
+    for kind in 0..Condition::TYPES.len() {
+        inputs.add_transition(names[0].clone(), kind).unwrap();
+    }
+    inputs.transitions[0].invert = true;
+    move_row(&mut inputs.transitions, 0, false).unwrap();
+    inputs.apply(&mut b.states[0], &names).unwrap();
+    let expected = b.clone();
+    game.save_editor().unwrap();
+    let loaded = DefinitionDraft::load(&assets.0).unwrap();
+    assert_eq!(loaded.behaviors["patrol"], expected);
+    GameState::try_new(&assets.0).unwrap();
+}
+
+#[test]
+fn panel_fits_viewport_and_reserves_save_outside_scroll_bounds() {
+    use hollow_steps::definition_editor::{wrap_label, PanelLayout};
+    for (width, height) in [
+        (960.0, 540.0),
+        (1920.0, 1080.0),
+        (360.0, 240.0),
+        (200.0, 100.0),
+        (16.0, 20.0),
+        (0.0, 0.0),
+    ] {
+        let layout = PanelLayout::new(width, height);
+        assert!(layout.panel.x >= 0.0 && layout.panel.right() <= width);
+        assert_eq!(layout.panel.w, width.min(360.0));
+        assert_eq!(layout.save.bottom(), height);
+        assert_eq!(layout.body.bottom(), layout.save.y);
+        assert!(layout.save.h <= height && layout.body.h >= 0.0);
+        assert_eq!(layout.scroll_bounds(2000.0, -1.0), 0.0);
+        assert_eq!(
+            layout.scroll_bounds(2000.0, f32::MAX),
+            (2000.0 - layout.body.h).max(0.0)
+        );
+        assert_eq!(layout.scroll_bounds(0.0, 100.0), 0.0);
+    }
+    let label = "player_distance_greater_than/long/path/ü";
+    let lines = wrap_label(label, 8);
+    assert_eq!(lines.concat(), label);
+    assert!(lines.iter().all(|s| s.chars().count() <= 8));
+    assert_eq!(wrap_label("ab", 0), ["a", "b"]);
+    let invalid = PanelLayout::new(f32::NAN, f32::INFINITY);
+    assert_eq!(invalid.panel.w, 0.0);
+    assert_eq!(invalid.panel.h, 0.0);
+}
+
+#[test]
+fn transition_validation_is_transactional_and_entity_errors_identify_each_field() {
+    use hollow_steps::definition_editor::{validate_entity_field, StateInputs};
+    let mut b = behavior();
+    let before = b.states[0].clone();
+    let mut inputs = StateInputs::from_state(&before);
+    inputs.actions[0].values[0] = "99".into();
+    inputs.transitions[0].target = "missing".into();
+    assert!(inputs.apply(&mut b.states[0], &["idle".into()]).is_err());
+    assert_eq!(b.states[0], before);
+    for (index, invalid) in [
+        (0, ""),
+        (1, "0"),
+        (1, "256"),
+        (2, "NaN"),
+        (3, "0"),
+        (4, "-1"),
+        (5, " "),
+    ] {
+        assert!(validate_entity_field(index, invalid).is_err());
+    }
+    for (index, valid) in [
+        (0, "name"),
+        (1, "255"),
+        (2, "0.01"),
+        (3, "100"),
+        (4, "0"),
+        (5, "patrol"),
+    ] {
+        assert!(validate_entity_field(index, valid).is_ok());
+    }
+}
