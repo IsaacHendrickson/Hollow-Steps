@@ -4,6 +4,7 @@
 //! gameplay state so it can be tested without opening a window.
 
 pub mod boss;
+pub mod boss_special;
 pub mod coin;
 pub mod combat;
 pub mod enemy;
