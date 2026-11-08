@@ -91,6 +91,18 @@ impl EnemyDefinitions {
         })
     }
 
+    pub fn names(&self) -> impl Iterator<Item = &str> {
+        self.entities.keys().map(String::as_str)
+    }
+
+    pub fn size(&self, name: &str) -> Result<Vec2, String> {
+        let entity = self
+            .entities
+            .get(name)
+            .ok_or_else(|| format!("missing enemy definition {name:?}"))?;
+        Ok(Vec2::new(entity.size.0, entity.size.1))
+    }
+
     pub fn spawn(
         &self,
         name: &str,

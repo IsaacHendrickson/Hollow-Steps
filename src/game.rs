@@ -4,6 +4,8 @@ use macroquad::math::{Rect, Vec2};
 
 use crate::boss_special::SpecialAttack;
 use crate::coin::Coin;
+use crate::editor::{self, EditorSession};
+use crate::enemy::EnemyDefinitions;
 use crate::item::WorldItem;
 use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
 use crate::room::{load_rooms, Room, RoomId};
@@ -22,7 +24,8 @@ const SPECIAL_ATTACK_INTERVAL: f32 = 3.0;
 #[derive(Debug)]
 pub struct GameState {
     player: Player,
-    rooms: [Room; 3],
+    rooms: Vec<Room>,
+    editor: Option<EditorSession>,
     assets: PathBuf,
     current_room: RoomId,
     coin_count: u32,
@@ -46,7 +49,10 @@ impl GameState {
     }
 
     pub fn try_new(assets: &Path) -> Result<Self, String> {
-        let rooms = load_rooms(assets)?;
+        let mut rooms = load_rooms(assets)?.into_iter().collect::<Vec<_>>();
+        let definitions = EnemyDefinitions::load(assets)?;
+        rooms.extend(editor::load_extra_rooms(assets, &definitions)?);
+        Self::validate_destinations(&rooms, &definitions)?;
         let world_bounds = rooms[RoomId::First.index()].world_bounds();
         let mut player = Player::new(Vec2::new(180.0, 0.0), PlayerConfig::default());
         player.place_at(rooms[RoomId::First.index()].spawn, world_bounds);
@@ -54,6 +60,7 @@ impl GameState {
         Ok(Self {
             player,
             rooms,
+            editor: None,
             assets: assets.to_owned(),
             current_room: RoomId::First,
             coin_count: 0,
@@ -91,7 +98,97 @@ impl GameState {
     }
 
     pub fn room(&self) -> &Room {
-        &self.rooms[self.current_room.index()]
+        &self.rooms[self.current_index()]
+    }
+
+    fn current_index(&self) -> usize {
+        self.rooms
+            .iter()
+            .position(|room| room.id == self.current_room)
+            .expect("current room exists")
+    }
+
+    fn validate_destinations(rooms: &[Room], definitions: &EnemyDefinitions) -> Result<(), String> {
+        let catalog = rooms
+            .iter()
+            .map(|room| (room.id, editor::RoomLayout::from_room(room)))
+            .collect::<Vec<_>>();
+        for (id, layout) in &catalog {
+            editor::RoomDraft {
+                enemies: Vec::new(),
+                layout: layout.clone(),
+            }
+            .validate(definitions, &catalog)
+            .map_err(|e| format!("room {id:?}: {e}"))?;
+        }
+        Ok(())
+    }
+
+    pub fn editor(&self) -> Option<&EditorSession> {
+        self.editor.as_ref()
+    }
+    pub fn editor_mut(&mut self) -> Option<&mut EditorSession> {
+        self.editor.as_mut()
+    }
+
+    pub fn toggle_editor(&mut self) -> Result<(), String> {
+        if self.editor.take().is_none() {
+            self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
+        }
+        Ok(())
+    }
+
+    pub fn edit_room(&mut self, id: RoomId) -> Result<(), String> {
+        let room = self
+            .rooms
+            .iter()
+            .find(|room| room.id == id)
+            .ok_or("missing room")?;
+        let editor = EditorSession::open(&self.assets, room, &self.rooms)?;
+        self.current_room = id;
+        self.player.place_at(room.spawn, room.world_bounds());
+        self.editor = Some(editor);
+        Ok(())
+    }
+
+    pub fn save_editor(&mut self) -> Result<(), String> {
+        let session = self.editor.as_ref().ok_or("editor is closed")?;
+        let mut room = session.draft.build(session.id, &session.definitions)?;
+        let catalog = session.catalog();
+        // Check inbound exit spawns too, before any filesystem mutation.
+        for (id, layout) in &catalog {
+            let draft = editor::RoomDraft {
+                enemies: Vec::new(),
+                layout: layout.clone(),
+            };
+            draft
+                .validate(&session.definitions, &catalog)
+                .map_err(|e| format!("room {id:?}: {e}"))?;
+        }
+        editor::save_room(
+            &session.path,
+            &session.draft,
+            &session.definitions,
+            &catalog,
+            session.new,
+        )?;
+        if let Some(existing) = self.rooms.iter_mut().find(|room| room.id == session.id) {
+            // Preserve session coins and boss state; editable content is deliberately reset.
+            room.coins = std::mem::take(&mut existing.coins);
+            room.boss = existing.boss.take();
+            room.boss_special = existing.boss_special.take();
+            *existing = room;
+        } else {
+            self.rooms.push(room);
+        }
+        self.current_room = session.id;
+        self.player.place_at(self.room().spawn, self.world_bounds());
+        let session = self.editor.as_mut().expect("editor open");
+        session.rooms = catalog;
+        session.new = false;
+        session.dirty = false;
+        session.message = format!("Saved {}", session.path.display());
+        Ok(())
     }
 
     pub fn world_bounds(&self) -> WorldBounds {
@@ -101,15 +198,22 @@ impl GameState {
     /// Re-read every room and its enemy definitions before applying any changes.
     /// Enemy lists restart; player, pickups, and boss progress stay intact.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
-        let rooms = load_rooms(&self.assets)?;
-        for (current, reloaded) in self.rooms.iter_mut().zip(rooms) {
-            current.enemies = reloaded.enemies;
+        let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
+        let definitions = EnemyDefinitions::load(&self.assets)?;
+        rooms.extend(editor::load_extra_rooms(&self.assets, &definitions)?);
+        Self::validate_destinations(&rooms, &definitions)?;
+        for mut reloaded in rooms {
+            if let Some(current) = self.rooms.iter_mut().find(|room| room.id == reloaded.id) {
+                current.enemies = std::mem::take(&mut reloaded.enemies);
+            } else {
+                self.rooms.push(reloaded);
+            }
         }
         Ok(())
     }
 
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32) {
-        if self.inventory_open {
+        if self.inventory_open || self.editor.is_some() {
             return;
         }
         let delta_seconds = if delta_seconds.is_finite() {
@@ -119,7 +223,8 @@ impl GameState {
         };
         self.player
             .update(input, delta_seconds, self.world_bounds());
-        let room = &mut self.rooms[self.current_room.index()];
+        let index = self.current_index();
+        let room = &mut self.rooms[index];
         let bounds = room.world_bounds();
         let mut special_damage = 0;
         if let Some(boss) = &mut room.boss_special {
@@ -207,7 +312,8 @@ impl GameState {
             return;
         }
         if input.pickup_pressed {
-            let room = &mut self.rooms[self.current_room.index()];
+            let index = self.current_index();
+            let room = &mut self.rooms[index];
             if let Some(index) = room
                 .items
                 .iter()
@@ -218,7 +324,8 @@ impl GameState {
             }
         }
 
-        let coins = &mut self.rooms[self.current_room.index()].coins;
+        let index = self.current_index();
+        let coins = &mut self.rooms[index].coins;
         coins.retain(|coin| {
             if coin.touches(&self.player) {
                 self.coin_count = self.coin_count.saturating_add(1);

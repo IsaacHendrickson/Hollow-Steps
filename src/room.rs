@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use macroquad::math::{Rect, Vec2};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::behavior::read_ron;
 use crate::boss::Boss;
@@ -14,11 +14,12 @@ use crate::player::WorldBounds;
 pub const FLOOR_Y: f32 = 460.0;
 pub const EXIT_DEPTH: f32 = 32.0;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RoomId {
     First,
     Second,
     Boss,
+    Custom(usize),
 }
 
 impl RoomId {
@@ -27,11 +28,12 @@ impl RoomId {
             Self::First => 0,
             Self::Second => 1,
             Self::Boss => 2,
+            Self::Custom(id) => 3 + id,
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RoomEdge {
     Left,
     Right,
@@ -115,13 +117,15 @@ impl Room {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RoomEnemies {
     pub enemies: Vec<EnemyPlacement>,
+    #[serde(default)]
+    pub layout: Option<crate::editor::RoomLayout>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EnemyPlacement {
     pub definition: String,
@@ -135,6 +139,17 @@ pub fn load_room_enemies(
     bounds: WorldBounds,
 ) -> Result<Vec<Enemy>, String> {
     let room: RoomEnemies = read_ron(path)?;
+    let bounds = if let Some(layout) = &room.layout {
+        crate::editor::RoomDraft {
+            enemies: room.enemies.clone(),
+            layout: layout.clone(),
+        }
+        .validate_local(definitions)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+        layout.world_bounds()
+    } else {
+        bounds
+    };
     room.enemies
         .into_iter()
         .enumerate()
@@ -170,7 +185,7 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
             Vec::new()
         }
     };
-    let rooms = [
+    let mut rooms = [
         Room {
             id: RoomId::First,
             boss: None,
@@ -252,6 +267,20 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
             items: vec![],
         },
     ];
+    for (room, file) in rooms
+        .iter_mut()
+        .zip(["first.ron", "second.ron", "boss.ron"])
+    {
+        let path = assets.join("rooms").join(file);
+        if let Ok(document) = read_ron::<RoomEnemies>(&path) {
+            if let Some(layout) = document.layout {
+                match layout.apply(room) {
+                    Ok(()) => {}
+                    Err(error) => errors.push(format!("{}: {error}", path.display())),
+                }
+            }
+        }
+    }
     if errors.is_empty() {
         Ok(rooms)
     } else {

@@ -1,11 +1,12 @@
 use macroquad::math::Vec2;
+use serde::{Deserialize, Serialize};
 
 use crate::player::Player;
 
 pub const ITEM_SIZE: Vec2 = Vec2::new(16.0, 20.0);
 pub const PICKUP_REACH: f32 = 24.0;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Item {
     AmberShard,
     Dash,

@@ -8,6 +8,7 @@ pub mod boss;
 pub mod boss_special;
 pub mod coin;
 pub mod combat;
+pub mod editor;
 pub mod enemy;
 pub mod game;
 pub mod health;

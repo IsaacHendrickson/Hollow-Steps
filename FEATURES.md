@@ -16,3 +16,5 @@
 - Reusable Ash Warden timed attacks, melee damage, persistent death, and locked arena exits: `src/boss.rs`, `src/room.rs`, `src/game.rs`; `tests/boss.rs`, `src/game.rs` boss tests.
 - Playable arena boss gliding at a fixed speed while cycling Slam, Summon, and Rings every three seconds, melee damage, summoned enemies, death coins, and attack drawing: `src/boss_special.rs`, `src/game.rs`, `src/room.rs`, `src/main.rs`; `tests/boss_special.rs`, `src/game.rs` special tests, plus manual playtest.
 - Keyboard controls, world rendering, melee visualization, and health bars: `src/main.rs`; gameplay tests above, plus manual playtest.
+
+- F2 paused room editor, mouse placement/movement/deletion, entity list, spawn/exit editing, validated atomic RON saves, and persistent custom rooms: `src/editor.rs`, `src/game.rs`, `src/main.rs`, `src/room.rs`; `tests/editor.rs`, plus manual playtest.
