@@ -7,6 +7,12 @@ use crate::behavior::{read_ron, ron_files, BehaviorDefinition, State};
 use crate::enemy::{EnemyDefinition, EnemyDefinitions};
 use crate::room::RoomEnemies;
 
+/// Use native separators even when a caller supplies a path with mixed separators.
+fn file_error(path: &Path, error: impl std::fmt::Display) -> String {
+    let path: PathBuf = path.components().collect();
+    format!("{}: {error}", path.display())
+}
+
 #[derive(Debug)]
 pub struct DefinitionDraft {
     /// Keys are stable filenames, independent of editable entity names.
@@ -20,12 +26,14 @@ pub struct DefinitionDraft {
 
 impl DefinitionDraft {
     pub fn load(assets: &Path) -> Result<Self, String> {
+        let assets: PathBuf = assets.components().collect();
+        let assets = assets.as_path();
         let mut originals = BTreeMap::new();
         for directory in ["entities", "behaviors", "rooms"] {
             for path in ron_files(&assets.join(directory))? {
                 originals.insert(
                     path.clone(),
-                    std::fs::read(&path).map_err(|e| e.to_string())?,
+                    std::fs::read(&path).map_err(|e| file_error(&path, e))?,
                 );
             }
         }
@@ -34,11 +42,11 @@ impl DefinitionDraft {
         for (path, bytes) in &originals {
             if path.parent() == Some(assets.join("entities").as_path()) {
                 let entity = ron::de::from_bytes::<EnemyDefinition>(bytes)
-                    .map_err(|e| format!("{}: {e}", path.display()))?;
+                    .map_err(|e| file_error(path, e))?;
                 entities.insert(path.clone(), entity);
             } else if path.parent() == Some(assets.join("behaviors").as_path()) {
                 let behavior = ron::de::from_bytes::<BehaviorDefinition>(bytes)
-                    .map_err(|e| format!("{}: {e}", path.display()))?;
+                    .map_err(|e| file_error(path, e))?;
                 let name = path
                     .file_stem()
                     .and_then(|s| s.to_str())
@@ -101,14 +109,14 @@ impl DefinitionDraft {
         let mut documents = self.room_documents()?;
         for (path, document) in rooms {
             if path.parent() != Some(self.assets.join("rooms").as_path()) {
-                return Err(format!("invalid room path {}", path.display()));
+                return Err(file_error(path, "invalid room path"));
             }
             documents.insert(path.clone(), document.clone());
         }
         for file in ["first.ron", "second.ron", "boss.ron"] {
             let path = self.assets.join("rooms").join(file);
             if !documents.contains_key(&path) {
-                return Err(format!("{}: missing required room", path.display()));
+                return Err(file_error(&path, "missing required room"));
             }
         }
         let mut catalog = self.layouts.clone();
@@ -124,7 +132,7 @@ impl DefinitionDraft {
             if path.parent() != Some(self.assets.join("entities").as_path())
                 || path.extension().is_none_or(|e| e != "ron")
             {
-                return Err(format!("invalid entity path {}", path.display()));
+                return Err(file_error(path, "invalid entity path"));
             }
             candidates.push((path.clone(), serialize(entity)?));
         }
@@ -141,7 +149,7 @@ impl DefinitionDraft {
             let layout = catalog
                 .iter()
                 .find(|(other, _)| *other == id)
-                .ok_or_else(|| format!("{}: room needs layout", path.display()))?
+                .ok_or_else(|| file_error(&path, "room needs layout"))?
                 .1
                 .clone();
             crate::editor::RoomDraft {
@@ -149,7 +157,7 @@ impl DefinitionDraft {
                 layout,
             }
             .validate(&definitions, &catalog)
-            .map_err(|e| format!("{}: {e}", path.display()))?;
+            .map_err(|e| file_error(&path, e))?;
             candidates.push((path, serialize(&document)?));
         }
         let deletes = self
@@ -248,13 +256,13 @@ impl DefinitionDraft {
         for (room_path, bytes) in &self.originals {
             if room_path.parent() == Some(self.assets.join("rooms").as_path()) {
                 let document: RoomEnemies =
-                    ron::de::from_bytes(bytes).map_err(|e| e.to_string())?;
+                    ron::de::from_bytes(bytes).map_err(|e| file_error(room_path, e))?;
                 if document
                     .enemies
                     .iter()
                     .any(|e| e.definition == entity.name || original == Some(&e.definition))
                 {
-                    return Err(format!("entity is referenced by {}", room_path.display()));
+                    return Err(file_error(room_path, "entity is referenced by this room"));
                 }
             }
         }
@@ -326,7 +334,7 @@ fn room_id(path: &Path) -> Result<crate::room::RoomId, String> {
             .and_then(|n| n.parse().ok())
             .filter(|id| name == format!("room_{id}"))
             .map(RoomId::Custom)
-            .ok_or_else(|| format!("invalid room filename {}", path.display())),
+            .ok_or_else(|| file_error(path, "invalid room filename")),
     }
 }
 
@@ -372,10 +380,7 @@ fn check_snapshot(
     for directory in ["entities", "behaviors", "rooms"] {
         for path in ron_files(&assets.join(directory))? {
             if !expected.contains_key(&path) {
-                return Err(format!(
-                    "{} changed on disk; reload before saving",
-                    path.display()
-                ));
+                return Err(file_error(&path, "changed on disk; reload before saving"));
             }
         }
     }
@@ -387,13 +392,10 @@ fn check_expected(expected: &BTreeMap<PathBuf, Option<Vec<u8>>>) -> Result<(), S
         let current = match std::fs::read(path) {
             Ok(bytes) => Some(bytes),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-            Err(e) => return Err(format!("{}: {e}", path.display())),
+            Err(e) => return Err(file_error(path, e)),
         };
         if &current != previous {
-            return Err(format!(
-                "{} changed on disk; reload before saving",
-                path.display()
-            ));
+            return Err(file_error(path, "changed on disk; reload before saving"));
         }
     }
     Ok(())
@@ -527,23 +529,23 @@ pub fn write_files(plan: &SavePlan) -> Result<(), String> {
             let previous = match std::fs::read(path) {
                 Ok(bytes) => Some(bytes),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-                Err(e) => return Err(e.to_string()),
+                Err(e) => return Err(file_error(path, e)),
             };
             let temp = path.with_extension("ron.tmp");
             match std::fs::remove_file(&temp) {
                 Ok(()) => (),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
-                Err(e) => return Err(format!("{}: {e}", temp.display())),
+                Err(e) => return Err(file_error(&temp, e)),
             }
             let mut file = std::fs::OpenOptions::new()
                 .write(true)
                 .create_new(true)
                 .open(&temp)
-                .map_err(|e| format!("{}: {e}", temp.display()))?;
+                .map_err(|e| file_error(&temp, e))?;
             staged.push((path, temp, previous));
             file.write_all(source.as_bytes())
-                .map_err(|e| e.to_string())?;
-            file.sync_all().map_err(|e| e.to_string())?;
+                .map_err(|e| file_error(path, e))?;
+            file.sync_all().map_err(|e| file_error(path, e))?;
         }
         check_snapshot(&plan.assets, &plan.expected)?;
         for path in &plan.deletes {
@@ -556,14 +558,14 @@ pub fn write_files(plan: &SavePlan) -> Result<(), String> {
                 std::fs::rename(temp, path)
             };
             if let Err(error) = result {
-                let mut errors = vec![error.to_string()];
+                let mut errors = vec![file_error(path, error)];
                 for (path, _, previous) in staged[..index].iter().rev() {
                     let rollback = match previous {
                         Some(bytes) => std::fs::write(path, bytes),
                         None => std::fs::remove_file(path),
                     };
                     if let Err(e) = rollback {
-                        errors.push(format!("rollback {}: {e}", path.display()));
+                        errors.push(file_error(path, format_args!("rollback: {e}")));
                     }
                 }
                 return Err(errors.join("; "));
@@ -784,5 +786,27 @@ pub fn validate_entity_field(index: usize, text: &str) -> Result<(), String> {
             .map(|_| ())
             .map_err(|_| "expected integer 0..255".into()),
         _ => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::file_error;
+    use std::path::{Path, MAIN_SEPARATOR};
+
+    #[test]
+    fn file_errors_use_native_separators_for_caller_paths() {
+        let expected = Path::new("assets").join("rooms").join("second.ron");
+        // Simulate a caller supplying mixed separators on Windows.
+        let caller = expected.to_string_lossy().replacen(MAIN_SEPARATOR, "/", 1);
+        let error = file_error(Path::new(&caller), "invalid patrol interval");
+        let (reported, reason) = error.split_once(": ").unwrap();
+        assert_eq!(Path::new(reported), expected);
+        assert_eq!(Path::new(reported).file_name(), Some("second.ron".as_ref()));
+        assert!(reported
+            .chars()
+            .filter(|c| matches!(c, '/' | '\\'))
+            .all(|c| c == MAIN_SEPARATOR));
+        assert_eq!(reason, "invalid patrol interval");
     }
 }

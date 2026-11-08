@@ -6,7 +6,7 @@ use hollow_steps::definition_editor::{
 };
 use hollow_steps::game::GameState;
 use hollow_steps::room::{RoomEnemies, RoomId};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct Assets(PathBuf);
@@ -60,6 +60,14 @@ fn behavior() -> BehaviorDefinition {
     BehaviorDefinition::from_ron(r#"(initial_state: "idle", states: [
         (name: "idle", actions: [wait(seconds: 1.0)], transitions: [(target: "idle", condition: action_finished)]),
     ])"#).unwrap()
+}
+
+fn assert_error_file(error: &str, expected: &Path) {
+    let (reported, _) = error
+        .split_once(": ")
+        .expect("file errors must start with a path and colon");
+    assert_eq!(Path::new(reported), expected, "{error}");
+    assert_eq!(Path::new(reported).file_name(), expected.file_name());
 }
 
 #[test]
@@ -497,32 +505,38 @@ fn full_draft_validation_rejects_patrol_ranges_against_new_size_and_walls() {
     draft.entities.get_mut(&path).unwrap().size.0 = 900.0;
     assert!(draft.plan(&[]).is_err());
     draft.entities.get_mut(&path).unwrap().size.0 = 32.0;
-    let room = assets.0.join("rooms/second.ron");
+    let room = assets.0.join("rooms").join("second.ron");
     let mut document: RoomEnemies =
         ron::from_str(&std::fs::read_to_string(&room).unwrap()).unwrap();
     document.enemies[0].patrol_left = 0.0;
     let error = draft.plan(&[(room.clone(), document)]).unwrap_err();
-    assert!(error.contains(&room.display().to_string()));
+    assert_error_file(&error, &room);
+    assert!(error.contains("invalid patrol interval"));
     assert_eq!(assets.snapshot(), before);
 }
 
 #[test]
 fn external_changes_refuse_save_and_identify_each_file_even_after_planning() {
     use hollow_steps::definition_editor::write_files;
-    for relative in [
-        "entities/patrol.ron",
-        "behaviors/patrol.ron",
-        "rooms/first.ron",
+    for (directory, filename) in [
+        ("entities", "patrol.ron"),
+        ("behaviors", "patrol.ron"),
+        ("rooms", "first.ron"),
     ] {
         let assets = Assets::new();
         let draft = DefinitionDraft::load(&assets.0).unwrap();
         let plan = draft.plan(&[]).unwrap();
-        let path = assets.0.join(relative);
+        let path = assets.0.join(directory).join(filename);
         let source = std::fs::read_to_string(&path).unwrap();
         std::fs::write(&path, format!("{source}\n// external edit")).unwrap();
         let before = assets.snapshot();
-        assert!(draft.plan(&[]).unwrap_err().contains(relative));
-        assert!(write_files(&plan).unwrap_err().contains(relative));
+        for error in [
+            draft.plan(&[]).unwrap_err(),
+            write_files(&plan).unwrap_err(),
+        ] {
+            assert_error_file(&error, &path);
+            assert!(error.contains("changed on disk; reload before saving"));
+        }
         assert_eq!(assets.snapshot(), before);
     }
 }
@@ -530,7 +544,7 @@ fn external_changes_refuse_save_and_identify_each_file_even_after_planning() {
 #[test]
 fn unchanged_parsed_content_keeps_bytes_and_mtime_and_changed_files_use_lf() {
     let assets = Assets::new();
-    let path = assets.0.join("entities/patrol.ron");
+    let path = assets.0.join("entities").join("patrol.ron");
     let source = std::fs::read_to_string(&path)
         .unwrap()
         .replace('\n', "\r\n");
@@ -558,7 +572,7 @@ fn plan_is_immutable_and_discovers_renames_in_every_room() {
     let mut draft = DefinitionDraft::load(&assets.0).unwrap();
     let path = draft.entity_path("patrol").unwrap();
     draft.entities.get_mut(&path).unwrap().name = "new patrol".into();
-    let room = assets.0.join("rooms/first.ron");
+    let room = assets.0.join("rooms").join("first.ron");
     let document: RoomEnemies = ron::from_str(&std::fs::read_to_string(&room).unwrap()).unwrap();
     let inputs = [(room, document)];
     let before = serialize(&inputs[0].1).unwrap();
@@ -580,9 +594,10 @@ fn commit_supports_second_rename_in_one_session() {
         draft.commit(&[]).unwrap();
         assert_eq!(draft.entity_path(name), Some(path.clone()));
         assert!(draft.plan(&[]).unwrap().is_empty());
-        let document: RoomEnemies =
-            ron::from_str(&std::fs::read_to_string(assets.0.join("rooms/second.ron")).unwrap())
-                .unwrap();
+        let document: RoomEnemies = ron::from_str(
+            &std::fs::read_to_string(assets.0.join("rooms").join("second.ron")).unwrap(),
+        )
+        .unwrap();
         assert!(document.enemies.iter().any(|e| e.definition == name));
         GameState::try_new(&assets.0).unwrap();
     }
@@ -635,13 +650,13 @@ fn entity_and_behavior_operations_check_references_and_delete_files_on_save() {
     assert_eq!(draft.entities[&duplicate].behavior, "renamed");
     draft.commit(&[]).unwrap();
     assert!(duplicate.exists());
-    assert!(!assets.0.join("behaviors/extra.ron").exists());
-    assert!(assets.0.join("behaviors/renamed.ron").exists());
+    assert!(!assets.0.join("behaviors").join("extra.ron").exists());
+    assert!(assets.0.join("behaviors").join("renamed.ron").exists());
     draft.delete_entity(&duplicate).unwrap();
     draft.delete_behavior("renamed").unwrap();
     draft.commit(&[]).unwrap();
     assert!(!duplicate.exists());
-    assert!(!assets.0.join("behaviors/renamed.ron").exists());
+    assert!(!assets.0.join("behaviors").join("renamed.ron").exists());
     assert!(draft.delete_entity(&duplicate).is_err());
     assert!(draft.delete_behavior("missing").is_err());
     GameState::try_new(&assets.0).unwrap();
@@ -652,7 +667,7 @@ fn removing_authored_layout_uses_loader_defaults_and_custom_rooms_are_discovered
     use hollow_steps::editor::{RoomDraft, RoomLayout};
     let assets = Assets::new();
     let rooms = hollow_steps::room::load_rooms(&assets.0).unwrap();
-    let path = assets.0.join("rooms/second.ron");
+    let path = assets.0.join("rooms").join("second.ron");
     let mut document: RoomEnemies =
         ron::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     let mut layout = RoomLayout::from_room(&rooms[1]);
@@ -665,7 +680,7 @@ fn removing_authored_layout_uses_loader_defaults_and_custom_rooms_are_discovered
     document.layout = None;
     assert!(draft.plan(&[(path, document.clone())]).is_err());
     // A room not supplied by the caller still gets both validation and rename updates.
-    let custom = assets.0.join("rooms/room_42.ron");
+    let custom = assets.0.join("rooms").join("room_42.ron");
     document.layout = Some(RoomLayout::from_room(&rooms[0]));
     document.layout.as_mut().unwrap().exits.clear();
     std::fs::write(&custom, serialize(&document).unwrap()).unwrap();
@@ -689,11 +704,11 @@ fn missing_required_rooms_and_new_external_files_refuse_saving() {
     let assets = Assets::new();
     let draft = DefinitionDraft::load(&assets.0).unwrap();
     let plan = draft.plan(&[]).unwrap();
-    let path = assets.0.join("behaviors/external.ron");
+    let path = assets.0.join("behaviors").join("external.ron");
     std::fs::write(&path, serialize(&behavior()).unwrap()).unwrap();
     assert!(write_files(&plan).unwrap_err().contains("external.ron"));
     assert!(draft.plan(&[]).unwrap_err().contains("external.ron"));
-    std::fs::remove_file(assets.0.join("rooms/first.ron")).unwrap();
+    std::fs::remove_file(assets.0.join("rooms").join("first.ron")).unwrap();
     let draft = DefinitionDraft::load(&assets.0).unwrap();
     assert!(draft.plan(&[]).unwrap_err().contains("first.ron"));
 }
@@ -701,7 +716,7 @@ fn missing_required_rooms_and_new_external_files_refuse_saving() {
 #[test]
 fn parsed_float_equality_does_not_rewrite_signed_zero() {
     let assets = Assets::new();
-    let path = assets.0.join("behaviors/patrol.ron");
+    let path = assets.0.join("behaviors").join("patrol.ron");
     let mut b = behavior();
     b.states[0].actions = vec![Action::Wait { seconds: -0.0 }];
     std::fs::write(&path, serialize(&b).unwrap()).unwrap();
