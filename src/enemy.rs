@@ -1,5 +1,14 @@
-use macroquad::math::Vec2;
+use std::collections::BTreeMap;
+use std::path::Path;
+use std::sync::Arc;
 
+use macroquad::math::Vec2;
+use serde::Deserialize;
+
+use crate::behavior::{
+    load_behaviors, read_ron, ron_files, Action, Behavior, BehaviorContext, BehaviorDefinition,
+    Condition,
+};
 use crate::player::WorldBounds;
 
 pub const ENEMY_MAX_HEALTH: u8 = 3;
@@ -8,15 +17,112 @@ pub const KNOCKBACK_SECONDS: f32 = 0.16;
 
 pub const ENEMY_SIZE: Vec2 = Vec2::new(36.0, 36.0);
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnemyDefinition {
+    pub name: String,
+    pub health: u8,
+    pub size: (f32, f32),
+    pub contact_damage: u8,
+    pub behavior: String,
+}
+
+impl EnemyDefinition {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.name.trim().is_empty() {
+            return Err("entity name must not be empty".into());
+        }
+        if self.health == 0 {
+            return Err(format!("entity {:?}: health must be positive", self.name));
+        }
+        if !self.size.0.is_finite()
+            || !self.size.1.is_finite()
+            || self.size.0 <= 0.0
+            || self.size.1 <= 0.0
+        {
+            return Err(format!(
+                "entity {:?}: size must be finite and positive",
+                self.name
+            ));
+        }
+        if self.behavior.trim().is_empty() {
+            return Err(format!("entity {:?}: missing behavior name", self.name));
+        }
+        Ok(())
+    }
+}
+
+/// Validated asset definitions, shared by all room instances.
+#[derive(Debug)]
+pub struct EnemyDefinitions {
+    entities: BTreeMap<String, EnemyDefinition>,
+    behaviors: BTreeMap<String, Arc<BehaviorDefinition>>,
+}
+
+impl EnemyDefinitions {
+    pub fn load(assets: &Path) -> Result<Self, String> {
+        let behaviors = load_behaviors(&assets.join("behaviors"))?;
+        let mut entities = BTreeMap::new();
+        for path in ron_files(&assets.join("entities"))? {
+            let entity: EnemyDefinition = read_ron(&path)?;
+            entity
+                .validate()
+                .map_err(|error| format!("{}: {error}", path.display()))?;
+            if !behaviors.contains_key(&entity.behavior) {
+                return Err(format!(
+                    "{}: entity {:?}: missing behavior name {:?}",
+                    path.display(),
+                    entity.name,
+                    entity.behavior
+                ));
+            }
+            if entities.contains_key(&entity.name) {
+                return Err(format!(
+                    "{}: duplicate entity name {:?}",
+                    path.display(),
+                    entity.name
+                ));
+            }
+            entities.insert(entity.name.clone(), entity);
+        }
+        Ok(Self {
+            entities,
+            behaviors,
+        })
+    }
+
+    pub fn spawn(
+        &self,
+        name: &str,
+        left: f32,
+        right: f32,
+        bounds: WorldBounds,
+    ) -> Result<Enemy, String> {
+        let entity = self
+            .entities
+            .get(name)
+            .ok_or_else(|| format!("missing enemy definition {name:?}"))?;
+        Enemy::from_definition(
+            entity,
+            self.behaviors[&entity.behavior].clone(),
+            left,
+            right,
+            bounds,
+        )
+    }
+}
+
 /// A floor-bound enemy. Patrol endpoints and position are rectangle centers.
 #[derive(Clone, Debug)]
 pub struct Enemy {
     position: Vec2,
     patrol_left: f32,
     patrol_right: f32,
-    direction: f32,
-    speed: f32,
-    detection_radius: f32,
+    name: String,
+    size: Vec2,
+    max_health: u8,
+    contact_damage: u8,
+    behavior: Behavior,
     health: u8,
     last_attack_id: Option<u64>,
     knockback_direction: f32,
@@ -31,23 +137,94 @@ impl Enemy {
         detection_radius: f32,
         bounds: WorldBounds,
     ) -> Self {
-        assert!(left.is_finite() && right.is_finite() && left <= right);
-        assert!(left >= bounds.left + ENEMY_SIZE.x / 2.0);
-        assert!(right <= bounds.right - ENEMY_SIZE.x / 2.0);
         assert!(speed.is_finite() && speed >= 0.0);
         assert!(detection_radius.is_finite() && detection_radius >= 0.0);
-        Self {
-            position: Vec2::new(left, bounds.floor_y - ENEMY_SIZE.y / 2.0),
+        // Compatibility constructor for programmatic spawns. It uses the same
+        // state machine as the file-backed chase definition, with custom tuning.
+        let mut definition =
+            BehaviorDefinition::from_ron(include_str!("../assets/behaviors/chase.ron"))
+                .expect("built-in chase behavior");
+        for state in &mut definition.states {
+            for action in &mut state.actions {
+                match action {
+                    Action::Patrol { speed: value } | Action::MoveTowardPlayer { speed: value } => {
+                        *value = speed
+                    }
+                    _ => {}
+                }
+            }
+            for transition in &mut state.transitions {
+                if let Condition::PlayerDistanceLessThan(value) = &mut transition.condition {
+                    *value = detection_radius;
+                }
+            }
+        }
+        Self::from_definition(
+            &EnemyDefinition {
+                name: "chase".into(),
+                health: ENEMY_MAX_HEALTH,
+                size: (ENEMY_SIZE.x, ENEMY_SIZE.y),
+                contact_damage: 1,
+                behavior: "chase".into(),
+            },
+            Arc::new(definition),
+            left,
+            right,
+            bounds,
+        )
+        .expect("valid programmatic enemy")
+    }
+
+    pub fn from_definition(
+        definition: &EnemyDefinition,
+        behavior: Arc<BehaviorDefinition>,
+        left: f32,
+        right: f32,
+        bounds: WorldBounds,
+    ) -> Result<Self, String> {
+        definition.validate()?;
+        let size = Vec2::new(definition.size.0, definition.size.1);
+        if !left.is_finite()
+            || !right.is_finite()
+            || left > right
+            || !bounds.left.is_finite()
+            || !bounds.right.is_finite()
+            || !bounds.floor_y.is_finite()
+            || left < bounds.left + size.x / 2.0
+            || right > bounds.right - size.x / 2.0
+        {
+            return Err(format!("entity {:?}: invalid patrol interval [{left}, {right}] for room bounds and entity size", definition.name));
+        }
+        Ok(Self {
+            position: Vec2::new(left, bounds.floor_y - size.y / 2.0),
             patrol_left: left,
             patrol_right: right,
-            direction: 1.0,
-            speed,
-            detection_radius,
-            health: ENEMY_MAX_HEALTH,
+            name: definition.name.clone(),
+            size,
+            max_health: definition.health,
+            contact_damage: definition.contact_damage,
+            behavior: Behavior::new(behavior)?,
+            health: definition.health,
             last_attack_id: None,
             knockback_direction: 0.0,
             knockback_remaining: 0.0,
-        }
+        })
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn max_health(&self) -> u8 {
+        self.max_health
+    }
+
+    pub fn contact_damage(&self) -> u8 {
+        self.contact_damage
+    }
+
+    pub fn behavior(&self) -> &Behavior {
+        &self.behavior
     }
 
     pub fn health(&self) -> u8 {
@@ -78,11 +255,7 @@ impl Enemy {
     }
 
     pub fn size(&self) -> Vec2 {
-        ENEMY_SIZE
-    }
-
-    pub fn detection_radius(&self) -> f32 {
-        self.detection_radius
+        self.size
     }
 
     pub fn update(&mut self, player_position: Vec2, delta_seconds: f32, bounds: WorldBounds) {
@@ -99,60 +272,30 @@ impl Enemy {
             self.position.x = (self.position.x
                 + self.knockback_direction * KNOCKBACK_SPEED * knockback_dt)
                 .clamp(
-                    bounds.left + ENEMY_SIZE.x / 2.0,
-                    bounds.right - ENEMY_SIZE.x / 2.0,
+                    bounds.left + self.size.x / 2.0,
+                    bounds.right - self.size.x / 2.0,
                 );
             self.knockback_remaining = (self.knockback_remaining - dt).max(0.0);
-            self.position.y = bounds.floor_y - ENEMY_SIZE.y / 2.0;
+            self.position.y = bounds.floor_y - self.size.y / 2.0;
             return;
         }
-        let mut travel = self.speed as f64 * dt as f64;
-        if self.position.distance(player_position) < self.detection_radius {
-            let difference = player_position.x - self.position.x;
-            if difference != 0.0 {
-                self.direction = difference.signum();
-                self.position.x += self.direction * travel.min(difference.abs() as f64) as f32;
-            }
-            self.position.x = self.position.x.clamp(
-                bounds.left + ENEMY_SIZE.x / 2.0,
-                bounds.right - ENEMY_SIZE.x / 2.0,
-            );
-        } else {
-            // Walk back to the interval after chasing; never teleport onto it.
-            let nearest = self.position.x.clamp(self.patrol_left, self.patrol_right);
-            let difference = nearest - self.position.x;
-            if difference != 0.0 {
-                self.direction = difference.signum();
-                let step = travel.min(difference.abs() as f64);
-                self.position.x += self.direction * step as f32;
-                travel -= step;
-            }
-            if self.position.x >= self.patrol_left && self.position.x <= self.patrol_right {
-                let width = (self.patrol_right - self.patrol_left) as f64;
-                if width > 0.0 {
-                    let offset = (self.position.x - self.patrol_left) as f64;
-                    let phase = if self.direction > 0.0 {
-                        offset
-                    } else {
-                        2.0 * width - offset
-                    };
-                    let phase = (phase + travel) % (2.0 * width);
-                    self.direction = if phase < width { 1.0 } else { -1.0 };
-                    self.position.x = self.patrol_left
-                        + if phase < width {
-                            phase
-                        } else {
-                            2.0 * width - phase
-                        } as f32;
-                }
-            }
-        }
-        self.position.y = bounds.floor_y - ENEMY_SIZE.y / 2.0;
+        self.behavior.update(
+            &mut self.position,
+            BehaviorContext {
+                player_position,
+                health: self.health,
+                size: self.size,
+                bounds,
+                patrol_left: self.patrol_left,
+                patrol_right: self.patrol_right,
+            },
+            dt,
+        );
     }
 
     pub fn touches(&self, position: Vec2, size: Vec2) -> bool {
         let separation = (self.position - position).abs();
-        let reach = (ENEMY_SIZE + size) / 2.0;
+        let reach = (self.size + size) / 2.0;
         !self.is_dead() && separation.x <= reach.x && separation.y <= reach.y
     }
 }

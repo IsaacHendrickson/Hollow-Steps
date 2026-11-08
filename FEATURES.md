@@ -5,6 +5,8 @@
 - Variable jump height, coyote time, and jump buffering: `src/player.rs`; `tests/jumping.rs`.
 - Directional melee swing, short hitbox, cooldown, and one hit per enemy per swing: `src/combat.rs`, `src/player.rs`, `src/game.rs`; `tests/combat.rs`, `src/game.rs` unit tests.
 - Enemy patrol, chase, contact damage, health, knockback, and death: `src/enemy.rs`, `src/game.rs`; `tests/enemies.rs`, `tests/combat.rs`, `src/game.rs` unit tests.
+- RON enemy definitions and room placements, sequential movement/wait/telegraph actions, conditional state transitions, and asset validation with portable error assertions: `src/behavior.rs`, `src/enemy.rs`, `src/room.rs`, `assets/`; `tests/behavior.rs`, `tests/definitions.rs`.
+- F5 reloads all room placements and enemy definitions atomically, with wrapped, scrollable on-screen validation errors and retry: `src/game.rs`, `src/room.rs`, `src/main.rs`; `tests/reloading.rs`, plus manual playtest.
 - Player health, invincibility, and respawn: `src/health.rs`, `src/player.rs`, `src/game.rs`; `tests/enemies.rs`, `src/game.rs` unit tests.
 - Grounded item pickup and persistent session inventory: `src/item.rs`, `src/player.rs`, `src/game.rs`; `tests/items.rs`, `tests/rooms.rs`.
 - Collectible Dash ability, facing, duration, cooldown, and one air dash per landing: `src/item.rs`, `src/player.rs`; `src/player.rs` dash tests, `tests/items.rs`, `src/game.rs` unit tests.

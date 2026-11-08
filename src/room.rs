@@ -1,9 +1,13 @@
-use macroquad::math::{Rect, Vec2};
+use std::path::Path;
 
+use macroquad::math::{Rect, Vec2};
+use serde::Deserialize;
+
+use crate::behavior::read_ron;
 use crate::boss::Boss;
 use crate::boss_special::BossSpecials;
 use crate::coin::{Coin, COIN_RADIUS};
-use crate::enemy::Enemy;
+use crate::enemy::{Enemy, EnemyDefinitions};
 use crate::item::{Item, WorldItem, ITEM_SIZE};
 use crate::player::WorldBounds;
 
@@ -111,8 +115,62 @@ impl Room {
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RoomEnemies {
+    pub enemies: Vec<EnemyPlacement>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnemyPlacement {
+    pub definition: String,
+    pub patrol_left: f32,
+    pub patrol_right: f32,
+}
+
+pub fn load_room_enemies(
+    path: &Path,
+    definitions: &EnemyDefinitions,
+    bounds: WorldBounds,
+) -> Result<Vec<Enemy>, String> {
+    let room: RoomEnemies = read_ron(path)?;
+    room.enemies
+        .into_iter()
+        .enumerate()
+        .map(|(index, spawn)| {
+            definitions
+                .spawn(
+                    &spawn.definition,
+                    spawn.patrol_left,
+                    spawn.patrol_right,
+                    bounds,
+                )
+                .map_err(|error| format!("{}: enemy {index}: {error}", path.display()))
+        })
+        .collect()
+}
+
 pub fn test_rooms() -> [Room; 3] {
-    [
+    load_rooms(&Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"))
+        .expect("failed to load room assets")
+}
+
+pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
+    let definitions = EnemyDefinitions::load(assets)?;
+    let mut errors = Vec::new();
+    let mut load_enemies = |file: &str, bounds| match load_room_enemies(
+        &assets.join("rooms").join(file),
+        &definitions,
+        bounds,
+    ) {
+        Ok(enemies) => enemies,
+        Err(error) => {
+            errors.push(error);
+            Vec::new()
+        }
+    };
+    let rooms = [
         Room {
             id: RoomId::First,
             boss: None,
@@ -123,13 +181,7 @@ pub fn test_rooms() -> [Room; 3] {
                 })
                 .to_vec(),
             spawn: Vec2::new(180.0, FLOOR_Y - 24.0),
-            enemies: vec![Enemy::new(
-                560.0,
-                800.0,
-                90.0,
-                180.0,
-                WorldBounds::new(0.0, 960.0, FLOOR_Y),
-            )],
+            enemies: load_enemies("first.ron", WorldBounds::new(0.0, 960.0, FLOOR_Y)),
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
             exits: vec![Exit {
@@ -160,7 +212,7 @@ pub fn test_rooms() -> [Room; 3] {
                 })
                 .to_vec(),
             spawn: Vec2::new(160.0, 376.0),
-            enemies: vec![],
+            enemies: load_enemies("second.ron", WorldBounds::new(80.0, 880.0, 400.0)),
             bounds: Rect::new(80.0, 40.0, 800.0, 360.0),
             floor_y: 400.0,
             exits: vec![
@@ -186,7 +238,7 @@ pub fn test_rooms() -> [Room; 3] {
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
             spawn: Vec2::new(160.0, 436.0),
-            enemies: vec![],
+            enemies: load_enemies("boss.ron", WorldBounds::new(0.0, 960.0, FLOOR_Y)),
             boss: None,
             boss_special: Some(BossSpecials::new(Vec2::new(560.0, FLOOR_Y - 24.0))),
             coins: vec![],
@@ -199,7 +251,12 @@ pub fn test_rooms() -> [Room; 3] {
             }],
             items: vec![],
         },
-    ]
+    ];
+    if errors.is_empty() {
+        Ok(rooms)
+    } else {
+        Err(errors.join("\n"))
+    }
 }
 
 #[cfg(test)]

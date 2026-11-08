@@ -1,10 +1,12 @@
+use std::path::{Path, PathBuf};
+
 use macroquad::math::{Rect, Vec2};
 
 use crate::boss_special::SpecialAttack;
 use crate::coin::Coin;
 use crate::item::WorldItem;
 use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
-use crate::room::{test_rooms, Room, RoomId};
+use crate::room::{load_rooms, Room, RoomId};
 
 pub use crate::room::FLOOR_Y;
 
@@ -21,6 +23,7 @@ const SPECIAL_ATTACK_INTERVAL: f32 = 3.0;
 pub struct GameState {
     player: Player,
     rooms: [Room; 3],
+    assets: PathBuf,
     current_room: RoomId,
     coin_count: u32,
     inventory_open: bool,
@@ -38,14 +41,20 @@ impl Default for GameState {
 }
 impl GameState {
     pub fn new() -> Self {
-        let rooms = test_rooms();
+        Self::try_new(&Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"))
+            .expect("failed to load game assets")
+    }
+
+    pub fn try_new(assets: &Path) -> Result<Self, String> {
+        let rooms = load_rooms(assets)?;
         let world_bounds = rooms[RoomId::First.index()].world_bounds();
         let mut player = Player::new(Vec2::new(180.0, 0.0), PlayerConfig::default());
         player.place_at(rooms[RoomId::First.index()].spawn, world_bounds);
 
-        Self {
+        Ok(Self {
             player,
             rooms,
+            assets: assets.to_owned(),
             current_room: RoomId::First,
             coin_count: 0,
             inventory_open: false,
@@ -54,7 +63,7 @@ impl GameState {
             last_special_hit: None,
             spawned_enemy_count: 0,
             spawned_coin_count: 0,
-        }
+        })
     }
 
     pub fn player(&self) -> &Player {
@@ -87,6 +96,16 @@ impl GameState {
 
     pub fn world_bounds(&self) -> WorldBounds {
         self.room().world_bounds()
+    }
+
+    /// Re-read every room and its enemy definitions before applying any changes.
+    /// Enemy lists restart; player, pickups, and boss progress stay intact.
+    pub fn reload_rooms(&mut self) -> Result<(), String> {
+        let rooms = load_rooms(&self.assets)?;
+        for (current, reloaded) in self.rooms.iter_mut().zip(rooms) {
+            current.enemies = reloaded.enemies;
+        }
+        Ok(())
     }
 
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32) {
@@ -166,18 +185,23 @@ impl GameState {
             }
         }
         room.enemies.retain(|enemy| !enemy.is_dead());
-        if special_damage > 0
-            || room
-                .enemies
-                .iter()
-                .any(|enemy| enemy.touches(self.player.position(), self.player.size()))
-            || room
-                .boss
+        let enemy_damage = room
+            .enemies
+            .iter()
+            .filter(|enemy| enemy.touches(self.player.position(), self.player.size()))
+            .map(|enemy| enemy.contact_damage())
+            .max()
+            .unwrap_or(0);
+        let boss_damage = u8::from(
+            room.boss
                 .as_ref()
-                .is_some_and(|boss| boss.damages(self.player.position(), self.player.size()))
-        {
-            self.player.take_damage();
-        }
+                .is_some_and(|boss| boss.damages(self.player.position(), self.player.size())),
+        );
+        self.player.take_damage_amount(
+            enemy_damage
+                .max(boss_damage)
+                .max(u8::from(special_damage > 0)),
+        );
         if self.player.health().current() == 0 {
             self.player.respawn(room.spawn, bounds);
             return;

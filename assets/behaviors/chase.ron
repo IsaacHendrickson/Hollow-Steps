@@ -1,0 +1,21 @@
+(
+    initial_state: "patrol",
+    states: [
+        (
+            name: "patrol",
+            actions: [patrol(speed: 90.0)],
+            transitions: [
+                (target: "chase", condition: player_distance_less_than(180.0)),
+            ],
+        ),
+        (
+            name: "chase",
+            actions: [move_toward_player(speed: 90.0)],
+            transitions: [
+                // The complement includes equality, preserving strict detection.
+                (target: "patrol", condition: player_distance_less_than(180.0), invert: true),
+                (target: "chase", condition: action_finished),
+            ],
+        ),
+    ],
+)

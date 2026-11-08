@@ -1,0 +1,6 @@
+(
+    initial_state: "patrol",
+    states: [
+        (name: "patrol", actions: [patrol(speed: 90.0)], transitions: []),
+    ],
+)
