@@ -92,6 +92,9 @@ impl DefinitionDraft {
 
 /// Decode the six side-panel fields without touching the existing draft on failure.
 pub fn entity_from_fields(fields: &[String; 6]) -> Result<EnemyDefinition, String> {
+    for (i, text) in fields.iter().enumerate() {
+        validate_entity_field(i, text)?;
+    }
     let entity = EnemyDefinition {
         name: fields[0].clone(),
         health: fields[1].parse().map_err(|_| "health must be 0..255")?,
@@ -240,4 +243,210 @@ pub fn write_files(files: &[(PathBuf, String)]) -> Result<(), String> {
         let _ = std::fs::remove_file(temp);
     }
     result
+}
+
+/// Text buffers preserve partially typed numbers without corrupting loaded values.
+#[derive(Clone, Debug)]
+pub struct ActionInput {
+    pub kind: usize,
+    pub values: Vec<String>,
+}
+impl ActionInput {
+    pub fn new(kind: usize) -> Result<Self, String> {
+        let action = crate::behavior::Action::defaults(kind).ok_or("unknown action")?;
+        Ok(Self::from_action(&action))
+    }
+    pub fn from_action(action: &crate::behavior::Action) -> Self {
+        Self {
+            kind: action.kind(),
+            values: action.parameters().into_iter().map(|(_, v)| v).collect(),
+        }
+    }
+    pub fn build(&self) -> Result<crate::behavior::Action, String> {
+        let mut action = crate::behavior::Action::defaults(self.kind).ok_or("unknown action")?;
+        if self.values.len() != action.parameters().len() {
+            return Err("missing action parameter".into());
+        }
+        for (i, value) in self.values.iter().enumerate() {
+            action.set_parameter(i, value)?;
+        }
+        Ok(action)
+    }
+}
+#[derive(Clone, Debug)]
+pub struct TransitionInput {
+    pub target: String,
+    pub kind: usize,
+    pub value: String,
+    pub invert: bool,
+}
+impl TransitionInput {
+    pub fn new(target: String, kind: usize) -> Result<Self, String> {
+        let condition = crate::behavior::Condition::defaults(kind).ok_or("unknown condition")?;
+        Ok(Self {
+            target,
+            kind,
+            value: condition.parameter().map(|(_, v)| v).unwrap_or_default(),
+            invert: false,
+        })
+    }
+    pub fn change_kind(&mut self, kind: usize) -> Result<(), String> {
+        let new = Self::new(self.target.clone(), kind)?;
+        self.kind = new.kind;
+        self.value = new.value;
+        Ok(())
+    }
+    pub fn build(&self, names: &[String]) -> Result<crate::behavior::Transition, String> {
+        if !names.contains(&self.target) {
+            return Err("missing target state".into());
+        }
+        let mut condition =
+            crate::behavior::Condition::defaults(self.kind).ok_or("unknown condition")?;
+        if condition.parameter().is_some() {
+            condition.set_parameter(&self.value)?;
+        }
+        Ok(crate::behavior::Transition {
+            target: self.target.clone(),
+            condition,
+            invert: self.invert,
+        })
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct StateInputs {
+    pub actions: Vec<ActionInput>,
+    pub transitions: Vec<TransitionInput>,
+}
+impl StateInputs {
+    pub fn from_state(state: &State) -> Self {
+        Self {
+            actions: state.actions.iter().map(ActionInput::from_action).collect(),
+            transitions: state
+                .transitions
+                .iter()
+                .map(|t| TransitionInput {
+                    target: t.target.clone(),
+                    kind: t.condition.kind(),
+                    value: t.condition.parameter().map(|(_, v)| v).unwrap_or_default(),
+                    invert: t.invert,
+                })
+                .collect(),
+        }
+    }
+    pub fn add_action(&mut self, kind: usize) -> Result<(), String> {
+        self.actions.push(ActionInput::new(kind)?);
+        Ok(())
+    }
+    pub fn add_transition(&mut self, target: String, kind: usize) -> Result<(), String> {
+        self.transitions.push(TransitionInput::new(target, kind)?);
+        Ok(())
+    }
+    /// Transactional: invalid input never changes the state being saved.
+    pub fn apply(&self, state: &mut State, names: &[String]) -> Result<(), String> {
+        let actions = self
+            .actions
+            .iter()
+            .map(ActionInput::build)
+            .collect::<Result<Vec<_>, _>>()?;
+        let transitions = self
+            .transitions
+            .iter()
+            .map(|t| t.build(names))
+            .collect::<Result<Vec<_>, _>>()?;
+        state.actions = actions;
+        state.transitions = transitions;
+        Ok(())
+    }
+}
+/// Bounds-checked ordered list edits, shared by actions and transitions.
+pub fn remove_row<T>(rows: &mut Vec<T>, index: usize) -> Result<(), String> {
+    if index >= rows.len() {
+        return Err("missing row".into());
+    }
+    rows.remove(index);
+    Ok(())
+}
+pub fn move_row<T>(rows: &mut [T], index: usize, up: bool) -> Result<(), String> {
+    let target = if up {
+        index.checked_sub(1)
+    } else {
+        index.checked_add(1)
+    }
+    .ok_or("list boundary")?;
+    if index >= rows.len() || target >= rows.len() {
+        return Err("list boundary".into());
+    }
+    rows.swap(index, target);
+    Ok(())
+}
+
+/// Fixed preferred width, capped to the viewport; Save has its own reserved strip.
+#[derive(Clone, Copy, Debug)]
+pub struct PanelLayout {
+    pub panel: macroquad::math::Rect,
+    pub body: macroquad::math::Rect,
+    pub save: macroquad::math::Rect,
+}
+impl PanelLayout {
+    pub fn new(width: f32, height: f32) -> Self {
+        use macroquad::math::Rect;
+        let width = if width.is_finite() {
+            width.max(0.0)
+        } else {
+            0.0
+        };
+        let height = if height.is_finite() {
+            height.max(0.0)
+        } else {
+            0.0
+        };
+        let w = width.min(360.0);
+        let footer = height.min(34.0);
+        Self {
+            panel: Rect::new(width - w, 0.0, w, height),
+            body: Rect::new(width - w, 0.0, w, height - footer),
+            save: Rect::new(width - w, height - footer, w, footer),
+        }
+    }
+    pub fn scroll_bounds(&self, content_height: f32, requested: f32) -> f32 {
+        requested
+            .max(0.0)
+            .min((content_height - self.body.h).max(0.0))
+    }
+}
+/// Character wrapping also splits unbroken identifiers and filesystem paths.
+pub fn wrap_label(text: &str, columns: usize) -> Vec<String> {
+    let columns = columns.max(1);
+    text.lines()
+        .flat_map(|line| {
+            let chars: Vec<_> = line.chars().collect();
+            chars
+                .chunks(columns)
+                .map(|chunk| chunk.iter().collect())
+                .collect::<Vec<String>>()
+        })
+        .collect()
+}
+
+pub fn validate_entity_field(index: usize, text: &str) -> Result<(), String> {
+    match index {
+        0 | 5 if text.trim().is_empty() => Err("must not be empty".into()),
+        1 => match text.parse::<u8>() {
+            Ok(1..=255) => Ok(()),
+            _ => Err("expected integer 1..255".into()),
+        },
+        2 | 3 => {
+            let value = crate::behavior::parse_nonnegative(text)?;
+            if value > 0.0 {
+                Ok(())
+            } else {
+                Err("must be positive".into())
+            }
+        }
+        4 => text
+            .parse::<u8>()
+            .map(|_| ())
+            .map_err(|_| "expected integer 0..255".into()),
+        _ => Ok(()),
+    }
 }

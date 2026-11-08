@@ -234,7 +234,10 @@ inventory, collected coins/items, pause state, and boss progress are preserved.
 
 F2 pauses gameplay and opens the room editor; F2 again returns to play.
 The editor uses Macroquad's built-in immediate-mode UI (already a dependency)
-for buttons and scrollable definition/room lists, avoiding another UI runtime.
+for buttons, full-width labeled inputs, dropdowns, and scrolling, avoiding another
+UI runtime or dependency. The resizable window keeps a fixed 360-pixel side panel
+(capped to the window width), wraps long labels, shortens list/dropdown captions,
+and reserves a separate always-visible Save strip below the scrolling controls.
 Mouse input and preview drawing stay in `main.rs`; `editor.rs` owns window-free
 place, move, delete, validation, and serialization rules. Edits use authored RON
 placements rather than enemies that have moved or pickups already collected.
@@ -261,10 +264,10 @@ Choose an entity in the **Entity** list, click **Place**, then click the room.
 Choose **Select / drag** to move entities, the blue respawn marker, or a green
 exit span. Right-click an enemy/item or select it and press Delete to remove it.
 Select an exit, choose a **Target**, and click **Set exit target**; use
-**Edit destination spawn** to drag its purple arrival marker in the target
+**Arrival spawn** to drag its purple arrival marker in the target
 room's coordinate space. **Back to room** restores the current-room view.
 **Add exit** creates a span on the chosen **Edge** so new rooms can be connected.
-**Save room** applies the draft to gameplay and disk; errors remain visible in
+**Save** applies the draft to gameplay and disk; errors remain visible in
 the footer and preserve the draft, running room, and previous file.
 Closing with F2, opening another room, or choosing New room discards unsaved
 changes. A star next to the room ID marks unsaved changes. Saving resets that
@@ -284,7 +287,20 @@ The behavior section edits the selected entity's shared behavior file. Choose a
 state, rename it, make it initial, add a named state, or remove it. Renaming updates
 all transition targets. Removing drops transitions targeting that state and, if
 needed, makes the first remaining state initial; the final state cannot be removed.
-Actions and transitions are editable ordered RON lists using the existing syntax:
+Actions have a type name, labeled numeric parameters, and Up/Down/Delete controls.
+Choose a type and **Add action** to insert editable defaults. Transitions have
+target-state and condition dropdowns, a condition value when required, an invert
+checkbox, and the same ordering controls. Invalid numbers show errors beside their
+fields and block saving; speeds, durations, and distances must be finite and
+nonnegative, and health thresholds must be integers in 0..255.
+
+The loader enums and editor type catalogs come from the same `actions!` and
+`conditions!` declarations in `behavior.rs`. Add a supported variant there with
+its parameter labels and defaults to include it in the dropdown automatically.
+The compiler also requires gameplay matches to handle the new variant.
+
+**Advanced: raw RON** toggles the original ordered-list text editors using the
+existing syntax:
 
 ```ron
 // Actions: insert, delete, reorder, or edit parameters in this list.
@@ -297,8 +313,8 @@ Actions and transitions are editable ordered RON lists using the existing syntax
 Other actions are `move_toward_player(speed: ...)` and
 `move_away_from_player(speed: ...)`. Other conditions are `timer_elapsed(...)`,
 `player_distance_greater_than(...)`, and `health_below(...)`.
-**Save all edits** (or **Save room**) validates all definitions, room placements,
+The pinned **Save** button validates all definitions, room placements,
 and exit destinations before any write. Syntax and validation errors appear in
-the footer; correct the edit and retry. Saving keeps the existing RON schemas.
+the panel; correct the edit and retry. Saving keeps the existing RON schemas.
 Definition parsing, state edits, and save planning live in `definition_editor.rs`
 and are tested without a window, including save/reload and invalid-save checks.
