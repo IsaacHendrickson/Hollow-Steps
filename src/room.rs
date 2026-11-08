@@ -120,10 +120,16 @@ pub fn test_rooms() -> [Room; 2] {
                 target_room: RoomId::Second,
                 spawn: Vec2::new(160.0, 376.0),
             }],
-            items: vec![WorldItem {
-                item: Item::AmberShard,
-                position: Vec2::new(300.0, FLOOR_Y - ITEM_SIZE.y / 2.0),
-            }],
+            items: vec![
+                WorldItem {
+                    item: Item::AmberShard,
+                    position: Vec2::new(300.0, FLOOR_Y - ITEM_SIZE.y / 2.0),
+                },
+                WorldItem {
+                    item: Item::Dash,
+                    position: Vec2::new(500.0, FLOOR_Y - ITEM_SIZE.y / 2.0),
+                },
+            ],
         },
         Room {
             id: RoomId::Second,

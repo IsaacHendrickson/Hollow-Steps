@@ -3,6 +3,11 @@ use macroquad::math::Vec2;
 use crate::health::Health;
 use crate::item::Item;
 
+pub const DASH_SPEED: f32 = 800.0;
+pub const DASH_DURATION: f32 = 0.2;
+/// Minimum time between dash starts.
+pub const DASH_COOLDOWN: f32 = 0.5;
+
 /// A single frame of player intent.
 ///
 /// `jump_pressed` is an edge-triggered input: it should be true only on the
@@ -13,6 +18,8 @@ pub struct PlayerInput {
     pub jump_pressed: bool,
     /// Edge-triggered pickup intent (Up).
     pub pickup_pressed: bool,
+    /// Edge-triggered dash intent (Shift).
+    pub dash_pressed: bool,
 }
 
 /// Tunable values that define how the player feels.
@@ -63,6 +70,10 @@ pub struct Player {
     config: PlayerConfig,
     grounded: bool,
     collected_items: Vec<Item>,
+    facing: f32,
+    dash_remaining: f32,
+    dash_cooldown: f32,
+    air_dash_used: bool,
     health: Health,
 }
 
@@ -75,6 +86,10 @@ impl Player {
             config,
             grounded: false,
             collected_items: Vec::new(),
+            facing: 1.0,
+            dash_remaining: 0.0,
+            dash_cooldown: 0.0,
+            air_dash_used: false,
             health: Health::default(),
         }
     }
@@ -130,6 +145,9 @@ impl Player {
     pub fn place_at(&mut self, position: Vec2, bounds: WorldBounds) {
         self.position = position;
         self.velocity = Vec2::ZERO;
+        self.dash_remaining = 0.0;
+        self.dash_cooldown = 0.0;
+        self.air_dash_used = false;
         self.resolve_horizontal_bounds(bounds);
         self.resolve_floor(bounds);
     }
@@ -144,16 +162,46 @@ impl Player {
         self.health.update(delta_seconds);
         let move_axis = input.move_axis.clamp(-1.0, 1.0);
 
-        self.velocity.x = move_axis * self.config.move_speed;
-
-        if input.jump_pressed && self.grounded {
+        if self.dash_remaining == 0.0 && move_axis != 0.0 {
+            self.facing = move_axis.signum();
+        }
+        if input.jump_pressed && self.grounded && self.dash_remaining == 0.0 {
             self.velocity.y = -self.config.jump_speed;
             self.grounded = false;
         }
 
-        self.velocity.y =
-            (self.velocity.y + self.config.gravity * delta_seconds).min(self.config.max_fall_speed);
-        self.position += self.velocity * delta_seconds;
+        if input.dash_pressed
+            && self.collected_items.contains(&Item::Dash)
+            && self.dash_remaining == 0.0
+            && self.dash_cooldown == 0.0
+            && (self.grounded || !self.air_dash_used)
+        {
+            self.dash_remaining = DASH_DURATION;
+            self.dash_cooldown = DASH_COOLDOWN;
+            self.air_dash_used |= !self.grounded;
+        }
+
+        // Split long frames so dash speed never lasts beyond its duration.
+        let dash_seconds = delta_seconds.min(self.dash_remaining);
+        if self.dash_remaining > 0.0 {
+            self.velocity = Vec2::new(self.facing * DASH_SPEED, 0.0);
+            self.position += self.velocity * dash_seconds;
+            self.dash_remaining = (self.dash_remaining - dash_seconds).max(0.0);
+            if self.dash_remaining < f32::EPSILON {
+                self.dash_remaining = 0.0;
+            }
+        }
+        let normal_seconds = delta_seconds - dash_seconds;
+        if self.dash_remaining == 0.0 {
+            self.velocity.x = move_axis * self.config.move_speed;
+            self.velocity.y = (self.velocity.y + self.config.gravity * normal_seconds)
+                .min(self.config.max_fall_speed);
+            self.position += self.velocity * normal_seconds;
+        }
+        self.dash_cooldown = (self.dash_cooldown - delta_seconds).max(0.0);
+        if self.dash_cooldown < f32::EPSILON {
+            self.dash_cooldown = 0.0;
+        }
 
         self.resolve_horizontal_bounds(bounds);
         self.resolve_floor(bounds);
@@ -178,6 +226,7 @@ impl Player {
             self.position.y = floor_position;
             self.velocity.y = 0.0;
             self.grounded = true;
+            self.air_dash_used = false;
         } else {
             self.grounded = false;
         }
@@ -311,5 +360,136 @@ mod tests {
         assert_eq!(player.velocity(), Vec2::ZERO);
         assert!(!player.is_grounded());
         assert_eq!(player.collected_items(), &[Item::AmberShard]);
+    }
+}
+
+#[cfg(test)]
+mod dash_tests {
+    use super::*;
+
+    const BOUNDS: WorldBounds = WorldBounds::new(0.0, 960.0, 460.0);
+    const DASH: PlayerInput = PlayerInput {
+        dash_pressed: true,
+        move_axis: 0.0,
+        jump_pressed: false,
+        pickup_pressed: false,
+    };
+
+    fn equipped_player() -> Player {
+        let mut player = Player::new(Vec2::ZERO, PlayerConfig::default());
+        player.place_on_floor(400.0, BOUNDS);
+        player.collect_item(Item::Dash);
+        player
+    }
+
+    #[test]
+    fn dash_requires_pickup() {
+        let mut player = equipped_player();
+        player.collected_items.clear();
+        player.update(DASH, 0.1, BOUNDS);
+        assert_eq!(player.position.x, 400.0);
+    }
+
+    #[test]
+    fn dash_uses_last_facing_and_expires_after_point_two_seconds() {
+        let mut player = equipped_player();
+        player.update(
+            PlayerInput {
+                move_axis: -1.0,
+                ..PlayerInput::default()
+            },
+            0.0,
+            BOUNDS,
+        );
+        player.update(DASH, 0.1, BOUNDS);
+        assert_eq!(player.position, Vec2::new(320.0, 436.0));
+        assert_eq!(player.velocity.x, -DASH_SPEED);
+        // Opposite input cannot reverse a dash in progress.
+        player.update(
+            PlayerInput {
+                move_axis: 1.0,
+                ..PlayerInput::default()
+            },
+            0.1,
+            BOUNDS,
+        );
+        assert_eq!(player.position.x, 240.0);
+        player.update(PlayerInput::default(), 0.1, BOUNDS);
+        assert_eq!(player.position.x, 240.0);
+    }
+
+    #[test]
+    fn cooldown_blocks_another_dash_until_half_a_second_after_start() {
+        let mut player = equipped_player();
+        player.update(DASH, 0.25, BOUNDS);
+        let x = player.position.x;
+        player.update(DASH, 0.25, BOUNDS);
+        assert_eq!(player.position.x, x);
+        player.update(DASH, 0.1, BOUNDS);
+        assert_eq!(player.position.x, x + 80.0);
+    }
+
+    #[test]
+    fn air_dash_is_horizontal_and_only_landing_restores_it() {
+        let mut player = equipped_player();
+        player.update(
+            PlayerInput {
+                jump_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.0,
+            BOUNDS,
+        );
+        for _ in 0..20 {
+            player.update(PlayerInput::default(), 0.01, BOUNDS);
+        }
+        let y = player.position.y;
+        player.update(DASH, 0.2, BOUNDS);
+        assert_eq!(player.position.y, y);
+        for _ in 0..30 {
+            player.update(PlayerInput::default(), 0.01, BOUNDS);
+        }
+        assert!(!player.is_grounded());
+        let x = player.position.x;
+        player.update(DASH, 0.0, BOUNDS);
+        assert_eq!(player.dash_remaining, 0.0);
+        assert_eq!(player.position.x, x);
+        player.update(PlayerInput::default(), 1.0, BOUNDS);
+        assert!(player.is_grounded());
+        player.update(
+            PlayerInput {
+                jump_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.1,
+            BOUNDS,
+        );
+        player.update(DASH, 0.1, BOUNDS);
+        assert_eq!(player.velocity.x, DASH_SPEED);
+        assert_eq!(player.velocity.y, 0.0);
+        assert!(!player.is_grounded());
+    }
+
+    #[test]
+    fn zero_and_large_steps_preserve_duration_and_bounds() {
+        let mut player = equipped_player();
+        player.update(DASH, 0.0, BOUNDS);
+        assert_eq!(player.position.x, 400.0);
+        player.update(PlayerInput::default(), 10.0, BOUNDS);
+        assert_eq!(player.position.x, 560.0);
+        player.place_on_floor(900.0, BOUNDS);
+        player.update(DASH, 0.2, BOUNDS);
+        assert_eq!(player.position.x, 944.0);
+        player.place_on_floor(30.0, BOUNDS);
+        player.update(
+            PlayerInput {
+                move_axis: -1.0,
+                ..DASH
+            },
+            10.0,
+            BOUNDS,
+        );
+        assert_eq!(player.position.x, 16.0);
+        assert!(player.is_grounded());
     }
 }

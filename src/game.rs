@@ -288,6 +288,71 @@ mod tests {
     }
 
     #[test]
+    fn room_transition_clears_active_dash_and_preserves_ability() {
+        let mut game = GameState::new();
+        game.player.collect_item(crate::item::Item::Dash);
+        game.player.place_on_floor(900.0, game.world_bounds());
+        game.update(
+            PlayerInput {
+                dash_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.05,
+        );
+
+        assert_eq!(game.room().id, RoomId::Second);
+        let spawn = game.player.position();
+        game.update(PlayerInput::default(), 0.05);
+        assert_eq!(game.player.position(), spawn);
+        assert_eq!(game.player.velocity(), Vec2::ZERO);
+        game.update(
+            PlayerInput {
+                dash_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.05,
+        );
+        assert_eq!(game.player.position().x, spawn.x + 40.0);
+    }
+
+    #[test]
+    fn death_clears_active_dash_and_preserves_collected_ability() {
+        let mut game = GameState::new();
+        let bounds = game.world_bounds();
+        for _ in 0..4 {
+            assert!(game.player.take_damage());
+            game.player.update(PlayerInput::default(), 1.0, bounds);
+        }
+        game.player.collect_item(crate::item::Item::Dash);
+        game.player.place_on_floor(500.0, bounds);
+        game.rooms[0].enemies = vec![crate::enemy::Enemy::new(500.0, 500.0, 0.0, 0.0, bounds)];
+        game.update(
+            PlayerInput {
+                dash_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.0,
+        );
+
+        assert_eq!(game.player.health().current(), crate::health::MAX_HEALTH);
+        assert!(game.player.health().is_invincible());
+        let spawn = game.room().spawn;
+        assert_eq!(game.player.position(), spawn);
+        game.update(PlayerInput::default(), 0.05);
+        assert_eq!(game.player.position(), spawn);
+        assert_eq!(game.player.velocity(), Vec2::ZERO);
+        assert_eq!(game.player.collected_items(), &[crate::item::Item::Dash]);
+        game.update(
+            PlayerInput {
+                dash_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.05,
+        );
+        assert_eq!(game.player.position().x, spawn.x + 40.0);
+    }
+
+    #[test]
     fn transition_honors_an_airborne_spawn() {
         let mut game = GameState::new();
         let spawn = Vec2::new(300.0, 200.0);

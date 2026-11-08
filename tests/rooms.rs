@@ -118,5 +118,6 @@ fn collected_items_stay_collected_after_visiting_another_room() {
     walk_to_exit(&mut game, -1.0);
 
     assert_eq!(game.player().collected_items(), &[Item::AmberShard]);
-    assert!(game.items().is_empty());
+    assert_eq!(game.items().len(), 1);
+    assert_eq!(game.items()[0].item, Item::Dash);
 }
