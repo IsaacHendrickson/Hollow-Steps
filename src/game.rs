@@ -87,6 +87,18 @@ impl GameState {
         for enemy in &mut room.enemies {
             enemy.update(self.player.position(), delta_seconds, bounds);
         }
+        if let Some(hitbox) = self
+            .player
+            .attack()
+            .hitbox(self.player.position(), self.player.size())
+        {
+            for enemy in &mut room.enemies {
+                if enemy.touches(hitbox.center(), hitbox.size()) {
+                    enemy.hit(self.player.attack().id(), self.player.attack().direction());
+                }
+            }
+        }
+        room.enemies.retain(|enemy| !enemy.is_dead());
         if room
             .enemies
             .iter()
@@ -225,6 +237,9 @@ mod tests {
                 move_axis: 1.0,
                 jump_pressed: true,
                 pickup_pressed: true,
+                attack_pressed: true,
+                jump_held: true,
+                dash_pressed: true,
             },
             10.0,
         );
@@ -285,6 +300,73 @@ mod tests {
             game.rooms[RoomId::First.index()].enemies[0].position(),
             first_enemy_position
         );
+    }
+
+    #[test]
+    fn melee_respects_range_facing_and_hits_each_enemy_once_per_swing() {
+        let mut game = GameState::new();
+        let bounds = game.world_bounds();
+        game.player.place_on_floor(200.0, bounds);
+        game.rooms[0].enemies = vec![
+            crate::enemy::Enemy::new(250.0, 250.0, 0.0, 0.0, bounds),
+            crate::enemy::Enemy::new(150.0, 150.0, 0.0, 0.0, bounds),
+            crate::enemy::Enemy::new(400.0, 400.0, 0.0, 0.0, bounds),
+        ];
+        let swing = PlayerInput {
+            attack_pressed: true,
+            ..PlayerInput::default()
+        };
+        game.update(swing, 0.0);
+        game.update(swing, 0.0);
+        assert_eq!(game.room().enemies[0].health(), 2);
+        assert_eq!(game.room().enemies[1].health(), 3);
+        assert_eq!(game.room().enemies[2].health(), 3);
+        game.update(PlayerInput::default(), crate::combat::ATTACK_COOLDOWN);
+        game.update(
+            PlayerInput {
+                move_axis: -1.0,
+                attack_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.0,
+        );
+        assert_eq!(game.room().enemies[1].health(), 2);
+    }
+
+    #[test]
+    fn lethal_swing_removes_enemy_before_contact_damage_and_death_persists() {
+        let mut game = GameState::new();
+        let bounds = game.world_bounds();
+        game.player.place_on_floor(200.0, bounds);
+        game.rooms[0].enemies = vec![crate::enemy::Enemy::new(230.0, 230.0, 0.0, 0.0, bounds)];
+        game.rooms[0].enemies[0].hit(100, 1.0);
+        game.rooms[0].enemies[0].hit(101, 1.0);
+        game.update(
+            PlayerInput {
+                attack_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.0,
+        );
+        assert!(game.room().enemies.is_empty());
+        assert_eq!(game.player.health().current(), 5);
+        game.update(
+            PlayerInput {
+                move_axis: 1.0,
+                ..PlayerInput::default()
+            },
+            10.0,
+        );
+        assert_eq!(game.room().id, RoomId::Second);
+        game.update(
+            PlayerInput {
+                move_axis: -1.0,
+                ..PlayerInput::default()
+            },
+            10.0,
+        );
+        assert_eq!(game.room().id, RoomId::First);
+        assert!(game.room().enemies.is_empty());
     }
 
     #[test]

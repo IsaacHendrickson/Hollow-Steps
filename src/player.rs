@@ -1,5 +1,6 @@
 use macroquad::math::Vec2;
 
+use crate::combat::Attack;
 use crate::health::Health;
 use crate::item::Item;
 
@@ -16,6 +17,9 @@ pub const DASH_COOLDOWN: f32 = 0.5;
 pub struct PlayerInput {
     pub move_axis: f32,
     pub jump_pressed: bool,
+    pub jump_held: bool,
+    /// Edge-triggered melee intent (X).
+    pub attack_pressed: bool,
     /// Edge-triggered pickup intent (Up).
     pub pickup_pressed: bool,
     /// Edge-triggered dash intent (Shift).
@@ -29,6 +33,9 @@ pub struct PlayerConfig {
     pub jump_speed: f32,
     pub gravity: f32,
     pub max_fall_speed: f32,
+    pub held_jump_gravity_multiplier: f32,
+    pub coyote_seconds: f32,
+    pub jump_buffer_seconds: f32,
     pub size: Vec2,
 }
 
@@ -39,6 +46,9 @@ impl Default for PlayerConfig {
             jump_speed: 480.0,
             gravity: 1_400.0,
             max_fall_speed: 900.0,
+            held_jump_gravity_multiplier: 0.5,
+            coyote_seconds: 0.1,
+            jump_buffer_seconds: 0.12,
             size: Vec2::new(32.0, 48.0),
         }
     }
@@ -75,6 +85,9 @@ pub struct Player {
     dash_cooldown: f32,
     air_dash_used: bool,
     health: Health,
+    attack: Attack,
+    coyote_remaining: f32,
+    jump_buffer_remaining: f32,
 }
 
 impl Player {
@@ -91,7 +104,14 @@ impl Player {
             dash_cooldown: 0.0,
             air_dash_used: false,
             health: Health::default(),
+            attack: Attack::default(),
+            coyote_remaining: 0.0,
+            jump_buffer_remaining: 0.0,
         }
+    }
+
+    pub fn attack(&self) -> &Attack {
+        &self.attack
     }
 
     pub fn health(&self) -> &Health {
@@ -145,6 +165,9 @@ impl Player {
     pub fn place_at(&mut self, position: Vec2, bounds: WorldBounds) {
         self.position = position;
         self.velocity = Vec2::ZERO;
+        self.attack.cancel();
+        self.coyote_remaining = 0.0;
+        self.jump_buffer_remaining = 0.0;
         self.dash_remaining = 0.0;
         self.dash_cooldown = 0.0;
         self.air_dash_used = false;
@@ -160,14 +183,40 @@ impl Player {
             0.0
         };
         self.health.update(delta_seconds);
-        let move_axis = input.move_axis.clamp(-1.0, 1.0);
-
+        let move_axis = if input.move_axis.is_finite() {
+            input.move_axis.clamp(-1.0, 1.0)
+        } else {
+            0.0
+        };
         if self.dash_remaining == 0.0 && move_axis != 0.0 {
             self.facing = move_axis.signum();
         }
-        if input.jump_pressed && self.grounded && self.dash_remaining == 0.0 {
-            self.velocity.y = -self.config.jump_speed;
-            self.grounded = false;
+        self.attack
+            .update(input.attack_pressed, self.facing, delta_seconds);
+        self.velocity.x = move_axis * self.config.move_speed;
+
+        self.coyote_remaining = if self.grounded {
+            self.config.coyote_seconds.max(0.0)
+        } else {
+            (self.coyote_remaining - delta_seconds).max(0.0)
+        };
+        self.jump_buffer_remaining = if input.jump_pressed {
+            self.config.jump_buffer_seconds.max(f32::EPSILON)
+        } else {
+            (self.jump_buffer_remaining - delta_seconds).max(0.0)
+        };
+        // Recheck support so stepping off a ledge uses the grace timer.
+        self.resolve_floor(bounds);
+        if self.dash_remaining == 0.0
+            && self.jump_buffer_remaining > 0.0
+            && (self.grounded || self.coyote_remaining > 0.0)
+        {
+            self.start_jump();
+        }
+
+        if input.jump_pressed {
+            // A new airborne press must also expire during a long landing step.
+            self.jump_buffer_remaining = (self.jump_buffer_remaining - delta_seconds).max(0.0);
         }
 
         if input.dash_pressed
@@ -194,7 +243,13 @@ impl Player {
         let normal_seconds = delta_seconds - dash_seconds;
         if self.dash_remaining == 0.0 {
             self.velocity.x = move_axis * self.config.move_speed;
-            self.velocity.y = (self.velocity.y + self.config.gravity * normal_seconds)
+            let gravity_multiplier = if input.jump_held && self.velocity.y < 0.0 {
+                self.config.held_jump_gravity_multiplier.clamp(0.0, 1.0)
+            } else {
+                1.0
+            };
+            self.velocity.y = (self.velocity.y
+                + self.config.gravity * gravity_multiplier * normal_seconds)
                 .min(self.config.max_fall_speed);
             self.position += self.velocity * normal_seconds;
         }
@@ -205,6 +260,16 @@ impl Player {
 
         self.resolve_horizontal_bounds(bounds);
         self.resolve_floor(bounds);
+        if self.dash_remaining == 0.0 && self.grounded && self.jump_buffer_remaining > 0.0 {
+            self.start_jump();
+        }
+    }
+
+    fn start_jump(&mut self) {
+        self.velocity.y = -self.config.jump_speed;
+        self.grounded = false;
+        self.coyote_remaining = 0.0;
+        self.jump_buffer_remaining = 0.0;
     }
 
     fn resolve_horizontal_bounds(&mut self, bounds: WorldBounds) {
@@ -373,6 +438,8 @@ mod dash_tests {
         move_axis: 0.0,
         jump_pressed: false,
         pickup_pressed: false,
+        jump_held: false,
+        attack_pressed: false,
     };
 
     fn equipped_player() -> Player {
@@ -468,6 +535,55 @@ mod dash_tests {
         assert_eq!(player.velocity.x, DASH_SPEED);
         assert_eq!(player.velocity.y, 0.0);
         assert!(!player.is_grounded());
+    }
+
+    #[test]
+    fn buffered_jump_waits_for_ground_dash_to_finish() {
+        let mut player = equipped_player();
+        player.update(DASH, 0.1, BOUNDS);
+        player.update(
+            PlayerInput {
+                jump_pressed: true,
+                jump_held: true,
+                ..PlayerInput::default()
+            },
+            0.05,
+            BOUNDS,
+        );
+        assert_eq!(player.position.y, 436.0);
+        assert_eq!(player.velocity.y, 0.0);
+        player.update(
+            PlayerInput {
+                jump_held: true,
+                ..PlayerInput::default()
+            },
+            0.05,
+            BOUNDS,
+        );
+        assert_eq!(player.position.x, 560.0);
+        assert!(!player.is_grounded());
+        assert_eq!(player.velocity.y, -player.config.jump_speed);
+    }
+
+    #[test]
+    fn attack_during_dash_keeps_dash_and_swing_direction() {
+        let mut player = equipped_player();
+        player.update(DASH, 0.05, BOUNDS);
+        player.update(
+            PlayerInput {
+                move_axis: -1.0,
+                attack_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.05,
+            BOUNDS,
+        );
+        assert_eq!(player.position.x, 480.0);
+        assert_eq!(player.attack.direction(), 1.0);
+        assert!(player
+            .attack
+            .hitbox(player.position, player.size())
+            .is_some());
     }
 
     #[test]

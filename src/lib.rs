@@ -4,6 +4,7 @@
 //! gameplay state so it can be tested without opening a window.
 
 pub mod coin;
+pub mod combat;
 pub mod enemy;
 pub mod game;
 pub mod health;

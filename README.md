@@ -24,7 +24,13 @@ cargo clippy --all-targets --all-features -- -D warnings
 ## Current controls
 
 - `A`/`D` or the left/right arrow keys: move
-- `Space` or `Z`: jump
+- `Space` or `Z`: jump; hold to rise higher, release for a shorter jump.
+  Jump input is buffered for 0.12 seconds before landing; coyote time allows
+  a jump for 0.1 seconds after leaving support.
+- `X`: swing in the last movement direction, including while airborne.
+  The hitbox extends 38 pixels for 0.12 seconds with a 0.35-second cooldown.
+  Each swing hits each enemy once; enemies take three hits to defeat and
+  are knocked back on impact. Their health bars show remaining health.
 - `Shift`: after collecting Dash, dash horizontally in the facing direction at
   800 units/second for 0.2 seconds. Dash starts have a 0.5 second cooldown;
   only one air dash is available until landing.
@@ -66,4 +72,6 @@ room walls, and return to their patrol interval when the player leaves range.
 `Player` owns pure health/timer state; `GameState` resolves rectangular contact
 and respawns at the room spawn with full health, cleared velocity, and a fresh
 one-second grace period. Items and enemy positions persist through respawn.
+Defeated enemies stay removed when revisiting a room. Room transitions and
+respawns cancel active swings and pending jump assistance.
 All timers use simulation delta time; rendering only reads state.
