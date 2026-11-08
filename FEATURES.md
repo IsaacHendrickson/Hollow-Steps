@@ -9,5 +9,6 @@
 - Collectible Dash ability, facing, duration, cooldown, and one air dash per landing: `src/item.rs`, `src/player.rs`; `src/player.rs` dash tests, `tests/items.rs`, `src/game.rs` unit tests.
 - Coin contact pickups and persistent session balance: `src/coin.rs`, `src/game.rs`, `src/room.rs`; `src/coin.rs` and `src/game.rs` unit tests.
 - Inventory screen and paused gameplay: `src/game.rs`, `src/main.rs`; `src/game.rs` unit tests (screen needs manual playtest).
-- Two rooms, directional exits, spawn handling, and persistent room contents: `src/room.rs`, `src/game.rs`; `tests/rooms.rs`, `src/room.rs` and `src/game.rs` unit tests.
+- Three rooms, directional exits, spawn handling, and persistent room contents: `src/room.rs`, `src/game.rs`; `tests/rooms.rs`, `tests/boss.rs`, `src/room.rs` and `src/game.rs` unit tests.
+- Ash Warden boss, reusable timed attack cycle, melee damage, persistent death, and locked arena exits: `src/boss.rs`, `src/room.rs`, `src/game.rs`; `tests/boss.rs`, `src/game.rs` boss tests.
 - Keyboard controls, world rendering, melee visualization, and health bars: `src/main.rs`; gameplay tests above, plus manual playtest.
