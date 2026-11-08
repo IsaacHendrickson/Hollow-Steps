@@ -152,26 +152,10 @@ impl GameState {
     }
 
     pub fn save_editor(&mut self) -> Result<(), String> {
-        let session = self.editor.as_ref().ok_or("editor is closed")?;
+        let session = self.editor.as_mut().ok_or("editor is closed")?;
+        session.save_content()?;
         let mut room = session.draft.build(session.id, &session.definitions)?;
         let catalog = session.catalog();
-        // Check inbound exit spawns too, before any filesystem mutation.
-        for (id, layout) in &catalog {
-            let draft = editor::RoomDraft {
-                enemies: Vec::new(),
-                layout: layout.clone(),
-            };
-            draft
-                .validate(&session.definitions, &catalog)
-                .map_err(|e| format!("room {id:?}: {e}"))?;
-        }
-        editor::save_room(
-            &session.path,
-            &session.draft,
-            &session.definitions,
-            &catalog,
-            session.new,
-        )?;
         if let Some(existing) = self.rooms.iter_mut().find(|room| room.id == session.id) {
             // Preserve session coins and boss state; editable content is deliberately reset.
             room.coins = std::mem::take(&mut existing.coins);
@@ -188,6 +172,7 @@ impl GameState {
         session.new = false;
         session.dirty = false;
         session.message = format!("Saved {}", session.path.display());
+        self.reload_rooms()?;
         Ok(())
     }
 

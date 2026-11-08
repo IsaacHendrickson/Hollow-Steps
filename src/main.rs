@@ -481,6 +481,8 @@ struct EditorUi {
     selected: Option<Selection>,
     dragging: Option<(Selection, Vec2)>,
     destination: Option<usize>,
+    properties: bool,
+    property: PropertyUi,
 }
 
 // All canvas transforms, hit testing, mouse translation, and drawing are front-end only.
@@ -603,6 +605,25 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
             None,
             &format!("{:?}{}", editor.id, if editor.dirty { " *" } else { "" }),
         );
+        if ui.button(
+            None,
+            if state.properties {
+                "Room tools"
+            } else {
+                "Enemy properties"
+            },
+        ) {
+            state.properties = !state.properties;
+            if state.properties {
+                state.placing = false;
+                state.destination = None;
+                state.dragging = None;
+            }
+        }
+        if state.properties {
+            draw_definition_panel(ui, editor, state, &mut save);
+            return;
+        }
         if ui.button(None, "Save room") {
             save = true;
         }
@@ -807,7 +828,7 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
         state.dragging = None;
     }
     if (is_mouse_button_pressed(MouseButton::Right) && over_canvas)
-        || is_key_pressed(KeyCode::Delete)
+        || (is_key_pressed(KeyCode::Delete) && !state.properties)
     {
         let selection = if is_mouse_button_pressed(MouseButton::Right) {
             markers
@@ -868,6 +889,13 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
         line.push(' ');
     }
     draw_text(&line, 20.0, y, 17.0, ORANGE);
+    if save && state.property.error.is_some() {
+        editor.message = format!(
+            "Save failed: {}",
+            state.property.error.as_deref().unwrap_or_default()
+        );
+        save = false;
+    }
     if save {
         state.dragging = None;
         if let Err(error) = game.save_editor() {
@@ -902,4 +930,160 @@ fn editor_list(
             }
         }
     });
+}
+
+#[derive(Default)]
+struct PropertyUi {
+    path: Option<std::path::PathBuf>,
+    fields: [String; 6],
+    behavior: String,
+    state: usize,
+    loaded_state: Option<(String, usize)>,
+    state_name: String,
+    actions: String,
+    transitions: String,
+    new_state: String,
+    error: Option<String>,
+}
+
+fn draw_definition_panel(
+    ui: &mut macroquad::ui::Ui,
+    editor: &mut EditorSession,
+    state: &mut EditorUi,
+    save: &mut bool,
+) {
+    use hollow_steps::definition_editor::{
+        add_state, edit_state_lists, remove_state, rename_state, serialize,
+    };
+    let Some(Selection::Enemy(index)) = state.selected else {
+        ui.label(None, "Select an enemy on canvas");
+        return;
+    };
+    let Some(placement) = editor.draft.enemies.get(index) else {
+        return;
+    };
+    let Some(path) = editor.content.entity_path(&placement.definition) else {
+        return;
+    };
+    let p = &mut state.property;
+    if p.path.as_ref() != Some(&path) {
+        let entity = &editor.content.entities[&path];
+        *p = PropertyUi {
+            path: Some(path.clone()),
+            fields: [
+                entity.name.clone(),
+                entity.health.to_string(),
+                entity.size.0.to_string(),
+                entity.size.1.to_string(),
+                entity.contact_damage.to_string(),
+                entity.behavior.clone(),
+            ],
+            ..PropertyUi::default()
+        };
+    }
+    ui.label(None, "Shared definition (all rooms)");
+    for (i, label) in [
+        "Name",
+        "Health",
+        "Width",
+        "Height",
+        "Contact damage",
+        "Behavior file stem",
+    ]
+    .iter()
+    .enumerate()
+    {
+        ui.input_text(hash!("entity field", i), label, &mut p.fields[i]);
+    }
+    let mut error = None;
+    let parsed = hollow_steps::definition_editor::entity_from_fields(&p.fields);
+    match parsed {
+        Ok(entity) => {
+            if editor.content.entities[&path] != entity {
+                editor.content.entities.insert(path, entity);
+                editor.dirty = true;
+            }
+        }
+        Err(e) => error = Some(e),
+    }
+    if p.behavior != p.fields[5] {
+        p.behavior = p.fields[5].clone();
+        p.loaded_state = None;
+        p.state = 0;
+    }
+    ui.separator();
+    if let Some(behavior) = editor.content.behaviors.get_mut(&p.behavior) {
+        let names = behavior
+            .states
+            .iter()
+            .map(|s| s.name.as_str())
+            .collect::<Vec<_>>();
+        p.state = p.state.min(names.len().saturating_sub(1));
+        ui.combo_box(hash!("behavior states"), "State", &names, &mut p.state);
+        let key = (p.behavior.clone(), p.state);
+        if p.loaded_state.as_ref() != Some(&key) {
+            let selected = &behavior.states[p.state];
+            p.state_name = selected.name.clone();
+            p.actions = serialize(&selected.actions).expect("serializable actions");
+            p.transitions = serialize(&selected.transitions).expect("serializable transitions");
+            p.loaded_state = Some(key);
+        }
+        ui.input_text(hash!("state name"), "State name", &mut p.state_name);
+        if ui.button(None, "Rename state") {
+            match rename_state(behavior, p.state, p.state_name.clone()) {
+                Ok(()) => {
+                    editor.dirty = true;
+                    p.loaded_state = None;
+                    p.transitions = serialize(&behavior.states[p.state].transitions)
+                        .expect("serializable transitions");
+                }
+                Err(e) => error = Some(e),
+            }
+        }
+        if ui.button(None, "Make initial") {
+            hollow_steps::definition_editor::set_initial_state(behavior, p.state)
+                .expect("selected state");
+            editor.dirty = true;
+        }
+        ui.label(None, &format!("Initial: {}", behavior.initial_state));
+        ui.label(None, "Ordered actions (RON list)");
+        ui.editbox(hash!("actions"), vec2(210.0, 95.0), &mut p.actions);
+        ui.label(None, "Transitions (RON list)");
+        ui.editbox(hash!("transitions"), vec2(210.0, 110.0), &mut p.transitions);
+        let before = behavior.states[p.state].clone();
+        match edit_state_lists(&mut behavior.states[p.state], &p.actions, &p.transitions) {
+            Ok(()) => editor.dirty |= before != behavior.states[p.state],
+            Err(e) => error = Some(e),
+        }
+        ui.input_text(hash!("new state"), "New state", &mut p.new_state);
+        if ui.button(None, "Add state") {
+            match add_state(behavior, p.new_state.clone()) {
+                Ok(()) => {
+                    p.state = behavior.states.len() - 1;
+                    p.loaded_state = None;
+                    editor.dirty = true;
+                }
+                Err(e) => error = Some(e),
+            }
+        }
+        if ui.button(None, "Remove state + inbound links") {
+            match remove_state(behavior, p.state) {
+                Ok(()) => {
+                    p.state = 0;
+                    p.loaded_state = None;
+                    editor.dirty = true;
+                }
+                Err(e) => error = Some(e),
+            }
+        }
+    } else {
+        error = Some(format!("Missing behavior file {:?}", p.behavior));
+    }
+    p.error = error.clone();
+    if let Some(e) = &error {
+        editor.message = e.clone();
+    }
+    if ui.button(None, "Save all edits") && error.is_none() {
+        *save = true;
+    }
 }

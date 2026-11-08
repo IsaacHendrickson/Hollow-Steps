@@ -73,6 +73,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
+- `src/definition_editor.rs`: pure entity/behavior edits, save planning, and staged file writes.
 
 Composition and front end:
 

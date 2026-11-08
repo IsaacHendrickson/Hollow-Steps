@@ -247,7 +247,9 @@ endpoints without changing their separation. Items use free center coordinates.
 Exits stay anchored to their original edge; dragging slides their span along it.
 Spawn and exit destination markers can be dragged separately. Save validates
 all geometry, entity references, and exit destinations before serializing, then
-writes a sibling temporary file and renames it over the room file.
+stages sibling temporary files before replacing the room and definition files.
+Invalid edits leave all files unchanged; an I/O replacement failure attempts to
+restore files already replaced and reports any rollback error.
 
 New room creates an empty draft with the current room's geometry and a unique
 `room_N.ron` filename. Save registers it as `Custom(N)` in the room list and game;
@@ -269,3 +271,34 @@ changes. A star next to the room ID marks unsaved changes. Saving resets that
 room's editable enemies/items and places the player at its spawn, while keeping
 inventory, coins, and boss progress. F5 retains its existing enemy-only reload
 behavior for already loaded rooms; restart or use editor Save to apply layouts.
+
+
+Select an enemy, then choose **Enemy properties** in the right panel. Edit its
+shared name, health, width/height, contact damage, and behavior file stem (without
+`.ron`). These edits affect every instance using that definition. Renaming an
+entity updates references in all saved rooms while retaining its entity filename.
+Use **Room tools** to return to placement controls. Scroll the panel for controls
+below the visible area.
+
+The behavior section edits the selected entity's shared behavior file. Choose a
+state, rename it, make it initial, add a named state, or remove it. Renaming updates
+all transition targets. Removing drops transitions targeting that state and, if
+needed, makes the first remaining state initial; the final state cannot be removed.
+Actions and transitions are editable ordered RON lists using the existing syntax:
+
+```ron
+// Actions: insert, delete, reorder, or edit parameters in this list.
+[patrol(speed: 60.0), wait(seconds: 0.5), telegraph(seconds: 0.25)]
+// Transitions: first matching condition wins; invert is optional.
+[(target: "idle", condition: action_finished),
+ (target: "attack", condition: player_distance_less_than(120.0), invert: true)]
+```
+
+Other actions are `move_toward_player(speed: ...)` and
+`move_away_from_player(speed: ...)`. Other conditions are `timer_elapsed(...)`,
+`player_distance_greater_than(...)`, and `health_below(...)`.
+**Save all edits** (or **Save room**) validates all definitions, room placements,
+and exit destinations before any write. Syntax and validation errors appear in
+the footer; correct the edit and retry. Saving keeps the existing RON schemas.
+Definition parsing, state edits, and save planning live in `definition_editor.rs`
+and are tested without a window, including save/reload and invalid-save checks.
