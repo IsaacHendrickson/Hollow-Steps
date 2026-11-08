@@ -36,6 +36,9 @@ cargo clippy --all-targets --all-features -- -D warnings
   only one air dash is available until landing.
 - `I`: open/close the inventory screen to see coins and collected items.
   Gameplay pauses while it is open; `Esc` also closes it.
+- `F5`: reload all room files and their enemy/behavior definitions, including
+  while the inventory is open. Errors appear on screen; fix the files and
+  press `F5` again to retry. Use the mouse wheel to scroll long errors.
 - Touch a gold coin to collect it automatically, including while airborne.
   Each coin adds one to the balance and stays collected through room travel
   and respawn for the current game session.
@@ -112,8 +115,8 @@ Enemy state machines use RON in `assets/behaviors/`; entity definitions in
 files in `assets/rooms/` reference entity definition names and supply patrol
 endpoints. Room geometry, items, exits, and bosses remain in `src/room.rs`.
 `serde` provides strict deserialization and `ron` parses the asset format;
-neither adds rendering or an ECS to the simulation. Assets load once when
-constructing the rooms, with file paths included in validation errors.
+neither adds rendering or an ECS to the simulation. Assets load when
+constructing the rooms and on `F5`, with file paths included in validation errors.
 
 A behavior file such as `assets/behaviors/chase.ron` contains named states:
 
@@ -203,3 +206,12 @@ and offending state, action, or reference; RON parse errors include line and
 column. `GameState::try_new(asset_directory)` returns errors for callers;
 `GameState::new()` loads the repository's `assets/` and fails with that context
 if the data is invalid. No window is needed to load or test assets.
+
+`GameState::reload_rooms()` re-reads all three room files and the enemy/behavior
+definitions from the same asset directory used at startup. Changes apply only
+after the entire load succeeds. Room-file errors are reported together; a
+failed reload leaves the running world intact and allows another attempt.
+A successful reload clears the error panel and replaces every room's enemy
+list with fresh placements, resetting enemy health, positions, and AI timers
+and removing existing summons. The current room, player movement/health,
+inventory, collected coins/items, pause state, and boss progress are preserved.

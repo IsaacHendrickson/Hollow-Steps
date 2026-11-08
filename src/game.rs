@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use macroquad::math::{Rect, Vec2};
 
@@ -23,6 +23,7 @@ const SPECIAL_ATTACK_INTERVAL: f32 = 3.0;
 pub struct GameState {
     player: Player,
     rooms: [Room; 3],
+    assets: PathBuf,
     current_room: RoomId,
     coin_count: u32,
     inventory_open: bool,
@@ -53,6 +54,7 @@ impl GameState {
         Ok(Self {
             player,
             rooms,
+            assets: assets.to_owned(),
             current_room: RoomId::First,
             coin_count: 0,
             inventory_open: false,
@@ -94,6 +96,16 @@ impl GameState {
 
     pub fn world_bounds(&self) -> WorldBounds {
         self.room().world_bounds()
+    }
+
+    /// Re-read every room and its enemy definitions before applying any changes.
+    /// Enemy lists restart; player, pickups, and boss progress stay intact.
+    pub fn reload_rooms(&mut self) -> Result<(), String> {
+        let rooms = load_rooms(&self.assets)?;
+        for (current, reloaded) in self.rooms.iter_mut().zip(rooms) {
+            current.enemies = reloaded.enemies;
+        }
+        Ok(())
     }
 
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32) {
