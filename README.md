@@ -7,7 +7,15 @@ three bounded rooms, including a boss arena.
 
 ## Run it
 
-Install Rust, then run:
+Install stable Rust. On Ubuntu/Debian, install Macroquad's X11, OpenGL, and
+ALSA development dependencies first:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y pkg-config libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev
+```
+
+Then run:
 
 ```text
 cargo run
@@ -20,6 +28,10 @@ cargo fmt --check
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings
 ```
+
+GitHub Actions runs these checks on `ubuntu-latest` and `windows-latest` for
+every pull request and push to `main`. The Linux job installs the packages
+above; Windows needs no extra system libraries.
 
 ## Current controls
 
