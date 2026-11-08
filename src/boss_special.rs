@@ -4,6 +4,9 @@ use crate::coin::Coin;
 use crate::enemy::Enemy;
 use crate::player::WorldBounds;
 
+/// Horizontal inset used by the arena summon attack.
+pub const SUMMON_INSET: f32 = 120.0;
+
 pub const SLAM_TELEGRAPH_SECONDS: f32 = 0.5;
 pub const SUMMON_WINDUP_SECONDS: f32 = 1.0;
 pub const RINGS_FUSE_SECONDS: f32 = 1.0;
@@ -195,8 +198,20 @@ impl BossSpecials {
             }
             SpecialAttack::Summon => {
                 self.summoned_enemies.extend([
-                    Enemy::new(bounds.left + 120.0, bounds.left + 120.0, 0.0, 0.0, bounds),
-                    Enemy::new(bounds.right - 120.0, bounds.right - 120.0, 0.0, 0.0, bounds),
+                    Enemy::new(
+                        bounds.left + SUMMON_INSET,
+                        bounds.left + SUMMON_INSET,
+                        0.0,
+                        0.0,
+                        bounds,
+                    ),
+                    Enemy::new(
+                        bounds.right - SUMMON_INSET,
+                        bounds.right - SUMMON_INSET,
+                        0.0,
+                        0.0,
+                        bounds,
+                    ),
                 ]);
                 0
             }

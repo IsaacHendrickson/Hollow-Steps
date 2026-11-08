@@ -1,0 +1,24 @@
+(
+    id: "first",
+    origin: (0.0, 0.0),
+    size: (960.0, 460.0),
+    floor_y: 460.0,
+    default_spawn: "start",
+    spawns: [
+        (name: "start", position: (180.0, 436.0)),
+        (name: "from_second", position: (860.0, 436.0)),
+    ],
+    exits: [
+        (edge: Right, offset: 364.0, length: 96.0,
+         target_room: "second", target_spawn: "from_first"),
+    ],
+    entities: [
+        Enemy(position: (560.0, 442.0), patrol: (560.0, 800.0),
+              speed: 90.0, detection_radius: 180.0),
+        Item(kind: AmberShard, position: (300.0, 450.0)),
+        Item(kind: Dash, position: (500.0, 450.0)),
+        Coin(position: (360.0, 452.0)),
+        Coin(position: (410.0, 452.0)),
+        Coin(position: (460.0, 452.0)),
+    ],
+)

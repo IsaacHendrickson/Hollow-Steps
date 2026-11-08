@@ -1,0 +1,17 @@
+(
+    id: "boss",
+    origin: (0.0, 0.0),
+    size: (960.0, 460.0),
+    floor_y: 460.0,
+    default_spawn: "entrance",
+    spawns: [
+        (name: "entrance", position: (160.0, 436.0)),
+    ],
+    exits: [
+        (edge: Left, offset: 364.0, length: 96.0,
+         target_room: "second", target_spawn: "from_boss"),
+    ],
+    entities: [
+        ArenaBoss(position: (560.0, 436.0)),
+    ],
+)

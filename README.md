@@ -76,18 +76,98 @@ travel, and inactive rooms and the inventory pause freeze boss timers.
 
 ## Room design
 
-Rooms are defined in Rust in `src/room.rs`, with rectangular bounds, a floor,
-and exits anchored to the left, right, top, or bottom edge. Exit spans are
-offsets along that edge; each exit stores a destination room and player-center
-spawn coordinate in that room. Overlapping an exit with the player's body
-after movement triggers one transition per update. Spawns sit outside exit
-zones so arriving does not immediately send the player back.
+Rooms load at startup from every `.ron` file directly inside `assets/rooms/`.
+Run the game from the repository root so this relative asset path is available.
+The three shipped files preserve the original rooms, pickups, enemy patrol,
+coins, boss encounter, and travel coordinates. Add another file and connect an
+exit to its unique `id` to add a room without changing Rust code. Filenames and
+file order do not determine room identity. Gameplay starts in room `"first"` at
+its `default_spawn`; each room uses its own default spawn after player death.
 
-`GameState` owns the active room and retains each room's items for the session.
-Transitions reset movement and recompute grounding at the destination while
-preserving inventory. Room geometry and transitions remain window-free library
-logic; the binary only renders the active room and its exits. No room data files
-or additional dependencies are used.
+The format uses RON (Rusty Object Notation), with comments, named fields, and
+explicit entity variants. For example, a complete room with a self-return exit:
+
+```ron
+(
+    id: "workshop",
+    origin: (0.0, 0.0),
+    size: (400.0, 200.0),
+    floor_y: 200.0,
+    default_spawn: "start",
+    spawns: [
+        (name: "start", position: (140.0, 176.0)),
+        (name: "arrival", position: (200.0, 100.0)),
+    ],
+    exits: [
+        (edge: Right, offset: 104.0, length: 96.0,
+         target_room: "workshop", target_spawn: "arrival"),
+    ],
+    entities: [
+        Enemy(position: (220.0, 182.0), patrol: (180.0, 260.0),
+              speed: 90.0, detection_radius: 180.0),
+        Item(kind: AmberShard, position: (180.0, 190.0)),
+        Coin(position: (70.0, 192.0)),
+    ],
+)
+```
+
+All fields are required; use `[]` for an empty list. Coordinates and sizes are
+pixels, speeds are pixels per second, and positions are entity centers. The x
+axis points right and y points down. `origin` is the room's top-left corner;
+`size` is width and height; `floor_y` is the absolute y coordinate of the floor's
+top edge. Entities and player bodies must fit inside the room above that floor.
+
+Spawn names are unique within a room. Each exit selects a target room ID and a
+spawn name in that target room. Arrival spawns may be airborne. Exit edges are
+`Left`, `Right`, `Top`, or `Bottom`; `offset` is measured from the room's top for
+side exits or left for top/bottom exits. Positive `length` must fit along that
+edge; exit zones are 32 pixels deep. Spawn bodies must avoid exit zones to
+prevent immediate return transitions. Overlapping an exit after movement
+triggers one transition per update and clears movement while keeping inventory.
+
+Placed entity variants are:
+
+- `Enemy(position: (x, y), patrol: (left, right), speed: n, detection_radius: n)`:
+  a normal enemy with three health. Patrol endpoints are absolute center x
+  coordinates within the room, ordered left to right; the initial x must lie
+  in that interval. Enemies are floor-bound, so y must equal `floor_y - 18`.
+  Speed and detection radius must be finite and nonnegative.
+- `Item(kind: AmberShard, position: (x, y))` or `Item(kind: Dash, ...)`:
+  the existing inventory pickups, with a 16 by 20 pixel body.
+- `Coin(position: (x, y))`: an 8 pixel radius coin.
+- `ArenaBoss(position: (x, y))`: the existing 48 by 48 pixel arena boss using
+  Slam, Summon, and Rings. At most one is allowed per room; its living state
+  locks every exit in that room. The room must be at least 138 pixels wide to
+  fit its summoned enemies. Encounter timers and spawn imports belong to each
+  room independently. See `boss.ron` for the shipped encounter.
+
+`src/room_data.rs` parses and validates the complete room graph before returning
+usable rooms. It rejects malformed RON, missing/unknown fields and variants,
+empty/duplicate IDs or spawn names, nonfinite or invalid geometry and entity
+values, missing default spawns, missing target rooms, and exits with no matching
+target spawn. Errors identify the file and, for validation failures, the room
+and offending exit, spawn, or entity. Syntax errors include a line and column.
+The binary reports the error and stops; it never silently substitutes a room.
+
+`load_rooms(path)` loads a directory and `parse_rooms([(label, source), ...])`
+loads in-memory sources. Both return `Result` and use no window, GPU, audio,
+Macroquad context, or asset server. `GameState::load(path)` also checks the
+starting room. Headless tests in `tests/room_data.rs` cover valid and bad files,
+reference validation, geometry boundaries, and the exact shipped content;
+existing gameplay tests continue exercising travel, pickup persistence,
+respawn, and boss locks using these files.
+
+`GameState` owns all loaded rooms and retains their mutable contents for the
+session. Loading happens once at startup; transitions do not reload files or
+respawn collected items, coins, or defeated enemies.
+
+### Room dependencies
+
+`serde` (with `derive`) maps RON fields and entity variants into small typed
+input structs, avoiding a handwritten schema parser and rejecting unknown
+fields. `ron` parses the human-editable Rust-like files and provides syntax
+errors with source locations. These are the only added dependencies; validation
+and gameplay construction remain explicit project code.
 
 See [`AGENTS.md`](AGENTS.md) for the project conventions and the recommended
 workflow for future changes.

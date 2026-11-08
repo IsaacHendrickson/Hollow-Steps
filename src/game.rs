@@ -4,7 +4,8 @@ use crate::boss_special::SpecialAttack;
 use crate::coin::Coin;
 use crate::item::WorldItem;
 use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
-use crate::room::{test_rooms, Room, RoomId};
+use crate::room::{Room, RoomId};
+use crate::room_data::{load_rooms, RoomLoadError, DEFAULT_ROOMS_DIR};
 
 pub use crate::room::FLOOR_Y;
 
@@ -20,15 +21,10 @@ const SPECIAL_ATTACK_INTERVAL: f32 = 3.0;
 #[derive(Debug)]
 pub struct GameState {
     player: Player,
-    rooms: [Room; 3],
+    rooms: Vec<Room>,
     current_room: RoomId,
     coin_count: u32,
     inventory_open: bool,
-    special_attack_timer: f32,
-    next_special_attack: SpecialAttack,
-    last_special_hit: Option<u64>,
-    spawned_enemy_count: usize,
-    spawned_coin_count: usize,
 }
 
 impl Default for GameState {
@@ -38,23 +34,29 @@ impl Default for GameState {
 }
 impl GameState {
     pub fn new() -> Self {
-        let rooms = test_rooms();
-        let world_bounds = rooms[RoomId::First.index()].world_bounds();
-        let mut player = Player::new(Vec2::new(180.0, 0.0), PlayerConfig::default());
-        player.place_at(rooms[RoomId::First.index()].spawn, world_bounds);
+        Self::load(DEFAULT_ROOMS_DIR).unwrap_or_else(|error| panic!("{error}"))
+    }
 
-        Self {
+    /// Load and validate room data without opening a window.
+    pub fn load(directory: impl AsRef<std::path::Path>) -> Result<Self, RoomLoadError> {
+        let directory = directory.as_ref();
+        let rooms = load_rooms(directory)?;
+        let first = rooms.get(&RoomId::First).ok_or_else(|| {
+            RoomLoadError::new(format!(
+                "{}: missing starting room 'first'",
+                directory.display()
+            ))
+        })?;
+        let mut player = Player::new(first.spawn, PlayerConfig::default());
+        player.place_at(first.spawn, first.world_bounds());
+
+        Ok(Self {
             player,
-            rooms,
+            rooms: rooms.into_values().collect(),
             current_room: RoomId::First,
             coin_count: 0,
             inventory_open: false,
-            special_attack_timer: 0.0,
-            next_special_attack: SpecialAttack::Slam,
-            last_special_hit: None,
-            spawned_enemy_count: 0,
-            spawned_coin_count: 0,
-        }
+        })
     }
 
     pub fn player(&self) -> &Player {
@@ -82,7 +84,10 @@ impl GameState {
     }
 
     pub fn room(&self) -> &Room {
-        &self.rooms[self.current_room.index()]
+        self.rooms
+            .iter()
+            .find(|room| room.id == self.current_room)
+            .expect("validated current room")
     }
 
     pub fn world_bounds(&self) -> WorldBounds {
@@ -100,17 +105,21 @@ impl GameState {
         };
         self.player
             .update(input, delta_seconds, self.world_bounds());
-        let room = &mut self.rooms[self.current_room.index()];
+        let room = self
+            .rooms
+            .iter_mut()
+            .find(|room| room.id == self.current_room)
+            .expect("validated current room");
         let bounds = room.world_bounds();
         let mut special_damage = 0;
         if let Some(boss) = &mut room.boss_special {
             special_damage = boss.update(delta_seconds, self.player.position(), bounds);
             if !boss.is_defeated() {
-                self.special_attack_timer += delta_seconds;
-                if self.special_attack_timer >= SPECIAL_ATTACK_INTERVAL && !boss.is_telegraphing() {
-                    self.special_attack_timer %= SPECIAL_ATTACK_INTERVAL;
-                    boss.start_attack(self.next_special_attack, self.player.position(), bounds);
-                    self.next_special_attack = match self.next_special_attack {
+                room.special_attack_timer += delta_seconds;
+                if room.special_attack_timer >= SPECIAL_ATTACK_INTERVAL && !boss.is_telegraphing() {
+                    room.special_attack_timer %= SPECIAL_ATTACK_INTERVAL;
+                    boss.start_attack(room.next_special_attack, self.player.position(), bounds);
+                    room.next_special_attack = match room.next_special_attack {
                         SpecialAttack::Slam => SpecialAttack::Summon,
                         SpecialAttack::Summon => SpecialAttack::Rings,
                         SpecialAttack::Rings => SpecialAttack::Slam,
@@ -120,11 +129,11 @@ impl GameState {
             // The module exposes immutable spawn lists. Import each spawn once
             // so the room's existing combat, drawing, and pickup code owns it.
             room.enemies
-                .extend_from_slice(&boss.summoned_enemies()[self.spawned_enemy_count..]);
-            self.spawned_enemy_count = boss.summoned_enemies().len();
+                .extend_from_slice(&boss.summoned_enemies()[room.spawned_enemy_count..]);
+            room.spawned_enemy_count = boss.summoned_enemies().len();
             room.coins
-                .extend_from_slice(&boss.coins()[self.spawned_coin_count..]);
-            self.spawned_coin_count = boss.coins().len();
+                .extend_from_slice(&boss.coins()[room.spawned_coin_count..]);
+            room.spawned_coin_count = boss.coins().len();
         }
         for enemy in &mut room.enemies {
             enemy.update(self.player.position(), delta_seconds, bounds);
@@ -156,9 +165,9 @@ impl GameState {
                     SPECIAL_BOSS_SIZE.y,
                 );
                 let swing_id = self.player.attack().id();
-                if hitbox.overlaps(&body) && self.last_special_hit != Some(swing_id) {
+                if hitbox.overlaps(&body) && room.last_special_hit != Some(swing_id) {
                     boss.damage_boss(1);
-                    self.last_special_hit = Some(swing_id);
+                    room.last_special_hit = Some(swing_id);
                 }
                 if boss.is_defeated() {
                     special_damage = 0;
@@ -183,7 +192,6 @@ impl GameState {
             return;
         }
         if input.pickup_pressed {
-            let room = &mut self.rooms[self.current_room.index()];
             if let Some(index) = room
                 .items
                 .iter()
@@ -194,8 +202,7 @@ impl GameState {
             }
         }
 
-        let coins = &mut self.rooms[self.current_room.index()].coins;
-        coins.retain(|coin| {
+        room.coins.retain(|coin| {
             if coin.touches(&self.player) {
                 self.coin_count = self.coin_count.saturating_add(1);
                 false
@@ -204,10 +211,9 @@ impl GameState {
             }
         });
 
-        if let Some(exit) = self
-            .room()
+        if let Some(exit) = room
             .exit_at(self.player.position(), self.player.size())
-            .copied()
+            .cloned()
         {
             self.current_room = exit.target_room;
             self.player.place_at(exit.spawn, self.world_bounds());
@@ -234,6 +240,40 @@ mod tests {
         game.current_room = RoomId::Boss;
         game.player.place_on_floor(240.0, game.world_bounds());
         game
+    }
+
+    #[test]
+    fn data_driven_boss_rooms_keep_independent_timers_and_spawn_imports() {
+        let mut game = special_game();
+        let mut extra = crate::room::test_rooms().into_iter().nth(2).unwrap();
+        let extra_id = RoomId::from("another_arena".to_owned());
+        extra.id = extra_id.clone();
+        game.rooms.push(extra);
+        let bounds = game.world_bounds();
+        game.rooms[2].boss_special.as_mut().unwrap().start_attack(
+            SpecialAttack::Summon,
+            game.player.position(),
+            bounds,
+        );
+        game.update(PlayerInput::default(), 1.0);
+        assert_eq!(game.room().enemies.len(), 2);
+        assert_eq!(game.room().special_attack_timer, 1.0);
+
+        game.current_room = extra_id;
+        game.update(PlayerInput::default(), 0.0);
+        assert!(game.room().enemies.is_empty());
+        assert_eq!(game.room().special_attack_timer, 0.0);
+        game.rooms[3].boss_special.as_mut().unwrap().start_attack(
+            SpecialAttack::Summon,
+            game.player.position(),
+            bounds,
+        );
+        game.update(PlayerInput::default(), 1.0);
+        assert_eq!(game.room().enemies.len(), 2);
+        game.current_room = RoomId::Boss;
+        game.update(PlayerInput::default(), 0.0);
+        assert_eq!(game.room().enemies.len(), 2);
+        assert_eq!(game.room().special_attack_timer, 1.0);
     }
 
     #[test]
@@ -275,13 +315,13 @@ mod tests {
     fn specials_pause_in_inactive_rooms_and_inventory_and_ignore_invalid_time() {
         let mut game = GameState::new();
         game.update(PlayerInput::default(), 100.0);
-        assert_eq!(game.special_attack_timer, 0.0);
+        assert_eq!(game.room().special_attack_timer, 0.0);
         game.current_room = RoomId::Boss;
         game.player.place_on_floor(240.0, game.world_bounds());
         for dt in [0.0, -1.0, f32::NAN, f32::INFINITY] {
             game.update(PlayerInput::default(), dt);
         }
-        assert_eq!(game.special_attack_timer, 0.0);
+        assert_eq!(game.room().special_attack_timer, 0.0);
         game.update(PlayerInput::default(), 3.0);
         game.toggle_inventory();
         game.update(PlayerInput::default(), 100.0);
@@ -291,7 +331,7 @@ mod tests {
         game.update(PlayerInput::default(), 0.5);
         assert_eq!(game.player.health().current(), 4);
         game.update(PlayerInput::default(), f32::MAX);
-        assert!(game.special_attack_timer.is_finite());
+        assert!(game.room().special_attack_timer.is_finite());
     }
 
     #[test]
@@ -530,9 +570,9 @@ mod tests {
     fn death_uses_current_room_spawn_and_inactive_enemies_stay_frozen() {
         let mut game = GameState::new();
         game.current_room = RoomId::Second;
-        let first_enemy_position = game.rooms[RoomId::First.index()].enemies[0].position();
+        let first_enemy_position = game.rooms[0].enemies[0].position();
         let bounds = game.world_bounds();
-        let room = &mut game.rooms[RoomId::Second.index()];
+        let room = &mut game.rooms[1];
         room.spawn = Vec2::new(350.0, 200.0);
         room.enemies
             .push(crate::enemy::Enemy::new(500.0, 500.0, 0.0, 0.0, bounds));
@@ -545,10 +585,7 @@ mod tests {
         assert_eq!(game.player.position(), game.room().spawn);
         assert!(!game.player.is_grounded());
         assert_eq!(game.player.velocity(), Vec2::ZERO);
-        assert_eq!(
-            game.rooms[RoomId::First.index()].enemies[0].position(),
-            first_enemy_position
-        );
+        assert_eq!(game.rooms[0].enemies[0].position(), first_enemy_position);
     }
 
     #[test]
@@ -810,7 +847,7 @@ mod tests {
     fn transition_honors_an_airborne_spawn() {
         let mut game = GameState::new();
         let spawn = Vec2::new(300.0, 200.0);
-        game.rooms[RoomId::First.index()].exits[0].spawn = spawn;
+        game.rooms[0].exits[0].spawn = spawn;
 
         game.update(
             PlayerInput {

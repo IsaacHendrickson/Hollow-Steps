@@ -1,0 +1,22 @@
+(
+    id: "workshop",
+    origin: (0.0, 0.0),
+    size: (400.0, 200.0),
+    floor_y: 200.0,
+    default_spawn: "start",
+    spawns: [
+        (name: "start", position: (140.0, 176.0)),
+        (name: "arrival", position: (200.0, 100.0)),
+    ],
+    exits: [
+        (edge: Right, offset: 104.0, length: 96.0,
+         target_room: "workshop", target_spawn: "arrival"),
+    ],
+    entities: [
+        Enemy(position: (220.0, 182.0), patrol: (180.0, 260.0),
+              speed: 90.0, detection_radius: 180.0),
+        Item(kind: AmberShard, position: (180.0, 190.0)),
+        Coin(position: (70.0, 192.0)),
+        ArenaBoss(position: (280.0, 176.0)),
+    ],
+)

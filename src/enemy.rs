@@ -50,6 +50,21 @@ impl Enemy {
         }
     }
 
+    /// Construct a floor-bound enemy at an explicit point in its patrol.
+    pub(crate) fn placed(
+        position: Vec2,
+        patrol: [f32; 2],
+        speed: f32,
+        detection_radius: f32,
+        bounds: WorldBounds,
+    ) -> Self {
+        assert!(position.x >= patrol[0] && position.x <= patrol[1]);
+        assert_eq!(position.y, bounds.floor_y - ENEMY_SIZE.y / 2.0);
+        let mut enemy = Self::new(patrol[0], patrol[1], speed, detection_radius, bounds);
+        enemy.position = position;
+        enemy
+    }
+
     pub fn health(&self) -> u8 {
         self.health
     }

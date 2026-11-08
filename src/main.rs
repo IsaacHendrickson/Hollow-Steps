@@ -22,7 +22,13 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut game = GameState::new();
+    let mut game = match GameState::load(hollow_steps::room_data::DEFAULT_ROOMS_DIR) {
+        Ok(game) => game,
+        Err(error) => {
+            eprintln!("Cannot load rooms: {error}");
+            return;
+        }
+    };
 
     loop {
         let delta_seconds = get_frame_time().min(1.0 / 15.0);

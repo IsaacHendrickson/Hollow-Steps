@@ -1,0 +1,22 @@
+(
+    id: "second",
+    origin: (80.0, 40.0),
+    size: (800.0, 360.0),
+    floor_y: 400.0,
+    default_spawn: "from_first",
+    spawns: [
+        (name: "from_first", position: (160.0, 376.0)),
+        (name: "from_boss", position: (780.0, 376.0)),
+    ],
+    exits: [
+        (edge: Left, offset: 264.0, length: 96.0,
+         target_room: "first", target_spawn: "from_second"),
+        (edge: Right, offset: 264.0, length: 96.0,
+         target_room: "boss", target_spawn: "entrance"),
+    ],
+    entities: [
+        Coin(position: (300.0, 392.0)),
+        Coin(position: (350.0, 392.0)),
+        Coin(position: (400.0, 392.0)),
+    ],
+)

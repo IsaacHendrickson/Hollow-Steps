@@ -2,7 +2,7 @@ use hollow_steps::{game::GameState, item::Item, player::PlayerInput, room::RoomI
 use macroquad::math::Vec2;
 
 fn walk_to_exit(game: &mut GameState, move_axis: f32) {
-    let starting_room = game.room().id;
+    let starting_room = game.room().id.clone();
     for _ in 0..600 {
         game.update(
             PlayerInput {
@@ -21,7 +21,7 @@ fn walk_to_exit(game: &mut GameState, move_axis: f32) {
 #[test]
 fn entering_exit_loads_target_room_and_exact_spawn() {
     let mut game = GameState::new();
-    let exit = game.room().exits[0];
+    let exit = game.room().exits[0].clone();
     let original_bounds = game.world_bounds();
 
     walk_to_exit(&mut game, 1.0);
@@ -42,7 +42,7 @@ fn entering_exit_loads_target_room_and_exact_spawn() {
 fn return_exit_uses_its_own_spawn_and_arrival_does_not_bounce_back() {
     let mut game = GameState::new();
     walk_to_exit(&mut game, 1.0);
-    let exit = game.room().exits[0];
+    let exit = game.room().exits[0].clone();
     game.update(PlayerInput::default(), 0.0);
     assert_eq!(game.room().id, RoomId::Second);
 
@@ -78,7 +78,7 @@ fn player_away_from_exit_does_not_transition() {
 #[test]
 fn large_step_transitions_once_and_stops_at_destination_spawn() {
     let mut game = GameState::new();
-    let exit = game.room().exits[0];
+    let exit = game.room().exits[0].clone();
 
     game.update(
         PlayerInput {

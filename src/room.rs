@@ -1,33 +1,36 @@
 use macroquad::math::{Rect, Vec2};
 
 use crate::boss::Boss;
-use crate::boss_special::BossSpecials;
-use crate::coin::{Coin, COIN_RADIUS};
+use crate::boss_special::{BossSpecials, SpecialAttack};
+use crate::coin::Coin;
 use crate::enemy::Enemy;
-use crate::item::{Item, WorldItem, ITEM_SIZE};
+use crate::item::WorldItem;
 use crate::player::WorldBounds;
 
 pub const FLOOR_Y: f32 = 460.0;
 pub const EXIT_DEPTH: f32 = 32.0;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RoomId {
     First,
     Second,
     Boss,
+    /// Additional room IDs supplied by data files.
+    Named(String),
 }
 
-impl RoomId {
-    pub(crate) fn index(self) -> usize {
-        match self {
-            Self::First => 0,
-            Self::Second => 1,
-            Self::Boss => 2,
+impl From<String> for RoomId {
+    fn from(name: String) -> Self {
+        match name.as_str() {
+            "first" => Self::First,
+            "second" => Self::Second,
+            "boss" => Self::Boss,
+            _ => Self::Named(name),
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
 pub enum RoomEdge {
     Left,
     Right,
@@ -35,7 +38,7 @@ pub enum RoomEdge {
     Bottom,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Exit {
     pub edge: RoomEdge,
     /// Distance from the top (side exits) or left (top/bottom exits).
@@ -78,6 +81,12 @@ pub struct Room {
     pub enemies: Vec<Enemy>,
     pub boss: Option<Boss>,
     pub boss_special: Option<BossSpecials>,
+    // Encounter progress belongs to its room so inactive rooms stay paused.
+    pub(crate) special_attack_timer: f32,
+    pub(crate) next_special_attack: SpecialAttack,
+    pub(crate) last_special_hit: Option<u64>,
+    pub(crate) spawned_enemy_count: usize,
+    pub(crate) spawned_coin_count: usize,
     pub(crate) coins: Vec<Coin>,
     pub(crate) items: Vec<WorldItem>,
 }
@@ -111,95 +120,12 @@ impl Room {
     }
 }
 
+/// Load the original three rooms through the same validated loader as the game.
 pub fn test_rooms() -> [Room; 3] {
-    [
-        Room {
-            id: RoomId::First,
-            boss: None,
-            boss_special: None,
-            coins: [360.0, 410.0, 460.0]
-                .map(|x| Coin {
-                    position: Vec2::new(x, FLOOR_Y - COIN_RADIUS),
-                })
-                .to_vec(),
-            spawn: Vec2::new(180.0, FLOOR_Y - 24.0),
-            enemies: vec![Enemy::new(
-                560.0,
-                800.0,
-                90.0,
-                180.0,
-                WorldBounds::new(0.0, 960.0, FLOOR_Y),
-            )],
-            bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
-            floor_y: FLOOR_Y,
-            exits: vec![Exit {
-                edge: RoomEdge::Right,
-                offset: FLOOR_Y - 96.0,
-                length: 96.0,
-                target_room: RoomId::Second,
-                spawn: Vec2::new(160.0, 376.0),
-            }],
-            items: vec![
-                WorldItem {
-                    item: Item::AmberShard,
-                    position: Vec2::new(300.0, FLOOR_Y - ITEM_SIZE.y / 2.0),
-                },
-                WorldItem {
-                    item: Item::Dash,
-                    position: Vec2::new(500.0, FLOOR_Y - ITEM_SIZE.y / 2.0),
-                },
-            ],
-        },
-        Room {
-            id: RoomId::Second,
-            boss: None,
-            boss_special: None,
-            coins: [300.0, 350.0, 400.0]
-                .map(|x| Coin {
-                    position: Vec2::new(x, 400.0 - COIN_RADIUS),
-                })
-                .to_vec(),
-            spawn: Vec2::new(160.0, 376.0),
-            enemies: vec![],
-            bounds: Rect::new(80.0, 40.0, 800.0, 360.0),
-            floor_y: 400.0,
-            exits: vec![
-                Exit {
-                    edge: RoomEdge::Left,
-                    offset: 264.0,
-                    length: 96.0,
-                    target_room: RoomId::First,
-                    spawn: Vec2::new(860.0, 436.0),
-                },
-                Exit {
-                    edge: RoomEdge::Right,
-                    offset: 264.0,
-                    length: 96.0,
-                    target_room: RoomId::Boss,
-                    spawn: Vec2::new(160.0, 436.0),
-                },
-            ],
-            items: vec![],
-        },
-        Room {
-            id: RoomId::Boss,
-            bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
-            floor_y: FLOOR_Y,
-            spawn: Vec2::new(160.0, 436.0),
-            enemies: vec![],
-            boss: None,
-            boss_special: Some(BossSpecials::new(Vec2::new(560.0, FLOOR_Y - 24.0))),
-            coins: vec![],
-            exits: vec![Exit {
-                edge: RoomEdge::Left,
-                offset: FLOOR_Y - 96.0,
-                length: 96.0,
-                target_room: RoomId::Second,
-                spawn: Vec2::new(780.0, 376.0),
-            }],
-            items: vec![],
-        },
-    ]
+    let mut rooms = crate::room_data::load_rooms(crate::room_data::DEFAULT_ROOMS_DIR)
+        .unwrap_or_else(|error| panic!("{error}"));
+    [RoomId::First, RoomId::Second, RoomId::Boss]
+        .map(|id| rooms.remove(&id).expect("original room must exist"))
 }
 
 #[cfg(test)]
