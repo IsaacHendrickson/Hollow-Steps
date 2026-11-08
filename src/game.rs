@@ -1,5 +1,6 @@
 use macroquad::math::Vec2;
 
+use crate::coin::Coin;
 use crate::item::WorldItem;
 use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
 use crate::room::{test_rooms, Room, RoomId};
@@ -18,6 +19,8 @@ pub struct GameState {
     player: Player,
     rooms: [Room; 2],
     current_room: RoomId,
+    coin_count: u32,
+    inventory_open: bool,
 }
 
 impl Default for GameState {
@@ -36,6 +39,8 @@ impl GameState {
             player,
             rooms,
             current_room: RoomId::First,
+            coin_count: 0,
+            inventory_open: false,
         }
     }
 
@@ -47,6 +52,22 @@ impl GameState {
         &self.room().items
     }
 
+    pub fn coins(&self) -> &[Coin] {
+        &self.room().coins
+    }
+
+    pub fn coin_count(&self) -> u32 {
+        self.coin_count
+    }
+
+    pub fn inventory_open(&self) -> bool {
+        self.inventory_open
+    }
+
+    pub fn toggle_inventory(&mut self) {
+        self.inventory_open = !self.inventory_open;
+    }
+
     pub fn room(&self) -> &Room {
         &self.rooms[self.current_room.index()]
     }
@@ -56,6 +77,9 @@ impl GameState {
     }
 
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32) {
+        if self.inventory_open {
+            return;
+        }
         self.player
             .update(input, delta_seconds, self.world_bounds());
         let room = &mut self.rooms[self.current_room.index()];
@@ -98,6 +122,16 @@ impl GameState {
             }
         }
 
+        let coins = &mut self.rooms[self.current_room.index()].coins;
+        coins.retain(|coin| {
+            if coin.touches(&self.player) {
+                self.coin_count = self.coin_count.saturating_add(1);
+                false
+            } else {
+                true
+            }
+        });
+
         if let Some(exit) = self
             .room()
             .exit_at(self.player.position(), self.player.size())
@@ -112,6 +146,112 @@ impl GameState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn contact_collects_all_touching_coins_once_without_pickup_input() {
+        let mut game = GameState::new();
+        let position = game.player.position();
+        game.rooms[0].coins = vec![Coin { position }; 2];
+        game.update(PlayerInput::default(), 0.0);
+        assert_eq!(game.coin_count(), 2);
+        assert!(game.coins().is_empty());
+        game.update(PlayerInput::default(), 0.0);
+        assert_eq!(game.coin_count(), 2);
+    }
+
+    #[test]
+    fn distant_coins_are_not_collected_even_with_pickup_input() {
+        let mut game = GameState::new();
+        game.update(
+            PlayerInput {
+                pickup_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.0,
+        );
+        assert_eq!(game.coin_count(), 0);
+        assert_eq!(game.coins().len(), 3);
+    }
+
+    #[test]
+    fn airborne_contact_collects_coins() {
+        let mut game = GameState::new();
+        game.player
+            .place_at(Vec2::new(360.0, 250.0), game.world_bounds());
+        game.rooms[0].coins = vec![Coin {
+            position: game.player.position(),
+        }];
+        assert!(!game.player.is_grounded());
+        game.update(PlayerInput::default(), 0.0);
+        assert_eq!(game.coin_count(), 1);
+    }
+
+    #[test]
+    fn coins_persist_through_room_travel_and_respawn() {
+        let mut game = GameState::new();
+        game.rooms[0].coins = vec![Coin {
+            position: game.player.position(),
+        }];
+        game.update(PlayerInput::default(), 0.0);
+        game.update(
+            PlayerInput {
+                move_axis: 1.0,
+                ..PlayerInput::default()
+            },
+            10.0,
+        );
+        assert_eq!(game.room().id, RoomId::Second);
+        assert_eq!(game.coin_count(), 1);
+        for _ in 0..5 {
+            game.player.take_damage();
+            game.player
+                .update(PlayerInput::default(), 1.0, game.world_bounds());
+        }
+        game.update(PlayerInput::default(), 0.0);
+        assert_eq!(game.coin_count(), 1);
+        assert_eq!(game.player.health().current(), 5);
+        game.update(
+            PlayerInput {
+                move_axis: -1.0,
+                ..PlayerInput::default()
+            },
+            10.0,
+        );
+        assert_eq!(game.room().id, RoomId::First);
+        assert!(game.coins().is_empty());
+        assert_eq!(game.coin_count(), 1);
+    }
+
+    #[test]
+    fn inventory_pauses_simulation_until_closed() {
+        let mut game = GameState::new();
+        game.rooms[0].coins = vec![Coin {
+            position: game.player.position(),
+        }];
+        let player = game.player.clone();
+        let enemy_position = game.room().enemies[0].position();
+        game.toggle_inventory();
+        assert!(game.inventory_open());
+        game.update(
+            PlayerInput {
+                move_axis: 1.0,
+                jump_pressed: true,
+                pickup_pressed: true,
+                attack_pressed: true,
+                jump_held: true,
+                dash_pressed: true,
+            },
+            10.0,
+        );
+        assert_eq!(game.player, player);
+        assert_eq!(game.room().enemies[0].position(), enemy_position);
+        assert_eq!(game.coin_count(), 0);
+        assert_eq!(game.room().id, RoomId::First);
+        game.toggle_inventory();
+        assert!(!game.inventory_open());
+        game.update(PlayerInput::default(), 0.0);
+        assert_eq!(game.coin_count(), 1);
+    }
 
     #[test]
     fn new_game_starts_with_player_on_the_floor() {
@@ -227,6 +367,71 @@ mod tests {
         );
         assert_eq!(game.room().id, RoomId::First);
         assert!(game.room().enemies.is_empty());
+    }
+
+    #[test]
+    fn room_transition_clears_active_dash_and_preserves_ability() {
+        let mut game = GameState::new();
+        game.player.collect_item(crate::item::Item::Dash);
+        game.player.place_on_floor(900.0, game.world_bounds());
+        game.update(
+            PlayerInput {
+                dash_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.05,
+        );
+
+        assert_eq!(game.room().id, RoomId::Second);
+        let spawn = game.player.position();
+        game.update(PlayerInput::default(), 0.05);
+        assert_eq!(game.player.position(), spawn);
+        assert_eq!(game.player.velocity(), Vec2::ZERO);
+        game.update(
+            PlayerInput {
+                dash_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.05,
+        );
+        assert_eq!(game.player.position().x, spawn.x + 40.0);
+    }
+
+    #[test]
+    fn death_clears_active_dash_and_preserves_collected_ability() {
+        let mut game = GameState::new();
+        let bounds = game.world_bounds();
+        for _ in 0..4 {
+            assert!(game.player.take_damage());
+            game.player.update(PlayerInput::default(), 1.0, bounds);
+        }
+        game.player.collect_item(crate::item::Item::Dash);
+        game.player.place_on_floor(500.0, bounds);
+        game.rooms[0].enemies = vec![crate::enemy::Enemy::new(500.0, 500.0, 0.0, 0.0, bounds)];
+        game.update(
+            PlayerInput {
+                dash_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.0,
+        );
+
+        assert_eq!(game.player.health().current(), crate::health::MAX_HEALTH);
+        assert!(game.player.health().is_invincible());
+        let spawn = game.room().spawn;
+        assert_eq!(game.player.position(), spawn);
+        game.update(PlayerInput::default(), 0.05);
+        assert_eq!(game.player.position(), spawn);
+        assert_eq!(game.player.velocity(), Vec2::ZERO);
+        assert_eq!(game.player.collected_items(), &[crate::item::Item::Dash]);
+        game.update(
+            PlayerInput {
+                dash_pressed: true,
+                ..PlayerInput::default()
+            },
+            0.05,
+        );
+        assert_eq!(game.player.position().x, spawn.x + 40.0);
     }
 
     #[test]

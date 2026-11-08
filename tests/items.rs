@@ -27,9 +27,10 @@ fn nearby_item_requires_up_then_moves_into_inventory_once() {
     let mut game = near_item();
     assert!(game.items()[0].can_pick_up(game.player()));
     assert!(game.player().collected_items().is_empty());
-    assert_eq!(game.items().len(), 1);
+    assert_eq!(game.items().len(), 2);
     pickup(&mut game);
-    assert!(game.items().is_empty());
+    assert_eq!(game.items().len(), 1);
+    assert_eq!(game.items()[0].item, Item::Dash);
     assert_eq!(game.player().collected_items(), &[Item::AmberShard]);
     pickup(&mut game);
     assert_eq!(game.player().collected_items(), &[Item::AmberShard]);
@@ -40,7 +41,7 @@ fn distant_item_cannot_be_collected() {
     let mut game = GameState::new();
     assert!(!game.items()[0].can_pick_up(game.player()));
     pickup(&mut game);
-    assert_eq!(game.items().len(), 1);
+    assert_eq!(game.items().len(), 2);
     assert!(game.player().collected_items().is_empty());
 }
 
@@ -56,7 +57,7 @@ fn airborne_player_cannot_collect_even_when_close() {
         0.0,
     );
     assert!(!game.items()[0].can_pick_up(game.player()));
-    assert_eq!(game.items().len(), 1);
+    assert_eq!(game.items().len(), 2);
     assert!(game.player().collected_items().is_empty());
 }
 
@@ -73,6 +74,30 @@ fn large_step_uses_final_position_for_pickup() {
         10.0,
     );
     assert_eq!(game.player().position().x, 16.0);
-    assert_eq!(game.items().len(), 1);
+    assert_eq!(game.items().len(), 2);
     assert!(game.player().collected_items().is_empty());
+}
+
+#[test]
+fn dash_pickup_unlocks_the_ability_through_the_game() {
+    let mut game = GameState::new();
+    game.update(
+        PlayerInput {
+            move_axis: 1.0,
+            ..PlayerInput::default()
+        },
+        320.0 / 220.0,
+    );
+    pickup(&mut game);
+    assert_eq!(game.player().collected_items(), &[Item::Dash]);
+    assert_eq!(game.items().len(), 1);
+    assert_eq!(game.items()[0].item, Item::AmberShard);
+    game.update(
+        PlayerInput {
+            dash_pressed: true,
+            ..PlayerInput::default()
+        },
+        0.1,
+    );
+    assert!((game.player().position().x - 580.0).abs() < 0.001);
 }
