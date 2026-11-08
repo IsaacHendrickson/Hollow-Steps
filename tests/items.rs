@@ -1,7 +1,9 @@
+mod support;
+
 use hollow_steps::{game::GameState, item::Item, player::PlayerInput};
 
 fn near_item() -> GameState {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     game.update(
         PlayerInput {
             move_axis: 1.0,
@@ -38,7 +40,7 @@ fn nearby_item_requires_up_then_moves_into_inventory_once() {
 
 #[test]
 fn distant_item_cannot_be_collected() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     assert!(!game.items()[0].can_pick_up(game.player()));
     pickup(&mut game);
     assert_eq!(game.items().len(), 2);
@@ -80,7 +82,7 @@ fn large_step_uses_final_position_for_pickup() {
 
 #[test]
 fn dash_pickup_unlocks_the_ability_through_the_game() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     game.update(
         PlayerInput {
             move_axis: 1.0,

@@ -171,6 +171,10 @@ Agents should be able to verify almost everything without a window.
 - Every new mechanic needs tests for: the normal case, the boundary or edge
   case (world edges, floor, zero or very large `delta_seconds`), and at least
   one case that must not happen (for example, jumping while airborne).
+- Tests must not depend on editable files in `assets/`. Use rooms built in
+  code or fixed fixtures under `tests/fixtures/`, including enemy and behavior
+  definitions. The sole exception is one dedicated shipped-content test that
+  checks loading and validation without asserting exact layouts or coordinates.
 - Prefer deterministic tests: fixed `delta_seconds`, stepped frame by frame,
   asserting on positions and velocities. No randomness or wall-clock time.
 - When fixing a bug, first add a test that reproduces it, then fix it.

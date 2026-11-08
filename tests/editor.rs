@@ -1,4 +1,6 @@
-use std::path::{Path, PathBuf};
+mod support;
+
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use hollow_steps::editor::{save_room, Placement, RoomDraft, RoomLayout, Selection};
@@ -10,7 +12,7 @@ use hollow_steps::room::{test_rooms, RoomEnemies, RoomId};
 use macroquad::math::Vec2;
 
 fn assets() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("assets")
+    support::fixture_assets()
 }
 fn setup() -> (RoomDraft, EnemyDefinitions, Vec<(RoomId, RoomLayout)>) {
     let rooms = test_rooms();

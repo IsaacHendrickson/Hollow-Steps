@@ -1,3 +1,5 @@
+mod support;
+
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -41,10 +43,6 @@ impl Drop for Assets {
     fn drop(&mut self) {
         std::fs::remove_dir_all(&self.0).unwrap();
     }
-}
-
-fn shipped_assets() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("assets")
 }
 
 fn error_for_path<'a>(error: &'a str, path: &Path) -> &'a str {
@@ -106,8 +104,8 @@ fn game_loads_room_enemies_and_uses_definition_contact_damage() {
 }
 
 #[test]
-fn shipped_chase_preserves_detection_boundary_return_and_repeated_pursuit() {
-    let definitions = EnemyDefinitions::load(&shipped_assets()).unwrap();
+fn fixture_chase_preserves_detection_boundary_return_and_repeated_pursuit() {
+    let definitions = EnemyDefinitions::load(&support::fixture_assets()).unwrap();
     let mut enemy = definitions.spawn("chase", 560.0, 800.0, BOUNDS).unwrap();
     // Exactly 180 units is patrol; just inside it immediately chases left.
     enemy.update(Vec2::new(380.0, 442.0), 0.5, BOUNDS);
@@ -124,13 +122,13 @@ fn shipped_chase_preserves_detection_boundary_return_and_repeated_pursuit() {
 }
 
 #[test]
-fn shipped_patrol_ignores_player_and_all_rooms_load_definition_references() {
-    let definitions = EnemyDefinitions::load(&shipped_assets()).unwrap();
+fn fixture_patrol_ignores_player_and_all_rooms_load_definition_references() {
+    let definitions = EnemyDefinitions::load(&support::fixture_assets()).unwrap();
     let mut enemy = definitions.spawn("patrol", 100.0, 200.0, BOUNDS).unwrap();
     enemy.update(Vec2::new(90.0, 442.0), 0.5, BOUNDS);
     assert_eq!(enemy.position().x, 145.0);
     assert_eq!(enemy.behavior().state_name(), "patrol");
-    let rooms = load_rooms(&shipped_assets()).unwrap();
+    let rooms = load_rooms(&support::fixture_assets()).unwrap();
     assert_eq!(rooms[0].enemies.len(), 1);
     assert_eq!(rooms[0].enemies[0].name(), "chase");
     assert!(rooms[1].enemies.is_empty());
@@ -139,7 +137,7 @@ fn shipped_patrol_ignores_player_and_all_rooms_load_definition_references() {
 
 #[test]
 fn shared_definitions_have_independent_runtime_state() {
-    let definitions = EnemyDefinitions::load(&shipped_assets()).unwrap();
+    let definitions = EnemyDefinitions::load(&support::fixture_assets()).unwrap();
     let mut first = definitions.spawn("chase", 100.0, 200.0, BOUNDS).unwrap();
     let second = definitions.spawn("chase", 100.0, 200.0, BOUNDS).unwrap();
     first.update(Vec2::new(50.0, 442.0), 0.25, BOUNDS);

@@ -1,3 +1,5 @@
+mod support;
+
 use hollow_steps::enemy::Enemy;
 use hollow_steps::game::GameState;
 use hollow_steps::health::{Health, MAX_HEALTH};
@@ -108,7 +110,7 @@ fn dead_health_cannot_underflow_and_respawn_clears_player_motion() {
 
 #[test]
 fn game_contact_damages_once_per_second_then_respawns_at_room_spawn() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     assert_eq!(game.room().enemies.len(), 1);
     assert_eq!(game.player().health().current(), 5);
     // Walk to the enemy in small deterministic steps.
