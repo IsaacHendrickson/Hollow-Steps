@@ -310,24 +310,31 @@ fn game_requires_a_start_room_and_uses_authored_items_coins_and_spawns() {
 
 #[test]
 fn game_travels_to_an_additional_room_defined_only_in_files() {
-    let directory = RoomDirectory::new();
-    let source = VALID.replace("        ArenaBoss(position: (280.0, 176.0)),\n", "");
-    let first = source.replace("id: \"workshop\"", "id: \"first\"");
-    directory.write("first.ron", &first);
-    directory.write("another.ron", &source);
-    let mut game = GameState::load(&directory.0).unwrap();
-    game.update(
-        PlayerInput {
-            move_axis: 1.0,
-            ..PlayerInput::default()
-        },
-        10.0,
-    );
-    assert_eq!(game.room().id, RoomId::from("workshop".to_owned()));
-    assert_eq!(game.player().position(), Vec2::new(200.0, 100.0));
-    assert!(!game.player().is_grounded());
-    assert_eq!(game.items()[0].position, Vec2::new(180.0, 190.0));
-    assert_eq!(game.coins()[0].position, Vec2::new(70.0, 192.0));
+    let lf = VALID.replace("\r\n", "\n");
+    for line_ending in ["\n", "\r\n"] {
+        let fixture = lf.replace('\n', line_ending);
+        let directory = RoomDirectory::new();
+        // Remove the entity without depending on checkout indentation or line endings.
+        let source = fixture.replace("ArenaBoss(position: (280.0, 176.0)),", "");
+        let first = source.replace("id: \"workshop\"", "id: \"first\"");
+        directory.write("first.ron", &first);
+        directory.write("another.ron", &source);
+        let mut game = GameState::load(&directory.0).unwrap();
+        assert!(game.room().boss_special.is_none());
+        assert!(!game.room().exits_locked());
+        game.update(
+            PlayerInput {
+                move_axis: 1.0,
+                ..PlayerInput::default()
+            },
+            10.0,
+        );
+        assert_eq!(game.room().id, RoomId::from("workshop".to_owned()));
+        assert_eq!(game.player().position(), Vec2::new(200.0, 100.0));
+        assert!(!game.player().is_grounded());
+        assert_eq!(game.items()[0].position, Vec2::new(180.0, 190.0));
+        assert_eq!(game.coins()[0].position, Vec2::new(70.0, 192.0));
+    }
 }
 
 #[test]
