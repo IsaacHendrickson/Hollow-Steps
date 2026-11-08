@@ -1,6 +1,7 @@
 use macroquad::math::{Rect, Vec2};
 
 use crate::boss::Boss;
+use crate::boss_special::BossSpecials;
 use crate::coin::{Coin, COIN_RADIUS};
 use crate::enemy::Enemy;
 use crate::item::{Item, WorldItem, ITEM_SIZE};
@@ -76,6 +77,7 @@ pub struct Room {
     pub spawn: Vec2,
     pub enemies: Vec<Enemy>,
     pub boss: Option<Boss>,
+    pub boss_special: Option<BossSpecials>,
     pub(crate) coins: Vec<Coin>,
     pub(crate) items: Vec<WorldItem>,
 }
@@ -102,6 +104,10 @@ impl Room {
 
     pub fn exits_locked(&self) -> bool {
         self.boss.as_ref().is_some_and(|boss| !boss.is_dead())
+            || self
+                .boss_special
+                .as_ref()
+                .is_some_and(|boss| !boss.is_defeated())
     }
 }
 
@@ -110,6 +116,7 @@ pub fn test_rooms() -> [Room; 3] {
         Room {
             id: RoomId::First,
             boss: None,
+            boss_special: None,
             coins: [360.0, 410.0, 460.0]
                 .map(|x| Coin {
                     position: Vec2::new(x, FLOOR_Y - COIN_RADIUS),
@@ -146,6 +153,7 @@ pub fn test_rooms() -> [Room; 3] {
         Room {
             id: RoomId::Second,
             boss: None,
+            boss_special: None,
             coins: [300.0, 350.0, 400.0]
                 .map(|x| Coin {
                     position: Vec2::new(x, 400.0 - COIN_RADIUS),
@@ -179,7 +187,8 @@ pub fn test_rooms() -> [Room; 3] {
             floor_y: FLOOR_Y,
             spawn: Vec2::new(160.0, 436.0),
             enemies: vec![],
-            boss: Some(Boss::ash_warden(Vec2::new(560.0, FLOOR_Y - 40.0))),
+            boss: None,
+            boss_special: Some(BossSpecials::new(Vec2::new(560.0, FLOOR_Y - 24.0))),
             coins: vec![],
             exits: vec![Exit {
                 edge: RoomEdge::Left,

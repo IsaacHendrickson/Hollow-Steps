@@ -136,6 +136,7 @@ fn thirty_distinct_swings_kill_once_and_death_stops_attacks_and_contact() {
 #[test]
 fn every_exit_edge_locks_while_alive_and_unlocks_immediately_on_death() {
     let [_, _, mut room] = test_rooms();
+    room.boss_special = None;
     for (edge, position) in [
         (RoomEdge::Left, Vec2::new(0.0, 100.0)),
         (RoomEdge::Right, Vec2::new(960.0, 100.0)),
@@ -171,7 +172,7 @@ fn arena_is_reachable_from_second_room_and_live_boss_blocks_return() {
         );
         assert_eq!(game.room().id, expected);
     }
-    assert_eq!(game.room().boss.as_ref().unwrap().health(), 30);
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 100);
     game.update(PlayerInput::default(), 0.0);
     assert_eq!(game.room().id, RoomId::Boss);
     game.update(

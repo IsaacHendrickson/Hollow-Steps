@@ -1,6 +1,6 @@
 use hollow_steps::boss_special::{
-    BossSpecials, SpecialAttack, DEATH_EFFECT_SECONDS, RING_RADIUS,
-    SLAM_TELEGRAPH_SECONDS, SUMMON_WINDUP_SECONDS,
+    BossSpecials, SpecialAttack, DEATH_EFFECT_SECONDS, RING_RADIUS, SLAM_TELEGRAPH_SECONDS,
+    SUMMON_WINDUP_SECONDS,
 };
 use hollow_steps::player::WorldBounds;
 use macroquad::math::Vec2;
