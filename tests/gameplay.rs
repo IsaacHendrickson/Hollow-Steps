@@ -1,10 +1,12 @@
+mod support;
+
 use hollow_steps::game::GameState;
 use hollow_steps::player::PlayerInput;
 use hollow_steps::room::RoomId;
 
 #[test]
 fn player_can_move_and_jump_in_sequence() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     let starting_x = game.player().position().x;
 
     game.update(
@@ -33,7 +35,7 @@ fn player_can_move_and_jump_in_sequence() {
 
 #[test]
 fn player_stays_within_the_active_room_horizontally() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
 
     game.update(
         PlayerInput {

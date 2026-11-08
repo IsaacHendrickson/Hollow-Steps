@@ -1,4 +1,6 @@
-use std::path::{Path, PathBuf};
+mod support;
+
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use hollow_steps::game::GameState;
@@ -16,10 +18,10 @@ impl Assets {
             std::process::id(),
             NEXT_ID.fetch_add(1, Ordering::Relaxed)
         ));
-        let shipped = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+        let fixtures = support::fixture_assets();
         for directory in ["behaviors", "entities", "rooms"] {
             std::fs::create_dir_all(path.join(directory)).unwrap();
-            for entry in std::fs::read_dir(shipped.join(directory)).unwrap() {
+            for entry in std::fs::read_dir(fixtures.join(directory)).unwrap() {
                 let entry = entry.unwrap();
                 std::fs::copy(entry.path(), path.join(directory).join(entry.file_name())).unwrap();
             }
@@ -162,7 +164,7 @@ fn invalid_or_missing_assets_leave_the_entire_game_intact_and_allow_retry() {
     assert_eq!(format!("{game:?}"), original);
 
     std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/behaviors/chase.ron"),
+        support::fixture_assets().join("behaviors/chase.ron"),
         assets.0.join("behaviors/chase.ron"),
     )
     .unwrap();

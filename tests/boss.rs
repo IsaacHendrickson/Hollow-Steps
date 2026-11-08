@@ -1,3 +1,5 @@
+mod support;
+
 use hollow_steps::boss::{Boss, BossAttack, BossState, BOSS_PAUSE, WARDEN_MAX_HEALTH};
 use hollow_steps::game::GameState;
 use hollow_steps::player::PlayerInput;
@@ -161,7 +163,7 @@ fn every_exit_edge_locks_while_alive_and_unlocks_immediately_on_death() {
 
 #[test]
 fn arena_is_reachable_from_second_room_and_live_boss_blocks_return() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     for expected in [RoomId::Second, RoomId::Boss] {
         game.update(
             PlayerInput {

@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use crate::behavior::{
     load_behaviors, read_ron, ron_files, Action, Behavior, BehaviorContext, BehaviorDefinition,
-    Condition,
+    Condition, State, Transition,
 };
 use crate::player::WorldBounds;
 
@@ -151,26 +151,38 @@ impl Enemy {
     ) -> Self {
         assert!(speed.is_finite() && speed >= 0.0);
         assert!(detection_radius.is_finite() && detection_radius >= 0.0);
-        // Compatibility constructor for programmatic spawns. It uses the same
-        // state machine as the file-backed chase definition, with custom tuning.
-        let mut definition =
-            BehaviorDefinition::from_ron(include_str!("../assets/behaviors/chase.ron"))
-                .expect("built-in chase behavior");
-        for state in &mut definition.states {
-            for action in &mut state.actions {
-                match action {
-                    Action::Patrol { speed: value } | Action::MoveTowardPlayer { speed: value } => {
-                        *value = speed
-                    }
-                    _ => {}
-                }
-            }
-            for transition in &mut state.transitions {
-                if let Condition::PlayerDistanceLessThan(value) = &mut transition.condition {
-                    *value = detection_radius;
-                }
-            }
-        }
+        // Programmatic spawns have fixed rules; editable file-backed enemies
+        // still use EnemyDefinitions. Keep this constructor independent of assets.
+        let definition = BehaviorDefinition {
+            initial_state: "patrol".into(),
+            states: vec![
+                State {
+                    name: "patrol".into(),
+                    actions: vec![Action::Patrol { speed }],
+                    transitions: vec![Transition {
+                        target: "chase".into(),
+                        condition: Condition::PlayerDistanceLessThan(detection_radius),
+                        invert: false,
+                    }],
+                },
+                State {
+                    name: "chase".into(),
+                    actions: vec![Action::MoveTowardPlayer { speed }],
+                    transitions: vec![
+                        Transition {
+                            target: "patrol".into(),
+                            condition: Condition::PlayerDistanceLessThan(detection_radius),
+                            invert: true,
+                        },
+                        Transition {
+                            target: "chase".into(),
+                            condition: Condition::ActionFinished,
+                            invert: false,
+                        },
+                    ],
+                },
+            ],
+        };
         Self::from_definition(
             &EnemyDefinition {
                 name: "chase".into(),

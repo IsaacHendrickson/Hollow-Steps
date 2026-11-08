@@ -1,0 +1,7 @@
+// Fixed behavioral fixture. Do not synchronize with editable assets.
+(
+    initial_state: "patrol",
+    states: [
+        (name: "patrol", actions: [patrol(speed: 90.0)], transitions: []),
+    ],
+)

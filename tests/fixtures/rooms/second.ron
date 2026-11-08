@@ -1,0 +1,2 @@
+// Fixed behavioral fixture. Do not synchronize with editable assets.
+(enemies: [])

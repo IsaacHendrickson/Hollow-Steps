@@ -1,0 +1,2 @@
+// Fixed behavioral fixture. Do not synchronize with editable assets.
+(enemies: [(definition: "chase", patrol_left: 560.0, patrol_right: 800.0)])

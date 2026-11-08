@@ -166,9 +166,10 @@ pub fn load_room_enemies(
         .collect()
 }
 
+/// Fixed sample rooms for behavioral tests, independent of editable game content.
 pub fn test_rooms() -> [Room; 3] {
-    load_rooms(&Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"))
-        .expect("failed to load room assets")
+    load_rooms(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"))
+        .expect("fixed test rooms must load")
 }
 
 pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {

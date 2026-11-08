@@ -350,8 +350,13 @@ impl GameState {
 mod tests {
     use super::*;
 
+    fn test_game() -> GameState {
+        GameState::try_new(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"))
+            .expect("fixed test assets must load")
+    }
+
     fn warden_game() -> GameState {
-        let mut game = GameState::new();
+        let mut game = test_game();
         game.rooms[2].boss_special = None;
         game.rooms[2].boss = Some(crate::boss::Boss::ash_warden(Vec2::new(
             560.0,
@@ -361,7 +366,7 @@ mod tests {
     }
 
     fn special_game() -> GameState {
-        let mut game = GameState::new();
+        let mut game = test_game();
         game.current_room = RoomId::Boss;
         game.player.place_on_floor(240.0, game.world_bounds());
         game
@@ -404,7 +409,7 @@ mod tests {
 
     #[test]
     fn specials_pause_in_inactive_rooms_and_inventory_and_ignore_invalid_time() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         game.update(PlayerInput::default(), 100.0);
         assert_eq!(game.special_attack_timer, 0.0);
         game.current_room = RoomId::Boss;
@@ -529,7 +534,7 @@ mod tests {
 
     #[test]
     fn contact_collects_all_touching_coins_once_without_pickup_input() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         let position = game.player.position();
         game.rooms[0].coins = vec![Coin { position }; 2];
         game.update(PlayerInput::default(), 0.0);
@@ -541,7 +546,7 @@ mod tests {
 
     #[test]
     fn distant_coins_are_not_collected_even_with_pickup_input() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         game.update(
             PlayerInput {
                 pickup_pressed: true,
@@ -555,7 +560,7 @@ mod tests {
 
     #[test]
     fn airborne_contact_collects_coins() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         game.player
             .place_at(Vec2::new(360.0, 250.0), game.world_bounds());
         game.rooms[0].coins = vec![Coin {
@@ -568,7 +573,7 @@ mod tests {
 
     #[test]
     fn coins_persist_through_room_travel_and_respawn() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         game.rooms[0].coins = vec![Coin {
             position: game.player.position(),
         }];
@@ -604,7 +609,7 @@ mod tests {
 
     #[test]
     fn inventory_pauses_simulation_until_closed() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         game.rooms[0].coins = vec![Coin {
             position: game.player.position(),
         }];
@@ -635,7 +640,7 @@ mod tests {
 
     #[test]
     fn new_game_starts_with_player_on_the_floor() {
-        let game = GameState::new();
+        let game = test_game();
 
         assert!(game.player().is_grounded());
         assert_eq!(game.player().position().y, FLOOR_Y - 24.0);
@@ -643,7 +648,7 @@ mod tests {
 
     #[test]
     fn game_forwards_input_to_the_player() {
-        let mut game = GameState::new();
+        let mut game = test_game();
 
         game.update(
             PlayerInput {
@@ -659,7 +664,7 @@ mod tests {
 
     #[test]
     fn death_uses_current_room_spawn_and_inactive_enemies_stay_frozen() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         game.current_room = RoomId::Second;
         let first_enemy_position = game.rooms[RoomId::First.index()].enemies[0].position();
         let bounds = game.world_bounds();
@@ -684,7 +689,7 @@ mod tests {
 
     #[test]
     fn melee_respects_range_facing_and_hits_each_enemy_once_per_swing() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         let bounds = game.world_bounds();
         game.player.place_on_floor(200.0, bounds);
         game.rooms[0].enemies = vec![
@@ -715,7 +720,7 @@ mod tests {
 
     #[test]
     fn lethal_swing_removes_enemy_before_contact_damage_and_death_persists() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         let bounds = game.world_bounds();
         game.player.place_on_floor(200.0, bounds);
         game.rooms[0].enemies = vec![crate::enemy::Enemy::new(230.0, 230.0, 0.0, 0.0, bounds)];
@@ -751,7 +756,7 @@ mod tests {
 
     #[test]
     fn room_transition_clears_active_dash_and_preserves_ability() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         game.player.collect_item(crate::item::Item::Dash);
         game.player.place_on_floor(900.0, game.world_bounds());
         game.update(
@@ -779,7 +784,7 @@ mod tests {
 
     #[test]
     fn death_clears_active_dash_and_preserves_collected_ability() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         let bounds = game.world_bounds();
         for _ in 0..4 {
             assert!(game.player.take_damage());
@@ -939,7 +944,7 @@ mod tests {
 
     #[test]
     fn transition_honors_an_airborne_spawn() {
-        let mut game = GameState::new();
+        let mut game = test_game();
         let spawn = Vec2::new(300.0, 200.0);
         game.rooms[RoomId::First.index()].exits[0].spawn = spawn;
 

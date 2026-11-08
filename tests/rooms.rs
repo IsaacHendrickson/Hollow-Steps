@@ -1,3 +1,5 @@
+mod support;
+
 use hollow_steps::{game::GameState, item::Item, player::PlayerInput, room::RoomId};
 use macroquad::math::Vec2;
 
@@ -20,7 +22,7 @@ fn walk_to_exit(game: &mut GameState, move_axis: f32) {
 
 #[test]
 fn entering_exit_loads_target_room_and_exact_spawn() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     let exit = game.room().exits[0];
     let original_bounds = game.world_bounds();
 
@@ -40,7 +42,7 @@ fn entering_exit_loads_target_room_and_exact_spawn() {
 
 #[test]
 fn return_exit_uses_its_own_spawn_and_arrival_does_not_bounce_back() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     walk_to_exit(&mut game, 1.0);
     let exit = game.room().exits[0];
     game.update(PlayerInput::default(), 0.0);
@@ -60,7 +62,7 @@ fn return_exit_uses_its_own_spawn_and_arrival_does_not_bounce_back() {
 
 #[test]
 fn player_away_from_exit_does_not_transition() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     game.update(PlayerInput::default(), 0.0);
     game.update(
         PlayerInput {
@@ -77,7 +79,7 @@ fn player_away_from_exit_does_not_transition() {
 
 #[test]
 fn large_step_transitions_once_and_stops_at_destination_spawn() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     let exit = game.room().exits[0];
 
     game.update(
@@ -97,7 +99,7 @@ fn large_step_transitions_once_and_stops_at_destination_spawn() {
 
 #[test]
 fn collected_items_stay_collected_after_visiting_another_room() {
-    let mut game = GameState::new();
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     game.update(
         PlayerInput {
             move_axis: 1.0,
