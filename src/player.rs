@@ -122,6 +122,10 @@ impl Player {
         self.health.take_damage()
     }
 
+    pub fn take_damage_amount(&mut self, amount: u8) -> bool {
+        self.health.take_damage_amount(amount)
+    }
+
     pub fn respawn(&mut self, spawn: Vec2, bounds: WorldBounds) {
         self.place_at(spawn, bounds);
         self.health.respawn();
