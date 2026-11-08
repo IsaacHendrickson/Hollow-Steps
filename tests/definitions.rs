@@ -47,6 +47,12 @@ fn shipped_assets() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("assets")
 }
 
+fn error_for_path<'a>(error: &'a str, path: &Path) -> &'a str {
+    error
+        .strip_prefix(&format!("{}: ", path.display()))
+        .unwrap_or_else(|| panic!("expected error for {}: {error}", path.display()))
+}
+
 #[test]
 fn entity_fields_control_health_size_contact_damage_and_patrol() {
     let assets = Assets::new();
@@ -209,16 +215,20 @@ fn missing_behavior_and_duplicate_entity_errors_include_file_and_name() {
         &ENTITY.replace("\"patrol\"", "\"absent\""),
     );
     let error = EnemyDefinitions::load(&assets.0).unwrap_err();
-    assert!(error.contains("entities/guard.ron"), "{error}");
+    let message = error_for_path(&error, &assets.0.join("entities").join("guard.ron"));
     assert!(
-        error.contains("missing behavior name \"absent\""),
+        message.contains("missing behavior name \"absent\""),
         "{error}"
     );
     assets.write("entities/guard.ron", ENTITY);
     assets.write("entities/duplicate.ron", ENTITY);
     let error = EnemyDefinitions::load(&assets.0).unwrap_err();
-    assert!(error.contains("duplicate entity name \"guard\""), "{error}");
-    assert!(error.contains(".ron"));
+    // Sorted loading encounters duplicate.ron first, then rejects guard.ron.
+    let message = error_for_path(&error, &assets.0.join("entities").join("guard.ron"));
+    assert!(
+        message.contains("duplicate entity name \"guard\""),
+        "{error}"
+    );
 }
 
 #[test]
@@ -232,28 +242,48 @@ fn behavior_validation_and_parse_errors_identify_the_file() {
         ),
     );
     let error = EnemyDefinitions::load(&assets.0).unwrap_err();
-    assert!(error.contains("behaviors/patrol.ron"), "{error}");
+    let path = assets.0.join("behaviors").join("patrol.ron");
+    let message = error_for_path(&error, &path);
     assert!(
-        error.contains("transition to missing state \"absent\""),
+        message.contains("transition to missing state \"absent\""),
         "{error}"
     );
     assets.write("behaviors/patrol.ron", "malformed");
     let error = EnemyDefinitions::load(&assets.0).unwrap_err();
-    assert!(error.contains("behaviors/patrol.ron: 1:"), "{error}");
+    let message = error_for_path(&error, &path);
+    assert!(message.starts_with("1:"), "{error}");
+    assert!(
+        message.contains("Expected struct `BehaviorDefinition`"),
+        "{error}"
+    );
 }
 
 #[test]
 fn entity_missing_fields_unknown_fields_and_malformed_files_are_errors() {
     let assets = Assets::new();
-    for source in [
-        ENTITY.replace(", behavior: \"patrol\"", ""),
-        ENTITY.replace("behavior:", "typo:"),
-        ENTITY.replace("health: 8", "health: 0"),
-        "not RON".into(),
+    for (source, expected, detail) in [
+        (
+            ENTITY.replace(", behavior: \"patrol\"", ""),
+            "missing field",
+            "behavior",
+        ),
+        (
+            ENTITY.replace("behavior:", "typo:"),
+            "Unexpected field",
+            "typo",
+        ),
+        (
+            ENTITY.replace("health: 8", "health: 0"),
+            "health must be positive",
+            "guard",
+        ),
+        ("not RON".into(), "Expected struct", "EnemyDefinition"),
     ] {
         assets.write("entities/guard.ron", &source);
         let error = EnemyDefinitions::load(&assets.0).unwrap_err();
-        assert!(error.contains("entities/guard.ron"), "{error}");
+        let message = error_for_path(&error, &assets.0.join("entities").join("guard.ron"));
+        assert!(message.contains(expected), "{error}");
+        assert!(message.contains(detail), "{error}");
     }
 }
 
@@ -261,7 +291,7 @@ fn entity_missing_fields_unknown_fields_and_malformed_files_are_errors() {
 fn room_references_and_placement_ranges_are_validated_with_file_context() {
     let assets = Assets::new();
     let definitions = EnemyDefinitions::load(&assets.0).unwrap();
-    let path = assets.0.join("rooms/first.ron");
+    let path = assets.0.join("rooms").join("first.ron");
     for (source, expected) in [
         (
             r#"(enemies: [(definition: "unknown", patrol_left: 100.0, patrol_right: 200.0)])"#,
@@ -286,8 +316,9 @@ fn room_references_and_placement_ranges_are_validated_with_file_context() {
     ] {
         assets.write("rooms/first.ron", source);
         let error = load_room_enemies(&path, &definitions, BOUNDS).unwrap_err();
-        assert!(error.contains("rooms/first.ron: enemy 0:"), "{error}");
-        assert!(error.contains(expected), "{error}");
+        let message = error_for_path(&error, &path);
+        assert!(message.starts_with("enemy 0:"), "{error}");
+        assert!(message.contains(expected), "{error}");
     }
     assets.write(
         "rooms/first.ron",
@@ -305,9 +336,10 @@ fn room_references_and_placement_ranges_are_validated_with_file_context() {
 fn missing_directories_and_room_files_return_paths() {
     let assets = Assets::new();
     let definitions = EnemyDefinitions::load(&assets.0).unwrap();
-    let error =
-        load_room_enemies(&assets.0.join("rooms/missing.ron"), &definitions, BOUNDS).unwrap_err();
-    assert!(error.contains("rooms/missing.ron"), "{error}");
+    let path = assets.0.join("rooms").join("missing.ron");
+    let error = load_room_enemies(&path, &definitions, BOUNDS).unwrap_err();
+    assert!(!error_for_path(&error, &path).is_empty(), "{error}");
     let error = EnemyDefinitions::load(&assets.0.join("missing")).unwrap_err();
-    assert!(error.contains("missing/behaviors"), "{error}");
+    let path = assets.0.join("missing").join("behaviors");
+    assert!(!error_for_path(&error, &path).is_empty(), "{error}");
 }
