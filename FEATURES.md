@@ -24,3 +24,5 @@
 - Selected-enemy entity and behavior side panel, state/link editing, shared-name reference updates, and validated staged RON saves: `src/definition_editor.rs`, `src/editor.rs`, `src/main.rs`; `tests/definition_editor.rs`, plus manual playtest.
 
 - Responsive scrollable editor with pinned Save, structured ordered action/transition rows, loader-generated type catalogs, inline numeric validation, and advanced RON editing: `src/behavior.rs`, `src/definition_editor.rs`, `src/main.rs`; `tests/definition_editor.rs`, plus manual resize/edit check.
+
+- Definition save conflict detection, full draft and all-room validation, content-only LF writes, recoverable staging/deletions, repeat renames, and pure entity/behavior operations: `src/definition_editor.rs`, `src/editor.rs`; `tests/definition_editor.rs`.

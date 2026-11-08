@@ -79,6 +79,7 @@ macro_rules! conditions {
                 match self { $(Self::$variant(value) => Some(($label, value.to_string())),)+ $(Self::$unit => None),+ }
             }
             pub fn set_parameter(&mut self, text: &str) -> Result<(), String> {
+                let text = text.trim();
                 parse_nonnegative(text)?;
                 match self {
                     $(Self::$variant(value) => *value = text.parse::<$ty>().map_err(|_| concat!("expected ", stringify!($ty), " value"))?,)+
@@ -99,6 +100,7 @@ conditions! {
 
 pub fn parse_nonnegative(text: &str) -> Result<f32, String> {
     let value = text
+        .trim()
         .parse::<f32>()
         .map_err(|_| "expected a number".to_owned())?;
     nonnegative(value)?;
