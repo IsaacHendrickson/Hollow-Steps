@@ -6,7 +6,7 @@ use hollow_steps::definition_editor::{
 };
 use hollow_steps::game::GameState;
 use hollow_steps::room::{RoomEnemies, RoomId};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct Assets(PathBuf);
@@ -60,6 +60,14 @@ fn behavior() -> BehaviorDefinition {
     BehaviorDefinition::from_ron(r#"(initial_state: "idle", states: [
         (name: "idle", actions: [wait(seconds: 1.0)], transitions: [(target: "idle", condition: action_finished)]),
     ])"#).unwrap()
+}
+
+fn assert_error_file(error: &str, expected: &Path) {
+    let (reported, _) = error
+        .split_once(": ")
+        .expect("file errors must start with a path and colon");
+    assert_eq!(Path::new(reported), expected, "{error}");
+    assert_eq!(Path::new(reported).file_name(), expected.file_name());
 }
 
 #[test]
@@ -214,21 +222,27 @@ fn invalid_entity_behavior_or_room_geometry_never_writes_any_file() {
 }
 
 #[test]
-fn pure_save_plan_does_not_touch_files_and_staging_failure_preserves_them() {
+fn stale_temps_are_removed_and_staging_failures_clean_up() {
+    use hollow_steps::definition_editor::write_files;
     let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    for entity in draft.entities.values_mut() {
+        entity.health += 1;
+    }
+    let plan = draft.plan(&[]).unwrap();
     let before = assets.snapshot();
-    let draft = DefinitionDraft::load(&assets.0).unwrap();
-    let plan = draft.plan(&mut []).unwrap();
+    let temp = plan[0].0.with_extension("ron.tmp");
+    std::fs::write(&temp, "stale").unwrap();
+    let blocked = plan[1].0.with_extension("ron.tmp");
+    std::fs::create_dir(&blocked).unwrap();
+    assert!(write_files(&plan).is_err());
+    assert!(!temp.exists());
+    std::fs::remove_dir(blocked).unwrap();
     assert_eq!(assets.snapshot(), before);
-    let occupied = plan[1].0.with_extension("ron.tmp");
-    std::fs::write(&occupied, "another writer").unwrap();
-    assert!(hollow_steps::definition_editor::write_files(&plan).is_err());
-    assert_eq!(
-        std::fs::read_to_string(&occupied).unwrap(),
-        "another writer"
-    );
-    std::fs::remove_file(occupied).unwrap();
-    assert_eq!(assets.snapshot(), before);
+    std::fs::write(&temp, "stale").unwrap();
+    write_files(&plan).unwrap();
+    assert!(!temp.exists());
+    GameState::try_new(&assets.0).unwrap();
 }
 
 #[test]
@@ -480,4 +494,234 @@ fn transition_validation_is_transactional_and_entity_errors_identify_each_field(
     ] {
         assert!(validate_entity_field(index, valid).is_ok());
     }
+}
+
+#[test]
+fn full_draft_validation_rejects_patrol_ranges_against_new_size_and_walls() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let before = assets.snapshot();
+    let path = draft.entity_path("patrol").unwrap();
+    draft.entities.get_mut(&path).unwrap().size.0 = 900.0;
+    assert!(draft.plan(&[]).is_err());
+    draft.entities.get_mut(&path).unwrap().size.0 = 32.0;
+    let room = assets.0.join("rooms").join("second.ron");
+    let mut document: RoomEnemies =
+        ron::from_str(&std::fs::read_to_string(&room).unwrap()).unwrap();
+    document.enemies[0].patrol_left = 0.0;
+    let error = draft.plan(&[(room.clone(), document)]).unwrap_err();
+    assert_error_file(&error, &room);
+    assert!(error.contains("invalid patrol interval"));
+    assert_eq!(assets.snapshot(), before);
+}
+
+#[test]
+fn external_changes_refuse_save_and_identify_each_file_even_after_planning() {
+    use hollow_steps::definition_editor::write_files;
+    for (directory, filename) in [
+        ("entities", "patrol.ron"),
+        ("behaviors", "patrol.ron"),
+        ("rooms", "first.ron"),
+    ] {
+        let assets = Assets::new();
+        let draft = DefinitionDraft::load(&assets.0).unwrap();
+        let plan = draft.plan(&[]).unwrap();
+        let path = assets.0.join(directory).join(filename);
+        let source = std::fs::read_to_string(&path).unwrap();
+        std::fs::write(&path, format!("{source}\n// external edit")).unwrap();
+        let before = assets.snapshot();
+        for error in [
+            draft.plan(&[]).unwrap_err(),
+            write_files(&plan).unwrap_err(),
+        ] {
+            assert_error_file(&error, &path);
+            assert!(error.contains("changed on disk; reload before saving"));
+        }
+        assert_eq!(assets.snapshot(), before);
+    }
+}
+
+#[test]
+fn unchanged_parsed_content_keeps_bytes_and_mtime_and_changed_files_use_lf() {
+    let assets = Assets::new();
+    let path = assets.0.join("entities").join("patrol.ron");
+    let source = std::fs::read_to_string(&path)
+        .unwrap()
+        .replace('\n', "\r\n");
+    std::fs::write(&path, source).unwrap();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let before = assets.snapshot();
+    let modified = std::fs::metadata(&path).unwrap().modified().unwrap();
+    assert!(draft.plan(&[]).unwrap().is_empty());
+    draft.commit(&[]).unwrap();
+    assert_eq!(assets.snapshot(), before);
+    assert_eq!(
+        std::fs::metadata(&path).unwrap().modified().unwrap(),
+        modified
+    );
+    draft.entities.get_mut(&path).unwrap().health += 1;
+    let plan = draft.plan(&[]).unwrap();
+    assert_eq!(plan.len(), 1);
+    assert_eq!(plan[0].0, path);
+    assert!(!plan[0].1.contains('\r'));
+}
+
+#[test]
+fn plan_is_immutable_and_discovers_renames_in_every_room() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let path = draft.entity_path("patrol").unwrap();
+    draft.entities.get_mut(&path).unwrap().name = "new patrol".into();
+    let room = assets.0.join("rooms").join("first.ron");
+    let document: RoomEnemies = ron::from_str(&std::fs::read_to_string(&room).unwrap()).unwrap();
+    let inputs = [(room, document)];
+    let before = serialize(&inputs[0].1).unwrap();
+    let plan = draft.plan(&inputs).unwrap();
+    assert_eq!(serialize(&inputs[0].1).unwrap(), before);
+    assert!(plan
+        .iter()
+        .any(|(p, s)| p.ends_with("second.ron") && s.contains("new patrol")));
+    assert!(inputs[0].1.enemies.iter().any(|e| e.definition == "patrol"));
+}
+
+#[test]
+fn commit_supports_second_rename_in_one_session() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let path = draft.entity_path("patrol").unwrap();
+    for name in ["first rename", "second rename"] {
+        draft.entities.get_mut(&path).unwrap().name = name.into();
+        draft.commit(&[]).unwrap();
+        assert_eq!(draft.entity_path(name), Some(path.clone()));
+        assert!(draft.plan(&[]).unwrap().is_empty());
+        let document: RoomEnemies = ron::from_str(
+            &std::fs::read_to_string(assets.0.join("rooms").join("second.ron")).unwrap(),
+        )
+        .unwrap();
+        assert!(document.enemies.iter().any(|e| e.definition == name));
+        GameState::try_new(&assets.0).unwrap();
+    }
+}
+
+#[test]
+fn input_trimming_blank_lines_and_health_message_are_consistent() {
+    use hollow_steps::definition_editor::{
+        entity_from_fields, validate_entity_field, wrap_label, ActionInput, TransitionInput,
+    };
+    assert_eq!(wrap_label("\na\n\nü\n", 1), ["", "a", "", "ü", ""]);
+    let fields = [" name ", " 1 ", " 32 ", " 40 ", " 0 ", " patrol "].map(str::to_owned);
+    let entity = entity_from_fields(&fields).unwrap();
+    assert_eq!(
+        (entity.name.as_str(), entity.behavior.as_str()),
+        ("name", "patrol")
+    );
+    assert!(validate_entity_field(1, "0")
+        .unwrap_err()
+        .contains("1..255"));
+    let mut fields = fields;
+    fields[1] = "0".into();
+    assert!(entity_from_fields(&fields).unwrap_err().contains("1..255"));
+    let mut b = behavior();
+    add_state(&mut b, " extra ".into()).unwrap();
+    rename_state(&mut b, 1, " renamed ".into()).unwrap();
+    assert_eq!(b.states[1].name, "renamed");
+    let mut action = ActionInput::new(0).unwrap();
+    action.values[0] = " 10 ".into();
+    action.build().unwrap();
+    let mut transition = TransitionInput::new(" idle ".into(), 0).unwrap();
+    transition.value = " 1 ".into();
+    assert_eq!(transition.build(&["idle".into()]).unwrap().target, "idle");
+}
+
+#[test]
+fn entity_and_behavior_operations_check_references_and_delete_files_on_save() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let original = draft.entity_path("patrol").unwrap();
+    assert!(draft.delete_entity(&original).is_err());
+    assert!(draft.delete_behavior("patrol").is_err());
+    let duplicate = draft.duplicate_entity(&original, " copy ").unwrap();
+    assert!(draft.duplicate_entity(&original, "copy").is_err());
+    draft.add_behavior(" extra ", behavior()).unwrap();
+    assert!(draft.add_behavior("extra", behavior()).is_err());
+    draft.entities.get_mut(&duplicate).unwrap().behavior = "extra".into();
+    assert!(draft.delete_behavior("extra").is_err());
+    draft.rename_behavior("extra", " renamed ").unwrap();
+    assert_eq!(draft.entities[&duplicate].behavior, "renamed");
+    draft.commit(&[]).unwrap();
+    assert!(duplicate.exists());
+    assert!(!assets.0.join("behaviors").join("extra.ron").exists());
+    assert!(assets.0.join("behaviors").join("renamed.ron").exists());
+    draft.delete_entity(&duplicate).unwrap();
+    draft.delete_behavior("renamed").unwrap();
+    draft.commit(&[]).unwrap();
+    assert!(!duplicate.exists());
+    assert!(!assets.0.join("behaviors").join("renamed.ron").exists());
+    assert!(draft.delete_entity(&duplicate).is_err());
+    assert!(draft.delete_behavior("missing").is_err());
+    GameState::try_new(&assets.0).unwrap();
+}
+
+#[test]
+fn removing_authored_layout_uses_loader_defaults_and_custom_rooms_are_discovered() {
+    use hollow_steps::editor::{RoomDraft, RoomLayout};
+    let assets = Assets::new();
+    let rooms = hollow_steps::room::load_rooms(&assets.0).unwrap();
+    let path = assets.0.join("rooms").join("second.ron");
+    let mut document: RoomEnemies =
+        ron::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let mut layout = RoomLayout::from_room(&rooms[1]);
+    layout.bounds.0 = 0.0;
+    layout.bounds.2 = 1000.0;
+    document.layout = Some(layout);
+    document.enemies[0].patrol_left = 50.0;
+    std::fs::write(&path, serialize(&document).unwrap()).unwrap();
+    let draft = DefinitionDraft::load(&assets.0).unwrap();
+    document.layout = None;
+    assert!(draft.plan(&[(path, document.clone())]).is_err());
+    // A room not supplied by the caller still gets both validation and rename updates.
+    let custom = assets.0.join("rooms").join("room_42.ron");
+    document.layout = Some(RoomLayout::from_room(&rooms[0]));
+    document.layout.as_mut().unwrap().exits.clear();
+    std::fs::write(&custom, serialize(&document).unwrap()).unwrap();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let entity = draft.entity_path("patrol").unwrap();
+    draft.entities.get_mut(&entity).unwrap().name = "renamed".into();
+    draft.commit(&[]).unwrap();
+    let saved: RoomEnemies = ron::from_str(&std::fs::read_to_string(&custom).unwrap()).unwrap();
+    assert!(saved.enemies.iter().any(|e| e.definition == "renamed"));
+    RoomDraft {
+        enemies: saved.enemies,
+        layout: saved.layout.unwrap(),
+    }
+    .validate_local(&draft.definitions().unwrap())
+    .unwrap();
+}
+
+#[test]
+fn missing_required_rooms_and_new_external_files_refuse_saving() {
+    use hollow_steps::definition_editor::write_files;
+    let assets = Assets::new();
+    let draft = DefinitionDraft::load(&assets.0).unwrap();
+    let plan = draft.plan(&[]).unwrap();
+    let path = assets.0.join("behaviors").join("external.ron");
+    std::fs::write(&path, serialize(&behavior()).unwrap()).unwrap();
+    assert!(write_files(&plan).unwrap_err().contains("external.ron"));
+    assert!(draft.plan(&[]).unwrap_err().contains("external.ron"));
+    std::fs::remove_file(assets.0.join("rooms").join("first.ron")).unwrap();
+    let draft = DefinitionDraft::load(&assets.0).unwrap();
+    assert!(draft.plan(&[]).unwrap_err().contains("first.ron"));
+}
+
+#[test]
+fn parsed_float_equality_does_not_rewrite_signed_zero() {
+    let assets = Assets::new();
+    let path = assets.0.join("behaviors").join("patrol.ron");
+    let mut b = behavior();
+    b.states[0].actions = vec![Action::Wait { seconds: -0.0 }];
+    std::fs::write(&path, serialize(&b).unwrap()).unwrap();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    draft.behaviors.get_mut("patrol").unwrap().states[0].actions =
+        vec![Action::Wait { seconds: 0.0 }];
+    assert!(draft.plan(&[]).unwrap().is_empty());
 }

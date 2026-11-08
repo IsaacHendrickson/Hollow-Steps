@@ -1,4 +1,4 @@
-//! Pure definition edits and save planning; only load and write_files touch disk.
+//! Pure definition edits and validation, with explicit load, plan, and write boundaries.
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -7,6 +7,12 @@ use crate::behavior::{read_ron, ron_files, BehaviorDefinition, State};
 use crate::enemy::{EnemyDefinition, EnemyDefinitions};
 use crate::room::RoomEnemies;
 
+/// Use native separators even when a caller supplies a path with mixed separators.
+fn file_error(path: &Path, error: impl std::fmt::Display) -> String {
+    let path: PathBuf = path.components().collect();
+    format!("{}: {error}", path.display())
+}
+
 #[derive(Debug)]
 pub struct DefinitionDraft {
     /// Keys are stable filenames, independent of editable entity names.
@@ -14,28 +20,59 @@ pub struct DefinitionDraft {
     pub behaviors: BTreeMap<String, BehaviorDefinition>,
     original_names: BTreeMap<PathBuf, String>,
     assets: PathBuf,
+    originals: BTreeMap<PathBuf, Vec<u8>>,
+    layouts: Vec<(crate::room::RoomId, crate::editor::RoomLayout)>,
 }
 
 impl DefinitionDraft {
     pub fn load(assets: &Path) -> Result<Self, String> {
-        let mut entities = BTreeMap::new();
-        for path in ron_files(&assets.join("entities"))? {
-            entities.insert(path.clone(), read_ron::<EnemyDefinition>(&path)?);
+        let assets: PathBuf = assets.components().collect();
+        let assets = assets.as_path();
+        let mut originals = BTreeMap::new();
+        for directory in ["entities", "behaviors", "rooms"] {
+            for path in ron_files(&assets.join(directory))? {
+                originals.insert(
+                    path.clone(),
+                    std::fs::read(&path).map_err(|e| file_error(&path, e))?,
+                );
+            }
         }
-        let behaviors = crate::behavior::load_behaviors(&assets.join("behaviors"))?
-            .into_iter()
-            .map(|(name, value)| (name, (*value).clone()))
-            .collect();
+        let mut entities = BTreeMap::new();
+        let mut behaviors = BTreeMap::new();
+        for (path, bytes) in &originals {
+            if path.parent() == Some(assets.join("entities").as_path()) {
+                let entity = ron::de::from_bytes::<EnemyDefinition>(bytes)
+                    .map_err(|e| file_error(path, e))?;
+                entities.insert(path.clone(), entity);
+            } else if path.parent() == Some(assets.join("behaviors").as_path()) {
+                let behavior = ron::de::from_bytes::<BehaviorDefinition>(bytes)
+                    .map_err(|e| file_error(path, e))?;
+                let name = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .ok_or("invalid behavior filename")?;
+                behaviors.insert(name.to_owned(), behavior);
+            }
+        }
         let original_names = entities
             .iter()
             .map(|(p, e)| (p.clone(), e.name.clone()))
             .collect();
-        Ok(Self {
+        let layouts = crate::room::default_rooms()
+            .iter()
+            .map(|r| (r.id, crate::editor::RoomLayout::from_room(r)))
+            .collect();
+        let draft = Self {
+            originals,
+            layouts,
             entities,
             behaviors,
             original_names,
             assets: assets.to_owned(),
-        })
+        };
+        draft.definitions()?;
+        draft.check_disk()?;
+        Ok(draft)
     }
 
     pub fn entity_path(&self, original_name: &str) -> Option<PathBuf> {
@@ -58,46 +95,321 @@ impl DefinitionDraft {
     pub fn rename_placements(&self, document: &mut RoomEnemies) {
         for enemy in &mut document.enemies {
             if let Some(path) = self.entity_path(&enemy.definition) {
-                enemy.definition = self.entities[&path].name.clone();
+                if let Some(entity) = self.entities.get(&path) {
+                    enemy.definition = entity.name.clone();
+                }
             }
         }
     }
 
-    /// No writes: validate and serialize every definition and every referencing room first.
-    pub fn plan(
-        &self,
-        rooms: &mut [(PathBuf, RoomEnemies)],
-    ) -> Result<Vec<(PathBuf, String)>, String> {
+    /// Read every room; caller documents are immutable overrides for unsaved room edits.
+    pub fn plan(&self, rooms: &[(PathBuf, RoomEnemies)]) -> Result<SavePlan, String> {
+        self.check_disk()?;
         let definitions = self.definitions()?;
-        let mut files = Vec::new();
+        let mut documents = self.room_documents()?;
+        for (path, document) in rooms {
+            if path.parent() != Some(self.assets.join("rooms").as_path()) {
+                return Err(file_error(path, "invalid room path"));
+            }
+            documents.insert(path.clone(), document.clone());
+        }
+        for file in ["first.ron", "second.ron", "boss.ron"] {
+            let path = self.assets.join("rooms").join(file);
+            if !documents.contains_key(&path) {
+                return Err(file_error(&path, "missing required room"));
+            }
+        }
+        let mut catalog = self.layouts.clone();
+        for (path, document) in &documents {
+            let id = room_id(path)?;
+            if let Some(layout) = &document.layout {
+                catalog.retain(|(other, _)| *other != id);
+                catalog.push((id, layout.clone()));
+            }
+        }
+        let mut candidates = Vec::new();
         for (path, entity) in &self.entities {
-            files.push((path.clone(), serialize(entity)?));
+            if path.parent() != Some(self.assets.join("entities").as_path())
+                || path.extension().is_none_or(|e| e != "ron")
+            {
+                return Err(file_error(path, "invalid entity path"));
+            }
+            candidates.push((path.clone(), serialize(entity)?));
         }
         for (name, behavior) in &self.behaviors {
-            files.push((
+            valid_filename(name)?;
+            candidates.push((
                 self.assets.join("behaviors").join(format!("{name}.ron")),
                 serialize(behavior)?,
             ));
         }
-        for (path, document) in rooms {
-            self.rename_placements(document);
-            for enemy in &document.enemies {
-                definitions.size(&enemy.definition)?;
+        for (path, mut document) in documents {
+            self.rename_placements(&mut document);
+            let id = room_id(&path)?;
+            let layout = catalog
+                .iter()
+                .find(|(other, _)| *other == id)
+                .ok_or_else(|| file_error(&path, "room needs layout"))?
+                .1
+                .clone();
+            crate::editor::RoomDraft {
+                enemies: document.enemies.clone(),
+                layout,
             }
-            files.push((path.clone(), serialize(document)?));
+            .validate(&definitions, &catalog)
+            .map_err(|e| file_error(&path, e))?;
+            candidates.push((path, serialize(&document)?));
         }
-        Ok(files)
+        let deletes = self
+            .originals
+            .keys()
+            .filter(|path| {
+                path.parent() != Some(self.assets.join("rooms").as_path())
+                    && !candidates.iter().any(|(p, _)| p == *path)
+            })
+            .cloned()
+            .collect();
+        let mut writes = Vec::new();
+        for (path, source) in candidates {
+            let same = match self.originals.get(&path) {
+                Some(bytes) => same_content(&path, bytes, source.as_bytes())?,
+                None => false,
+            };
+            if !same {
+                writes.push((path, source));
+            }
+        }
+        let mut expected = self
+            .originals
+            .clone()
+            .into_iter()
+            .map(|(p, b)| (p, Some(b)))
+            .collect::<BTreeMap<_, _>>();
+        for (path, _) in &writes {
+            expected.entry(path.clone()).or_insert(None);
+        }
+        Ok(SavePlan {
+            assets: self.assets.clone(),
+            writes,
+            deletes,
+            expected,
+        })
     }
+
+    fn room_documents(&self) -> Result<BTreeMap<PathBuf, RoomEnemies>, String> {
+        ron_files(&self.assets.join("rooms"))?
+            .into_iter()
+            .map(|p| read_ron(&p).map(|d| (p, d)))
+            .collect()
+    }
+
+    fn check_disk(&self) -> Result<(), String> {
+        let expected = self
+            .originals
+            .iter()
+            .map(|(p, b)| (p.clone(), Some(b.clone())))
+            .collect();
+        check_snapshot(&self.assets, &expected)
+    }
+
+    /// Save and refresh rename origins and conflict snapshots for the next edit.
+    pub fn commit(&mut self, rooms: &[(PathBuf, RoomEnemies)]) -> Result<(), String> {
+        write_files(&self.plan(rooms)?)?;
+        *self = Self::load(&self.assets)?;
+        Ok(())
+    }
+
+    pub fn add_entity(&mut self, mut entity: EnemyDefinition) -> Result<PathBuf, String> {
+        entity.name = entity.name.trim().to_owned();
+        entity.behavior = entity.behavior.trim().to_owned();
+        entity.validate()?;
+        if self.entities.values().any(|e| e.name == entity.name) {
+            return Err("duplicate entity name".into());
+        }
+        if !self.behaviors.contains_key(&entity.behavior) {
+            return Err("missing behavior".into());
+        }
+        let mut index = 0;
+        let path = loop {
+            let path = self
+                .assets
+                .join("entities")
+                .join(format!("entity_{index}.ron"));
+            if !self.entities.contains_key(&path) && !self.originals.contains_key(&path) {
+                break path;
+            }
+            index += 1;
+        };
+        self.entities.insert(path.clone(), entity);
+        Ok(path)
+    }
+
+    pub fn duplicate_entity(&mut self, path: &Path, name: &str) -> Result<PathBuf, String> {
+        let mut entity = self.entities.get(path).ok_or("missing entity")?.clone();
+        entity.name = name.to_owned();
+        self.add_entity(entity)
+    }
+
+    pub fn delete_entity(&mut self, path: &Path) -> Result<(), String> {
+        let entity = self.entities.get(path).ok_or("missing entity")?;
+        let original = self.original_names.get(path);
+        for (room_path, bytes) in &self.originals {
+            if room_path.parent() == Some(self.assets.join("rooms").as_path()) {
+                let document: RoomEnemies =
+                    ron::de::from_bytes(bytes).map_err(|e| file_error(room_path, e))?;
+                if document
+                    .enemies
+                    .iter()
+                    .any(|e| e.definition == entity.name || original == Some(&e.definition))
+                {
+                    return Err(file_error(room_path, "entity is referenced by this room"));
+                }
+            }
+        }
+        self.entities.remove(path);
+        Ok(())
+    }
+
+    pub fn add_behavior(&mut self, name: &str, behavior: BehaviorDefinition) -> Result<(), String> {
+        let name = name.trim();
+        valid_filename(name)?;
+        if self.behaviors.contains_key(name) {
+            return Err("duplicate behavior name".into());
+        }
+        behavior.validate()?;
+        self.behaviors.insert(name.to_owned(), behavior);
+        Ok(())
+    }
+
+    pub fn rename_behavior(&mut self, old: &str, name: &str) -> Result<(), String> {
+        let name = name.trim();
+        valid_filename(name)?;
+        if !self.behaviors.contains_key(old) {
+            return Err("missing behavior".into());
+        }
+        if old == name {
+            return Ok(());
+        }
+        if self.behaviors.contains_key(name) {
+            return Err("duplicate behavior name".into());
+        }
+        let behavior = self.behaviors.remove(old).ok_or("missing behavior")?;
+        self.behaviors.insert(name.to_owned(), behavior);
+        for entity in self.entities.values_mut() {
+            if entity.behavior == old {
+                entity.behavior = name.to_owned();
+            }
+        }
+        Ok(())
+    }
+
+    pub fn delete_behavior(&mut self, name: &str) -> Result<(), String> {
+        if self.entities.values().any(|e| e.behavior == name) {
+            return Err("behavior is referenced by an entity".into());
+        }
+        self.behaviors.remove(name).ok_or("missing behavior")?;
+        Ok(())
+    }
+}
+
+fn valid_filename(name: &str) -> Result<(), String> {
+    if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\', ':']) {
+        return Err("invalid behavior filename".into());
+    }
+    Ok(())
+}
+
+fn room_id(path: &Path) -> Result<crate::room::RoomId, String> {
+    use crate::room::RoomId;
+    match path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default()
+    {
+        "first" => Ok(RoomId::First),
+        "second" => Ok(RoomId::Second),
+        "boss" => Ok(RoomId::Boss),
+        name => name
+            .strip_prefix("room_")
+            .and_then(|n| n.parse().ok())
+            .filter(|id| name == format!("room_{id}"))
+            .map(RoomId::Custom)
+            .ok_or_else(|| file_error(path, "invalid room filename")),
+    }
+}
+
+fn same_content(path: &Path, before: &[u8], after: &[u8]) -> Result<bool, String> {
+    fn compare<T: serde::de::DeserializeOwned + PartialEq>(
+        before: &[u8],
+        after: &[u8],
+    ) -> Result<bool, String> {
+        let before: T = ron::de::from_bytes(before).map_err(|e| e.to_string())?;
+        let after: T = ron::de::from_bytes(after).map_err(|e| e.to_string())?;
+        Ok(before == after)
+    }
+    match path
+        .parent()
+        .and_then(Path::file_name)
+        .and_then(|s| s.to_str())
+    {
+        Some("entities") => compare::<EnemyDefinition>(before, after),
+        Some("behaviors") => compare::<BehaviorDefinition>(before, after),
+        _ => compare::<RoomEnemies>(before, after),
+    }
+}
+
+#[derive(Debug)]
+pub struct SavePlan {
+    assets: PathBuf,
+    writes: Vec<(PathBuf, String)>,
+    deletes: Vec<PathBuf>,
+    expected: BTreeMap<PathBuf, Option<Vec<u8>>>,
+}
+impl std::ops::Deref for SavePlan {
+    type Target = [(PathBuf, String)];
+    fn deref(&self) -> &Self::Target {
+        &self.writes
+    }
+}
+
+fn check_snapshot(
+    assets: &Path,
+    expected: &BTreeMap<PathBuf, Option<Vec<u8>>>,
+) -> Result<(), String> {
+    check_expected(expected)?;
+    for directory in ["entities", "behaviors", "rooms"] {
+        for path in ron_files(&assets.join(directory))? {
+            if !expected.contains_key(&path) {
+                return Err(file_error(&path, "changed on disk; reload before saving"));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn check_expected(expected: &BTreeMap<PathBuf, Option<Vec<u8>>>) -> Result<(), String> {
+    for (path, previous) in expected {
+        let current = match std::fs::read(path) {
+            Ok(bytes) => Some(bytes),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(e) => return Err(file_error(path, e)),
+        };
+        if &current != previous {
+            return Err(file_error(path, "changed on disk; reload before saving"));
+        }
+    }
+    Ok(())
 }
 
 /// Decode the six side-panel fields without touching the existing draft on failure.
 pub fn entity_from_fields(fields: &[String; 6]) -> Result<EnemyDefinition, String> {
+    let fields = fields.clone().map(|s| s.trim().to_owned());
     for (i, text) in fields.iter().enumerate() {
         validate_entity_field(i, text)?;
     }
     let entity = EnemyDefinition {
         name: fields[0].clone(),
-        health: fields[1].parse().map_err(|_| "health must be 0..255")?,
+        health: fields[1].parse().map_err(|_| "health must be 1..255")?,
         size: (
             fields[2].parse().map_err(|_| "invalid width")?,
             fields[3].parse().map_err(|_| "invalid height")?,
@@ -122,7 +434,8 @@ pub fn set_initial_state(behavior: &mut BehaviorDefinition, index: usize) -> Res
 }
 
 pub fn add_state(behavior: &mut BehaviorDefinition, name: String) -> Result<(), String> {
-    if name.trim().is_empty() || behavior.states.iter().any(|s| s.name == name) {
+    let name = name.trim().to_owned();
+    if name.is_empty() || behavior.states.iter().any(|s| s.name == name) {
         return Err("state name must be nonempty and unique".into());
     }
     if behavior.states.is_empty() {
@@ -141,6 +454,7 @@ pub fn rename_state(
     index: usize,
     name: String,
 ) -> Result<(), String> {
+    let name = name.trim().to_owned();
     let old = behavior
         .states
         .get(index)
@@ -197,11 +511,17 @@ pub fn edit_state_lists(state: &mut State, actions: &str, transitions: &str) -> 
 }
 
 pub fn serialize(value: &impl serde::Serialize) -> Result<String, String> {
-    ron::ser::to_string_pretty(value, ron::ser::PrettyConfig::default()).map_err(|e| e.to_string())
+    ron::ser::to_string_pretty(
+        value,
+        ron::ser::PrettyConfig::default().new_line("\n".to_owned()),
+    )
+    .map_err(|e| e.to_string())
 }
 
 /// Stage all files before replacing any. Roll back previous replacements on an I/O failure.
-pub fn write_files(files: &[(PathBuf, String)]) -> Result<(), String> {
+pub fn write_files(plan: &SavePlan) -> Result<(), String> {
+    check_snapshot(&plan.assets, &plan.expected)?;
+    let files = &plan.writes;
     use std::io::Write;
     let mut staged = Vec::new();
     let result = (|| {
@@ -209,29 +529,43 @@ pub fn write_files(files: &[(PathBuf, String)]) -> Result<(), String> {
             let previous = match std::fs::read(path) {
                 Ok(bytes) => Some(bytes),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-                Err(e) => return Err(e.to_string()),
+                Err(e) => return Err(file_error(path, e)),
             };
             let temp = path.with_extension("ron.tmp");
+            match std::fs::remove_file(&temp) {
+                Ok(()) => (),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
+                Err(e) => return Err(file_error(&temp, e)),
+            }
             let mut file = std::fs::OpenOptions::new()
                 .write(true)
                 .create_new(true)
                 .open(&temp)
-                .map_err(|e| format!("{}: {e}", temp.display()))?;
+                .map_err(|e| file_error(&temp, e))?;
             staged.push((path, temp, previous));
             file.write_all(source.as_bytes())
-                .map_err(|e| e.to_string())?;
-            file.sync_all().map_err(|e| e.to_string())?;
+                .map_err(|e| file_error(path, e))?;
+            file.sync_all().map_err(|e| file_error(path, e))?;
+        }
+        check_snapshot(&plan.assets, &plan.expected)?;
+        for path in &plan.deletes {
+            staged.push((path, PathBuf::new(), plan.expected[path].clone()));
         }
         for (index, (path, temp, _)) in staged.iter().enumerate() {
-            if let Err(error) = std::fs::rename(temp, path) {
-                let mut errors = vec![error.to_string()];
+            let result = if temp.as_os_str().is_empty() {
+                std::fs::remove_file(path)
+            } else {
+                std::fs::rename(temp, path)
+            };
+            if let Err(error) = result {
+                let mut errors = vec![file_error(path, error)];
                 for (path, _, previous) in staged[..index].iter().rev() {
                     let rollback = match previous {
                         Some(bytes) => std::fs::write(path, bytes),
                         None => std::fs::remove_file(path),
                     };
                     if let Err(e) = rollback {
-                        errors.push(format!("rollback {}: {e}", path.display()));
+                        errors.push(file_error(path, format_args!("rollback: {e}")));
                     }
                 }
                 return Err(errors.join("; "));
@@ -268,7 +602,7 @@ impl ActionInput {
             return Err("missing action parameter".into());
         }
         for (i, value) in self.values.iter().enumerate() {
-            action.set_parameter(i, value)?;
+            action.set_parameter(i, value.trim())?;
         }
         Ok(action)
     }
@@ -297,16 +631,16 @@ impl TransitionInput {
         Ok(())
     }
     pub fn build(&self, names: &[String]) -> Result<crate::behavior::Transition, String> {
-        if !names.contains(&self.target) {
+        if !names.iter().any(|n| n == self.target.trim()) {
             return Err("missing target state".into());
         }
         let mut condition =
             crate::behavior::Condition::defaults(self.kind).ok_or("unknown condition")?;
         if condition.parameter().is_some() {
-            condition.set_parameter(&self.value)?;
+            condition.set_parameter(self.value.trim())?;
         }
         Ok(crate::behavior::Transition {
-            target: self.target.clone(),
+            target: self.target.trim().to_owned(),
             condition,
             invert: self.invert,
         })
@@ -417,9 +751,12 @@ impl PanelLayout {
 /// Character wrapping also splits unbroken identifiers and filesystem paths.
 pub fn wrap_label(text: &str, columns: usize) -> Vec<String> {
     let columns = columns.max(1);
-    text.lines()
+    text.split('\n')
         .flat_map(|line| {
-            let chars: Vec<_> = line.chars().collect();
+            let chars: Vec<_> = line.trim_end_matches('\r').chars().collect();
+            if chars.is_empty() {
+                return vec![String::new()];
+            }
             chars
                 .chunks(columns)
                 .map(|chunk| chunk.iter().collect())
@@ -429,6 +766,7 @@ pub fn wrap_label(text: &str, columns: usize) -> Vec<String> {
 }
 
 pub fn validate_entity_field(index: usize, text: &str) -> Result<(), String> {
+    let text = text.trim();
     match index {
         0 | 5 if text.trim().is_empty() => Err("must not be empty".into()),
         1 => match text.parse::<u8>() {
@@ -448,5 +786,27 @@ pub fn validate_entity_field(index: usize, text: &str) -> Result<(), String> {
             .map(|_| ())
             .map_err(|_| "expected integer 0..255".into()),
         _ => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::file_error;
+    use std::path::{Path, MAIN_SEPARATOR};
+
+    #[test]
+    fn file_errors_use_native_separators_for_caller_paths() {
+        let expected = Path::new("assets").join("rooms").join("second.ron");
+        // Simulate a caller supplying mixed separators on Windows.
+        let caller = expected.to_string_lossy().replacen(MAIN_SEPARATOR, "/", 1);
+        let error = file_error(Path::new(&caller), "invalid patrol interval");
+        let (reported, reason) = error.split_once(": ").unwrap();
+        assert_eq!(Path::new(reported), expected);
+        assert_eq!(Path::new(reported).file_name(), Some("second.ron".as_ref()));
+        assert!(reported
+            .chars()
+            .filter(|c| matches!(c, '/' | '\\'))
+            .all(|c| c == MAIN_SEPARATOR));
+        assert_eq!(reason, "invalid patrol interval");
     }
 }

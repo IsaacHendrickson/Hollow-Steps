@@ -169,6 +169,9 @@ Agents should be able to verify almost everything without a window.
   `delta_seconds` and return or mutate plain state.
 - Tests must never start Macroquad, open a window, or need a GPU, display, or
   audio device.
+- Tests must not compare path strings that contain separators. Build paths
+  one component at a time with `Path::join`, compare `Path` values, components,
+  or filenames, and keep assertions that errors identify the correct file.
 - Every new mechanic needs tests for: the normal case, the boundary or edge
   case (world edges, floor, zero or very large `delta_seconds`), and at least
   one case that must not happen (for example, jumping while airborne).

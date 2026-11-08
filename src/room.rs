@@ -117,7 +117,7 @@ impl Room {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct RoomEnemies {
     pub enemies: Vec<EnemyPlacement>,
@@ -125,7 +125,7 @@ pub struct RoomEnemies {
     pub layout: Option<crate::editor::RoomLayout>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct EnemyPlacement {
     pub definition: String,
@@ -172,21 +172,9 @@ pub fn test_rooms() -> [Room; 3] {
         .expect("fixed test rooms must load")
 }
 
-pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
-    let definitions = EnemyDefinitions::load(assets)?;
-    let mut errors = Vec::new();
-    let mut load_enemies = |file: &str, bounds| match load_room_enemies(
-        &assets.join("rooms").join(file),
-        &definitions,
-        bounds,
-    ) {
-        Ok(enemies) => enemies,
-        Err(error) => {
-            errors.push(error);
-            Vec::new()
-        }
-    };
-    let mut rooms = [
+/// Canonical layouts for legacy placement documents without an authored layout.
+pub(crate) fn default_rooms() -> [Room; 3] {
+    [
         Room {
             id: RoomId::First,
             boss: None,
@@ -197,7 +185,7 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
                 })
                 .to_vec(),
             spawn: Vec2::new(180.0, FLOOR_Y - 24.0),
-            enemies: load_enemies("first.ron", WorldBounds::new(0.0, 960.0, FLOOR_Y)),
+            enemies: Vec::new(),
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
             exits: vec![Exit {
@@ -228,7 +216,7 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
                 })
                 .to_vec(),
             spawn: Vec2::new(160.0, 376.0),
-            enemies: load_enemies("second.ron", WorldBounds::new(80.0, 880.0, 400.0)),
+            enemies: Vec::new(),
             bounds: Rect::new(80.0, 40.0, 800.0, 360.0),
             floor_y: 400.0,
             exits: vec![
@@ -254,7 +242,7 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
             spawn: Vec2::new(160.0, 436.0),
-            enemies: load_enemies("boss.ron", WorldBounds::new(0.0, 960.0, FLOOR_Y)),
+            enemies: Vec::new(),
             boss: None,
             boss_special: Some(BossSpecials::new(Vec2::new(560.0, FLOOR_Y - 24.0))),
             coins: vec![],
@@ -267,12 +255,22 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
             }],
             items: vec![],
         },
-    ];
+    ]
+}
+
+pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
+    let definitions = EnemyDefinitions::load(assets)?;
+    let mut errors = Vec::new();
+    let mut rooms = default_rooms();
     for (room, file) in rooms
         .iter_mut()
         .zip(["first.ron", "second.ron", "boss.ron"])
     {
         let path = assets.join("rooms").join(file);
+        match load_room_enemies(&path, &definitions, room.world_bounds()) {
+            Ok(enemies) => room.enemies = enemies,
+            Err(error) => errors.push(error),
+        }
         if let Ok(document) = read_ron::<RoomEnemies>(&path) {
             if let Some(layout) = document.layout {
                 match layout.apply(room) {

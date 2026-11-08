@@ -10,14 +10,14 @@ use crate::item::{Item, WorldItem, ITEM_SIZE};
 use crate::player::WorldBounds;
 use crate::room::{EnemyPlacement, Exit, Room, RoomEdge, RoomEnemies, RoomId};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct ItemPlacement {
     pub item: Item,
     pub position: (f32, f32),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct ExitPlacement {
     pub edge: RoomEdge,
@@ -39,7 +39,7 @@ impl ExitPlacement {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct RoomLayout {
     pub bounds: (f32, f32, f32, f32),
@@ -534,58 +534,27 @@ impl EditorSession {
     }
 
     pub fn save_content(&mut self) -> Result<(), String> {
+        if self.new && self.path.exists() {
+            return Err("new room already exists".into());
+        }
+        let mut document = RoomEnemies {
+            enemies: self.draft.enemies.clone(),
+            layout: Some(self.draft.layout.clone()),
+        };
+        let files = self
+            .content
+            .plan(&[(self.path.clone(), document.clone())])?;
+        self.content.rename_placements(&mut document);
+        let definitions = self.content.definitions()?;
+        crate::definition_editor::write_files(&files)?;
         let assets = self
             .path
             .parent()
             .and_then(Path::parent)
             .ok_or("invalid asset path")?;
-        if self.new && self.path.exists() {
-            return Err("new room already exists".into());
-        }
-        let mut documents = ron_files(&assets.join("rooms"))?
-            .into_iter()
-            .map(|path| read_ron::<RoomEnemies>(&path).map(|doc| (path, doc)))
-            .collect::<Result<Vec<_>, _>>()?;
-        documents.retain(|(path, _)| path != &self.path);
-        documents.push((
-            self.path.clone(),
-            RoomEnemies {
-                enemies: self.draft.enemies.clone(),
-                layout: Some(self.draft.layout.clone()),
-            },
-        ));
-        let files = self.content.plan(&mut documents)?;
-        let definitions = self.content.definitions()?;
-        let catalog = self.catalog();
-        for (path, document) in &documents {
-            let id = catalog
-                .iter()
-                .find(|(id, _)| path.ends_with(room_filename(*id)))
-                .map(|(id, _)| *id)
-                .ok_or("room missing from catalog")?;
-            let layout = document.layout.clone().unwrap_or_else(|| {
-                catalog
-                    .iter()
-                    .find(|(room, _)| *room == id)
-                    .expect("catalog room")
-                    .1
-                    .clone()
-            });
-            RoomDraft {
-                enemies: document.enemies.clone(),
-                layout,
-            }
-            .validate(&definitions, &catalog)?;
-        }
-        crate::definition_editor::write_files(&files)?;
-        let document = documents
-            .into_iter()
-            .find(|(p, _)| p == &self.path)
-            .expect("current document")
-            .1;
+        self.content = crate::definition_editor::DefinitionDraft::load(assets)?;
         self.draft.enemies = document.enemies;
         self.definitions = definitions;
-        self.content = crate::definition_editor::DefinitionDraft::load(assets)?;
         Ok(())
     }
 
