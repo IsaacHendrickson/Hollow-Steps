@@ -11,6 +11,7 @@ pub const DEATH_EFFECT_SECONDS: f32 = 0.25;
 pub const SLAM_RADIUS: f32 = 56.0;
 pub const RING_RADIUS: f32 = 48.0;
 pub const BOSS_MAX_HEALTH: u32 = 100;
+pub const BOSS_MOVE_SPEED: f32 = 1_000.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SpecialAttack {
@@ -44,6 +45,7 @@ struct ActiveAttack {
 #[derive(Debug)]
 pub struct BossSpecials {
     position: Vec2,
+    target_position: Vec2,
     health: u32,
     active: Option<ActiveAttack>,
     rings: Vec<Ring>,
@@ -58,6 +60,7 @@ impl BossSpecials {
     pub fn new(position: Vec2) -> Self {
         Self {
             position,
+            target_position: position,
             health: BOSS_MAX_HEALTH,
             active: None,
             rings: Vec::new(),
@@ -107,10 +110,14 @@ impl BossSpecials {
             return;
         }
         let target_x = player_position.x.clamp(bounds.left, bounds.right);
-        self.position.x = target_x;
-        if kind == SpecialAttack::Slam {
-            self.position.y = bounds.floor_y - 180.0;
-        }
+        self.target_position = Vec2::new(
+            target_x,
+            if kind == SpecialAttack::Slam {
+                bounds.floor_y - 180.0
+            } else {
+                self.position.y
+            },
+        );
         self.active = Some(ActiveAttack {
             kind,
             elapsed: 0.0,
@@ -160,6 +167,12 @@ impl BossSpecials {
             return 0;
         }
 
+        let offset = self.target_position - self.position;
+        let distance = offset.length();
+        if distance > 0.0 {
+            self.position += offset * (BOSS_MOVE_SPEED * dt / distance).min(1.0);
+        }
+
         let Some(attack) = self.active.as_mut() else {
             return 0;
         };
@@ -177,9 +190,8 @@ impl BossSpecials {
         self.active = None;
         match kind {
             SpecialAttack::Slam => {
-                self.position.x = target_x;
-                self.position.y = bounds.floor_y - 24.0;
-                u32::from((player_position.x - self.position.x).abs() <= SLAM_RADIUS)
+                self.target_position = Vec2::new(target_x, bounds.floor_y - 24.0);
+                u32::from((player_position.x - target_x).abs() <= SLAM_RADIUS)
             }
             SpecialAttack::Summon => {
                 self.summoned_enemies.extend([
