@@ -164,6 +164,18 @@ pub struct Transition {
 }
 
 impl BehaviorDefinition {
+    /// A stationary starting point for authoring, with no inherited actions or links.
+    pub fn blank() -> Self {
+        Self {
+            initial_state: "idle".into(),
+            states: vec![State {
+                name: "idle".into(),
+                actions: vec![],
+                transitions: vec![],
+            }],
+        }
+    }
+
     pub fn from_ron(source: &str) -> Result<Self, String> {
         let definition: Self = ron::from_str(source).map_err(|error| error.to_string())?;
         definition.validate()?;

@@ -324,11 +324,24 @@ behavior for already loaded rooms; restart or use editor Save to apply layouts.
 
 
 Select an enemy, then choose **Enemy properties** in the right panel. Edit its
-shared name, health, width/height, contact damage, and behavior file stem (without
-`.ron`). These edits affect every instance using that definition. Renaming an
+shared name, health, width/height, and contact damage. Choose a behavior in the
+**Behavior** dropdown and click **Use selected behavior** to assign it. These
+edits affect every instance using that definition. Renaming an
 entity updates references in all saved rooms while retaining its entity filename.
 Use **Room tools** to return to placement controls. Scroll the panel for controls
 below the visible area.
+
+To create an enemy from scratch, press F2, open **Room tools**, enter a unique
+**New / duplicate entity name**, and click **New entity**. It opens Enemy
+properties with its own blank `idle` behavior and the structured controls enabled;
+it does not copy another enemy. Add actions, states, and transitions there, or
+choose **New behavior from preset**, select a preset, name the behavior, leave
+**Assign to selected entity** checked, and click **Create behavior**. To use an
+existing behavior, select it and click **Use selected behavior**. **New blank
+behavior** creates and assigns a fresh empty behavior to the selected entity;
+**Duplicate entity** deliberately shares the source behavior until reassigned or
+copied. Return to **Room tools**, select the new entity, click **Place**, click
+the room canvas, then **Save**. Save also persists definitions without placements.
 
 The behavior section edits the selected entity's shared behavior file and shows
 **used by N entities**, counting entity definitions across all rooms, including
@@ -347,6 +360,12 @@ jump offsets may be any finite signed value. Blast counts must be integers in
 0..65535; damage and health thresholds must be integers in 0..255.
 Enable **Advanced: structured rows** for state, action,
 and transition editing; **Advanced: raw RON** remains available inside that view.
+For Skittish, **Key values** exposes `idle: switch to flee when player closer
+than` (start fleeing), `flee: switch to idle when player farther than` (stop
+fleeing), and `flee: speed away from player`. The two distance thresholds are
+independent and use strict comparisons; choose a stop distance larger than the
+start distance to avoid rapid switching. Distance is center-to-center
+in pixels. Edit these fields and **Save** to apply them to gameplay and disk.
 Choose a state, rename it, make it initial, add a named state, or remove it. Renaming updates
 all transition targets. Removing drops transitions targeting that state and, if
 needed, makes the first remaining state initial; the final state cannot be removed.

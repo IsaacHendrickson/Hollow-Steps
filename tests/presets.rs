@@ -338,6 +338,57 @@ fn context(player_x: f32) -> BehaviorContext {
 }
 
 #[test]
+fn edited_skittish_ranges_and_speed_survive_reload_and_control_fleeing() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let path = draft.entity_path("patrol").unwrap();
+    let template = preset("Skittish");
+    draft
+        .create_behavior_from_preset(&template, "timid", Some(&path))
+        .unwrap();
+    let behavior = draft.behaviors.get_mut("timid").unwrap();
+    let mut values = KeyValues::from_behavior(behavior);
+    assert_eq!(values.values.len(), 3);
+    values.values[0].value = "60".into(); // Start distance.
+    values.values[1].value = "25".into(); // Flee speed.
+    values.values[2].value = "100".into(); // Stop distance.
+    values.apply(behavior).unwrap();
+    draft.commit(&[]).unwrap();
+    let reloaded = DefinitionDraft::load(&assets.0).unwrap();
+    assert_eq!(reloaded.entities[&path].behavior, "timid");
+    let edited = &reloaded.behaviors["timid"];
+    assert_eq!(KeyValues::from_behavior(edited).values, values.values);
+    let mut behavior = Behavior::new(Arc::new(edited.clone())).unwrap();
+    let mut position = Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(159.0), 0.0);
+    assert_eq!(behavior.state_name(), "idle");
+    behavior.update(&mut position, context(160.0), 0.1);
+    assert_eq!(behavior.state_name(), "idle"); // Equality does not start fleeing.
+    assert_eq!(position.x, 100.0);
+    behavior.update(&mut position, context(159.0), 0.1);
+    assert_eq!(behavior.state_name(), "flee");
+    assert_eq!(position.x, 97.5);
+    position.x = 100.0;
+    behavior.update(&mut position, context(180.0), 0.1);
+    assert_eq!(behavior.state_name(), "flee"); // Between the two thresholds.
+    assert_eq!(position.x, 97.5);
+    position.x = 100.0;
+    behavior.update(&mut position, context(201.0), 0.1);
+    assert_eq!(behavior.state_name(), "idle");
+    assert_eq!(position.x, 100.0);
+    // Stop equality is checked directly, before movement can increase the distance.
+    let condition = &edited.states[1].transitions[0].condition;
+    assert!(
+        !condition.matches(hollow_steps::behavior::ConditionContext {
+            state_elapsed: 0.0,
+            player_distance: 100.0,
+            health: 3,
+            action_finished: false,
+        })
+    );
+}
+
+#[test]
 fn fixture_chaser_has_separate_start_and_give_up_distances() {
     let mut behavior = Behavior::new(Arc::new(preset("Chaser").behavior)).unwrap();
     let mut position = Vec2::new(100.0, 442.0);
