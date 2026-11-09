@@ -7,7 +7,7 @@ use std::sync::Arc;
 use macroquad::math::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::behavior::{nonnegative, read_ron, ron_files, Action};
+use crate::behavior::{nonnegative, ron_files, Action};
 use crate::boss_special::BossSpecials;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -38,7 +38,14 @@ pub struct BossDefinition {
 
 impl BossDefinition {
     pub fn from_ron(source: &str) -> Result<Self, String> {
-        let definition: Self = ron::from_str(source).map_err(|e| e.to_string())?;
+        let definition: Self = ron::from_str(source).map_err(|e: ron::error::SpannedError| {
+            let line = source
+                .lines()
+                .nth(e.span.start.line.saturating_sub(1))
+                .unwrap_or_default()
+                .trim();
+            format!("{e}; near {line}")
+        })?;
         definition.validate()?;
         Ok(definition)
     }
@@ -81,17 +88,12 @@ impl BossDefinition {
 }
 
 fn validate_action(action: &Action) -> Result<(), String> {
-    for (name, value) in action.parameter_values() {
-        nonnegative(value).map_err(|e| format!("{name}: {e}"))?;
-        if name == "speed" && value == 0.0 {
-            return Err("speed must be positive".into());
+    action.validate()?;
+    match action {
+        Action::JumpToPlayer { speed, .. } | Action::SlamDown { speed } => {
+            crate::behavior::positive(*speed).map_err(|e| format!("speed {e}"))?;
         }
-        if name == "damage" && (value > 255.0 || value.fract() != 0.0) {
-            return Err("damage must be an integer in 0..255".into());
-        }
-        if name == "count" && (!(1.0..=256.0).contains(&value) || value.fract() != 0.0) {
-            return Err("count must be an integer in 1..256".into());
-        }
+        _ => {}
     }
     match action {
         Action::MoveTowardPlayer { .. }
@@ -113,9 +115,9 @@ impl BossDefinitions {
         }
         let mut definitions = BTreeMap::new();
         for path in ron_files(&directory)? {
-            let definition: BossDefinition = read_ron(&path)?;
-            definition
-                .validate()
+            let source =
+                std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+            let definition = BossDefinition::from_ron(&source)
                 .map_err(|e| format!("{}: {e}", path.display()))?;
             let name = definition.name.clone();
             if definitions

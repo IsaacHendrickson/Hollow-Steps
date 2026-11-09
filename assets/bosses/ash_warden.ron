@@ -10,7 +10,7 @@
             glide_to_player(speed: 1000.0, above_floor: 180.0),
             telegraph(seconds: 0.5),
             glide_to_floor(speed: 1000.0),
-            damage_target(radius: 56.0, damage: 1.0),
+            damage_target(radius: 56.0, damage: 1),
         ]),
         (name: "Summon", actions: [
             glide_to_player(speed: 1000.0, above_floor: 0.0),
@@ -19,9 +19,9 @@
         ]),
         (name: "Rings", actions: [
             glide_to_player(speed: 1000.0, above_floor: 0.0),
-            spawn_rings(count: 3.0),
+            spawn_rings(count: 3),
             telegraph(seconds: 1.0),
-            explode_rings(radius: 48.0, damage: 1.0),
+            explode_rings(radius: 48.0, damage: 1),
         ]),
     ],
 )

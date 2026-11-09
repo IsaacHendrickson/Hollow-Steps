@@ -161,36 +161,18 @@ fn load_errors_identify_file_boss_attack_action_and_parameter() {
             WARDEN.replace("name: \"Summon\"", "name: \" \""),
             "empty or duplicate attack name",
         ),
-        (
-            WARDEN.replace("speed: 1000.0", "speed: 0.0"),
-            "speed must be positive",
-        ),
+        (WARDEN.replace("speed: 1000.0", "speed: 0.0"), "positive"),
         (
             WARDEN.replace("above_floor: 180.0", "above_floor: -1.0"),
             "above_floor",
         ),
         (WARDEN.replace("seconds: 0.5", "seconds: NaN"), "seconds"),
         (WARDEN.replace("radius: 56.0", "radius: -1.0"), "radius"),
-        (
-            WARDEN.replace("damage: 1.0", "damage: 1.5"),
-            "damage must be an integer",
-        ),
-        (
-            WARDEN.replace("damage: 1.0", "damage: 256.0"),
-            "damage must be an integer",
-        ),
-        (
-            WARDEN.replace("count: 3.0", "count: 0.0"),
-            "count must be an integer",
-        ),
-        (
-            WARDEN.replace("count: 3.0", "count: 257.0"),
-            "count must be an integer",
-        ),
-        (
-            WARDEN.replace("count: 3.0", "count: 1.5"),
-            "count must be an integer",
-        ),
+        (WARDEN.replace("damage: 1", "damage: 1.5"), "Expected comma"),
+        (WARDEN.replace("damage: 1", "damage: 256"), "out of bounds"),
+        (WARDEN.replace("count: 3", "count: 0"), "count"),
+        (WARDEN.replace("count: 3", "count: 257"), "count"),
+        (WARDEN.replace("count: 3", "count: 1.5"), "count"),
         (WARDEN.replace("inset: 120.0", "inset: -1.0"), "inset"),
         (
             WARDEN.replace("selection: cycle", "selection: typo"),
@@ -219,6 +201,12 @@ fn load_errors_identify_file_boss_attack_action_and_parameter() {
             WARDEN.replace("glide_to_floor(speed: 1000.0)", "patrol(speed: 1000.0)"),
             "enemy-only",
         ),
+        (WARDEN.replace("health: 100,", ""), "health"),
+        (
+            WARDEN.replace("contact_damage: 0", "contact_damage: 256"),
+            "out of bounds",
+        ),
+        (WARDEN.replace("selection: cycle,", ""), "selection"),
         ("malformed".into(), "Expected struct"),
     ] {
         let path = assets.write("bosses", "ash_warden.ron", &source);
@@ -248,7 +236,7 @@ fn load_errors_identify_file_boss_attack_action_and_parameter() {
         .unwrap_err()
         .contains("actions must not be empty"));
     for source in [
-        POUND.replace("height: 200.0", "height: -1.0"),
+        POUND.replace("dy: -200.0", "dy: NaN"),
         POUND.replace("seconds: 0.5", "seconds: inf"),
         POUND.replace("speed: 100.0", "speed: 0.0"),
     ] {
@@ -357,11 +345,11 @@ fn sequences_carry_unused_time_and_instant_actions_obey_file_order() {
     let mut definition = BossDefinition::from_ron(POUND).unwrap();
     definition.attacks[0].actions = vec![
         Action::Wait { seconds: 0.25 },
-        Action::SpawnRings { count: 1.0 },
+        Action::SpawnRings { count: 1 },
         Action::Wait { seconds: 0.25 },
         Action::ExplodeRings {
             radius: 10000.0,
-            damage: 3.0,
+            damage: 3,
         },
         Action::Summon { inset: 100.0 },
     ];
@@ -429,7 +417,7 @@ fn contact_damage_and_failed_boss_reload_use_the_normal_game_boundaries() {
         &POUND.replace("speed: 100.0", "speed: 0.0"),
     );
     let error = game.reload_rooms().unwrap_err();
-    assert!(error_at(&error, &path).contains("speed must be positive"));
+    assert!(error_at(&error, &path).contains("positive"));
     assert_eq!(format!("{:?}", game.room().boss_special), before);
     assets.write("bosses", "ground_pound.ron", POUND);
     game.reload_rooms().unwrap();
@@ -439,7 +427,7 @@ fn contact_damage_and_failed_boss_reload_use_the_normal_game_boundaries() {
 
 #[test]
 fn boss_only_actions_do_not_become_enemy_behaviors_or_editor_actions() {
-    let error = BehaviorDefinition::from_ron("(initial_state: \"idle\", states: [(name: \"idle\", actions: [slam_down(speed: 100.0)], transitions: [])])").unwrap_err();
+    let error = BehaviorDefinition::from_ron("(initial_state: \"idle\", states: [(name: \"idle\", actions: [glide_to_floor(speed: 100.0)], transitions: [])])").unwrap_err();
     assert!(error.contains("boss-only action"));
     assert_eq!(
         Action::TYPES,
@@ -448,7 +436,62 @@ fn boss_only_actions_do_not_become_enemy_behaviors_or_editor_actions() {
             "move_away_from_player",
             "patrol",
             "wait",
-            "telegraph"
+            "telegraph",
+            "jump_to_player",
+            "hover",
+            "slam_down",
+            "area_blast"
         ]
     );
+}
+
+#[test]
+fn configured_pause_delays_selection_and_long_sequences_are_not_replaced() {
+    let mut definition = BossDefinition::from_ron(POUND).unwrap();
+    definition.pause_seconds = 0.25;
+    let mut boss =
+        BossSpecials::from_definition(Arc::new(definition), Vec2::new(400.0, 436.0)).unwrap();
+    let player = Vec2::new(400.0, 436.0);
+    boss.schedule(0.125, player, BOUNDS);
+    assert!(!boss.is_telegraphing());
+    boss.schedule(0.125, player, BOUNDS);
+    assert_eq!(boss.active_attack_name(), Some("Ground pound"));
+    boss.update(0.1, player, BOUNDS);
+    boss.schedule(10.0, player, BOUNDS);
+    assert_eq!(boss.position(), Vec2::new(400.0, 336.0));
+    assert_eq!(boss.active_attack_name(), Some("Ground pound"));
+}
+
+#[test]
+fn jump_target_is_captured_clamped_and_a_distant_player_avoids_the_shockwave() {
+    let mut boss = runtime(POUND);
+    boss.start_next_attack(Vec2::new(-1000.0, 436.0), BOUNDS);
+    let distant_player = Vec2::new(900.0, 436.0);
+    assert_eq!(boss.update(1.0, distant_player, BOUNDS), 0);
+    assert_eq!(boss.position().x, 24.0);
+    assert_eq!(boss.update(f32::MAX, distant_player, BOUNDS), 0);
+    assert_eq!(boss.position(), Vec2::new(24.0, 436.0));
+    assert!(!boss.is_telegraphing());
+}
+
+#[test]
+fn shared_area_blast_uses_its_count_fuse_radius_and_damage_in_boss_sequences() {
+    let mut definition = BossDefinition::from_ron(POUND).unwrap();
+    definition.attacks[0].actions = vec![Action::AreaBlast {
+        count: 2,
+        radius: 70.0,
+        fuse_time: 0.5,
+        damage: 4,
+    }];
+    let mut boss =
+        BossSpecials::from_definition(Arc::new(definition), Vec2::new(400.0, 436.0)).unwrap();
+    boss.start_next_attack(Vec2::ZERO, BOUNDS);
+    assert_eq!(boss.rings().len(), 2);
+    assert_eq!(boss.rings()[0].radius(), 70.0);
+    let target = boss.rings()[0].position();
+    assert_eq!(boss.update(0.25, target, BOUNDS), 0);
+    assert!(!boss.rings()[0].exploded());
+    assert_eq!(boss.update(0.25, target, BOUNDS), 4);
+    assert!(boss.rings().iter().all(|r| r.exploded()));
+    assert_eq!(boss.update(0.5, target, BOUNDS), 0);
 }

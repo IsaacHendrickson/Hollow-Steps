@@ -49,7 +49,7 @@ above; Windows needs no extra system libraries.
 - `I`: open/close the inventory screen to see coins and collected items.
   Gameplay pauses while it is open; `Esc` also closes it.
 - `F2`: open/close the room editor (gameplay pauses).
-- `F5`: reload all room files and their enemy/behavior definitions, including
+- `F5`: validate room files and their enemy, behavior, and boss definitions, including
   while the inventory is open. Errors appear on screen; fix the files and
   press `F5` again to retry. Use the mouse wheel to scroll long errors.
 - Touch a gold coin to collect it automatically, including while airborne.
@@ -83,7 +83,7 @@ must fit within the room. A definition contains all encounter settings:
             glide_to_player(speed: 1000.0, above_floor: 180.0),
             telegraph(seconds: 0.5),
             glide_to_floor(speed: 1000.0),
-            damage_target(radius: 56.0, damage: 1.0),
+            damage_target(radius: 56.0, damage: 1),
         ]),
     ],
 )
@@ -108,18 +108,22 @@ action. Boss action parameters (pixels, seconds, pixels/second) are:
 | `summon` | `inset`: spawn two stationary patrollers this far from the arena's sides. |
 | `spawn_rings` | `count`: place this many random arena rings immediately. |
 | `explode_rings` | `radius`, `damage`: explode pending rings and damage a player inside any ring. |
-| `jump_to` | `height`, `speed`: glide to the captured player position minus height; complete on arrival. |
+| `jump_to` (alias of shared `jump_to_player`) | `dx`, `dy`, `speed`: glide to the captured player position plus offsets, clamped to the arena; complete on arrival. Use `dy: -200.0` for 200 pixels above the player. |
 | `hover` | `seconds`: hold position for the duration. |
 | `slam_down` | `speed`: descend to the floor; complete on landing. |
 | `spawn_shockwave` | `radius`, `damage`: immediately damage a player within the horizontal radius of the boss. |
+| `area_blast` | Shared `count`, `radius`, `fuse_time`, `damage`: create arena circles, wait for the fuse, then explode them. |
 
 The ground-pound sequence (`jump_to` 200 above the player, `hover` 0.5 seconds,
 `slam_down` at speed 100, `spawn_shockwave`) exists only in a test fixture.
-Boss-only actions are rejected in enemy behaviors and are not added to the
-enemy editor's action picker. Existing enemy movement actions are rejected in
+Boss-only effects and nonblocking glides are rejected in enemy behaviors and
+are not added to the enemy editor's action picker. The shared jump, hover, slam,
+and area blast actions keep their existing enemy behavior and controls.
+Existing enemy horizontal movement actions are rejected in
 boss attacks. Loading rejects unknown/missing fields or action types, duplicate
 boss/attack names, zero health, invalid size or placement, missing references,
-negative/nonfinite values, zero movement speeds, noninteger damage outside
+negative/nonfinite values (signed finite jump offsets are allowed), zero boss
+movement speeds, noninteger damage outside
 0..255, and ring counts outside 1..256. Errors identify the file, boss, attack,
 action index, and invalid parameter. F5 validates bosses before applying a
 reload; existing encounter progress remains intact. Room saves preserve boss
@@ -219,13 +223,39 @@ Actions execute in list order, carrying unused time to the next action:
 | `patrol(speed: 90.0)` | Walk between the placement's endpoints, reflecting overshoot; run until interrupted by a transition. Return to the interval after chasing without teleporting. |
 | `wait(seconds: 0.5)` | Remain still for the duration. |
 | `telegraph(seconds: 0.5)` | Remain still and expose `Behavior::is_telegraphing()` for presentation during the duration. |
+| `jump_to_player(dx: 0.0, dy: -200.0, speed: 300.0)` | Sample the player's center plus the offsets once when this action starts. Clamp the target so the whole entity fits between the walls, the arena top (y = 0), and the floor. Move in a straight line at the given speed; finish exactly at that target. Negative dy targets above the player. |
+| `hover(seconds: 1.0)` | Hold both coordinates, including height, for the duration. |
+| `slam_down(speed: 600.0)` | Move vertically down at the given speed; finish with the body's bottom exactly on the floor. |
+| `area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 1)` | Sample `count` random circle centers anywhere inside the arena when the action starts. Show stationary warning circles, wait for the fuse, then detonate once and finish. |
 
 Completed sequences remain idle until a transition fires. Use an
 `action_finished` self-transition to repeat a sequence or continue pursuing a
 moving player after reaching them. Empty action lists are allowed and count
 as finished. Zero speeds are stationary; zero durations complete immediately
 on the next positive simulation step. Speeds are in pixels/second, positions
-and distances in pixels, and timers in seconds. Entities stay on the floor.
+and distances in pixels, and timers in seconds. Existing walking, waiting,
+and telegraph actions stay on the floor. Jump and hover preserve height after
+completion until another action moves the entity; slam lands on the floor.
+Movement actions add no attack damage of their own; configured enemy contact
+damage still applies when bodies touch. All enemy definitions can use every action.
+
+Blast centers are sampled in `[bounds.left, bounds.right]` and `[0, floor_y]`;
+circles may extend beyond the arena. Circles hit when they intersect the player's
+rectangle, including the radius boundary. Overlapping detonations apply the
+highest configured damage once per update, using normal player immunity.
+Zero count emits no circles; zero damage is harmless. Zero fuse detonates on the
+next positive simulation step. A transition interrupting a fuse cancels its
+pending blasts. Knockback pauses the fuse and airborne movement without snapping
+an airborne enemy onto the floor. Each instance owns a deterministic random stream.
+
+For example, an enemy can leap above the player's sampled position, hover, land,
+then cover the arena with delayed blasts using the existing action-list syntax:
+
+```ron
+[jump_to_player(dx: 0.0, dy: -200.0, speed: 300.0),
+ hover(seconds: 0.75), slam_down(speed: 600.0),
+ area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 2)]
+```
 
 | Condition | Meaning |
 | --- | --- |
@@ -359,11 +389,24 @@ behavior for already loaded rooms; restart or use editor Save to apply layouts.
 
 
 Select an enemy, then choose **Enemy properties** in the right panel. Edit its
-shared name, health, width/height, contact damage, and behavior file stem (without
-`.ron`). These edits affect every instance using that definition. Renaming an
+shared name, health, width/height, and contact damage. Choose a behavior in the
+**Behavior** dropdown and click **Use selected behavior** to assign it. These
+edits affect every instance using that definition. Renaming an
 entity updates references in all saved rooms while retaining its entity filename.
 Use **Room tools** to return to placement controls. Scroll the panel for controls
 below the visible area.
+
+To create an enemy from scratch, press F2, open **Room tools**, enter a unique
+**New / duplicate entity name**, and click **New entity**. It opens Enemy
+properties with its own blank `idle` behavior and the structured controls enabled;
+it does not copy another enemy. Add actions, states, and transitions there, or
+choose **New behavior from preset**, select a preset, name the behavior, leave
+**Assign to selected entity** checked, and click **Create behavior**. To use an
+existing behavior, select it and click **Use selected behavior**. **New blank
+behavior** creates and assigns a fresh empty behavior to the selected entity;
+**Duplicate entity** deliberately shares the source behavior until reassigned or
+copied. Return to **Room tools**, select the new entity, click **Place**, click
+the room canvas, then **Save**. Save also persists definitions without placements.
 
 The behavior section edits the selected entity's shared behavior file and shows
 **used by N entities**, counting entity definitions across all rooms, including
@@ -377,9 +420,17 @@ entity definition.
 states, with state names, descriptive labels, units, and row numbers. Inverted
 conditions describe the inverted comparison, including equality. Invalid input
 keeps the last valid definition and blocks Save even with the section collapsed.
-Speeds, durations, and distances must be finite and nonnegative; health thresholds
-must be integers in 0..255. Enable **Advanced: structured rows** for state, action,
+Speeds, durations, radii, and distance thresholds must be finite and nonnegative;
+jump offsets may be any finite signed value. Blast counts must be integers in
+0..65535; damage and health thresholds must be integers in 0..255.
+Enable **Advanced: structured rows** for state, action,
 and transition editing; **Advanced: raw RON** remains available inside that view.
+For Skittish, **Key values** exposes `idle: switch to flee when player closer
+than` (start fleeing), `flee: switch to idle when player farther than` (stop
+fleeing), and `flee: speed away from player`. The two distance thresholds are
+independent and use strict comparisons; choose a stop distance larger than the
+start distance to avoid rapid switching. Distance is center-to-center
+in pixels. Edit these fields and **Save** to apply them to gameplay and disk.
 Choose a state, rename it, make it initial, add a named state, or remove it. Renaming updates
 all transition targets. Removing drops transitions targeting that state and, if
 needed, makes the first remaining state initial; the final state cannot be removed.
@@ -387,13 +438,17 @@ Actions have a type name, labeled numeric parameters, and Up/Down/Delete control
 Choose a type and **Add action** to insert editable defaults. Transitions have
 target-state and condition dropdowns, a condition value when required, an invert
 checkbox, and the same ordering controls. Invalid numbers show errors beside their
-fields and block saving; speeds, durations, and distances must be finite and
-nonnegative, and health thresholds must be integers in 0..255.
+fields and block saving using the same validation as Key values and the loader.
 
 The loader enums and editor type catalogs come from the same `actions!` and
 `conditions!` declarations in `behavior.rs`. Add a supported variant there with
-its parameter labels and defaults to include it in the dropdown automatically.
-The compiler also requires gameplay matches to handle the new variant.
+its typed parameters, descriptive labels, and validation to include it in the
+dropdown and Key values automatically. Editor insertion defaults live in
+`data/action_defaults.ron`; existing defaults are unchanged. Inserted values are
+editable and saved in behavior files through the existing RON format. Add a
+matching default entry in the same change. The compiler also requires gameplay
+matches to handle the new variant. Gameplay tuning belongs in data parameters,
+not Rust literals; see the **Tunable values** rule in `AGENTS.md`.
 
 **Advanced: raw RON** toggles the original ordered-list text editors using the
 existing syntax:
@@ -475,6 +530,9 @@ Shipped presets:
   select/drag/delete on the canvas, move patrol handles, edit exits/arrival spawn,
   create/open a room, edit properties/actions/transitions/raw RON, and save/reopen.
 - Search presets, create and assign a named behavior, edit Key values, and save/reopen.
+- Assign the jump/hover/slam/blast example above to an enemy, edit every parameter
+  in Key values and structured rows, and save/reopen. Confirm the leap samples
+  once, holds in the air, lands, and shows warning circles before blast damage.
   Assign one behavior to two entity definitions; confirm the usage count and copy
   warning appear before edits, then save a copy and check only the selected entity
   switches. Check **Edit shared behavior** and both advanced views as well.

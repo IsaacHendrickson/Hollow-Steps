@@ -299,6 +299,31 @@ impl DefinitionDraft {
         Ok(())
     }
 
+    /// Create an independent empty behavior and entity together, or leave the draft unchanged.
+    pub fn add_blank_entity(&mut self, name: &str) -> Result<PathBuf, String> {
+        let behavior = (0..)
+            .map(|index| format!("blank_{index}"))
+            .find(|name| {
+                !self.behaviors.contains_key(name)
+                    && !self
+                        .originals
+                        .contains_key(&self.assets.join("behaviors").join(format!("{name}.ron")))
+            })
+            .expect("available behavior filename");
+        self.add_behavior(&behavior, BehaviorDefinition::blank())?;
+        let result = self.add_entity(EnemyDefinition {
+            name: name.to_owned(),
+            health: 1,
+            size: (32.0, 40.0),
+            contact_damage: 1,
+            behavior: behavior.clone(),
+        });
+        if result.is_err() {
+            self.behaviors.remove(&behavior);
+        }
+        result
+    }
+
     pub fn add_entity(&mut self, mut entity: EnemyDefinition) -> Result<PathBuf, String> {
         entity.name = entity.name.trim().to_owned();
         entity.behavior = entity.behavior.trim().to_owned();
@@ -382,6 +407,14 @@ impl DefinitionDraft {
             .ok_or("missing entity")?
             .behavior = name.to_owned();
         Ok(())
+    }
+
+    pub fn create_blank_behavior(
+        &mut self,
+        name: &str,
+        assign_to: Option<&Path>,
+    ) -> Result<(), String> {
+        self.create_behavior(name, BehaviorDefinition::blank(), assign_to)
     }
 
     pub fn create_behavior_from_preset(

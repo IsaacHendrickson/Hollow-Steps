@@ -599,6 +599,96 @@ fn input_trimming_blank_lines_and_health_message_are_consistent() {
 }
 
 #[test]
+fn blank_enemies_have_independent_editable_behaviors_and_survive_save() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let existing = draft.behaviors.clone();
+    // Generated names must also skip behaviors created by the author.
+    draft.add_behavior("blank_0", behavior()).unwrap();
+    let first = draft.add_blank_entity(" first blank ").unwrap();
+    let second = draft.add_blank_entity("second blank").unwrap();
+    let first_behavior = draft.entities[&first].behavior.clone();
+    let second_behavior = draft.entities[&second].behavior.clone();
+    assert_ne!(first_behavior, "blank_0");
+    assert_ne!(first_behavior, second_behavior);
+    assert_eq!(draft.behavior_users(&first_behavior), 1);
+    assert_eq!(draft.behavior_users(&second_behavior), 1);
+    assert_eq!(
+        draft.behaviors[&first_behavior],
+        BehaviorDefinition::blank()
+    );
+    let original_blank = draft.behaviors[&second_behavior].clone();
+    edit_state_lists(
+        &mut draft.behaviors.get_mut(&first_behavior).unwrap().states[0],
+        "[patrol(speed: 12.0)]",
+        "[]",
+    )
+    .unwrap();
+    assert_eq!(draft.behaviors[&second_behavior], original_blank);
+    for (name, original) in existing {
+        assert_eq!(draft.behaviors[&name], original);
+    }
+    draft.commit(&[]).unwrap();
+    let reloaded = DefinitionDraft::load(&assets.0).unwrap();
+    assert_eq!(reloaded.entities[&first].name, "first blank");
+    assert_eq!(
+        reloaded.behaviors[&first_behavior],
+        draft.behaviors[&first_behavior]
+    );
+    assert_eq!(reloaded.behaviors[&second_behavior], original_blank);
+    let bounds = hollow_steps::player::WorldBounds::new(0.0, 960.0, 460.0);
+    let mut enemy = reloaded
+        .definitions()
+        .unwrap()
+        .spawn("second blank", 300.0, 400.0, bounds)
+        .unwrap();
+    let position = enemy.position();
+    for player_x in [position.x, position.x + 1.0, 900.0] {
+        enemy.update(
+            macroquad::math::Vec2::new(player_x, position.y),
+            10.0,
+            bounds,
+        );
+        assert_eq!(enemy.position(), position);
+    }
+}
+
+#[test]
+fn blank_creation_rejects_invalid_requests_without_partial_definitions() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let entities = draft.entities.clone();
+    let behaviors = draft.behaviors.clone();
+    for name in ["", "  ", "patrol", " patrol "] {
+        assert!(draft.add_blank_entity(name).is_err());
+        assert_eq!(draft.entities, entities);
+        assert_eq!(draft.behaviors, behaviors);
+    }
+    let missing = assets.0.join("entities").join("missing.ron");
+    assert!(draft.create_blank_behavior("new", Some(&missing)).is_err());
+    assert_eq!(draft.behaviors, behaviors);
+    // A completely empty catalog can still create the first enemy.
+    draft.entities.clear();
+    draft.behaviors.clear();
+    let path = draft.add_blank_entity("only enemy").unwrap();
+    assert_eq!(draft.entities.len(), 1);
+    assert_eq!(draft.behaviors.len(), 1);
+    let assigned = draft.entities[&path].behavior.clone();
+    assert_eq!(draft.behaviors[&assigned], BehaviorDefinition::blank());
+    draft
+        .create_blank_behavior("replacement", Some(&path))
+        .unwrap();
+    assert_eq!(draft.entities[&path].behavior, "replacement");
+    let before = draft.behaviors.clone();
+    assert!(draft
+        .create_blank_behavior("replacement", Some(&path))
+        .is_err());
+    assert!(draft.create_blank_behavior("../bad", Some(&path)).is_err());
+    assert_eq!(draft.behaviors, before);
+    assert_eq!(draft.entities[&path].behavior, "replacement");
+}
+
+#[test]
 fn entity_and_behavior_operations_check_references_and_delete_files_on_save() {
     let assets = Assets::new();
     let mut draft = DefinitionDraft::load(&assets.0).unwrap();

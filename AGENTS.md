@@ -69,7 +69,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/preset.rs`: validated RON behavior preset catalog.
 - `src/behavior_values.rs`: numeric behavior controls and transactional validated edits.
 - `src/boss.rs`: boss health, reusable timed attacks, state machine, and death.
-- `src/boss_special.rs`: arena boss slam, summons, rings, and coin drops.
+- `src/boss_definition.rs`: validated RON boss definitions and attack selection settings.
+- `src/boss_special.rs`: ordered shared boss actions, selection, summons, rings, and coin drops.
 - `src/combat.rs`: melee swing hitboxes, duration, and cooldown.
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
@@ -105,6 +106,16 @@ When you add, rename, or remove a module, update this list in the same change.
   directly.
 - Clamp or validate external values at system boundaries. Do not scatter
   magic numbers through the rendering loop.
+
+## Tunable values
+
+Every number that affects how an entity, boss, attack, or action behaves
+(distances, speeds, durations, damage, health, counts, radii, etc.) must be a
+named parameter stored in data files and editable in the editor with a
+descriptive label and validation. Do not hardcode these values in Rust,
+apart from engine-level constants such as gravity. When adding an action,
+condition, or entity type, add its parameters to the editor's catalogs in
+the same change.
 
 ## Change workflow
 
@@ -196,6 +207,16 @@ press Space, confirm the player jumps and lands on the floor").
 
 ## Design guidelines
 
+- Enemy behaviors must remain fully editable in the in-game editor. Expose
+  every action, state, transition, assignment, and authored value through labeled
+  controls, including detection/activation ranges, flee/chase start and stop
+  distances, speeds, durations, and health thresholds. New behavior parameters
+  must ship with editor controls, validation, save/reload support, and focused
+  tests; do not hide tuning values in gameplay code or require raw RON edits.
+- New enemies must start with their own blank behavior, never inherit the
+  first catalog entry or silently share another enemy's behavior. Keep explicit
+  assignment, preset creation, and shared-behavior copying available so authors
+  can build enemies from scratch and edit them independently.
 - Prefer small structs with explicit ownership and methods with one job.
 - Keep constants/configuration near the system that uses them; promote shared
   values only when multiple systems genuinely need them.

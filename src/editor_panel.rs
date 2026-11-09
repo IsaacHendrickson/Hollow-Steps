@@ -359,27 +359,10 @@ fn draw_entity_tools(
         "New / duplicate entity name",
         &mut state.new_entity,
     );
+    panel_label(ui, "New entities start with their own blank behavior.");
     let selected = state.definition.selected.and_then(|i| paths.get(i));
     let result = if panel_button(ui, "New entity") {
-        editor
-            .content
-            .behaviors
-            .keys()
-            .next()
-            .cloned()
-            .ok_or_else(|| "Create a behavior first".to_owned())
-            .and_then(|behavior| {
-                editor
-                    .content
-                    .add_entity(hollow_steps::enemy::EnemyDefinition {
-                        name: state.new_entity.clone(),
-                        health: 1,
-                        size: (32.0, 40.0),
-                        contact_damage: 1,
-                        behavior,
-                    })
-            })
-            .map(Some)
+        editor.content.add_blank_entity(&state.new_entity).map(Some)
     } else if panel_button(ui, "Duplicate entity") {
         selected
             .ok_or_else(|| "Select an entity first".to_owned())
@@ -395,6 +378,9 @@ fn draw_entity_tools(
     };
     match result {
         Ok(path) => {
+            if let Ok(definitions) = editor.content.placement_definitions() {
+                editor.definitions = definitions;
+            }
             editor.dirty = true;
             editor.message.clear();
             state.definition.query.clear();
@@ -472,6 +458,15 @@ impl PropertyUi {
                 .behaviors
                 .keys()
                 .position(|name| name == &entity.behavior);
+            ui.rows = editor
+                .content
+                .behaviors
+                .get(&entity.behavior)
+                .is_some_and(|b| {
+                    b.states
+                        .iter()
+                        .all(|s| s.actions.is_empty() && s.transitions.is_empty())
+                });
         }
         ui
     }
@@ -549,7 +544,7 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
             "New / renamed behavior name",
             &mut p.behavior_name,
         );
-        operation = if panel_button(ui, "New behavior") {
+        operation = if panel_button(ui, "New blank behavior") {
             Some(0)
         } else if ui
             .add_enabled(
@@ -579,17 +574,9 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
 
     if let Some(operation) = operation {
         let result = match operation {
-            0 => editor.content.add_behavior(
-                &p.behavior_name,
-                hollow_steps::behavior::BehaviorDefinition {
-                    initial_state: "idle".into(),
-                    states: vec![hollow_steps::behavior::State {
-                        name: "idle".into(),
-                        actions: vec![],
-                        transitions: vec![],
-                    }],
-                },
-            ),
+            0 => editor
+                .content
+                .create_blank_behavior(&p.behavior_name, path.as_deref()),
             _ => selected_behavior
                 .as_deref()
                 .ok_or_else(|| "Select a behavior first".to_owned())
@@ -620,6 +607,10 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
                     p.fields[5] = editor.content.entities[path].behavior.clone();
                 }
                 p.loaded_state = None;
+                p.key_values = None;
+                if operation == 0 {
+                    p.rows = true;
+                }
             }
             Err(e) => {
                 editor.message = e.clone();
@@ -1013,6 +1004,10 @@ fn draw_key_values(
     section(ui, "Key values", |ui| {
         if values.values.is_empty() {
             panel_label(ui, "This behavior has no numeric parameters.");
+            panel_label(
+                ui,
+                "Enable Advanced: structured rows to add actions, states, and transitions, or create and assign a behavior from a preset.",
+            );
         }
         let mut changed = false;
         for (index, entry) in values.values.iter_mut().enumerate() {
@@ -1129,7 +1124,7 @@ fn draw_state_rows(ui: &mut egui::Ui, p: &mut PropertyUi, names: &[String], stat
             ui.separator();
             panel_label(ui, &format!("{}. {}", i + 1, Action::TYPES[row.kind]));
             let template = Action::defaults(row.kind).expect("catalog action");
-            for (j, (label, _)) in template.parameters().iter().enumerate() {
+            for (j, label) in template.parameter_labels().iter().enumerate() {
                 panel_input(
                     ui,
                     egui::Id::new(("action value", i, j)),
@@ -1303,6 +1298,86 @@ mod tests {
         frame(ctx, size, pointer(pos, true), editor, state);
         frame(ctx, size, pointer(pos, false), editor, state);
         frame(ctx, size, vec![], editor, state);
+    }
+
+    #[test]
+    fn new_entity_starts_with_its_own_empty_behavior_and_can_be_assigned_an_existing_one() {
+        let mut game = editor();
+        let editor = game.editor_mut().unwrap();
+        let original = editor.content.behaviors.clone();
+        let ctx = egui::Context::default();
+        let size = egui::vec2(960.0, 3000.0);
+        let mut state = EditorUi {
+            new_entity: "blank enemy".into(),
+            ..Default::default()
+        };
+        for _ in 0..3 {
+            frame(&ctx, size, vec![], editor, &mut state);
+        }
+        click(
+            &ctx,
+            size,
+            button(&ctx, "New entity").center(),
+            editor,
+            &mut state,
+        );
+        let path = editor.content.entity_path("blank enemy").unwrap();
+        let assigned = editor.content.entities[&path].behavior.clone();
+        let blank = &editor.content.behaviors[&assigned];
+        assert_eq!(blank.states.len(), 1);
+        assert!(blank.states[0].actions.is_empty());
+        assert!(blank.states[0].transitions.is_empty());
+        assert!(!original.contains_key(&assigned));
+        assert!(state.property.rows);
+        assert!(editor.definitions.size("blank enemy").is_ok());
+        for (name, behavior) in original {
+            assert_eq!(editor.content.behaviors[&name], behavior);
+        }
+        // Authoring from scratch exposes actions immediately and refreshes Key values.
+        state.property.add_action.selected = Some(0);
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Add action").center(),
+            editor,
+            &mut state,
+        );
+        assert_eq!(
+            editor.content.behaviors[&assigned].states[0].actions.len(),
+            1
+        );
+        assert_eq!(
+            state.property.key_values.as_ref().unwrap().1.values.len(),
+            1
+        );
+        state.property.behavior_list.selected = editor
+            .content
+            .behaviors
+            .keys()
+            .position(|name| name == "patrol");
+        frame(&ctx, size, vec![], editor, &mut state);
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Use selected behavior").center(),
+            editor,
+            &mut state,
+        );
+        assert_eq!(editor.content.entities[&path].behavior, "patrol");
+        state.property.behavior_name = "fresh_blank".into();
+        click(
+            &ctx,
+            size,
+            button(&ctx, "New blank behavior").center(),
+            editor,
+            &mut state,
+        );
+        assert_eq!(editor.content.entities[&path].behavior, "fresh_blank");
+        assert_eq!(
+            editor.content.behaviors["fresh_blank"],
+            hollow_steps::behavior::BehaviorDefinition::blank()
+        );
+        assert!(state.property.rows);
     }
 
     #[test]

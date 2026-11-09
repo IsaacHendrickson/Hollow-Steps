@@ -1,5 +1,5 @@
 use hollow_steps::boss::{Boss, BossState};
-use hollow_steps::boss_special::{BossSpecials, SpecialAttack, RING_RADIUS, SLAM_RADIUS};
+use hollow_steps::boss_special::{BossSpecials, SpecialAttack};
 use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::editor::{EditorSession, Placement, RoomLayout, Selection};
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
@@ -175,6 +175,10 @@ fn draw_scene(game: &GameState) {
         );
     }
     for enemy in &game.room().enemies {
+        for blast in enemy.behavior().blasts() {
+            let color = if blast.exploded { RED } else { ORANGE };
+            draw_circle_lines(blast.position.x, blast.position.y, blast.radius, 2.0, color);
+        }
         let top_left = enemy.position() - enemy.size() / 2.0;
         draw_rectangle(
             top_left.x,
@@ -365,21 +369,15 @@ fn draw_boss(boss: &Boss) {
 
 fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
     if !boss.is_defeated() {
-        if boss.active_attack() == Some(SpecialAttack::Slam) {
-            draw_rectangle(
-                boss.position().x - SLAM_RADIUS,
-                floor_y - 12.0,
-                SLAM_RADIUS * 2.0,
-                12.0,
-                RED,
-            );
+        if let Some((target_x, radius)) = boss.landing_preview() {
+            draw_rectangle(target_x - radius, floor_y - 12.0, radius * 2.0, 12.0, RED);
         }
         for ring in boss.rings() {
             let color = if ring.exploded() { ORANGE } else { RED };
             draw_circle_lines(
                 ring.position().x,
                 ring.position().y,
-                RING_RADIUS,
+                ring.radius(),
                 3.0,
                 color,
             );

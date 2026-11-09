@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use macroquad::math::Vec2;
 
-use crate::behavior::Action;
+use crate::behavior::{Action, Behavior};
 use crate::boss_definition::{AttackSelection, BossDefinition};
 use crate::coin::Coin;
 use crate::enemy::Enemy;
@@ -38,11 +38,15 @@ impl AsRef<str> for SpecialAttack {
 pub struct Ring {
     position: Vec2,
     exploded: bool,
+    radius: f32,
 }
 
 impl Ring {
     pub fn position(&self) -> Vec2 {
         self.position
+    }
+    pub fn radius(&self) -> f32 {
+        self.radius
     }
     pub fn exploded(&self) -> bool {
         self.exploded
@@ -140,6 +144,16 @@ impl BossSpecials {
     pub fn active_attack_name(&self) -> Option<&str> {
         self.active
             .map(|a| self.definition.attacks[a.index].name.as_str())
+    }
+    pub fn landing_preview(&self) -> Option<(f32, f32)> {
+        let active = self.active?;
+        self.definition.attacks[active.index].actions[active.action..]
+            .iter()
+            .find_map(|action| match action {
+                Action::DamageTarget { radius, .. } => Some((active.target.x, *radius)),
+                Action::SpawnShockwave { radius, .. } => Some((self.position.x, *radius)),
+                _ => None,
+            })
     }
     pub fn active_attack(&self) -> Option<SpecialAttack> {
         match self.active_attack_name() {
@@ -281,7 +295,7 @@ impl BossSpecials {
         let blocking = self.active.is_some_and(|a| {
             matches!(
                 self.definition.attacks[a.index].actions.get(a.action),
-                Some(Action::JumpTo { .. } | Action::SlamDown { .. } | Action::Hover { .. })
+                Some(Action::JumpToPlayer { .. } | Action::SlamDown { .. } | Action::Hover { .. })
             )
         });
         if !blocking {
@@ -343,22 +357,26 @@ impl BossSpecials {
                     self.target_position =
                         Vec2::new(active.target.x, bounds.floor_y - self.size().y / 2.0);
                 }
-                Action::JumpTo { speed, .. } | Action::SlamDown { speed } => {
+                Action::JumpToPlayer { speed, .. } | Action::SlamDown { speed } => {
                     if entering {
                         self.target_position = match action {
-                            Action::JumpTo { height, .. } => active.target - Vec2::new(0.0, height),
+                            Action::JumpToPlayer { dx, dy, .. } => Behavior::clamped_jump_target(
+                                active.target,
+                                self.size(),
+                                bounds,
+                                dx,
+                                dy,
+                            ),
                             _ => Vec2::new(self.position.x, bounds.floor_y - self.size().y / 2.0),
                         };
                         self.move_speed = speed;
                     }
-                    let distance = self
-                        .position
-                        .as_dvec2()
-                        .distance(self.target_position.as_dvec2());
-                    used = remaining.min(distance / f64::from(speed));
-                    // Blocking movement is advanced here, rather than by the background glide.
-                    self.glide(used);
-                    finished = self.position == self.target_position;
+                    (used, finished) = Behavior::move_in_plane(
+                        &mut self.position,
+                        self.target_position,
+                        speed,
+                        remaining,
+                    );
                 }
                 Action::DamageTarget { radius, damage } => {
                     if (player.x - active.target.x).abs() <= radius {
@@ -381,12 +399,52 @@ impl BossSpecials {
                     ]);
                 }
                 Action::SpawnRings { count } => {
+                    let radius = self.definition.attacks[active.index].actions[active.action + 1..]
+                        .iter()
+                        .find_map(|action| match action {
+                            Action::ExplodeRings { radius, .. } => Some(*radius),
+                            _ => None,
+                        })
+                        .unwrap_or(0.0);
                     self.rings = (0..count as usize)
                         .map(|_| Ring {
                             position: self.random_arena_position(bounds),
                             exploded: false,
+                            radius,
                         })
                         .collect();
+                }
+                Action::AreaBlast {
+                    count,
+                    radius,
+                    fuse_time,
+                    damage,
+                } => {
+                    if entering {
+                        self.rings = (0..count)
+                            .map(|_| Ring {
+                                position: self.random_arena_position(bounds),
+                                exploded: false,
+                                radius,
+                            })
+                            .collect();
+                    }
+                    used = remaining.min((f64::from(fuse_time) - active.elapsed).max(0.0));
+                    active.elapsed += used;
+                    finished = active.elapsed >= f64::from(fuse_time);
+                    if finished {
+                        if self
+                            .rings
+                            .iter()
+                            .any(|r| r.position.distance(player) <= radius)
+                        {
+                            damage_event = damage_event.saturating_add(u32::from(damage));
+                        }
+                        for ring in &mut self.rings {
+                            ring.radius = radius;
+                            ring.exploded = true;
+                        }
+                    }
                 }
                 Action::ExplodeRings { radius, damage } => {
                     if self
@@ -397,6 +455,7 @@ impl BossSpecials {
                         damage_event = damage_event.saturating_add(damage as u32);
                     }
                     for ring in &mut self.rings {
+                        ring.radius = radius;
                         ring.exploded = true;
                     }
                 }
