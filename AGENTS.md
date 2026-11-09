@@ -196,6 +196,16 @@ press Space, confirm the player jumps and lands on the floor").
 
 ## Design guidelines
 
+- Enemy behaviors must remain fully editable in the in-game editor. Expose
+  every action, state, transition, assignment, and authored value through labeled
+  controls, including detection/activation ranges, flee/chase start and stop
+  distances, speeds, durations, and health thresholds. New behavior parameters
+  must ship with editor controls, validation, save/reload support, and focused
+  tests; do not hide tuning values in gameplay code or require raw RON edits.
+- New enemies must start with their own blank behavior, never inherit the
+  first catalog entry or silently share another enemy's behavior. Keep explicit
+  assignment, preset creation, and shared-behavior copying available so authors
+  can build enemies from scratch and edit them independently.
 - Prefer small structs with explicit ownership and methods with one job.
 - Keep constants/configuration near the system that uses them; promote shared
   values only when multiple systems genuinely need them.
