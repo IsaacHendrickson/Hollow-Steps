@@ -1,6 +1,7 @@
 # Features
 
 - Validated RON behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation and optional entity assignment, shared-behavior usage/copy warning, and labeled numeric Key values with advanced rows: `src/preset.rs`, `src/behavior_values.rs`, `src/definition_editor.rs`, `src/editor_panel.rs`, `assets/presets/`; `tests/presets.rs`, `tests/shipped_rooms.rs`, `src/editor_panel.rs` headless tests, plus manual editor check.
+- Independent blank-enemy creation, blank-behavior assignment with structured controls, and editable Skittish start/stop distances and speed persisted to gameplay: `src/definition_editor.rs`, `src/editor_panel.rs`, `src/behavior.rs`, `src/behavior_values.rs`; `tests/definition_editor.rs`, `tests/presets.rs`, `src/editor_panel.rs` headless tests.
 
 - Continuous integration: `.github/workflows/ci.yml`; formatting, tests, and Clippy on Linux and Windows for pull requests and pushes to `main`.
 - Walking, gravity, floor and wall collision: `src/player.rs`; `src/player.rs` unit tests, `tests/gameplay.rs`.
