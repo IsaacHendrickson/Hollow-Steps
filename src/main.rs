@@ -482,7 +482,22 @@ struct EditorUi {
     dragging: Option<(Selection, Vec2)>,
     destination: Option<usize>,
     properties: bool,
+    scroll: f32,
+    content_height: f32,
+    operation_name: String,
+    entity_choice: usize,
+    behavior_choice: usize,
     property: PropertyUi,
+}
+
+impl EditorUi {
+    fn clear_hidden_property_error(&mut self, enemy_count: usize) {
+        if !self.properties
+            || !matches!(self.selected, Some(Selection::Enemy(i)) if i < enemy_count)
+        {
+            self.property.error = None;
+        }
+    }
 }
 
 // All canvas transforms, hit testing, mouse translation, and drawing are front-end only.
@@ -519,6 +534,7 @@ impl EditorCanvas {
 fn editor_markers(
     editor: &EditorSession,
     destination: Option<usize>,
+    selected: Option<Selection>,
 ) -> Vec<(Selection, Rect, Color)> {
     let body =
         |p: Vec2, size: Vec2| Rect::new(p.x - size.x / 2.0, p.y - size.y / 2.0, size.x, size.y);
@@ -572,6 +588,21 @@ fn editor_markers(
         body(editor.draft.layout.spawn.into(), vec2(32.0, 48.0)),
         SKYBLUE,
     ));
+    if let Some(Selection::Enemy(i) | Selection::PatrolLeft(i) | Selection::PatrolRight(i)) =
+        selected
+    {
+        if let Some(enemy) = editor.draft.enemies.get(i) {
+            if let Ok(size) = editor.definitions.size(&enemy.definition) {
+                let y = editor.draft.layout.floor_y - size.y - 14.0;
+                for (selection, x, handle_y) in [
+                    (Selection::PatrolLeft(i), enemy.patrol_left, y),
+                    (Selection::PatrolRight(i), enemy.patrol_right, y - 24.0),
+                ] {
+                    markers.push((selection, body(vec2(x, handle_y), vec2(14.0, 20.0)), ORANGE));
+                }
+            }
+        }
+    }
     markers
 }
 
@@ -580,11 +611,19 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     let mut save = false;
     let mut open = None;
     let editor = game.editor_mut().expect("editor open");
+    if let Ok(definitions) = editor.content.placement_definitions() {
+        editor.definitions = definitions;
+    }
     let definitions = editor
-        .definitions
-        .names()
-        .map(|name| format!("Enemy: {name}"))
-        .chain(["Item: Amber Shard".into(), "Item: Dash".into()])
+        .content
+        .entities
+        .values()
+        .map(|entity| format!("Enemy: {}", entity.name))
+        .chain(
+            Item::ALL
+                .iter()
+                .map(|item| format!("Item: {}", item.name())),
+        )
         .collect::<Vec<_>>();
     let names = definitions.iter().map(String::as_str).collect::<Vec<_>>();
     let room_names = editor
@@ -597,136 +636,156 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     state.room = state.room.min(room_labels.len().saturating_sub(1));
     state.target = state.target.min(room_labels.len().saturating_sub(1));
     let panel = hollow_steps::definition_editor::PanelLayout::new(screen_width(), screen_height());
+    if panel.body.contains(Vec2::from(mouse_position())) {
+        state.scroll =
+            panel.scroll_bounds(state.content_height, state.scroll - mouse_wheel().1 * 32.0);
+    } else {
+        state.scroll = panel.scroll_bounds(state.content_height, state.scroll);
+    }
     widgets::Window::new(hash!("room editor"), panel.body.point(), panel.body.size())
         .titlebar(false)
         .movable(false)
         .ui(&mut root_ui(), |ui| {
-            panel_label(ui, "Room editor (F2)");
-            if !editor.message.is_empty() {
-                panel_label(ui, &editor.message);
-            }
-            panel_label(
-                ui,
-                &format!("{:?}{}", editor.id, if editor.dirty { " *" } else { "" }),
-            );
-            if panel_button(
-                ui,
-                if state.properties {
-                    "Room tools"
-                } else {
-                    "Enemy properties"
-                },
-            ) {
-                state.properties = !state.properties;
-                if state.properties {
-                    state.placing = false;
-                    state.destination = None;
-                    state.dragging = None;
+            // Set the native window scroll before laying out controls. Save lives in a separate window.
+            let margin = ui.default_skin().margin;
+            // The default window skin has equal top/bottom borders. Exclude them from the scroll viewport.
+            let border = (ui.canvas().cursor().y - ui.scroll().y - panel.body.y - margin).max(0.0);
+            let viewport_height = (panel.body.h - 2.0 * border).max(1.0);
+            ui.scroll_here_ratio((margin - state.scroll) / viewport_height);
+            (|| {
+                panel_label(ui, "Room editor (F2)");
+                for warning in editor.draft.warnings() {
+                    panel_label(ui, warning);
                 }
-            }
-            if state.properties {
-                draw_definition_panel(ui, editor, state);
-                return;
-            }
-            if panel_button(ui, "New room") {
-                editor.new_room();
-                *state = EditorUi::default();
-            }
-            editor_list(ui, hash!("rooms"), "Rooms", &room_labels, &mut state.room);
-            if panel_button(ui, "Open room") {
-                open = editor.rooms.get(state.room).map(|(id, _)| *id);
-            }
-            ui.separator();
-            editor_list(
-                ui,
-                hash!("definitions"),
-                "Entity",
-                &names,
-                &mut state.definition,
-            );
-            if panel_button(ui, if state.placing { "[Place]" } else { "Place" }) {
-                state.placing = true;
-                state.destination = None;
-                state.selected = None;
-            }
-            if panel_button(
-                ui,
-                if !state.placing {
-                    "[Select / drag]"
-                } else {
-                    "Select / drag"
-                },
-            ) {
-                state.placing = false;
-            }
-            if panel_button(ui, "Delete selected") {
-                if let Some(selection) = state.selected {
-                    match editor.draft.delete(selection) {
-                        Ok(()) => {
-                            state.selected = None;
-                            editor.dirty = true;
-                        }
-                        Err(error) => editor.message = error,
+                if !editor.message.is_empty() {
+                    panel_label(ui, &editor.message);
+                }
+                panel_label(
+                    ui,
+                    &format!("{:?}{}", editor.id, if editor.dirty { " *" } else { "" }),
+                );
+                if panel_button(
+                    ui,
+                    if state.properties {
+                        "Room tools"
+                    } else {
+                        "Enemy properties"
+                    },
+                ) {
+                    state.properties = !state.properties;
+                    if state.properties {
+                        state.placing = false;
+                        state.destination = None;
+                        state.dragging = None;
                     }
                 }
-            }
-            ui.separator();
-            ui.combo_box(
-                hash!("edge"),
-                "Edge",
-                &["Left", "Right", "Top", "Bottom"],
-                &mut state.edge,
-            );
-            editor_list(
-                ui,
-                hash!("target"),
-                "Exit target",
-                &room_labels,
-                &mut state.target,
-            );
-            if panel_button(ui, "Add exit") {
-                if let Some((id, layout)) = editor.rooms.get(state.target) {
-                    state.selected = Some(editor.draft.add_exit(
-                        [
-                            RoomEdge::Left,
-                            RoomEdge::Right,
-                            RoomEdge::Top,
-                            RoomEdge::Bottom,
-                        ][state.edge],
-                        *id,
-                        layout.spawn.into(),
-                    ));
-                    editor.dirty = true;
-                    state.placing = false;
-                    state.destination = None;
+                if state.properties {
+                    draw_definition_panel(ui, editor, state);
+                    return;
                 }
-            }
-            if let Some(Selection::Exit(i) | Selection::Destination(i)) = state.selected {
-                if panel_button(ui, "Set exit target") {
+                if panel_button(ui, "New room") {
+                    editor.new_room();
+                    *state = EditorUi::default();
+                }
+                editor_list(ui, hash!("rooms"), "Rooms", &room_labels, &mut state.room);
+                if panel_button(ui, "Open room") {
+                    open = editor.rooms.get(state.room).map(|(id, _)| *id);
+                }
+                ui.separator();
+                editor_list(
+                    ui,
+                    hash!("definitions"),
+                    "Entity",
+                    &names,
+                    &mut state.definition,
+                );
+                if panel_button(ui, if state.placing { "[Place]" } else { "Place" }) {
+                    state.placing = true;
+                    state.destination = None;
+                    state.selected = None;
+                }
+                if panel_button(
+                    ui,
+                    if !state.placing {
+                        "[Select / drag]"
+                    } else {
+                        "Select / drag"
+                    },
+                ) {
+                    state.placing = false;
+                }
+                if panel_button(ui, "Delete selected") {
+                    if let Some(selection) = state.selected {
+                        match editor.draft.delete(selection) {
+                            Ok(()) => {
+                                state.selected = None;
+                                state.destination = None;
+                                editor.dirty = true;
+                            }
+                            Err(error) => editor.message = error,
+                        }
+                    }
+                }
+                ui.separator();
+                ui.combo_box(
+                    hash!("edge"),
+                    "Edge",
+                    &["Left", "Right", "Top", "Bottom"],
+                    &mut state.edge,
+                );
+                editor_list(
+                    ui,
+                    hash!("target"),
+                    "Exit target",
+                    &room_labels,
+                    &mut state.target,
+                );
+                if panel_button(ui, "Add exit") {
                     if let Some((id, layout)) = editor.rooms.get(state.target) {
-                        if let Err(error) =
-                            editor.draft.set_exit_target(i, *id, layout.spawn.into())
-                        {
-                            editor.message = error;
-                        } else {
-                            editor.dirty = true;
-                        }
+                        state.selected = Some(editor.draft.add_exit(
+                            [
+                                RoomEdge::Left,
+                                RoomEdge::Right,
+                                RoomEdge::Top,
+                                RoomEdge::Bottom,
+                            ][state.edge],
+                            *id,
+                            layout.spawn.into(),
+                        ));
+                        editor.dirty = true;
+                        state.placing = false;
+                        state.destination = None;
                     }
                 }
-                if panel_button(ui, "Arrival spawn") {
-                    state.destination = Some(i);
-                    state.selected = Some(Selection::Destination(i));
-                    state.placing = false;
+                if let Some(Selection::Exit(i) | Selection::Destination(i)) = state.selected {
+                    if panel_button(ui, "Set exit target") {
+                        if let Some((id, layout)) = editor.rooms.get(state.target) {
+                            if let Err(error) =
+                                editor.draft.set_exit_target(i, *id, layout.spawn.into())
+                            {
+                                editor.message = error;
+                            } else {
+                                editor.dirty = true;
+                            }
+                        }
+                    }
+                    if panel_button(ui, "Arrival spawn") {
+                        state.destination = Some(i);
+                        state.selected = Some(Selection::Destination(i));
+                        state.placing = false;
+                    }
                 }
-            }
-            if state.destination.is_some() && panel_button(ui, "Back to room") {
-                state.destination = None;
-                state.selected = None;
-            }
-            ui.separator();
-            panel_label(ui, "Blue: room spawn");
-            panel_label(ui, "Green: exit span");
-            panel_label(ui, "Purple: arrival spawn");
+                if state.destination.is_some() && panel_button(ui, "Back to room") {
+                    state.destination = None;
+                    state.selected = None;
+                }
+                ui.separator();
+                panel_label(ui, "Blue: room spawn");
+                panel_label(ui, "Green: exit span");
+                panel_label(ui, "Purple: arrival spawn");
+            })();
+            state.content_height = panel.body.h + ui.scroll_max().y.max(0.0);
+            state.scroll = panel.scroll_bounds(state.content_height, state.scroll);
         });
 
     widgets::Window::new(
@@ -786,29 +845,27 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
         17.0,
         LIGHTGRAY,
     );
-    let markers = editor_markers(editor, state.destination);
+    let markers = editor_markers(editor, state.destination, state.selected);
     let mouse = Vec2::from(mouse_position());
     let world = canvas.world(mouse);
     let over_canvas =
         area.contains(mouse) && mouse.x < panel.panel.x && !root_ui().is_mouse_over(mouse);
     if is_mouse_button_pressed(MouseButton::Left) && over_canvas {
         if state.placing && state.destination.is_none() {
-            let enemy_count = names.len() - 2;
+            let enemy_count = names.len() - Item::ALL.len();
             let placement = if state.definition < enemy_count {
                 Placement::Enemy(
                     editor
-                        .definitions
-                        .names()
+                        .content
+                        .entities
+                        .values()
                         .nth(state.definition)
                         .expect("definition index")
-                        .into(),
+                        .name
+                        .clone(),
                 )
             } else {
-                Placement::Item(if state.definition == enemy_count {
-                    Item::AmberShard
-                } else {
-                    Item::Dash
-                })
+                Placement::Item(Item::ALL[state.definition - enemy_count])
             };
             match editor.draft.place(placement, world, &editor.definitions) {
                 Ok(selection) => {
@@ -823,7 +880,10 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
                 let r = canvas.rect(*rect);
                 Rect::new(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0).contains(mouse)
             });
-            state.selected = hit.map(|(selection, _, _)| *selection);
+            state.selected = hit.map(|(selection, _, _)| match *selection {
+                Selection::PatrolLeft(i) | Selection::PatrolRight(i) => Selection::Enemy(i),
+                other => other,
+            });
             state.dragging = hit.map(|(selection, rect, _)| (*selection, world - rect.center()));
         }
     }
@@ -861,13 +921,14 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
                 Ok(()) => {
                     state.selected = None;
                     state.dragging = None;
+                    state.destination = None;
                     editor.dirty = true;
                 }
                 Err(error) => editor.message = error,
             }
         }
     }
-    for (selection, rect, color) in editor_markers(editor, state.destination) {
+    for (selection, rect, color) in editor_markers(editor, state.destination, state.selected) {
         let r = canvas.rect(rect);
         draw_rectangle(
             r.x,
@@ -906,13 +967,7 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
         line.push(' ');
     }
     draw_text(&line, 20.0, y, 17.0, ORANGE);
-    if save && state.property.error.is_some() {
-        editor.message = format!(
-            "Save failed: {}",
-            state.property.error.as_deref().unwrap_or_default()
-        );
-        save = false;
-    }
+    state.clear_hidden_property_error(editor.draft.enemies.len());
     if save {
         state.dragging = None;
         if let Err(error) = game.save_editor() {
@@ -971,6 +1026,105 @@ struct PropertyUi {
     advanced: bool,
 }
 
+fn draw_definition_operations(
+    ui: &mut macroquad::ui::Ui,
+    editor: &mut EditorSession,
+    state: &mut EditorUi,
+) {
+    let paths = editor.content.entities.keys().cloned().collect::<Vec<_>>();
+    let names = paths
+        .iter()
+        .map(|p| editor.content.entities[p].name.clone())
+        .collect::<Vec<_>>();
+    panel_combo(
+        ui,
+        hash!("entity operation choice"),
+        "Definitions",
+        &names,
+        &mut state.entity_choice,
+    );
+    let behaviors = editor.content.behaviors.keys().cloned().collect::<Vec<_>>();
+    panel_combo(
+        ui,
+        hash!("behavior operation choice"),
+        "Behaviors",
+        &behaviors,
+        &mut state.behavior_choice,
+    );
+    panel_input(
+        ui,
+        hash!("definition operation name"),
+        "New name",
+        &mut state.operation_name,
+    );
+    let mut result = None;
+    if panel_button(ui, "New entity") {
+        let entity = hollow_steps::enemy::EnemyDefinition {
+            name: state.operation_name.clone(),
+            health: 1,
+            size: (32.0, 40.0),
+            contact_damage: 1,
+            behavior: behaviors
+                .get(state.behavior_choice)
+                .cloned()
+                .unwrap_or_default(),
+        };
+        result = Some(editor.content.add_entity(entity).map(|_| ()));
+    }
+    if let Some(path) = paths.get(state.entity_choice) {
+        if panel_button(ui, "Duplicate entity") {
+            result = Some(
+                editor
+                    .content
+                    .duplicate_entity(path, &state.operation_name)
+                    .map(|_| ()),
+            );
+        }
+        if panel_button(ui, "Delete entity") {
+            result = Some(
+                if editor.draft.enemies.iter().any(|e| {
+                    e.definition == editor.content.entities[path].name
+                        || editor.content.entity_path(&e.definition).as_ref() == Some(path)
+                }) {
+                    Err("entity is referenced by the current room draft".into())
+                } else {
+                    editor.content.delete_entity(path)
+                },
+            );
+        }
+    }
+    if panel_button(ui, "New behavior") {
+        let behavior = hollow_steps::behavior::BehaviorDefinition {
+            initial_state: "idle".into(),
+            states: vec![hollow_steps::behavior::State {
+                name: "idle".into(),
+                actions: vec![],
+                transitions: vec![],
+            }],
+        };
+        result = Some(editor.content.add_behavior(&state.operation_name, behavior));
+    }
+    if let Some(name) = behaviors.get(state.behavior_choice) {
+        if panel_button(ui, "Rename behavior") {
+            result = Some(editor.content.rename_behavior(name, &state.operation_name));
+        }
+        if panel_button(ui, "Delete behavior") {
+            result = Some(editor.content.delete_behavior(name));
+        }
+    }
+    if let Some(result) = result {
+        match result {
+            Ok(()) => {
+                editor.dirty = true;
+                state.property = PropertyUi::default();
+                editor.message = "Definition updated".into();
+            }
+            Err(e) => editor.message = e,
+        }
+    }
+    ui.separator();
+}
+
 fn draw_definition_panel(
     ui: &mut macroquad::ui::Ui,
     editor: &mut EditorSession,
@@ -979,14 +1133,18 @@ fn draw_definition_panel(
     use hollow_steps::definition_editor::{
         add_state, edit_state_lists, remove_state, rename_state, serialize,
     };
+    draw_definition_operations(ui, editor, state);
     let Some(Selection::Enemy(index)) = state.selected else {
+        state.property.error = None;
         panel_label(ui, "Select an enemy on canvas");
         return;
     };
     let Some(placement) = editor.draft.enemies.get(index) else {
+        state.property.error = None;
         return;
     };
     let Some(path) = editor.content.entity_path(&placement.definition) else {
+        state.property.error = None;
         return;
     };
     let p = &mut state.property;
@@ -1006,21 +1164,29 @@ fn draw_definition_panel(
         };
     }
     panel_label(ui, "Shared definition (all rooms)");
-    for (i, label) in [
-        "Name",
-        "Health",
-        "Width",
-        "Height",
-        "Contact damage",
-        "Behavior file stem",
-    ]
-    .iter()
-    .enumerate()
+    for (i, label) in ["Name", "Health", "Width", "Height", "Contact damage"]
+        .iter()
+        .enumerate()
     {
         panel_input(ui, hash!("entity field", i), label, &mut p.fields[i]);
         if let Err(e) = hollow_steps::definition_editor::validate_entity_field(i, &p.fields[i]) {
             panel_label(ui, &e);
         }
+    }
+    let behaviors = editor.content.behaviors.keys().cloned().collect::<Vec<_>>();
+    let mut behavior_index = behaviors
+        .iter()
+        .position(|n| *n == p.fields[5])
+        .unwrap_or(0);
+    panel_combo(
+        ui,
+        hash!("entity behavior"),
+        "Behavior",
+        &behaviors,
+        &mut behavior_index,
+    );
+    if let Some(name) = behaviors.get(behavior_index) {
+        p.fields[5] = name.clone();
     }
     let mut error = None;
     let parsed = hollow_steps::definition_editor::entity_from_fields(&p.fields);
@@ -1320,5 +1486,34 @@ fn draw_state_rows(ui: &mut macroquad::ui::Ui, p: &mut PropertyUi, names: &[Stri
         p.structured
             .add_transition(names[p.state].clone(), p.add_condition)
             .expect("catalog");
+    }
+}
+
+#[cfg(test)]
+mod editor_ui_tests {
+    use super::*;
+
+    #[test]
+    fn property_error_only_survives_a_visible_selected_enemy() {
+        for (properties, selected, retained) in [
+            (true, Some(Selection::Enemy(0)), true),
+            (false, Some(Selection::Enemy(0)), false),
+            (true, None, false),
+            (true, Some(Selection::Item(0)), false),
+            (true, Some(Selection::Exit(0)), false),
+            (true, Some(Selection::Enemy(1)), false),
+        ] {
+            let mut state = EditorUi {
+                properties,
+                selected,
+                property: PropertyUi {
+                    error: Some("invalid text".into()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            state.clear_hidden_property_error(1);
+            assert_eq!(state.property.error.is_some(), retained);
+        }
     }
 }
