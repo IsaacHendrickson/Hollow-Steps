@@ -37,6 +37,7 @@ impl KeyValues {
                     Action::Patrol { .. } => "patrol speed (pixels/second)",
                     Action::Wait { .. } => "wait duration (seconds)",
                     Action::Telegraph { .. } => "telegraph duration (seconds)",
+                    _ => continue, // Boss actions have no enemy editor controls.
                 };
                 for (field, (_, value)) in action.parameters().into_iter().enumerate() {
                     values.push(KeyValue {

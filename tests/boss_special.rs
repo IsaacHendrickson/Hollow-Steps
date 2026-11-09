@@ -1,3 +1,5 @@
+mod support;
+
 use hollow_steps::boss_special::{
     BossSpecials, SpecialAttack, BOSS_MOVE_SPEED, DEATH_EFFECT_SECONDS, RING_RADIUS,
     SLAM_TELEGRAPH_SECONDS, SUMMON_WINDUP_SECONDS,
@@ -15,7 +17,7 @@ fn starting_special_attacks_does_not_teleport_the_boss() {
         SpecialAttack::Summon,
         SpecialAttack::Rings,
     ] {
-        let mut boss = BossSpecials::new(start);
+        let mut boss = warden(start);
         boss.start_attack(kind, Vec2::new(240.0, 436.0), BOUNDS);
         assert_eq!(boss.position(), start);
         for dt in [0.0, -1.0] {
@@ -33,7 +35,7 @@ fn special_attacks_glide_at_a_fixed_speed_using_delta_time() {
         SpecialAttack::Summon,
         SpecialAttack::Rings,
     ] {
-        let mut boss = BossSpecials::new(start);
+        let mut boss = warden(start);
         boss.start_attack(kind, Vec2::new(240.0, 436.0), BOUNDS);
         for dt in [0.02, 0.03] {
             let previous = boss.position();
@@ -49,7 +51,7 @@ fn special_attacks_glide_at_a_fixed_speed_using_delta_time() {
 #[test]
 fn gliding_stops_at_the_clamped_target_without_overshooting() {
     for (target_x, expected_x) in [(-960.0, BOUNDS.left), (1920.0, BOUNDS.right)] {
-        let mut boss = BossSpecials::new(Vec2::new(700.0, 436.0));
+        let mut boss = warden(Vec2::new(700.0, 436.0));
         boss.start_attack(SpecialAttack::Summon, Vec2::new(target_x, 436.0), BOUNDS);
         boss.update(10.0, Vec2::ZERO, BOUNDS);
         assert_eq!(boss.position(), Vec2::new(expected_x, 436.0));
@@ -61,7 +63,7 @@ fn gliding_stops_at_the_clamped_target_without_overshooting() {
 #[test]
 fn slam_glides_down_after_the_telegraph_without_a_landing_teleport() {
     let target = Vec2::new(240.0, 436.0);
-    let mut boss = BossSpecials::new(Vec2::new(700.0, 436.0));
+    let mut boss = warden(Vec2::new(700.0, 436.0));
     boss.start_attack(SpecialAttack::Slam, target, BOUNDS);
     boss.update(SLAM_TELEGRAPH_SECONDS - 0.001, Vec2::ZERO, BOUNDS);
     let hovering = boss.position();
@@ -77,7 +79,7 @@ fn slam_glides_down_after_the_telegraph_without_a_landing_teleport() {
 #[test]
 fn distant_slam_hits_its_target_x_even_while_still_gliding() {
     let target = Vec2::new(960.0, 436.0);
-    let mut boss = BossSpecials::new(Vec2::new(0.0, 436.0));
+    let mut boss = warden(Vec2::new(0.0, 436.0));
     boss.start_attack(SpecialAttack::Slam, target, BOUNDS);
     assert_eq!(boss.update(SLAM_TELEGRAPH_SECONDS, target, BOUNDS), 1);
     assert!(boss.position().x < target.x);
@@ -87,7 +89,7 @@ fn distant_slam_hits_its_target_x_even_while_still_gliding() {
 
 #[test]
 fn slam_telegraphs_for_half_a_second_and_lands_above_player() {
-    let mut boss = BossSpecials::new(Vec2::new(700.0, 436.0));
+    let mut boss = warden(Vec2::new(700.0, 436.0));
     boss.start_attack(SpecialAttack::Slam, Vec2::new(240.0, 436.0), BOUNDS);
     boss.update(SLAM_TELEGRAPH_SECONDS - 0.001, Vec2::ZERO, BOUNDS);
     assert!(boss.is_telegraphing());
@@ -98,7 +100,7 @@ fn slam_telegraphs_for_half_a_second_and_lands_above_player() {
 
 #[test]
 fn slam_damages_only_a_player_under_the_landing_position() {
-    let mut boss = BossSpecials::new(Vec2::new(700.0, 436.0));
+    let mut boss = warden(Vec2::new(700.0, 436.0));
     boss.start_attack(SpecialAttack::Slam, Vec2::new(240.0, 436.0), BOUNDS);
     assert_eq!(boss.update(0.5, Vec2::new(240.0, 436.0), BOUNDS), 1);
     boss.start_attack(SpecialAttack::Slam, Vec2::new(240.0, 436.0), BOUNDS);
@@ -107,7 +109,7 @@ fn slam_damages_only_a_player_under_the_landing_position() {
 
 #[test]
 fn summon_waits_one_second_and_spawns_two_patrollers() {
-    let mut boss = BossSpecials::new(Vec2::new(700.0, 436.0));
+    let mut boss = warden(Vec2::new(700.0, 436.0));
     boss.start_attack(SpecialAttack::Summon, Vec2::ZERO, BOUNDS);
     boss.update(SUMMON_WINDUP_SECONDS - 0.001, Vec2::ZERO, BOUNDS);
     assert!(boss.summoned_enemies().is_empty());
@@ -117,7 +119,7 @@ fn summon_waits_one_second_and_spawns_two_patrollers() {
 
 #[test]
 fn rings_fuse_for_one_second_and_damage_inside_radius() {
-    let mut boss = BossSpecials::new(Vec2::new(700.0, 436.0));
+    let mut boss = warden(Vec2::new(700.0, 436.0));
     boss.start_attack(SpecialAttack::Rings, Vec2::ZERO, BOUNDS);
     let ring_position = boss.rings()[0].position();
     boss.update(0.999, ring_position, BOUNDS);
@@ -129,7 +131,7 @@ fn rings_fuse_for_one_second_and_damage_inside_radius() {
 
 #[test]
 fn death_effect_precedes_twenty_coins_inside_the_arena() {
-    let mut boss = BossSpecials::new(Vec2::new(700.0, 436.0));
+    let mut boss = warden(Vec2::new(700.0, 436.0));
     boss.damage_boss(boss.health());
     assert!(boss.is_death_effect_active());
     assert!(boss.coins().is_empty());
@@ -141,4 +143,11 @@ fn death_effect_precedes_twenty_coins_inside_the_arena() {
             && coin.position.y >= 80.0
             && coin.position.y <= BOUNDS.floor_y
     }));
+}
+
+fn warden(position: Vec2) -> BossSpecials {
+    hollow_steps::boss_definition::BossDefinitions::load(&support::fixture_assets())
+        .unwrap()
+        .spawn("Ash Warden", position)
+        .unwrap()
 }

@@ -24,12 +24,14 @@ pub struct State {
     pub transitions: Vec<Transition>,
 }
 
-/// The loader enum and editor catalog are generated together. Add variants here.
+/// Shared action library. Only enemy actions appear in the existing editor catalog.
+/// `kind()` returns usize::MAX for boss-only actions, which have no editor UI.
 macro_rules! actions {
-    ($( $variant:ident => $name:literal { $( $field:ident = $default:expr ),+ } ),+ $(,)?) => {
+    ($( $variant:ident => $name:literal { $( $field:ident = $default:expr ),+ } ),+ $(,)?;
+     $( $boss:ident => $boss_name:literal { $( $param:ident ),+ } ),+ $(,)?) => {
         #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
         #[serde(rename_all = "snake_case", deny_unknown_fields)]
-        pub enum Action { $( $variant { $( $field: f32 ),+ } ),+ }
+        pub enum Action { $( $variant { $( $field: f32 ),+ } ),+, $( $boss { $( $param: f32 ),+ } ),+ }
         impl Action {
             pub const TYPES: &'static [&'static str] = &[$($name),+];
             pub fn defaults(kind: usize) -> Option<Self> {
@@ -37,15 +39,18 @@ macro_rules! actions {
                 Some(match *name { $( $name => Self::$variant { $($field: $default),+ }, )+ _ => return None })
             }
             pub fn kind(&self) -> usize {
-                let name = match self { $(Self::$variant { .. } => $name),+ };
+                let name = match self { $(Self::$variant { .. } => $name,)+ _ => return usize::MAX };
                 Self::TYPES.iter().position(|n| *n == name).expect("generated catalog")
             }
+            pub fn parameter_values(&self) -> Vec<(&'static str, f32)> {
+                match self { $(Self::$variant { $($field),+ } => vec![$((stringify!($field), *$field)),+],)+ $(Self::$boss { $($param),+ } => vec![$((stringify!($param), *$param)),+]),+ }
+            }
             pub fn parameters(&self) -> Vec<(&'static str, String)> {
-                match self { $(Self::$variant { $($field),+ } => vec![$((stringify!($field), $field.to_string())),+]),+ }
+                self.parameter_values().into_iter().map(|(name, value)| (name, value.to_string())).collect()
             }
             pub fn set_parameter(&mut self, index: usize, text: &str) -> Result<(), String> {
                 let value = parse_nonnegative(text)?;
-                let fields: Vec<&mut f32> = match self { $(Self::$variant { $($field),+ } => vec![$($field),+]),+ };
+                let fields: Vec<&mut f32> = match self { $(Self::$variant { $($field),+ } => vec![$($field),+],)+ $(Self::$boss { $($param),+ } => vec![$($param),+]),+ };
                 let field = fields.into_iter().nth(index).ok_or("missing parameter")?;
                 *field = value;
                 Ok(())
@@ -58,7 +63,17 @@ actions! {
     MoveAwayFromPlayer => "move_away_from_player" { speed = 100.0 },
     Patrol => "patrol" { speed = 80.0 },
     Wait => "wait" { seconds = 1.0 },
-    Telegraph => "telegraph" { seconds = 0.5 },
+    Telegraph => "telegraph" { seconds = 0.5 };
+    GlideToPlayer => "glide_to_player" { speed, above_floor },
+    GlideToFloor => "glide_to_floor" { speed },
+    DamageTarget => "damage_target" { radius, damage },
+    Summon => "summon" { inset },
+    SpawnRings => "spawn_rings" { count },
+    ExplodeRings => "explode_rings" { radius, damage },
+    JumpTo => "jump_to" { height, speed },
+    Hover => "hover" { seconds },
+    SlamDown => "slam_down" { speed },
+    SpawnShockwave => "spawn_shockwave" { radius, damage },
 }
 
 macro_rules! conditions {
@@ -141,6 +156,12 @@ impl BehaviorDefinition {
                     | Action::MoveAwayFromPlayer { speed }
                     | Action::Patrol { speed } => *speed,
                     Action::Wait { seconds } | Action::Telegraph { seconds } => *seconds,
+                    _ => {
+                        return Err(format!(
+                            "state {:?}, action {index}: boss-only action",
+                            state.name
+                        ))
+                    }
                 };
                 nonnegative(value)
                     .map_err(|error| format!("state {:?}, action {index}: {error}", state.name))?;
@@ -369,6 +390,7 @@ impl Behavior {
                     self.patrol(position, context, f64::from(speed) * remaining);
                     (remaining, false)
                 }
+                _ => unreachable!("validated enemy action"),
             };
             remaining = (remaining - used).max(0.0);
             if !finished {

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::behavior::read_ron;
 use crate::boss::Boss;
+use crate::boss_definition::BossDefinitions;
 use crate::boss_special::BossSpecials;
 use crate::coin::{Coin, COIN_RADIUS};
 use crate::enemy::{Enemy, EnemyDefinitions};
@@ -122,6 +123,8 @@ impl Room {
 pub struct RoomEnemies {
     pub enemies: Vec<EnemyPlacement>,
     #[serde(default)]
+    pub boss: Option<BossPlacement>,
+    #[serde(default)]
     pub layout: Option<crate::editor::RoomLayout>,
 }
 
@@ -133,6 +136,39 @@ pub struct EnemyPlacement {
     pub patrol_right: f32,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct BossPlacement {
+    pub definition: String,
+    pub position: (f32, f32),
+}
+
+pub fn place_boss(
+    room: &mut Room,
+    placement: Option<&BossPlacement>,
+    definitions: &BossDefinitions,
+) -> Result<(), String> {
+    room.boss_special = placement
+        .map(|placement| {
+            let boss = definitions.spawn(&placement.definition, placement.position.into())?;
+            let p = boss.position();
+            let half = boss.size() / 2.0;
+            if p.x - half.x < room.bounds.x
+                || p.x + half.x > room.bounds.right()
+                || p.y - half.y < room.bounds.y
+                || p.y + half.y > room.floor_y
+            {
+                return Err(format!(
+                    "boss {:?}: position/body must fit within room",
+                    placement.definition
+                ));
+            }
+            Ok(boss)
+        })
+        .transpose()?;
+    Ok(())
+}
+
 pub fn load_room_enemies(
     path: &Path,
     definitions: &EnemyDefinitions,
@@ -142,6 +178,7 @@ pub fn load_room_enemies(
     let bounds = if let Some(layout) = &room.layout {
         crate::editor::RoomDraft {
             enemies: room.enemies.clone(),
+            boss: room.boss.clone(),
             layout: layout.clone(),
         }
         .validate_local(definitions)
@@ -244,7 +281,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             spawn: Vec2::new(160.0, 436.0),
             enemies: Vec::new(),
             boss: None,
-            boss_special: Some(BossSpecials::new(Vec2::new(560.0, FLOOR_Y - 24.0))),
+            boss_special: None,
             coins: vec![],
             exits: vec![Exit {
                 edge: RoomEdge::Left,
@@ -260,6 +297,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
 
 pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
     let definitions = EnemyDefinitions::load(assets)?;
+    let bosses = BossDefinitions::load(assets)?;
     let mut errors = Vec::new();
     let mut rooms = default_rooms();
     for (room, file) in rooms
@@ -277,6 +315,9 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
                     Ok(()) => {}
                     Err(error) => errors.push(format!("{}: {error}", path.display())),
                 }
+            }
+            if let Err(error) = place_boss(room, document.boss.as_ref(), &bosses) {
+                errors.push(format!("{}: {error}", path.display()));
             }
         }
     }

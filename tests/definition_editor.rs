@@ -18,7 +18,7 @@ impl Assets {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        for directory in ["entities", "behaviors", "rooms"] {
+        for directory in ["entities", "behaviors", "rooms", "bosses"] {
             std::fs::create_dir_all(path.join(directory)).unwrap();
             for entry in std::fs::read_dir(support::fixture_assets().join(directory)).unwrap() {
                 let entry = entry.unwrap();
@@ -40,7 +40,7 @@ impl Assets {
     }
     fn snapshot(&self) -> Vec<(PathBuf, Vec<u8>)> {
         let mut files = Vec::new();
-        for dir in ["entities", "behaviors", "rooms"] {
+        for dir in ["entities", "behaviors", "rooms", "bosses"] {
             for entry in std::fs::read_dir(self.0.join(dir)).unwrap() {
                 let path = entry.unwrap().path();
                 files.push((path.clone(), std::fs::read(path).unwrap()));
@@ -729,6 +729,7 @@ fn removing_authored_layout_uses_loader_defaults_and_custom_rooms_are_discovered
     assert!(saved.enemies.iter().any(|e| e.definition == "renamed"));
     RoomDraft {
         enemies: saved.enemies,
+        boss: saved.boss,
         layout: saved.layout.unwrap(),
     }
     .validate_local(&draft.definitions().unwrap())

@@ -1,10 +1,8 @@
 use hollow_steps::boss::{Boss, BossState};
-use hollow_steps::boss_special::{
-    BossSpecials, SpecialAttack, BOSS_MAX_HEALTH, RING_RADIUS, SLAM_RADIUS,
-};
+use hollow_steps::boss_special::{BossSpecials, SpecialAttack, RING_RADIUS, SLAM_RADIUS};
 use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::editor::{EditorSession, Placement, RoomLayout, Selection};
-use hollow_steps::game::{GameState, SPECIAL_BOSS_SIZE, VIEW_HEIGHT, VIEW_WIDTH};
+use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::health::MAX_HEALTH;
 use hollow_steps::item::Item;
 use hollow_steps::item::ITEM_SIZE;
@@ -386,12 +384,12 @@ fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
                 color,
             );
         }
-        let top_left = boss.position() - SPECIAL_BOSS_SIZE / 2.0;
+        let top_left = boss.position() - boss.size() / 2.0;
         draw_rectangle(
             top_left.x,
             top_left.y,
-            SPECIAL_BOSS_SIZE.x,
-            SPECIAL_BOSS_SIZE.y,
+            boss.size().x,
+            boss.size().y,
             if boss.is_telegraphing() {
                 ORANGE
             } else {
@@ -399,20 +397,15 @@ fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
             },
         );
     } else if boss.is_death_effect_active() {
-        draw_circle(
-            boss.position().x,
-            boss.position().y,
-            SPECIAL_BOSS_SIZE.x,
-            WHITE,
-        );
+        draw_circle(boss.position().x, boss.position().y, boss.size().x, WHITE);
     }
-    draw_boss_health(boss.health(), BOSS_MAX_HEALTH);
+    draw_boss_health(boss.health(), boss.max_health());
     let cue = match boss.active_attack() {
         Some(SpecialAttack::Slam) => "Slam - move out of the red zone!",
         Some(SpecialAttack::Summon) => "Summoning enemies",
         Some(SpecialAttack::Rings) => "Rings - avoid the red circles!",
         None if boss.is_defeated() => "Defeated - collect the coins!",
-        None => "Recovering",
+        None => boss.active_attack_name().unwrap_or("Recovering"),
     };
     draw_text(cue, 300.0, 206.0, 22.0, WHITE);
 }

@@ -64,6 +64,67 @@ above; Windows needs no extra system libraries.
 
 ## Boss architecture
 
+Boss definitions are strict RON files in `assets/bosses/`. Rooms reference the
+definition's `name`, just like enemy placements:
+
+```ron
+(enemies: [], boss: Some((definition: "Ash Warden", position: (560.0, 436.0))))
+```
+
+Omitting `boss` leaves the room without a boss. Positions are body centers and
+must fit within the room. A definition contains all encounter settings:
+
+```ron
+(
+    name: "Ash Warden", health: 100, size: (48.0, 48.0), contact_damage: 0,
+    selection: cycle, pause_seconds: 3.0,
+    attacks: [
+        (name: "Slam", actions: [
+            glide_to_player(speed: 1000.0, above_floor: 180.0),
+            telegraph(seconds: 0.5),
+            glide_to_floor(speed: 1000.0),
+            damage_target(radius: 56.0, damage: 1.0),
+        ]),
+    ],
+)
+```
+
+`selection` is `cycle` (file order, wrapping) or `random` (uniform choices,
+repeats allowed, with an instance-local seed for reproducible tests). The pause
+is the minimum interval between attack starts, including attack time; an
+unfinished sequence delays the next start. The first attack starts after that
+interval. Selection and timers belong to each boss, so inactive rooms pause.
+
+Attacks have unique nonempty names and nonempty ordered action lists using the
+shared action library. `wait(seconds)` and `telegraph(seconds)` consume time;
+instant actions run in order at a boundary, and unused time passes to the next
+action. Boss action parameters (pixels, seconds, pixels/second) are:
+
+| Action | Parameters and completion |
+| --- | --- |
+| `glide_to_player` | `speed`, `above_floor`: set a nonblocking glide to the captured player x and floor minus height. Height 0 preserves the current y. |
+| `glide_to_floor` | `speed`: set a nonblocking glide to the captured x and floor minus half the boss height. |
+| `damage_target` | `radius`, `damage`: immediately damage a player within the captured x radius, even if still gliding. |
+| `summon` | `inset`: spawn two stationary patrollers this far from the arena's sides. |
+| `spawn_rings` | `count`: place this many random arena rings immediately. |
+| `explode_rings` | `radius`, `damage`: explode pending rings and damage a player inside any ring. |
+| `jump_to` | `height`, `speed`: glide to the captured player position minus height; complete on arrival. |
+| `hover` | `seconds`: hold position for the duration. |
+| `slam_down` | `speed`: descend to the floor; complete on landing. |
+| `spawn_shockwave` | `radius`, `damage`: immediately damage a player within the horizontal radius of the boss. |
+
+The ground-pound sequence (`jump_to` 200 above the player, `hover` 0.5 seconds,
+`slam_down` at speed 100, `spawn_shockwave`) exists only in a test fixture.
+Boss-only actions are rejected in enemy behaviors and are not added to the
+enemy editor's action picker. Existing enemy movement actions are rejected in
+boss attacks. Loading rejects unknown/missing fields or action types, duplicate
+boss/attack names, zero health, invalid size or placement, missing references,
+negative/nonfinite values, zero movement speeds, noninteger damage outside
+0..255, and ring counts outside 1..256. Errors identify the file, boss, attack,
+action index, and invalid parameter. F5 validates bosses before applying a
+reload; existing encounter progress remains intact. Room saves preserve boss
+placements; this task adds no boss editor controls.
+
 The playable arena uses `src/boss_special.rs`: a 100-health boss cycles Slam,
 Summon, and Rings roughly every three seconds. Move out of the red slam zone
 and pending red rings; orange rings have already exploded. Summoned enemies
@@ -127,7 +188,7 @@ Enemy state machines use RON in `assets/behaviors/`; entity definitions in
 `assets/entities/` select a behavior by its file stem. Room enemy-placement
 files in `assets/rooms/` reference entity definition names and supply patrol
 endpoints. Optional room `layout` data overrides geometry, items, spawn, and exits;
-bosses and coins remain in `src/room.rs`.
+bosses use the optional placement above and coins remain in `src/room.rs`.
 `serde` provides strict deserialization and `ron` parses the asset format;
 neither adds rendering or an ECS to the simulation. Assets load when
 constructing the rooms and on `F5`, with file paths included in validation errors.

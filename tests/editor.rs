@@ -155,7 +155,7 @@ impl TempAssets {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        for dir in ["rooms", "entities", "behaviors"] {
+        for dir in ["rooms", "entities", "behaviors", "bosses"] {
             std::fs::create_dir_all(path.join(dir)).unwrap();
             for entry in std::fs::read_dir(assets().join(dir)).unwrap() {
                 let entry = entry.unwrap();

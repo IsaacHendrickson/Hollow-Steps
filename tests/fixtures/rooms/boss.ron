@@ -1,2 +1,2 @@
 // Fixed behavioral fixture. Do not synchronize with editable assets.
-(enemies: [])
+(enemies: [], boss: Some((definition: "Ash Warden", position: (560.0, 436.0))))
