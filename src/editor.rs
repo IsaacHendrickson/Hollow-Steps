@@ -171,6 +171,7 @@ pub enum Placement {
 #[derive(Clone, Debug)]
 pub struct RoomDraft {
     pub enemies: Vec<EnemyPlacement>,
+    pub boss: Option<crate::room::BossPlacement>,
     pub layout: RoomLayout,
 }
 
@@ -181,6 +182,7 @@ impl RoomDraft {
         layout.exits.clear();
         Self {
             enemies: Vec::new(),
+            boss: None,
             layout,
         }
     }
@@ -188,6 +190,7 @@ impl RoomDraft {
     pub fn from_document(document: RoomEnemies, fallback: &Room) -> Self {
         Self {
             enemies: document.enemies,
+            boss: document.boss,
             layout: document
                 .layout
                 .unwrap_or_else(|| RoomLayout::from_room(fallback)),
@@ -251,6 +254,7 @@ impl RoomDraft {
         ron::ser::to_string_pretty(
             &RoomEnemies {
                 enemies: self.enemies.clone(),
+                boss: self.boss.clone(),
                 layout: Some(self.layout.clone()),
             },
             ron::ser::PrettyConfig::default(),
@@ -461,6 +465,7 @@ pub fn load_extra_rooms(
     definitions: &EnemyDefinitions,
 ) -> Result<Vec<Room>, String> {
     let mut rooms = Vec::new();
+    let bosses = crate::boss_definition::BossDefinitions::load(assets)?;
     for path in ron_files(&assets.join("rooms"))? {
         let stem = path
             .file_stem()
@@ -477,13 +482,16 @@ pub fn load_extra_rooms(
             let layout = document
                 .layout
                 .ok_or_else(|| format!("{}: new room needs layout", path.display()))?;
-            rooms.push(
-                RoomDraft {
-                    enemies: document.enemies,
-                    layout,
-                }
-                .build(RoomId::Custom(id), definitions)?,
-            );
+            let placement = document.boss.clone();
+            let mut room = RoomDraft {
+                enemies: document.enemies,
+                boss: document.boss,
+                layout,
+            }
+            .build(RoomId::Custom(id), definitions)?;
+            crate::room::place_boss(&mut room, placement.as_ref(), &bosses)
+                .map_err(|e| format!("{}: {e}", path.display()))?;
+            rooms.push(room);
         }
     }
     Ok(rooms)

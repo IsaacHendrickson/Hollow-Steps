@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use macroquad::math::{Rect, Vec2};
 
+#[cfg(test)]
 use crate::boss_special::SpecialAttack;
 use crate::coin::Coin;
 use crate::editor::{self, EditorSession};
@@ -14,8 +15,6 @@ pub use crate::room::FLOOR_Y;
 
 pub const VIEW_WIDTH: f32 = 960.0;
 pub const VIEW_HEIGHT: f32 = 540.0;
-pub const SPECIAL_BOSS_SIZE: Vec2 = Vec2::new(48.0, 48.0);
-const SPECIAL_ATTACK_INTERVAL: f32 = 3.0;
 
 /// The top-level gameplay state for the current prototype.
 ///
@@ -31,10 +30,7 @@ pub struct GameState {
     coin_count: u32,
     inventory_open: bool,
     special_attack_timer: f32,
-    next_special_attack: SpecialAttack,
     last_special_hit: Option<u64>,
-    spawned_enemy_count: usize,
-    spawned_coin_count: usize,
 }
 
 impl Default for GameState {
@@ -66,10 +62,7 @@ impl GameState {
             coin_count: 0,
             inventory_open: false,
             special_attack_timer: 0.0,
-            next_special_attack: SpecialAttack::Slam,
             last_special_hit: None,
-            spawned_enemy_count: 0,
-            spawned_coin_count: 0,
         })
     }
 
@@ -116,6 +109,7 @@ impl GameState {
         for (id, layout) in &catalog {
             editor::RoomDraft {
                 enemies: Vec::new(),
+                boss: None,
                 layout: layout.clone(),
             }
             .validate(definitions, &catalog)
@@ -158,6 +152,7 @@ impl GameState {
         }
         let document = crate::room::RoomEnemies {
             enemies: session.draft.enemies.clone(),
+            boss: session.draft.boss.clone(),
             layout: Some(session.draft.layout.clone()),
         };
         let plan = session.content.plan(&[(session.path.clone(), document)])?;
@@ -170,6 +165,7 @@ impl GameState {
         let mut draft = session.draft.clone();
         let mut document = crate::room::RoomEnemies {
             enemies: draft.enemies,
+            boss: draft.boss.clone(),
             layout: None,
         };
         session.content.rename_placements(&mut document);
@@ -244,26 +240,10 @@ impl GameState {
         let mut special_damage = 0;
         if let Some(boss) = &mut room.boss_special {
             special_damage = boss.update(delta_seconds, self.player.position(), bounds);
-            if !boss.is_defeated() {
-                self.special_attack_timer += delta_seconds;
-                if self.special_attack_timer >= SPECIAL_ATTACK_INTERVAL && !boss.is_telegraphing() {
-                    self.special_attack_timer %= SPECIAL_ATTACK_INTERVAL;
-                    boss.start_attack(self.next_special_attack, self.player.position(), bounds);
-                    self.next_special_attack = match self.next_special_attack {
-                        SpecialAttack::Slam => SpecialAttack::Summon,
-                        SpecialAttack::Summon => SpecialAttack::Rings,
-                        SpecialAttack::Rings => SpecialAttack::Slam,
-                    };
-                }
-            }
-            // The module exposes immutable spawn lists. Import each spawn once
-            // so the room's existing combat, drawing, and pickup code owns it.
-            room.enemies
-                .extend_from_slice(&boss.summoned_enemies()[self.spawned_enemy_count..]);
-            self.spawned_enemy_count = boss.summoned_enemies().len();
-            room.coins
-                .extend_from_slice(&boss.coins()[self.spawned_coin_count..]);
-            self.spawned_coin_count = boss.coins().len();
+            boss.schedule(delta_seconds, self.player.position(), bounds);
+            self.special_attack_timer = boss.attack_timer();
+            room.enemies.extend_from_slice(boss.new_enemies());
+            room.coins.extend_from_slice(boss.new_coins());
         }
         for enemy in &mut room.enemies {
             enemy.update(self.player.position(), delta_seconds, bounds);
@@ -287,13 +267,8 @@ impl GameState {
                 }
             }
             if let Some(boss) = &mut room.boss_special {
-                let top_left = boss.position() - SPECIAL_BOSS_SIZE / 2.0;
-                let body = Rect::new(
-                    top_left.x,
-                    top_left.y,
-                    SPECIAL_BOSS_SIZE.x,
-                    SPECIAL_BOSS_SIZE.y,
-                );
+                let top_left = boss.position() - boss.size() / 2.0;
+                let body = Rect::new(top_left.x, top_left.y, boss.size().x, boss.size().y);
                 let swing_id = self.player.attack().id();
                 if hitbox.overlaps(&body) && self.last_special_hit != Some(swing_id) {
                     boss.damage_boss(1);
@@ -323,10 +298,20 @@ impl GameState {
                 .as_ref()
                 .is_some_and(|boss| boss.damages(self.player.position(), self.player.size())),
         );
+        let contact_damage = room
+            .boss_special
+            .as_ref()
+            .filter(|boss| {
+                let separation = (boss.position() - self.player.position()).abs();
+                let reach = (boss.size() + self.player.size()) / 2.0;
+                separation.x <= reach.x && separation.y <= reach.y
+            })
+            .map_or(0, |boss| boss.contact_damage());
         self.player.take_damage_amount(
             enemy_damage
                 .max(boss_damage)
-                .max(u8::from(special_damage > 0)),
+                .max(special_damage.min(255) as u8)
+                .max(contact_damage),
         );
         if self.player.health().current() == 0 {
             self.player.respawn(room.spawn, bounds);

@@ -19,7 +19,7 @@ impl Assets {
             NEXT_ID.fetch_add(1, Ordering::Relaxed)
         ));
         let fixtures = support::fixture_assets();
-        for directory in ["behaviors", "entities", "rooms"] {
+        for directory in ["behaviors", "entities", "rooms", "bosses"] {
             std::fs::create_dir_all(path.join(directory)).unwrap();
             for entry in std::fs::read_dir(fixtures.join(directory)).unwrap() {
                 let entry = entry.unwrap();

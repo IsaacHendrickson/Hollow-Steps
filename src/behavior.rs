@@ -24,12 +24,13 @@ pub struct State {
     pub transitions: Vec<Transition>,
 }
 
-/// The loader enum and editor catalog are generated together. Add variants here.
+/// Shared action library. Boss-only actions are excluded from the enemy editor catalog.
 macro_rules! actions {
-    ($( $variant:ident => $name:literal { $( $field:ident : $ty:ty => ($label:literal, $validate:ident) ),+ } ),+ $(,)?) => {
+    ($( $(#[$meta:meta])* $variant:ident => $name:literal { $( $field:ident : $ty:ty => ($label:literal, $validate:ident) ),+ } ),+ $(,)?;
+     $( $boss:ident => $boss_name:literal { $( $param:ident : $param_ty:ty => ($param_label:literal, $param_validate:ident) ),+ } ),+ $(,)?) => {
         #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
         #[serde(rename_all = "snake_case", deny_unknown_fields)]
-        pub enum Action { $( $variant { $( $field: $ty ),+ } ),+ }
+        pub enum Action { $( $(#[$meta])* $variant { $( $field: $ty ),+ } ),+, $( $boss { $( $param: $param_ty ),+ } ),+ }
         impl Action {
             pub const TYPES: &'static [&'static str] = &[$($name),+];
             pub fn defaults(kind: usize) -> Option<Self> {
@@ -39,18 +40,20 @@ macro_rules! actions {
                     .iter().find(|action| action.kind() == kind).cloned()
             }
             pub fn kind(&self) -> usize {
-                let name = match self { $(Self::$variant { .. } => $name),+ };
+                let name = match self { $(Self::$variant { .. } => $name,)+ _ => return usize::MAX };
                 Self::TYPES.iter().position(|n| *n == name).expect("generated catalog")
             }
             pub fn parameters(&self) -> Vec<(&'static str, String)> {
-                match self { $(Self::$variant { $($field),+ } => vec![$((stringify!($field), $field.to_string())),+]),+ }
+                match self { $(Self::$variant { $($field),+ } => vec![$((stringify!($field), $field.to_string())),+],)+ $(Self::$boss { $($param),+ } => vec![$((stringify!($param), $param.to_string())),+]),+ }
             }
             pub fn parameter_labels(&self) -> &'static [&'static str] {
-                match self { $(Self::$variant { .. } => &[$($label),+]),+ }
+                match self { $(Self::$variant { .. } => &[$($label),+],)+ $(Self::$boss { .. } => &[$($param_label),+]),+ }
             }
             pub fn validate(&self) -> Result<(), String> {
                 match self { $(Self::$variant { $($field),+ } => { $(
                     $validate(*$field).map_err(|error| format!("{}: {error}", $label))?;
+                )+ },)+ $(Self::$boss { $($param),+ } => { $(
+                    $param_validate(*$param).map_err(|error| format!("{}: {error}", $param_label))?;
                 )+ }),+ }
                 Ok(())
             }
@@ -65,6 +68,16 @@ macro_rules! actions {
                         *$field = value;
                         Ok(())
                     },)+ _ => unreachable!("generated parameter") }
+                },)+ $(Self::$boss { $($param),+ } => {
+                    let mut fields = [$(stringify!($param)),+].into_iter();
+                    let name = fields.nth(index).ok_or("missing parameter")?;
+                    match name { $(stringify!($param) => {
+                        let value = text.trim().parse::<$param_ty>()
+                            .map_err(|_| format!("{}: expected {} value", $param_label, stringify!($param_ty)))?;
+                        $param_validate(value).map_err(|error| format!("{}: {error}", $param_label))?;
+                        *$param = value;
+                        Ok(())
+                    },)+ _ => unreachable!("generated parameter") }
                 }),+ }
             }
         }
@@ -76,6 +89,7 @@ actions! {
     Patrol => "patrol" { speed: f32 => ("patrol speed (pixels/second)", nonnegative) },
     Wait => "wait" { seconds: f32 => ("wait duration (seconds)", nonnegative) },
     Telegraph => "telegraph" { seconds: f32 => ("telegraph duration (seconds)", nonnegative) },
+    #[serde(alias = "jump_to")]
     JumpToPlayer => "jump_to_player" {
         speed: f32 => ("jump speed (pixels/second)", nonnegative),
         dx: f32 => ("target horizontal offset from player (pixels, positive right)", finite),
@@ -88,7 +102,37 @@ actions! {
         radius: f32 => ("blast radius (pixels)", nonnegative),
         fuse_time: f32 => ("blast fuse time (seconds)", nonnegative),
         damage: u8 => ("blast damage (integer 0..255)", valid_damage)
+    };
+    GlideToPlayer => "glide_to_player" {
+        speed: f32 => ("speed", positive), above_floor: f32 => ("above_floor", nonnegative)
     },
+    GlideToFloor => "glide_to_floor" { speed: f32 => ("speed", positive) },
+    DamageTarget => "damage_target" {
+        radius: f32 => ("radius", nonnegative), damage: u8 => ("damage", valid_damage)
+    },
+    Summon => "summon" { inset: f32 => ("inset", nonnegative) },
+    SpawnRings => "spawn_rings" { count: u16 => ("count", boss_count) },
+    ExplodeRings => "explode_rings" {
+        radius: f32 => ("radius", nonnegative), damage: u8 => ("damage", valid_damage)
+    },
+    SpawnShockwave => "spawn_shockwave" {
+        radius: f32 => ("radius", nonnegative), damage: u8 => ("damage", valid_damage)
+    },
+}
+
+pub(crate) fn positive(value: f32) -> Result<(), String> {
+    if value.is_finite() && value > 0.0 {
+        Ok(())
+    } else {
+        Err("must be finite and positive".into())
+    }
+}
+fn boss_count(value: u16) -> Result<(), String> {
+    if (1..=256).contains(&value) {
+        Ok(())
+    } else {
+        Err("must be an integer in 1..256".into())
+    }
 }
 
 fn finite(value: f32) -> Result<(), String> {
@@ -194,6 +238,12 @@ impl BehaviorDefinition {
         }
         for state in &self.states {
             for (index, action) in state.actions.iter().enumerate() {
+                if action.kind() == usize::MAX {
+                    return Err(format!(
+                        "state {:?}, action {index}: boss-only action",
+                        state.name
+                    ));
+                }
                 action
                     .validate()
                     .map_err(|error| format!("state {:?}, action {index}: {error}", state.name))?;
@@ -493,18 +543,12 @@ impl Behavior {
                 Action::JumpToPlayer { dx, dy, speed } => {
                     self.airborne = true;
                     let target = *self.jump_target.get_or_insert_with(|| {
-                        let half = context.size.as_dvec2() / 2.0;
-                        let target = context.player_position.as_dvec2()
-                            + macroquad::math::DVec2::new(f64::from(dx), f64::from(dy));
-                        Vec2::new(
-                            target.x.clamp(
-                                f64::from(context.bounds.left) + half.x,
-                                f64::from(context.bounds.right) - half.x,
-                            ) as f32,
-                            target.y.clamp(
-                                half.y.min(f64::from(context.bounds.floor_y) - half.y),
-                                f64::from(context.bounds.floor_y) - half.y,
-                            ) as f32,
+                        Self::clamped_jump_target(
+                            context.player_position,
+                            context.size,
+                            context.bounds,
+                            dx,
+                            dy,
                         )
                     });
                     Self::move_in_plane(position, target, speed, remaining)
@@ -550,6 +594,7 @@ impl Behavior {
                     }
                     (used, finished)
                 }
+                _ => unreachable!("validated enemy action"),
             };
             self.action_started = true;
             remaining = (remaining - used).max(0.0);
@@ -569,7 +614,33 @@ impl Behavior {
         }
     }
 
-    fn move_in_plane(position: &mut Vec2, target: Vec2, speed: f32, dt: f64) -> (f64, bool) {
+    pub(crate) fn clamped_jump_target(
+        player: Vec2,
+        size: Vec2,
+        bounds: WorldBounds,
+        dx: f32,
+        dy: f32,
+    ) -> Vec2 {
+        let half = size.as_dvec2() / 2.0;
+        let target = player.as_dvec2() + macroquad::math::DVec2::new(f64::from(dx), f64::from(dy));
+        Vec2::new(
+            target.x.clamp(
+                f64::from(bounds.left) + half.x,
+                f64::from(bounds.right) - half.x,
+            ) as f32,
+            target.y.clamp(
+                half.y.min(f64::from(bounds.floor_y) - half.y),
+                f64::from(bounds.floor_y) - half.y,
+            ) as f32,
+        )
+    }
+
+    pub(crate) fn move_in_plane(
+        position: &mut Vec2,
+        target: Vec2,
+        speed: f32,
+        dt: f64,
+    ) -> (f64, bool) {
         let difference = target.as_dvec2() - position.as_dvec2();
         let distance = difference.length();
         if distance == 0.0 {

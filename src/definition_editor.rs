@@ -183,6 +183,7 @@ impl DefinitionDraft {
                 .clone();
             crate::editor::RoomDraft {
                 enemies: document.enemies.clone(),
+                boss: document.boss.clone(),
                 layout,
             }
             .validate(&definitions, &catalog)
@@ -258,6 +259,7 @@ impl DefinitionDraft {
             .collect();
         let definitions = next.definitions()?;
         let mut rooms = Vec::new();
+        let bosses = crate::boss_definition::BossDefinitions::load(&self.assets)?;
         for (path, bytes) in &next.originals {
             if path.parent() != Some(next.assets.join("rooms").as_path()) {
                 continue;
@@ -274,13 +276,16 @@ impl DefinitionDraft {
                         .map(|(_, l)| l.clone())
                 })
                 .ok_or("room needs layout")?;
-            rooms.push(
-                crate::editor::RoomDraft {
-                    enemies: document.enemies,
-                    layout,
-                }
-                .build(id, &definitions)?,
-            );
+            let placement = document.boss.clone();
+            let mut room = crate::editor::RoomDraft {
+                enemies: document.enemies,
+                boss: document.boss.clone(),
+                layout,
+            }
+            .build(id, &definitions)?;
+            crate::room::place_boss(&mut room, placement.as_ref(), &bosses)
+                .map_err(|e| file_error(path, e))?;
+            rooms.push(room);
         }
         Ok((next, rooms))
     }

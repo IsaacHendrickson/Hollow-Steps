@@ -1,0 +1,10 @@
+(
+    name: "Ground Pound Example", health: 10, size: (48.0, 48.0), contact_damage: 2,
+    selection: cycle, pause_seconds: 1.0,
+    attacks: [(name: "Ground pound", actions: [
+        jump_to(speed: 1000.0, dx: 0.0, dy: -200.0),
+        hover(seconds: 0.5),
+        slam_down(speed: 100.0),
+        spawn_shockwave(radius: 80.0, damage: 2),
+    ])],
+)

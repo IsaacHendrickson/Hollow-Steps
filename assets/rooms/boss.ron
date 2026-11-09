@@ -1,4 +1,5 @@
 (
     enemies: [],
+    boss: Some((definition: "Ash Warden", position: (560.0, 436.0))),
     layout: None,
 )
