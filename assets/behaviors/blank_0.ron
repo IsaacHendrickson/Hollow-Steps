@@ -1,0 +1,10 @@
+(
+    initial_state: "idle",
+    states: [
+        (
+            name: "idle",
+            actions: [],
+            transitions: [],
+        ),
+    ],
+)

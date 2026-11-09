@@ -1,0 +1,7 @@
+(
+    name: "scout",
+    health: 1,
+    size: (30.0, 40.0),
+    contact_damage: 1,
+    behavior: "chase",
+)
