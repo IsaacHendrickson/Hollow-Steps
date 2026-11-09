@@ -641,6 +641,7 @@ fn entity_and_behavior_operations_check_references_and_delete_files_on_save() {
     assert!(draft.delete_entity(&original).is_err());
     assert!(draft.delete_behavior("patrol").is_err());
     let duplicate = draft.duplicate_entity(&original, " copy ").unwrap();
+    assert_eq!(draft.entity_path("copy"), Some(duplicate.clone()));
     assert!(draft.duplicate_entity(&original, "copy").is_err());
     draft.add_behavior(" extra ", behavior()).unwrap();
     assert!(draft.add_behavior("extra", behavior()).is_err());
@@ -660,6 +661,76 @@ fn entity_and_behavior_operations_check_references_and_delete_files_on_save() {
     assert!(draft.delete_entity(&duplicate).is_err());
     assert!(draft.delete_behavior("missing").is_err());
     GameState::try_new(&assets.0).unwrap();
+}
+
+#[test]
+fn deleting_entity_checks_unsaved_room_references() {
+    let assets = Assets::new();
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    game.toggle_editor().unwrap();
+    let editor = game.editor_mut().unwrap();
+    let original = editor.content.entity_path("patrol").unwrap();
+    let duplicate = editor.content.duplicate_entity(&original, "copy").unwrap();
+    editor
+        .draft
+        .enemies
+        .push(hollow_steps::room::EnemyPlacement {
+            definition: "copy".into(),
+            patrol_left: 300.0,
+            patrol_right: 400.0,
+        });
+    let error = editor.delete_entity(&duplicate).unwrap_err();
+    assert_error_file(&error, &editor.path);
+    assert!(error.contains("referenced"));
+    assert!(editor.content.entities.contains_key(&duplicate));
+    editor.draft.enemies.pop();
+    editor.delete_entity(&duplicate).unwrap();
+    assert!(!editor.content.entities.contains_key(&duplicate));
+}
+
+#[test]
+fn new_entity_edits_keep_preview_and_unsaved_references_valid() {
+    let assets = Assets::new();
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    game.toggle_editor().unwrap();
+    let editor = game.editor_mut().unwrap();
+    let original = editor.content.entity_path("patrol").unwrap();
+    let mut entity = editor.content.entities[&original].clone();
+    entity.name = "new entity".into();
+    let path = editor.content.add_entity(entity.clone()).unwrap();
+    assert_eq!(editor.content.entity_path("new entity"), Some(path.clone()));
+    editor.definitions = editor.content.definitions().unwrap();
+    editor
+        .draft
+        .enemies
+        .push(hollow_steps::room::EnemyPlacement {
+            definition: entity.name.clone(),
+            patrol_left: 300.0,
+            patrol_right: 400.0,
+        });
+    entity.name = "renamed entity".into();
+    editor.update_entity(&path, entity.clone()).unwrap();
+    assert_eq!(editor.draft.enemies.last().unwrap().definition, entity.name);
+    assert_eq!(editor.content.entity_path(&entity.name), Some(path.clone()));
+    assert!(editor.definitions.size(&entity.name).is_ok());
+    assert!(editor
+        .delete_entity(&path)
+        .unwrap_err()
+        .contains("referenced"));
+
+    let mut invalid = entity.clone();
+    invalid.name = "patrol".into();
+    assert!(editor.update_entity(&path, invalid).is_err());
+    assert_eq!(editor.content.entities[&path], entity);
+    assert_eq!(editor.draft.enemies.last().unwrap().definition, entity.name);
+    assert!(editor.definitions.size(&entity.name).is_ok());
+    game.save_editor().unwrap();
+    let loaded = GameState::try_new(&assets.0).unwrap();
+    assert!(loaded
+        .room()
+        .enemies
+        .iter()
+        .any(|enemy| enemy.name() == entity.name));
 }
 
 #[test]

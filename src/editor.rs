@@ -565,6 +565,52 @@ impl EditorSession {
         rooms
     }
 
+    /// Keep preview definitions and unsaved placements in step with valid entity edits.
+    pub fn update_entity(
+        &mut self,
+        path: &Path,
+        entity: crate::enemy::EnemyDefinition,
+    ) -> Result<(), String> {
+        let old = self.content.entities.get(path).ok_or("missing entity")?;
+        if old == &entity {
+            return Ok(());
+        }
+        let old = self
+            .content
+            .entities
+            .insert(path.to_owned(), entity.clone())
+            .expect("entity");
+        match self.content.definitions() {
+            Ok(definitions) => {
+                for placement in &mut self.draft.enemies {
+                    if placement.definition == old.name {
+                        placement.definition = entity.name.clone();
+                    }
+                }
+                self.definitions = definitions;
+                self.dirty = true;
+                Ok(())
+            }
+            Err(error) => {
+                self.content.entities.insert(path.to_owned(), old);
+                Err(error)
+            }
+        }
+    }
+
+    /// Include unsaved placements when checking definition references.
+    pub fn delete_entity(&mut self, path: &Path) -> Result<(), String> {
+        for placement in &self.draft.enemies {
+            if self.content.entity_path(&placement.definition).as_deref() == Some(path) {
+                return Err(format!(
+                    "{}: entity is referenced by the current room draft",
+                    self.path.display()
+                ));
+            }
+        }
+        self.content.delete_entity(path)
+    }
+
     pub fn new_room(&mut self) {
         let mut id = 0;
         while self

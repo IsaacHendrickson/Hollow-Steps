@@ -26,3 +26,5 @@
 - Responsive scrollable editor with pinned Save, structured ordered action/transition rows, loader-generated type catalogs, inline numeric validation, and advanced RON editing: `src/behavior.rs`, `src/definition_editor.rs`, `src/main.rs`; `tests/definition_editor.rs`, plus manual resize/edit check.
 
 - Definition save conflict detection with consistent native paths and portable file-identification assertions, full draft and all-room validation, content-only LF writes, recoverable staging/deletions, repeat renames, and pure entity/behavior operations: `src/definition_editor.rs`, `src/editor.rs`; `tests/definition_editor.rs`.
+
+- Reusable searchable room/entity/behavior/action/condition/state lists with stable selection, Unicode case-insensitive prefix-first matching, counts, no-match rows, bounded labels, and entity/behavior management buttons with reference errors: `src/search.rs`, `src/editor.rs`, `src/definition_editor.rs`, `src/main.rs`; `src/search.rs` unit tests, `tests/definition_editor.rs`, plus manual editor check.
