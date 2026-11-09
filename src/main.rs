@@ -12,7 +12,8 @@ use hollow_steps::player::PlayerInput;
 use hollow_steps::room::RoomEdge;
 use hollow_steps::search::SearchList;
 use macroquad::prelude::*;
-use macroquad::ui::{hash, root_ui, widgets};
+mod editor_panel;
+use editor_panel::PropertyUi;
 
 fn window_conf() -> Conf {
     Conf {
@@ -62,6 +63,10 @@ async fn main() {
         if let Some(result) = &reload_result {
             draw_reload_result(result, &mut reload_scroll);
         }
+        // Drain the integration's event subscription while the editor is closed, so reopening
+        // cannot replay earlier gameplay clicks or keys into its controls.
+        egui_macroquad::ui(|_| {});
+        egui_macroquad::draw();
         next_frame().await;
     }
 }
@@ -485,8 +490,6 @@ struct EditorUi {
     dragging: Option<(Selection, Vec2)>,
     destination: Option<usize>,
     properties: bool,
-    scroll: f32,
-    content_height: f32,
     property: PropertyUi,
 }
 
@@ -507,11 +510,9 @@ struct EditorCanvas {
     bounds: Rect,
 }
 impl EditorCanvas {
-    fn new(layout: &RoomLayout) -> Self {
+    fn new(layout: &RoomLayout, panel_left: f32) -> Self {
         let bounds = layout.rect();
-        let panel =
-            hollow_steps::definition_editor::PanelLayout::new(screen_width(), screen_height());
-        let scale = ((panel.panel.x - 40.0).max(1.0) / bounds.w)
+        let scale = ((panel_left - 40.0).max(1.0) / bounds.w)
             .min((screen_height() - 180.0).max(1.0) / bounds.h);
         Self {
             origin: vec2(20.0, 90.0),
@@ -608,222 +609,32 @@ fn editor_markers(
 
 fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     clear_background(Color::from_rgba(16, 18, 31, 255));
-    let mut save = false;
-    let mut open = None;
     let editor = game.editor_mut().expect("editor open");
     if let Ok(definitions) = editor.content.placement_definitions() {
         editor.definitions = definitions;
     }
-    let entity_paths = editor.content.entities.keys().cloned().collect::<Vec<_>>();
     let entity_names = editor
         .content
         .entities
         .values()
         .map(|entity| entity.name.clone())
         .collect::<Vec<_>>();
-    let definitions = entity_names
-        .iter()
-        .cloned()
-        .chain(
-            Item::ALL
-                .iter()
-                .map(|item| format!("Item: {}", item.name())),
-        )
-        .collect::<Vec<_>>();
-    let names = definitions.iter().map(String::as_str).collect::<Vec<_>>();
-    let room_names = editor
-        .rooms
-        .iter()
-        .map(|(id, _)| format!("{id:?}"))
-        .collect::<Vec<_>>();
-    let room_labels = room_names.iter().map(String::as_str).collect::<Vec<_>>();
-    let panel = hollow_steps::definition_editor::PanelLayout::new(screen_width(), screen_height());
-    if panel.body.contains(Vec2::from(mouse_position())) {
-        state.scroll =
-            panel.scroll_bounds(state.content_height, state.scroll - mouse_wheel().1 * 32.0);
-    } else {
-        state.scroll = panel.scroll_bounds(state.content_height, state.scroll);
-    }
-    widgets::Window::new(hash!("room editor"), panel.body.point(), panel.body.size())
-        .titlebar(false)
-        .movable(false)
-        .ui(&mut root_ui(), |ui| {
-            // Set the native window scroll before laying out controls. Save lives in a separate window.
-            let margin = ui.default_skin().margin;
-            // The default window skin has equal top/bottom borders. Exclude them from the scroll viewport.
-            let border = (ui.canvas().cursor().y - ui.scroll().y - panel.body.y - margin).max(0.0);
-            let viewport_height = (panel.body.h - 2.0 * border).max(1.0);
-            ui.scroll_here_ratio((margin - state.scroll) / viewport_height);
-            (|| {
-                panel_label(ui, "Room editor (F2)");
-                for warning in editor.draft.warnings() {
-                    panel_label(ui, warning);
-                }
-                if !editor.message.is_empty() {
-                    panel_label(ui, &editor.message);
-                }
-                panel_label(
-                    ui,
-                    &format!("{:?}{}", editor.id, if editor.dirty { " *" } else { "" }),
-                );
-                if panel_button(
-                    ui,
-                    if state.properties {
-                        "Room tools"
-                    } else {
-                        "Enemy properties"
-                    },
-                ) {
-                    state.properties = !state.properties;
-                    if state.properties {
-                        state.placing = false;
-                        state.destination = None;
-                        state.dragging = None;
-                        let path = match state.selected {
-                            Some(Selection::Enemy(index)) => editor
-                                .draft
-                                .enemies
-                                .get(index)
-                                .and_then(|enemy| editor.content.entity_path(&enemy.definition)),
-                            _ => state
-                                .definition
-                                .selected
-                                .and_then(|i| entity_paths.get(i))
-                                .cloned(),
-                        };
-                        state.property = PropertyUi::for_entity(editor, path);
-                    }
-                }
-                if state.properties {
-                    draw_definition_panel(ui, editor, state);
-                    return;
-                }
-                if panel_button(ui, "New room") {
-                    editor.new_room();
-                    *state = EditorUi::default();
-                }
-                searchable_list(ui, hash!("rooms"), "Rooms", &room_labels, &mut state.room);
-                if panel_button(ui, "Open room") {
-                    open = state
-                        .room
-                        .selected
-                        .and_then(|i| editor.rooms.get(i))
-                        .map(|(id, _)| *id);
-                }
-                ui.separator();
-                searchable_list(
-                    ui,
-                    hash!("definitions"),
-                    "Entity",
-                    &names,
-                    &mut state.definition,
-                );
-                draw_entity_tools(ui, editor, state, &entity_paths);
-                if panel_button(ui, if state.placing { "[Place]" } else { "Place" }) {
-                    state.placing = state.definition.selected.is_some();
-                    state.destination = None;
-                    state.selected = None;
-                }
-                if panel_button(
-                    ui,
-                    if !state.placing {
-                        "[Select / drag]"
-                    } else {
-                        "Select / drag"
-                    },
-                ) {
-                    state.placing = false;
-                }
-                if panel_button(ui, "Delete selected") {
-                    if let Some(selection) = state.selected {
-                        match editor.draft.delete(selection) {
-                            Ok(()) => {
-                                state.selected = None;
-                                state.destination = None;
-                                editor.dirty = true;
-                            }
-                            Err(error) => editor.message = error,
-                        }
-                    }
-                }
-                ui.separator();
-                ui.combo_box(
-                    hash!("edge"),
-                    "Edge",
-                    &["Left", "Right", "Top", "Bottom"],
-                    &mut state.edge,
-                );
-                searchable_list(
-                    ui,
-                    hash!("target"),
-                    "Exit target",
-                    &room_labels,
-                    &mut state.target,
-                );
-                if panel_button(ui, "Add exit") {
-                    if let Some((id, layout)) =
-                        state.target.selected.and_then(|i| editor.rooms.get(i))
-                    {
-                        state.selected = Some(editor.draft.add_exit(
-                            [
-                                RoomEdge::Left,
-                                RoomEdge::Right,
-                                RoomEdge::Top,
-                                RoomEdge::Bottom,
-                            ][state.edge],
-                            *id,
-                            layout.spawn.into(),
-                        ));
-                        editor.dirty = true;
-                        state.placing = false;
-                        state.destination = None;
-                    }
-                }
-                if let Some(Selection::Exit(i) | Selection::Destination(i)) = state.selected {
-                    if panel_button(ui, "Set exit target") {
-                        if let Some((id, layout)) =
-                            state.target.selected.and_then(|i| editor.rooms.get(i))
-                        {
-                            if let Err(error) =
-                                editor.draft.set_exit_target(i, *id, layout.spawn.into())
-                            {
-                                editor.message = error;
-                            } else {
-                                editor.dirty = true;
-                            }
-                        }
-                    }
-                    if panel_button(ui, "Arrival spawn") {
-                        state.destination = Some(i);
-                        state.selected = Some(Selection::Destination(i));
-                        state.placing = false;
-                    }
-                }
-                if state.destination.is_some() && panel_button(ui, "Back to room") {
-                    state.destination = None;
-                    state.selected = None;
-                }
-                ui.separator();
-                panel_label(ui, "Blue: room spawn");
-                panel_label(ui, "Green: exit span");
-                panel_label(ui, "Purple: arrival spawn");
-            })();
-            state.content_height = panel.body.h + ui.scroll_max().y.max(0.0);
-            state.scroll = panel.scroll_bounds(state.content_height, state.scroll);
+    let mut panel = None;
+    egui_macroquad::ui(|ctx| {
+        // The integration divides native wheel events by 90. Normalize once to 28 points per
+        // wheel step; egui then routes/consumes the delta for the hovered scroll area.
+        let wheel = mouse_wheel();
+        let delta =
+            egui_macroquad::egui::vec2(wheel.0.clamp(-3.0, 3.0), wheel.1.clamp(-3.0, 3.0)) * 28.0;
+        ctx.input_mut(|input| {
+            input.raw_scroll_delta = delta;
+            input.smooth_scroll_delta = delta;
         });
-
-    widgets::Window::new(
-        hash!("editor save strip"),
-        panel.save.point(),
-        panel.save.size(),
-    )
-    .titlebar(false)
-    .movable(false)
-    .ui(&mut root_ui(), |ui| {
-        if panel_button(ui, "Save") {
-            save = true;
-        }
+        panel = Some(editor_panel::draw_panel(ctx, editor, state));
     });
+    let panel = panel.expect("egui panel");
+    let mut save = panel.save;
+    let open = panel.open;
 
     let layout = state
         .destination
@@ -836,7 +647,7 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
                 .map(|(_, layout)| layout)
         })
         .unwrap_or_else(|| editor.draft.layout.clone());
-    let canvas = EditorCanvas::new(&layout);
+    let canvas = EditorCanvas::new(&layout, panel.left);
     let area = canvas.rect(layout.rect());
     draw_rectangle_lines(area.x, area.y, area.w, area.h, 2.0, LIGHTGRAY);
     if state.destination.is_some() {
@@ -872,13 +683,9 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     let markers = editor_markers(editor, state.destination, state.selected);
     let mouse = Vec2::from(mouse_position());
     let world = canvas.world(mouse);
-    let over_canvas =
-        area.contains(mouse) && mouse.x < panel.panel.x && !root_ui().is_mouse_over(mouse);
+    let over_canvas = area.contains(mouse) && mouse.x < panel.left && !panel.blocks_pointer;
     if is_mouse_button_pressed(MouseButton::Left) {
         state.canvas_focused = over_canvas;
-        if over_canvas {
-            root_ui().clear_input_focus();
-        }
     }
     if is_mouse_button_pressed(MouseButton::Left) && over_canvas {
         if state.placing && state.destination.is_none() {
@@ -935,7 +742,11 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
         state.dragging = None;
     }
     if (is_mouse_button_pressed(MouseButton::Right) && over_canvas)
-        || (is_key_pressed(KeyCode::Delete) && !state.properties && state.canvas_focused)
+        || (is_key_pressed(KeyCode::Delete)
+            && !state.properties
+            && state.canvas_focused
+            && !panel.keyboard
+            && !panel.blocks_pointer)
     {
         let selection = if is_mouse_button_pressed(MouseButton::Right) {
             markers
@@ -997,7 +808,20 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
         line.push(' ');
     }
     draw_text(&line, 20.0, y, 17.0, ORANGE);
+    let pending_error = if state.properties {
+        state.property.error.clone()
+    } else {
+        None
+    };
     state.clear_hidden_property_error(editor.draft.enemies.len());
+    if save && pending_error.is_some() {
+        editor.message = format!(
+            "Save failed: {}",
+            pending_error.as_deref().unwrap_or_default()
+        );
+        save = false;
+    }
+    egui_macroquad::draw();
     if save {
         state.dragging = None;
         if let Err(error) = game.save_editor() {
@@ -1009,614 +833,6 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
             game.editor_mut().expect("open").message = error;
         }
         *state = EditorUi::default();
-    }
-}
-
-fn searchable_list(
-    ui: &mut macroquad::ui::Ui,
-    id: u64,
-    label: &str,
-    names: &[impl AsRef<str>],
-    list: &mut SearchList,
-) {
-    panel_input(ui, hash!(id, "search"), label, &mut list.query);
-    let matches = list.matches(names);
-    panel_label(ui, &format!("{} of {}", matches.len(), names.len()));
-    widgets::Group::new(id, vec2(panel_content_width(), 82.0)).ui(ui, |ui| {
-        if matches.is_empty() {
-            ui.label(None, "no matches");
-        }
-        for index in matches {
-            let name = names[index].as_ref();
-            let width = (panel_content_width() - 24.0).max(1.0);
-            if widgets::Button::new(short_text_width(name, (width - 12.0).max(1.0)))
-                .selected(list.selected == Some(index))
-                .size(vec2(width, 24.0))
-                .ui(ui)
-            {
-                list.selected = Some(index);
-            }
-        }
-    });
-}
-
-fn draw_entity_tools(
-    ui: &mut macroquad::ui::Ui,
-    editor: &mut EditorSession,
-    state: &mut EditorUi,
-    paths: &[std::path::PathBuf],
-) {
-    panel_input(
-        ui,
-        hash!("new entity name"),
-        "New / duplicate entity name",
-        &mut state.new_entity,
-    );
-    let selected = state.definition.selected.and_then(|i| paths.get(i));
-    let result = if panel_button(ui, "New entity") {
-        editor
-            .content
-            .behaviors
-            .keys()
-            .next()
-            .cloned()
-            .ok_or_else(|| "Create a behavior first".to_owned())
-            .and_then(|behavior| {
-                editor
-                    .content
-                    .add_entity(hollow_steps::enemy::EnemyDefinition {
-                        name: state.new_entity.clone(),
-                        health: 1,
-                        size: (32.0, 40.0),
-                        contact_damage: 1,
-                        behavior,
-                    })
-            })
-            .map(Some)
-    } else if panel_button(ui, "Duplicate entity") {
-        selected
-            .ok_or_else(|| "Select an entity first".to_owned())
-            .and_then(|path| editor.content.duplicate_entity(path, &state.new_entity))
-            .map(Some)
-    } else if panel_button(ui, "Delete entity") {
-        selected
-            .ok_or_else(|| "Select an entity first".to_owned())
-            .and_then(|path| editor.delete_entity(path))
-            .map(|()| None)
-    } else {
-        return;
-    };
-    match result {
-        Ok(path) => {
-            editor.dirty = true;
-            editor.message.clear();
-            state.definition.query.clear();
-            state.definition.selected = path
-                .as_ref()
-                .and_then(|p| editor.content.entities.keys().position(|key| key == p));
-            state.placing = false;
-            if path.is_some() {
-                state.property = PropertyUi::for_entity(editor, path);
-                state.properties = true;
-            }
-        }
-        Err(error) => editor.message = error,
-    }
-}
-
-#[derive(Default)]
-struct PropertyUi {
-    path: Option<std::path::PathBuf>,
-    fields: [String; 6],
-    behavior: String,
-    behavior_list: SearchList,
-    behavior_name: String,
-    states: SearchList,
-    loaded_state: Option<(String, usize)>,
-    state_name: String,
-    actions: String,
-    transitions: String,
-    new_state: String,
-    error: Option<String>,
-    structured: hollow_steps::definition_editor::StateInputs,
-    add_action: SearchList,
-    add_condition: SearchList,
-    conditions: Vec<SearchList>,
-    advanced: bool,
-}
-
-impl PropertyUi {
-    fn for_entity(editor: &EditorSession, path: Option<std::path::PathBuf>) -> Self {
-        let mut ui = Self {
-            path,
-            ..Self::default()
-        };
-        if let Some(entity) = ui
-            .path
-            .as_ref()
-            .and_then(|path| editor.content.entities.get(path))
-        {
-            ui.fields = [
-                entity.name.clone(),
-                entity.health.to_string(),
-                entity.size.0.to_string(),
-                entity.size.1.to_string(),
-                entity.contact_damage.to_string(),
-                entity.behavior.clone(),
-            ];
-            ui.behavior_list.selected = editor
-                .content
-                .behaviors
-                .keys()
-                .position(|name| name == &entity.behavior);
-        }
-        ui
-    }
-}
-
-fn draw_definition_panel(
-    ui: &mut macroquad::ui::Ui,
-    editor: &mut EditorSession,
-    state: &mut EditorUi,
-) {
-    use hollow_steps::definition_editor::{
-        add_state, edit_state_lists, remove_state, rename_state, serialize,
-    };
-    let p = &mut state.property;
-    if let Some(error) = &p.error {
-        panel_label(ui, error);
-    }
-    let mut error = None;
-    let path = p
-        .path
-        .clone()
-        .filter(|path| editor.content.entities.contains_key(path));
-    if path.is_some() {
-        panel_label(ui, "Shared definition (all rooms)");
-        for (i, label) in ["Name", "Health", "Width", "Height", "Contact damage"]
-            .iter()
-            .enumerate()
-        {
-            panel_input(ui, hash!("entity field", i), label, &mut p.fields[i]);
-            if let Err(e) = hollow_steps::definition_editor::validate_entity_field(i, &p.fields[i])
-            {
-                panel_label(ui, &e);
-            }
-        }
-        panel_label(ui, &format!("Assigned behavior: {}", p.fields[5]));
-    } else {
-        panel_label(ui, "Select an entity in Room tools or on the canvas");
-    }
-
-    let behavior_names = editor.content.behaviors.keys().cloned().collect::<Vec<_>>();
-    searchable_list(
-        ui,
-        hash!("behaviors"),
-        "Behavior",
-        &behavior_names,
-        &mut p.behavior_list,
-    );
-    let selected_behavior = p
-        .behavior_list
-        .selected
-        .and_then(|i| behavior_names.get(i))
-        .cloned();
-    if let Some(name) = &selected_behavior {
-        if path.is_some() && panel_button(ui, "Use selected behavior") {
-            p.fields[5] = name.clone();
-        }
-    }
-    if let Some(path) = &path {
-        if let Err(e) = hollow_steps::definition_editor::entity_from_fields(&p.fields)
-            .and_then(|entity| editor.update_entity(path, entity))
-        {
-            error = Some(e);
-        }
-    }
-
-    panel_input(
-        ui,
-        hash!("behavior name"),
-        "New / renamed behavior name",
-        &mut p.behavior_name,
-    );
-    let operation = if panel_button(ui, "New behavior") {
-        Some(0)
-    } else if panel_button(ui, "Rename behavior") {
-        Some(1)
-    } else if panel_button(ui, "Delete behavior") {
-        Some(2)
-    } else {
-        None
-    };
-    if let Some(operation) = operation {
-        let result = match operation {
-            0 => editor.content.add_behavior(
-                &p.behavior_name,
-                hollow_steps::behavior::BehaviorDefinition {
-                    initial_state: "idle".into(),
-                    states: vec![hollow_steps::behavior::State {
-                        name: "idle".into(),
-                        actions: vec![],
-                        transitions: vec![],
-                    }],
-                },
-            ),
-            _ => selected_behavior
-                .as_deref()
-                .ok_or_else(|| "Select a behavior first".to_owned())
-                .and_then(|name| {
-                    if operation == 1 {
-                        editor.content.rename_behavior(name, &p.behavior_name)
-                    } else {
-                        editor.content.delete_behavior(name)
-                    }
-                }),
-        };
-        match result {
-            Ok(()) => {
-                editor.dirty = true;
-                editor.message.clear();
-                p.error = None;
-                p.behavior_list.query.clear();
-                p.behavior_list.selected = if operation == 2 {
-                    None
-                } else {
-                    editor
-                        .content
-                        .behaviors
-                        .keys()
-                        .position(|name| name == p.behavior_name.trim())
-                };
-                if let Some(path) = &path {
-                    p.fields[5] = editor.content.entities[path].behavior.clone();
-                }
-                p.loaded_state = None;
-            }
-            Err(e) => {
-                editor.message = e.clone();
-                p.error = Some(e.clone());
-                panel_label(ui, &e);
-            }
-        }
-        return;
-    }
-    let Some(selected_behavior) = selected_behavior else {
-        panel_label(ui, "Select a behavior to edit its states");
-        p.error = error;
-        return;
-    };
-    if p.behavior != selected_behavior {
-        p.behavior = selected_behavior;
-        p.loaded_state = None;
-        p.states = SearchList {
-            selected: Some(0),
-            ..SearchList::default()
-        };
-    }
-    ui.separator();
-    if let Some(behavior) = editor.content.behaviors.get_mut(&p.behavior) {
-        let mut names = behavior
-            .states
-            .iter()
-            .map(|s| s.name.clone())
-            .collect::<Vec<_>>();
-        searchable_list(ui, hash!("behavior states"), "State", &names, &mut p.states);
-        panel_input(ui, hash!("new state"), "New state", &mut p.new_state);
-        if panel_button(ui, "Add state") {
-            match add_state(behavior, p.new_state.clone()) {
-                Ok(()) => {
-                    p.states.query.clear();
-                    p.states.selected = Some(behavior.states.len() - 1);
-                    p.loaded_state = None;
-                    editor.dirty = true;
-                    names = behavior.states.iter().map(|s| s.name.clone()).collect();
-                }
-                Err(e) => error = Some(e),
-            }
-        }
-        let Some(index) = p.states.selected else {
-            panel_label(ui, "Select a state to edit");
-            p.error = error;
-            return;
-        };
-        let key = (p.behavior.clone(), index);
-        if p.loaded_state.as_ref() != Some(&key) {
-            let selected = &behavior.states[index];
-            p.state_name = selected.name.clone();
-            p.structured = hollow_steps::definition_editor::StateInputs::from_state(selected);
-            p.conditions = p
-                .structured
-                .transitions
-                .iter()
-                .map(|row| SearchList {
-                    selected: Some(row.kind),
-                    ..SearchList::default()
-                })
-                .collect();
-            p.actions = serialize(&selected.actions).expect("serializable actions");
-            p.transitions = serialize(&selected.transitions).expect("serializable transitions");
-            p.loaded_state = Some(key);
-        }
-        panel_input(ui, hash!("state name"), "State name", &mut p.state_name);
-        if panel_button(ui, "Rename state") {
-            match rename_state(behavior, index, p.state_name.clone()) {
-                Ok(()) => {
-                    editor.dirty = true;
-                    p.structured = hollow_steps::definition_editor::StateInputs::from_state(
-                        &behavior.states[index],
-                    );
-                    names = behavior.states.iter().map(|s| s.name.clone()).collect();
-                    p.transitions = serialize(&behavior.states[index].transitions)
-                        .expect("serializable transitions");
-                }
-                Err(e) => error = Some(e),
-            }
-        }
-        if panel_button(ui, "Make initial") {
-            hollow_steps::definition_editor::set_initial_state(behavior, index)
-                .expect("selected state");
-            editor.dirty = true;
-        }
-        panel_label(ui, &format!("Initial: {}", behavior.initial_state));
-        let before = behavior.states[index].clone();
-        if panel_button(ui, "Advanced: raw RON") {
-            p.advanced = !p.advanced;
-            // Switching views always starts from the last valid model.
-            p.actions = serialize(&before.actions).expect("actions");
-            p.transitions = serialize(&before.transitions).expect("transitions");
-            p.structured = hollow_steps::definition_editor::StateInputs::from_state(&before);
-            p.conditions = p
-                .structured
-                .transitions
-                .iter()
-                .map(|row| SearchList {
-                    selected: Some(row.kind),
-                    ..SearchList::default()
-                })
-                .collect();
-        }
-        if p.advanced {
-            panel_label(ui, "Ordered actions (RON list)");
-            ui.editbox(
-                hash!("actions"),
-                vec2(panel_content_width(), 95.0),
-                &mut p.actions,
-            );
-            panel_label(ui, "Transitions (RON list)");
-            ui.editbox(
-                hash!("transitions"),
-                vec2(panel_content_width(), 110.0),
-                &mut p.transitions,
-            );
-            if let Err(e) =
-                edit_state_lists(&mut behavior.states[index], &p.actions, &p.transitions)
-            {
-                error = Some(e);
-            }
-        } else {
-            draw_state_rows(ui, p, &names, index);
-            if let Err(e) = p.structured.apply(&mut behavior.states[index], &names) {
-                error = Some(e);
-            }
-        }
-        editor.dirty |= before != behavior.states[index];
-        if panel_button(ui, "Remove state") {
-            match remove_state(behavior, index) {
-                Ok(()) => {
-                    p.states.selected = None;
-                    p.loaded_state = None;
-                    editor.dirty = true;
-                }
-                Err(e) => error = Some(e),
-            }
-        }
-    } else {
-        error = Some(format!("Missing behavior file {:?}", p.behavior));
-    }
-    p.error = error.clone();
-    if let Some(e) = &error {
-        editor.message = e.clone();
-    }
-    if let Some(e) = error {
-        panel_label(ui, &e);
-    }
-}
-
-fn panel_content_width() -> f32 {
-    (screen_width().min(360.0) - 32.0).max(1.0)
-}
-fn short_panel_text(text: &str) -> String {
-    short_text_width(text, panel_content_width())
-}
-fn short_text_width(text: &str, width: f32) -> String {
-    let mut value = text.to_owned();
-    if measure_text(&value, None, 16, 1.0).width <= width {
-        return value;
-    }
-    while !value.is_empty() && measure_text(format!("{value}.."), None, 16, 1.0).width > width {
-        value.pop();
-    }
-    format!("{value}..")
-}
-fn panel_label(ui: &mut macroquad::ui::Ui, text: &str) {
-    let columns = (panel_content_width() / 16.0).max(1.0) as usize;
-    for line in hollow_steps::definition_editor::wrap_label(text, columns) {
-        ui.label(None, &line);
-    }
-}
-fn panel_input(ui: &mut macroquad::ui::Ui, id: u64, label: &str, value: &mut String) {
-    panel_label(ui, label);
-    widgets::InputText::new(id)
-        .size(vec2(panel_content_width(), 23.0))
-        .ui(ui, value);
-}
-fn panel_combo(
-    ui: &mut macroquad::ui::Ui,
-    id: u64,
-    label: &str,
-    names: &[String],
-    index: &mut usize,
-) {
-    panel_label(ui, label);
-    if names.is_empty() {
-        return;
-    }
-    *index = (*index).min(names.len() - 1);
-    let short = names
-        .iter()
-        .map(|name| short_panel_text(name))
-        .collect::<Vec<_>>();
-    let labels = short.iter().map(String::as_str).collect::<Vec<_>>();
-    widgets::ComboBox::new(id, &labels).ratio(1.0).ui(ui, index);
-    panel_label(ui, &names[*index]);
-}
-
-fn panel_button(ui: &mut macroquad::ui::Ui, text: impl AsRef<str>) -> bool {
-    widgets::Button::new(short_panel_text(text.as_ref()))
-        .size(vec2(panel_content_width(), 24.0))
-        .ui(ui)
-}
-fn row_controls(ui: &mut macroquad::ui::Ui) -> Option<u8> {
-    if panel_content_width() < 180.0 {
-        for (op, label) in ["Up", "Down", "Delete"].iter().enumerate() {
-            if panel_button(ui, label) {
-                return Some(op as u8);
-            }
-        }
-    } else {
-        let width = panel_content_width() / 3.0;
-        for (op, label) in ["Up", "Down", "Delete"].iter().enumerate() {
-            if op > 0 {
-                ui.same_line(op as f32 * width);
-            }
-            if widgets::Button::new(*label)
-                .size(vec2(width - 4.0, 24.0))
-                .ui(ui)
-            {
-                return Some(op as u8);
-            }
-        }
-    }
-    None
-}
-fn draw_state_rows(
-    ui: &mut macroquad::ui::Ui,
-    p: &mut PropertyUi,
-    names: &[String],
-    state_index: usize,
-) {
-    use hollow_steps::behavior::{Action, Condition};
-    use hollow_steps::definition_editor::{move_row, remove_row};
-    let action_names = Action::TYPES
-        .iter()
-        .map(|s| (*s).to_owned())
-        .collect::<Vec<_>>();
-    let condition_names = Condition::TYPES
-        .iter()
-        .map(|s| (*s).to_owned())
-        .collect::<Vec<_>>();
-    panel_label(ui, "Actions (in order)");
-    let mut command = None;
-    for (i, row) in p.structured.actions.iter_mut().enumerate() {
-        ui.separator();
-        panel_label(ui, &format!("{}. {}", i + 1, Action::TYPES[row.kind]));
-        let template = Action::defaults(row.kind).expect("catalog action");
-        for (j, (label, _)) in template.parameters().iter().enumerate() {
-            panel_input(ui, hash!("action value", i, j), label, &mut row.values[j]);
-            let mut check = template.clone();
-            if let Err(error) = check.set_parameter(j, &row.values[j]) {
-                panel_label(ui, &error);
-            }
-        }
-        if let Some(op) = row_controls(ui) {
-            command = Some((i, op));
-        }
-    }
-    if let Some((i, op)) = command {
-        if op == 2 {
-            let _ = remove_row(&mut p.structured.actions, i);
-        } else {
-            let _ = move_row(&mut p.structured.actions, i, op == 0);
-        }
-    }
-    searchable_list(
-        ui,
-        hash!("add action kind"),
-        "Action type",
-        &action_names,
-        &mut p.add_action,
-    );
-    if panel_button(ui, "Add action") {
-        if let Some(kind) = p.add_action.selected {
-            p.structured.add_action(kind).expect("catalog");
-        }
-    }
-    panel_label(ui, "Transitions (first match wins)");
-    let mut command = None;
-    for (i, row) in p.structured.transitions.iter_mut().enumerate() {
-        ui.separator();
-        panel_label(ui, &format!("Transition {}", i + 1));
-        let mut target = names.iter().position(|n| *n == row.target).unwrap_or(0);
-        panel_combo(
-            ui,
-            hash!("transition target", i),
-            "Target",
-            names,
-            &mut target,
-        );
-        row.target = names[target].clone();
-        let filter = &mut p.conditions[i];
-        searchable_list(
-            ui,
-            hash!("condition kind", i),
-            "Condition",
-            &condition_names,
-            filter,
-        );
-        if let Some(kind) = filter.selected {
-            if kind != row.kind {
-                row.change_kind(kind).expect("catalog");
-            }
-        }
-        panel_label(ui, &format!("Current: {}", Condition::TYPES[row.kind]));
-        if let Some((label, _)) = Condition::defaults(row.kind).expect("catalog").parameter() {
-            panel_input(ui, hash!("condition value", i), label, &mut row.value);
-            if let Err(error) = row.build(names) {
-                panel_label(ui, &error);
-            }
-        }
-        ui.checkbox(hash!("invert", i), "Invert", &mut row.invert);
-        if let Some(op) = row_controls(ui) {
-            command = Some((i, op));
-        }
-    }
-    if let Some((i, op)) = command {
-        if op == 2 {
-            let _ = remove_row(&mut p.structured.transitions, i);
-            let _ = remove_row(&mut p.conditions, i);
-        } else {
-            let _ = move_row(&mut p.structured.transitions, i, op == 0);
-            let _ = move_row(&mut p.conditions, i, op == 0);
-        }
-    }
-    searchable_list(
-        ui,
-        hash!("add condition kind"),
-        "New condition",
-        &condition_names,
-        &mut p.add_condition,
-    );
-    if panel_button(ui, "Add transition") {
-        if let Some(kind) = p.add_condition.selected {
-            p.structured
-                .add_transition(names[state_index].clone(), kind)
-                .expect("catalog");
-            p.conditions.push(SearchList {
-                selected: Some(kind),
-                ..SearchList::default()
-            });
-        }
     }
 }
 

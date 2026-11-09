@@ -430,40 +430,6 @@ fn structured_save_then_reload_preserves_action_and_transition_order() {
 }
 
 #[test]
-fn panel_fits_viewport_and_reserves_save_outside_scroll_bounds() {
-    use hollow_steps::definition_editor::{wrap_label, PanelLayout};
-    for (width, height) in [
-        (960.0, 540.0),
-        (1920.0, 1080.0),
-        (360.0, 240.0),
-        (200.0, 100.0),
-        (16.0, 20.0),
-        (0.0, 0.0),
-    ] {
-        let layout = PanelLayout::new(width, height);
-        assert!(layout.panel.x >= 0.0 && layout.panel.right() <= width);
-        assert_eq!(layout.panel.w, width.min(360.0));
-        assert_eq!(layout.save.bottom(), height);
-        assert_eq!(layout.body.bottom(), layout.save.y);
-        assert!(layout.save.h <= height && layout.body.h >= 0.0);
-        assert_eq!(layout.scroll_bounds(2000.0, -1.0), 0.0);
-        assert_eq!(
-            layout.scroll_bounds(2000.0, f32::MAX),
-            (2000.0 - layout.body.h).max(0.0)
-        );
-        assert_eq!(layout.scroll_bounds(0.0, 100.0), 0.0);
-    }
-    let label = "player_distance_greater_than/long/path/ü";
-    let lines = wrap_label(label, 8);
-    assert_eq!(lines.concat(), label);
-    assert!(lines.iter().all(|s| s.chars().count() <= 8));
-    assert_eq!(wrap_label("ab", 0), ["a", "b"]);
-    let invalid = PanelLayout::new(f32::NAN, f32::INFINITY);
-    assert_eq!(invalid.panel.w, 0.0);
-    assert_eq!(invalid.panel.h, 0.0);
-}
-
-#[test]
 fn transition_validation_is_transactional_and_entity_errors_identify_each_field() {
     use hollow_steps::definition_editor::{validate_entity_field, StateInputs};
     let mut b = behavior();
@@ -606,9 +572,8 @@ fn commit_supports_second_rename_in_one_session() {
 #[test]
 fn input_trimming_blank_lines_and_health_message_are_consistent() {
     use hollow_steps::definition_editor::{
-        entity_from_fields, validate_entity_field, wrap_label, ActionInput, TransitionInput,
+        entity_from_fields, validate_entity_field, ActionInput, TransitionInput,
     };
-    assert_eq!(wrap_label("\na\n\nü\n", 1), ["", "a", "", "ü", ""]);
     let fields = [" name ", " 1 ", " 32 ", " 40 ", " 0 ", " patrol "].map(str::to_owned);
     let entity = entity_from_fields(&fields).unwrap();
     assert_eq!(
@@ -833,20 +798,6 @@ fn behavior_filenames_are_portable_to_windows() {
     for name in ["context", "com10", "lpt0", "état", "valid_name-2"] {
         draft.add_behavior(name, behavior()).unwrap();
     }
-}
-
-#[test]
-fn panel_scroll_clamps_on_resize_and_content_changes() {
-    use hollow_steps::definition_editor::PanelLayout;
-    let small = PanelLayout::new(960.0, 240.0);
-    let bottom = small.scroll_bounds(1000.0, f32::INFINITY);
-    assert_eq!(bottom, 1000.0 - small.body.h);
-    assert_eq!(small.scroll_bounds(1000.0, 75.0), 75.0);
-    assert_eq!(small.scroll_bounds(1000.0, f32::NEG_INFINITY), 0.0);
-    assert_eq!(small.scroll_bounds(1000.0, f32::NAN), 0.0);
-    assert_eq!(small.scroll_bounds(10.0, bottom), 0.0);
-    let large = PanelLayout::new(960.0, 1500.0);
-    assert_eq!(large.scroll_bounds(1000.0, bottom), 0.0);
 }
 
 #[test]
