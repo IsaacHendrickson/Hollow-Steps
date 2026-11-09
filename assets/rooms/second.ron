@@ -1,1 +1,32 @@
-(enemies: [])
+(
+    enemies: [],
+    layout: Some((
+        bounds: (80.0, 40.0, 800.0, 360.0),
+        floor_y: 400.0,
+        spawn: (160.0, 376.0),
+        items: [],
+        exits: [
+            (
+                edge: Left,
+                offset: 264.0,
+                length: 96.0,
+                target_room: First,
+                spawn: (860.0, 436.0),
+            ),
+            (
+                edge: Right,
+                offset: 264.0,
+                length: 96.0,
+                target_room: Boss,
+                spawn: (160.0, 436.0),
+            ),
+            (
+                edge: Left,
+                offset: 94.285706,
+                length: 96.0,
+                target_room: Second,
+                spawn: (160.0, 376.0),
+            ),
+        ],
+    )),
+)

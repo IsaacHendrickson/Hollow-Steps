@@ -1,1 +1,50 @@
-(enemies: [(definition: "chase", patrol_left: 560.0, patrol_right: 800.0)])
+(
+    enemies: [
+        (
+            definition: "chase",
+            patrol_left: 534.07794,
+            patrol_right: 688.36365,
+        ),
+        (
+            definition: "scittish",
+            patrol_left: 783.4286,
+            patrol_right: 783.4286,
+        ),
+    ],
+    layout: Some((
+        bounds: (0.0, 0.0, 960.0, 460.0),
+        floor_y: 460.0,
+        spawn: (252.0, 273.14285),
+        items: [
+            (
+                item: AmberShard,
+                position: (234.85715, 450.0),
+            ),
+            (
+                item: Dash,
+                position: (422.35294, 450.0),
+            ),
+            (
+                item: AmberShard,
+                position: (168.0, 449.14288),
+            ),
+            (
+                item: AmberShard,
+                position: (84.0, 447.4286),
+            ),
+            (
+                item: AmberShard,
+                position: (46.285713, 449.14285),
+            ),
+        ],
+        exits: [
+            (
+                edge: Right,
+                offset: 363.4286,
+                length: 96.0,
+                target_room: Second,
+                spawn: (160.0, 376.0),
+            ),
+        ],
+    )),
+)

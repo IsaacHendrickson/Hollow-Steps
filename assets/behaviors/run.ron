@@ -1,0 +1,36 @@
+(
+    initial_state: "idle",
+    states: [
+        (
+            name: "idle",
+            actions: [],
+            transitions: [
+                (
+                    target: "flee",
+                    condition: player_distance_less_than(140.0),
+                    invert: false,
+                ),
+            ],
+        ),
+        (
+            name: "flee",
+            actions: [
+                move_away_from_player(
+                    speed: 160.0,
+                ),
+            ],
+            transitions: [
+                (
+                    target: "idle",
+                    condition: player_distance_greater_than(220.0),
+                    invert: false,
+                ),
+                (
+                    target: "flee",
+                    condition: action_finished,
+                    invert: false,
+                ),
+            ],
+        ),
+    ],
+)
