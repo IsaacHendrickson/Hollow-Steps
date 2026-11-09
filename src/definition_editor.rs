@@ -78,7 +78,7 @@ impl DefinitionDraft {
     pub fn entity_path(&self, original_name: &str) -> Option<PathBuf> {
         self.original_names
             .iter()
-            .find(|(_, n)| n.as_str() == original_name)
+            .find(|(path, n)| n.as_str() == original_name && self.entities.contains_key(*path))
             .map(|(p, _)| p.clone())
             .or_else(|| {
                 self.entities

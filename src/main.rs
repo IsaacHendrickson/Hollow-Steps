@@ -10,6 +10,7 @@ use hollow_steps::item::Item;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
 use hollow_steps::room::RoomEdge;
+use hollow_steps::search::SearchList;
 use macroquad::prelude::*;
 use macroquad::ui::{hash, root_ui, widgets};
 
@@ -473,20 +474,19 @@ fn draw_inventory(game: &GameState) {
 
 #[derive(Default)]
 struct EditorUi {
-    definition: usize,
-    room: usize,
-    target: usize,
+    definition: SearchList,
+    room: SearchList,
+    target: SearchList,
+    new_entity: String,
     edge: usize,
     placing: bool,
+    canvas_focused: bool,
     selected: Option<Selection>,
     dragging: Option<(Selection, Vec2)>,
     destination: Option<usize>,
     properties: bool,
     scroll: f32,
     content_height: f32,
-    operation_name: String,
-    entity_choice: usize,
-    behavior_choice: usize,
     property: PropertyUi,
 }
 
@@ -614,11 +614,16 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     if let Ok(definitions) = editor.content.placement_definitions() {
         editor.definitions = definitions;
     }
-    let definitions = editor
+    let entity_paths = editor.content.entities.keys().cloned().collect::<Vec<_>>();
+    let entity_names = editor
         .content
         .entities
         .values()
-        .map(|entity| format!("Enemy: {}", entity.name))
+        .map(|entity| entity.name.clone())
+        .collect::<Vec<_>>();
+    let definitions = entity_names
+        .iter()
+        .cloned()
         .chain(
             Item::ALL
                 .iter()
@@ -632,9 +637,6 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
         .map(|(id, _)| format!("{id:?}"))
         .collect::<Vec<_>>();
     let room_labels = room_names.iter().map(String::as_str).collect::<Vec<_>>();
-    state.definition = state.definition.min(names.len().saturating_sub(1));
-    state.room = state.room.min(room_labels.len().saturating_sub(1));
-    state.target = state.target.min(room_labels.len().saturating_sub(1));
     let panel = hollow_steps::definition_editor::PanelLayout::new(screen_width(), screen_height());
     if panel.body.contains(Vec2::from(mouse_position())) {
         state.scroll =
@@ -677,6 +679,19 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
                         state.placing = false;
                         state.destination = None;
                         state.dragging = None;
+                        let path = match state.selected {
+                            Some(Selection::Enemy(index)) => editor
+                                .draft
+                                .enemies
+                                .get(index)
+                                .and_then(|enemy| editor.content.entity_path(&enemy.definition)),
+                            _ => state
+                                .definition
+                                .selected
+                                .and_then(|i| entity_paths.get(i))
+                                .cloned(),
+                        };
+                        state.property = PropertyUi::for_entity(editor, path);
                     }
                 }
                 if state.properties {
@@ -687,20 +702,25 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
                     editor.new_room();
                     *state = EditorUi::default();
                 }
-                editor_list(ui, hash!("rooms"), "Rooms", &room_labels, &mut state.room);
+                searchable_list(ui, hash!("rooms"), "Rooms", &room_labels, &mut state.room);
                 if panel_button(ui, "Open room") {
-                    open = editor.rooms.get(state.room).map(|(id, _)| *id);
+                    open = state
+                        .room
+                        .selected
+                        .and_then(|i| editor.rooms.get(i))
+                        .map(|(id, _)| *id);
                 }
                 ui.separator();
-                editor_list(
+                searchable_list(
                     ui,
                     hash!("definitions"),
                     "Entity",
                     &names,
                     &mut state.definition,
                 );
+                draw_entity_tools(ui, editor, state, &entity_paths);
                 if panel_button(ui, if state.placing { "[Place]" } else { "Place" }) {
-                    state.placing = true;
+                    state.placing = state.definition.selected.is_some();
                     state.destination = None;
                     state.selected = None;
                 }
@@ -733,7 +753,7 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
                     &["Left", "Right", "Top", "Bottom"],
                     &mut state.edge,
                 );
-                editor_list(
+                searchable_list(
                     ui,
                     hash!("target"),
                     "Exit target",
@@ -741,7 +761,9 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
                     &mut state.target,
                 );
                 if panel_button(ui, "Add exit") {
-                    if let Some((id, layout)) = editor.rooms.get(state.target) {
+                    if let Some((id, layout)) =
+                        state.target.selected.and_then(|i| editor.rooms.get(i))
+                    {
                         state.selected = Some(editor.draft.add_exit(
                             [
                                 RoomEdge::Left,
@@ -759,7 +781,9 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
                 }
                 if let Some(Selection::Exit(i) | Selection::Destination(i)) = state.selected {
                     if panel_button(ui, "Set exit target") {
-                        if let Some((id, layout)) = editor.rooms.get(state.target) {
+                        if let Some((id, layout)) =
+                            state.target.selected.and_then(|i| editor.rooms.get(i))
+                        {
                             if let Err(error) =
                                 editor.draft.set_exit_target(i, *id, layout.spawn.into())
                             {
@@ -850,30 +874,28 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     let world = canvas.world(mouse);
     let over_canvas =
         area.contains(mouse) && mouse.x < panel.panel.x && !root_ui().is_mouse_over(mouse);
+    if is_mouse_button_pressed(MouseButton::Left) {
+        state.canvas_focused = over_canvas;
+        if over_canvas {
+            root_ui().clear_input_focus();
+        }
+    }
     if is_mouse_button_pressed(MouseButton::Left) && over_canvas {
         if state.placing && state.destination.is_none() {
-            let enemy_count = names.len() - Item::ALL.len();
-            let placement = if state.definition < enemy_count {
-                Placement::Enemy(
-                    editor
-                        .content
-                        .entities
-                        .values()
-                        .nth(state.definition)
-                        .expect("definition index")
-                        .name
-                        .clone(),
-                )
-            } else {
-                Placement::Item(Item::ALL[state.definition - enemy_count])
-            };
-            match editor.draft.place(placement, world, &editor.definitions) {
-                Ok(selection) => {
-                    state.selected = Some(selection);
-                    editor.dirty = true;
-                    editor.message.clear();
+            if let Some(index) = state.definition.selected {
+                let placement = if index < entity_names.len() {
+                    Placement::Enemy(entity_names[index].clone())
+                } else {
+                    Placement::Item(Item::ALL[index - entity_names.len()])
+                };
+                match editor.draft.place(placement, world, &editor.definitions) {
+                    Ok(selection) => {
+                        state.selected = Some(selection);
+                        editor.dirty = true;
+                        editor.message.clear();
+                    }
+                    Err(error) => editor.message = error,
                 }
-                Err(error) => editor.message = error,
             }
         } else {
             let hit = markers.iter().rev().find(|(_, rect, _)| {
@@ -885,6 +907,14 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
                 other => other,
             });
             state.dragging = hit.map(|(selection, rect, _)| (*selection, world - rect.center()));
+            if state.properties {
+                if let Some(Selection::Enemy(index)) = state.selected {
+                    let path = editor
+                        .content
+                        .entity_path(&editor.draft.enemies[index].definition);
+                    state.property = PropertyUi::for_entity(editor, path);
+                }
+            }
         }
     }
     if is_mouse_button_down(MouseButton::Left) && over_canvas {
@@ -905,7 +935,7 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
         state.dragging = None;
     }
     if (is_mouse_button_pressed(MouseButton::Right) && over_canvas)
-        || (is_key_pressed(KeyCode::Delete) && !state.properties)
+        || (is_key_pressed(KeyCode::Delete) && !state.properties && state.canvas_focused)
     {
         let selection = if is_mouse_button_pressed(MouseButton::Right) {
             markers
@@ -982,30 +1012,96 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     }
 }
 
-fn editor_list(
+fn searchable_list(
     ui: &mut macroquad::ui::Ui,
     id: u64,
     label: &str,
-    names: &[&str],
-    selected: &mut usize,
+    names: &[impl AsRef<str>],
+    list: &mut SearchList,
 ) {
-    ui.label(None, label);
-    widgets::Group::new(id, vec2(panel_content_width(), 70.0)).ui(ui, |ui| {
-        for (index, name) in names.iter().enumerate() {
-            let text = if index == *selected {
-                format!("> {name}")
-            } else {
-                (*name).to_owned()
-            };
+    panel_input(ui, hash!(id, "search"), label, &mut list.query);
+    let matches = list.matches(names);
+    panel_label(ui, &format!("{} of {}", matches.len(), names.len()));
+    widgets::Group::new(id, vec2(panel_content_width(), 82.0)).ui(ui, |ui| {
+        if matches.is_empty() {
+            ui.label(None, "no matches");
+        }
+        for index in matches {
+            let name = names[index].as_ref();
             let width = (panel_content_width() - 24.0).max(1.0);
-            if widgets::Button::new(short_text_width(&text, width))
+            if widgets::Button::new(short_text_width(name, (width - 12.0).max(1.0)))
+                .selected(list.selected == Some(index))
                 .size(vec2(width, 24.0))
                 .ui(ui)
             {
-                *selected = index;
+                list.selected = Some(index);
             }
         }
     });
+}
+
+fn draw_entity_tools(
+    ui: &mut macroquad::ui::Ui,
+    editor: &mut EditorSession,
+    state: &mut EditorUi,
+    paths: &[std::path::PathBuf],
+) {
+    panel_input(
+        ui,
+        hash!("new entity name"),
+        "New / duplicate entity name",
+        &mut state.new_entity,
+    );
+    let selected = state.definition.selected.and_then(|i| paths.get(i));
+    let result = if panel_button(ui, "New entity") {
+        editor
+            .content
+            .behaviors
+            .keys()
+            .next()
+            .cloned()
+            .ok_or_else(|| "Create a behavior first".to_owned())
+            .and_then(|behavior| {
+                editor
+                    .content
+                    .add_entity(hollow_steps::enemy::EnemyDefinition {
+                        name: state.new_entity.clone(),
+                        health: 1,
+                        size: (32.0, 40.0),
+                        contact_damage: 1,
+                        behavior,
+                    })
+            })
+            .map(Some)
+    } else if panel_button(ui, "Duplicate entity") {
+        selected
+            .ok_or_else(|| "Select an entity first".to_owned())
+            .and_then(|path| editor.content.duplicate_entity(path, &state.new_entity))
+            .map(Some)
+    } else if panel_button(ui, "Delete entity") {
+        selected
+            .ok_or_else(|| "Select an entity first".to_owned())
+            .and_then(|path| editor.delete_entity(path))
+            .map(|()| None)
+    } else {
+        return;
+    };
+    match result {
+        Ok(path) => {
+            editor.dirty = true;
+            editor.message.clear();
+            state.definition.query.clear();
+            state.definition.selected = path
+                .as_ref()
+                .and_then(|p| editor.content.entities.keys().position(|key| key == p));
+            state.placing = false;
+            if path.is_some() {
+                state.property = PropertyUi::for_entity(editor, path);
+                state.properties = true;
+            }
+        }
+        Err(error) => editor.message = error,
+    }
 }
 
 #[derive(Default)]
@@ -1013,7 +1109,9 @@ struct PropertyUi {
     path: Option<std::path::PathBuf>,
     fields: [String; 6],
     behavior: String,
-    state: usize,
+    behavior_list: SearchList,
+    behavior_name: String,
+    states: SearchList,
     loaded_state: Option<(String, usize)>,
     state_name: String,
     actions: String,
@@ -1021,108 +1119,39 @@ struct PropertyUi {
     new_state: String,
     error: Option<String>,
     structured: hollow_steps::definition_editor::StateInputs,
-    add_action: usize,
-    add_condition: usize,
+    add_action: SearchList,
+    add_condition: SearchList,
+    conditions: Vec<SearchList>,
     advanced: bool,
 }
 
-fn draw_definition_operations(
-    ui: &mut macroquad::ui::Ui,
-    editor: &mut EditorSession,
-    state: &mut EditorUi,
-) {
-    let paths = editor.content.entities.keys().cloned().collect::<Vec<_>>();
-    let names = paths
-        .iter()
-        .map(|p| editor.content.entities[p].name.clone())
-        .collect::<Vec<_>>();
-    panel_combo(
-        ui,
-        hash!("entity operation choice"),
-        "Definitions",
-        &names,
-        &mut state.entity_choice,
-    );
-    let behaviors = editor.content.behaviors.keys().cloned().collect::<Vec<_>>();
-    panel_combo(
-        ui,
-        hash!("behavior operation choice"),
-        "Behaviors",
-        &behaviors,
-        &mut state.behavior_choice,
-    );
-    panel_input(
-        ui,
-        hash!("definition operation name"),
-        "New name",
-        &mut state.operation_name,
-    );
-    let mut result = None;
-    if panel_button(ui, "New entity") {
-        let entity = hollow_steps::enemy::EnemyDefinition {
-            name: state.operation_name.clone(),
-            health: 1,
-            size: (32.0, 40.0),
-            contact_damage: 1,
-            behavior: behaviors
-                .get(state.behavior_choice)
-                .cloned()
-                .unwrap_or_default(),
+impl PropertyUi {
+    fn for_entity(editor: &EditorSession, path: Option<std::path::PathBuf>) -> Self {
+        let mut ui = Self {
+            path,
+            ..Self::default()
         };
-        result = Some(editor.content.add_entity(entity).map(|_| ()));
-    }
-    if let Some(path) = paths.get(state.entity_choice) {
-        if panel_button(ui, "Duplicate entity") {
-            result = Some(
-                editor
-                    .content
-                    .duplicate_entity(path, &state.operation_name)
-                    .map(|_| ()),
-            );
+        if let Some(entity) = ui
+            .path
+            .as_ref()
+            .and_then(|path| editor.content.entities.get(path))
+        {
+            ui.fields = [
+                entity.name.clone(),
+                entity.health.to_string(),
+                entity.size.0.to_string(),
+                entity.size.1.to_string(),
+                entity.contact_damage.to_string(),
+                entity.behavior.clone(),
+            ];
+            ui.behavior_list.selected = editor
+                .content
+                .behaviors
+                .keys()
+                .position(|name| name == &entity.behavior);
         }
-        if panel_button(ui, "Delete entity") {
-            result = Some(
-                if editor.draft.enemies.iter().any(|e| {
-                    e.definition == editor.content.entities[path].name
-                        || editor.content.entity_path(&e.definition).as_ref() == Some(path)
-                }) {
-                    Err("entity is referenced by the current room draft".into())
-                } else {
-                    editor.content.delete_entity(path)
-                },
-            );
-        }
+        ui
     }
-    if panel_button(ui, "New behavior") {
-        let behavior = hollow_steps::behavior::BehaviorDefinition {
-            initial_state: "idle".into(),
-            states: vec![hollow_steps::behavior::State {
-                name: "idle".into(),
-                actions: vec![],
-                transitions: vec![],
-            }],
-        };
-        result = Some(editor.content.add_behavior(&state.operation_name, behavior));
-    }
-    if let Some(name) = behaviors.get(state.behavior_choice) {
-        if panel_button(ui, "Rename behavior") {
-            result = Some(editor.content.rename_behavior(name, &state.operation_name));
-        }
-        if panel_button(ui, "Delete behavior") {
-            result = Some(editor.content.delete_behavior(name));
-        }
-    }
-    if let Some(result) = result {
-        match result {
-            Ok(()) => {
-                editor.dirty = true;
-                state.property = PropertyUi::default();
-                editor.message = "Definition updated".into();
-            }
-            Err(e) => editor.message = e,
-        }
-    }
-    ui.separator();
 }
 
 fn draw_definition_panel(
@@ -1133,76 +1162,137 @@ fn draw_definition_panel(
     use hollow_steps::definition_editor::{
         add_state, edit_state_lists, remove_state, rename_state, serialize,
     };
-    draw_definition_operations(ui, editor, state);
-    let Some(Selection::Enemy(index)) = state.selected else {
-        state.property.error = None;
-        panel_label(ui, "Select an enemy on canvas");
-        return;
-    };
-    let Some(placement) = editor.draft.enemies.get(index) else {
-        state.property.error = None;
-        return;
-    };
-    let Some(path) = editor.content.entity_path(&placement.definition) else {
-        state.property.error = None;
-        return;
-    };
     let p = &mut state.property;
-    if p.path.as_ref() != Some(&path) {
-        let entity = &editor.content.entities[&path];
-        *p = PropertyUi {
-            path: Some(path.clone()),
-            fields: [
-                entity.name.clone(),
-                entity.health.to_string(),
-                entity.size.0.to_string(),
-                entity.size.1.to_string(),
-                entity.contact_damage.to_string(),
-                entity.behavior.clone(),
-            ],
-            ..PropertyUi::default()
-        };
-    }
-    panel_label(ui, "Shared definition (all rooms)");
-    for (i, label) in ["Name", "Health", "Width", "Height", "Contact damage"]
-        .iter()
-        .enumerate()
-    {
-        panel_input(ui, hash!("entity field", i), label, &mut p.fields[i]);
-        if let Err(e) = hollow_steps::definition_editor::validate_entity_field(i, &p.fields[i]) {
-            panel_label(ui, &e);
-        }
-    }
-    let behaviors = editor.content.behaviors.keys().cloned().collect::<Vec<_>>();
-    let mut behavior_index = behaviors
-        .iter()
-        .position(|n| *n == p.fields[5])
-        .unwrap_or(0);
-    panel_combo(
-        ui,
-        hash!("entity behavior"),
-        "Behavior",
-        &behaviors,
-        &mut behavior_index,
-    );
-    if let Some(name) = behaviors.get(behavior_index) {
-        p.fields[5] = name.clone();
+    if let Some(error) = &p.error {
+        panel_label(ui, error);
     }
     let mut error = None;
-    let parsed = hollow_steps::definition_editor::entity_from_fields(&p.fields);
-    match parsed {
-        Ok(entity) => {
-            if editor.content.entities[&path] != entity {
-                editor.content.entities.insert(path, entity);
-                editor.dirty = true;
+    let path = p
+        .path
+        .clone()
+        .filter(|path| editor.content.entities.contains_key(path));
+    if path.is_some() {
+        panel_label(ui, "Shared definition (all rooms)");
+        for (i, label) in ["Name", "Health", "Width", "Height", "Contact damage"]
+            .iter()
+            .enumerate()
+        {
+            panel_input(ui, hash!("entity field", i), label, &mut p.fields[i]);
+            if let Err(e) = hollow_steps::definition_editor::validate_entity_field(i, &p.fields[i])
+            {
+                panel_label(ui, &e);
             }
         }
-        Err(e) => error = Some(e),
+        panel_label(ui, &format!("Assigned behavior: {}", p.fields[5]));
+    } else {
+        panel_label(ui, "Select an entity in Room tools or on the canvas");
     }
-    if p.behavior != p.fields[5] {
-        p.behavior = p.fields[5].clone();
+
+    let behavior_names = editor.content.behaviors.keys().cloned().collect::<Vec<_>>();
+    searchable_list(
+        ui,
+        hash!("behaviors"),
+        "Behavior",
+        &behavior_names,
+        &mut p.behavior_list,
+    );
+    let selected_behavior = p
+        .behavior_list
+        .selected
+        .and_then(|i| behavior_names.get(i))
+        .cloned();
+    if let Some(name) = &selected_behavior {
+        if path.is_some() && panel_button(ui, "Use selected behavior") {
+            p.fields[5] = name.clone();
+        }
+    }
+    if let Some(path) = &path {
+        if let Err(e) = hollow_steps::definition_editor::entity_from_fields(&p.fields)
+            .and_then(|entity| editor.update_entity(path, entity))
+        {
+            error = Some(e);
+        }
+    }
+
+    panel_input(
+        ui,
+        hash!("behavior name"),
+        "New / renamed behavior name",
+        &mut p.behavior_name,
+    );
+    let operation = if panel_button(ui, "New behavior") {
+        Some(0)
+    } else if panel_button(ui, "Rename behavior") {
+        Some(1)
+    } else if panel_button(ui, "Delete behavior") {
+        Some(2)
+    } else {
+        None
+    };
+    if let Some(operation) = operation {
+        let result = match operation {
+            0 => editor.content.add_behavior(
+                &p.behavior_name,
+                hollow_steps::behavior::BehaviorDefinition {
+                    initial_state: "idle".into(),
+                    states: vec![hollow_steps::behavior::State {
+                        name: "idle".into(),
+                        actions: vec![],
+                        transitions: vec![],
+                    }],
+                },
+            ),
+            _ => selected_behavior
+                .as_deref()
+                .ok_or_else(|| "Select a behavior first".to_owned())
+                .and_then(|name| {
+                    if operation == 1 {
+                        editor.content.rename_behavior(name, &p.behavior_name)
+                    } else {
+                        editor.content.delete_behavior(name)
+                    }
+                }),
+        };
+        match result {
+            Ok(()) => {
+                editor.dirty = true;
+                editor.message.clear();
+                p.error = None;
+                p.behavior_list.query.clear();
+                p.behavior_list.selected = if operation == 2 {
+                    None
+                } else {
+                    editor
+                        .content
+                        .behaviors
+                        .keys()
+                        .position(|name| name == p.behavior_name.trim())
+                };
+                if let Some(path) = &path {
+                    p.fields[5] = editor.content.entities[path].behavior.clone();
+                }
+                p.loaded_state = None;
+            }
+            Err(e) => {
+                editor.message = e.clone();
+                p.error = Some(e.clone());
+                panel_label(ui, &e);
+            }
+        }
+        return;
+    }
+    let Some(selected_behavior) = selected_behavior else {
+        panel_label(ui, "Select a behavior to edit its states");
+        p.error = error;
+        return;
+    };
+    if p.behavior != selected_behavior {
+        p.behavior = selected_behavior;
         p.loaded_state = None;
-        p.state = 0;
+        p.states = SearchList {
+            selected: Some(0),
+            ..SearchList::default()
+        };
     }
     ui.separator();
     if let Some(behavior) = editor.content.behaviors.get_mut(&p.behavior) {
@@ -1211,45 +1301,80 @@ fn draw_definition_panel(
             .iter()
             .map(|s| s.name.clone())
             .collect::<Vec<_>>();
-        p.state = p.state.min(names.len().saturating_sub(1));
-        panel_combo(ui, hash!("behavior states"), "State", &names, &mut p.state);
-        let key = (p.behavior.clone(), p.state);
+        searchable_list(ui, hash!("behavior states"), "State", &names, &mut p.states);
+        panel_input(ui, hash!("new state"), "New state", &mut p.new_state);
+        if panel_button(ui, "Add state") {
+            match add_state(behavior, p.new_state.clone()) {
+                Ok(()) => {
+                    p.states.query.clear();
+                    p.states.selected = Some(behavior.states.len() - 1);
+                    p.loaded_state = None;
+                    editor.dirty = true;
+                    names = behavior.states.iter().map(|s| s.name.clone()).collect();
+                }
+                Err(e) => error = Some(e),
+            }
+        }
+        let Some(index) = p.states.selected else {
+            panel_label(ui, "Select a state to edit");
+            p.error = error;
+            return;
+        };
+        let key = (p.behavior.clone(), index);
         if p.loaded_state.as_ref() != Some(&key) {
-            let selected = &behavior.states[p.state];
+            let selected = &behavior.states[index];
             p.state_name = selected.name.clone();
             p.structured = hollow_steps::definition_editor::StateInputs::from_state(selected);
+            p.conditions = p
+                .structured
+                .transitions
+                .iter()
+                .map(|row| SearchList {
+                    selected: Some(row.kind),
+                    ..SearchList::default()
+                })
+                .collect();
             p.actions = serialize(&selected.actions).expect("serializable actions");
             p.transitions = serialize(&selected.transitions).expect("serializable transitions");
             p.loaded_state = Some(key);
         }
         panel_input(ui, hash!("state name"), "State name", &mut p.state_name);
         if panel_button(ui, "Rename state") {
-            match rename_state(behavior, p.state, p.state_name.clone()) {
+            match rename_state(behavior, index, p.state_name.clone()) {
                 Ok(()) => {
                     editor.dirty = true;
                     p.structured = hollow_steps::definition_editor::StateInputs::from_state(
-                        &behavior.states[p.state],
+                        &behavior.states[index],
                     );
                     names = behavior.states.iter().map(|s| s.name.clone()).collect();
-                    p.transitions = serialize(&behavior.states[p.state].transitions)
+                    p.transitions = serialize(&behavior.states[index].transitions)
                         .expect("serializable transitions");
                 }
                 Err(e) => error = Some(e),
             }
         }
         if panel_button(ui, "Make initial") {
-            hollow_steps::definition_editor::set_initial_state(behavior, p.state)
+            hollow_steps::definition_editor::set_initial_state(behavior, index)
                 .expect("selected state");
             editor.dirty = true;
         }
         panel_label(ui, &format!("Initial: {}", behavior.initial_state));
-        let before = behavior.states[p.state].clone();
+        let before = behavior.states[index].clone();
         if panel_button(ui, "Advanced: raw RON") {
             p.advanced = !p.advanced;
             // Switching views always starts from the last valid model.
             p.actions = serialize(&before.actions).expect("actions");
             p.transitions = serialize(&before.transitions).expect("transitions");
             p.structured = hollow_steps::definition_editor::StateInputs::from_state(&before);
+            p.conditions = p
+                .structured
+                .transitions
+                .iter()
+                .map(|row| SearchList {
+                    selected: Some(row.kind),
+                    ..SearchList::default()
+                })
+                .collect();
         }
         if p.advanced {
             panel_label(ui, "Ordered actions (RON list)");
@@ -1265,32 +1390,21 @@ fn draw_definition_panel(
                 &mut p.transitions,
             );
             if let Err(e) =
-                edit_state_lists(&mut behavior.states[p.state], &p.actions, &p.transitions)
+                edit_state_lists(&mut behavior.states[index], &p.actions, &p.transitions)
             {
                 error = Some(e);
             }
         } else {
-            draw_state_rows(ui, p, &names);
-            if let Err(e) = p.structured.apply(&mut behavior.states[p.state], &names) {
+            draw_state_rows(ui, p, &names, index);
+            if let Err(e) = p.structured.apply(&mut behavior.states[index], &names) {
                 error = Some(e);
             }
         }
-        editor.dirty |= before != behavior.states[p.state];
-        panel_input(ui, hash!("new state"), "New state", &mut p.new_state);
-        if panel_button(ui, "Add state") {
-            match add_state(behavior, p.new_state.clone()) {
-                Ok(()) => {
-                    p.state = behavior.states.len() - 1;
-                    p.loaded_state = None;
-                    editor.dirty = true;
-                }
-                Err(e) => error = Some(e),
-            }
-        }
+        editor.dirty |= before != behavior.states[index];
         if panel_button(ui, "Remove state") {
-            match remove_state(behavior, p.state) {
+            match remove_state(behavior, index) {
                 Ok(()) => {
-                    p.state = 0;
+                    p.states.selected = None;
                     p.loaded_state = None;
                     editor.dirty = true;
                 }
@@ -1386,7 +1500,12 @@ fn row_controls(ui: &mut macroquad::ui::Ui) -> Option<u8> {
     }
     None
 }
-fn draw_state_rows(ui: &mut macroquad::ui::Ui, p: &mut PropertyUi, names: &[String]) {
+fn draw_state_rows(
+    ui: &mut macroquad::ui::Ui,
+    p: &mut PropertyUi,
+    names: &[String],
+    state_index: usize,
+) {
     use hollow_steps::behavior::{Action, Condition};
     use hollow_steps::definition_editor::{move_row, remove_row};
     let action_names = Action::TYPES
@@ -1421,7 +1540,7 @@ fn draw_state_rows(ui: &mut macroquad::ui::Ui, p: &mut PropertyUi, names: &[Stri
             let _ = move_row(&mut p.structured.actions, i, op == 0);
         }
     }
-    panel_combo(
+    searchable_list(
         ui,
         hash!("add action kind"),
         "Action type",
@@ -1429,7 +1548,9 @@ fn draw_state_rows(ui: &mut macroquad::ui::Ui, p: &mut PropertyUi, names: &[Stri
         &mut p.add_action,
     );
     if panel_button(ui, "Add action") {
-        p.structured.add_action(p.add_action).expect("catalog");
+        if let Some(kind) = p.add_action.selected {
+            p.structured.add_action(kind).expect("catalog");
+        }
     }
     panel_label(ui, "Transitions (first match wins)");
     let mut command = None;
@@ -1445,19 +1566,21 @@ fn draw_state_rows(ui: &mut macroquad::ui::Ui, p: &mut PropertyUi, names: &[Stri
             &mut target,
         );
         row.target = names[target].clone();
-        let old_kind = row.kind;
-        let mut kind = old_kind;
-        panel_combo(
+        let filter = &mut p.conditions[i];
+        searchable_list(
             ui,
             hash!("condition kind", i),
             "Condition",
             &condition_names,
-            &mut kind,
+            filter,
         );
-        if kind != old_kind {
-            row.change_kind(kind).expect("catalog");
+        if let Some(kind) = filter.selected {
+            if kind != row.kind {
+                row.change_kind(kind).expect("catalog");
+            }
         }
-        if let Some((label, _)) = Condition::defaults(kind).expect("catalog").parameter() {
+        panel_label(ui, &format!("Current: {}", Condition::TYPES[row.kind]));
+        if let Some((label, _)) = Condition::defaults(row.kind).expect("catalog").parameter() {
             panel_input(ui, hash!("condition value", i), label, &mut row.value);
             if let Err(error) = row.build(names) {
                 panel_label(ui, &error);
@@ -1471,11 +1594,13 @@ fn draw_state_rows(ui: &mut macroquad::ui::Ui, p: &mut PropertyUi, names: &[Stri
     if let Some((i, op)) = command {
         if op == 2 {
             let _ = remove_row(&mut p.structured.transitions, i);
+            let _ = remove_row(&mut p.conditions, i);
         } else {
             let _ = move_row(&mut p.structured.transitions, i, op == 0);
+            let _ = move_row(&mut p.conditions, i, op == 0);
         }
     }
-    panel_combo(
+    searchable_list(
         ui,
         hash!("add condition kind"),
         "New condition",
@@ -1483,9 +1608,15 @@ fn draw_state_rows(ui: &mut macroquad::ui::Ui, p: &mut PropertyUi, names: &[Stri
         &mut p.add_condition,
     );
     if panel_button(ui, "Add transition") {
-        p.structured
-            .add_transition(names[p.state].clone(), p.add_condition)
-            .expect("catalog");
+        if let Some(kind) = p.add_condition.selected {
+            p.structured
+                .add_transition(names[state_index].clone(), kind)
+                .expect("catalog");
+            p.conditions.push(SearchList {
+                selected: Some(kind),
+                ..SearchList::default()
+            });
+        }
     }
 }
 

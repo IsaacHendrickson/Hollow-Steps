@@ -16,3 +16,4 @@ pub mod health;
 pub mod item;
 pub mod player;
 pub mod room;
+pub mod search;
