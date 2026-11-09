@@ -1,0 +1,10 @@
+(
+    name: "Patrol",
+    description: "Walk back and forth between the enemy placement's patrol endpoints.",
+    behavior: (
+        initial_state: "patrol",
+        states: [
+            (name: "patrol", actions: [patrol(speed: 80.0)], transitions: []),
+        ],
+    ),
+)

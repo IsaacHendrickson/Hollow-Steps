@@ -1,0 +1,10 @@
+(
+    name: "Stationary",
+    description: "Stay in place with no movement or state transitions.",
+    behavior: (
+        initial_state: "idle",
+        states: [
+            (name: "idle", actions: [], transitions: []),
+        ],
+    ),
+)

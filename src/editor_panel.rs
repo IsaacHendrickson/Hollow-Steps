@@ -430,6 +430,22 @@ pub(super) struct PropertyUi {
     pub(super) add_condition: SearchList,
     pub(super) conditions: Vec<SearchList>,
     pub(super) advanced: bool,
+    pub(super) rows: bool,
+    pub(super) presets: SearchList,
+    pub(super) creation: Option<BehaviorCreation>,
+    pub(super) shared_edit: Option<String>,
+    pub(super) key_values: Option<(String, hollow_steps::behavior_values::KeyValues)>,
+}
+
+pub(super) enum BehaviorSource {
+    Preset(usize),
+    Copy(String),
+}
+
+pub(super) struct BehaviorCreation {
+    source: BehaviorSource,
+    name: String,
+    assign: bool,
 }
 
 impl PropertyUi {
@@ -498,6 +514,10 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
             panel_label(ui, "Select an entity in Room tools or on the canvas");
         }
     });
+    draw_preset_picker(ui, editor, p, path.is_some());
+    if draw_behavior_creation(ui, editor, p, path.as_deref()) {
+        return;
+    }
     let behavior_names = editor.content.behaviors.keys().cloned().collect::<Vec<_>>();
     let mut selected_behavior = p
         .behavior_list
@@ -531,7 +551,17 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
         );
         operation = if panel_button(ui, "New behavior") {
             Some(0)
-        } else if panel_button(ui, "Rename behavior") {
+        } else if ui
+            .add_enabled(
+                selected_behavior.as_ref().is_some_and(|name| {
+                    !editor
+                        .content
+                        .behavior_needs_warning(name, p.shared_edit.as_deref())
+                }),
+                egui::Button::new("Rename behavior"),
+            )
+            .clicked()
+        {
             Some(1)
         } else if panel_button(ui, "Delete behavior") {
             Some(2)
@@ -607,156 +637,198 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
     if p.behavior != selected_behavior {
         p.behavior = selected_behavior;
         p.loaded_state = None;
+        p.key_values = None;
+        p.shared_edit = None;
         p.states = SearchList {
             selected: Some(0),
             ..SearchList::default()
         };
     }
     ui.separator();
-    section(ui, "States", |ui| {
-        if let Some(behavior) = editor.content.behaviors.get_mut(&p.behavior) {
-            let mut names = behavior
-                .states
-                .iter()
-                .map(|s| s.name.clone())
-                .collect::<Vec<_>>();
-            searchable_list(
-                ui,
-                egui::Id::new(("behavior states",)),
-                "State",
-                &names,
-                &mut p.states,
-            );
-            panel_input(
-                ui,
-                egui::Id::new(("new state",)),
-                "New state",
-                &mut p.new_state,
-            );
-            if panel_button(ui, "Add state") {
-                match add_state(behavior, p.new_state.clone()) {
-                    Ok(()) => {
-                        p.states.query.clear();
-                        p.states.selected = Some(behavior.states.len() - 1);
-                        p.loaded_state = None;
-                        editor.dirty = true;
-                        names = behavior.states.iter().map(|s| s.name.clone()).collect();
-                    }
-                    Err(e) => error = Some(e),
-                }
-            }
-            let Some(index) = p.states.selected else {
-                panel_label(ui, "Select a state to edit");
-                return;
-            };
-            let key = (p.behavior.clone(), index);
-            if p.loaded_state.as_ref() != Some(&key) {
-                let selected = &behavior.states[index];
-                p.state_name = selected.name.clone();
-                p.structured = hollow_steps::definition_editor::StateInputs::from_state(selected);
-                p.conditions = p
-                    .structured
-                    .transitions
+    let users = editor.content.behavior_users(&p.behavior);
+    panel_label(ui, &format!("used by {users} entities"));
+    let warning = editor
+        .content
+        .behavior_needs_warning(&p.behavior, p.shared_edit.as_deref());
+    if warning {
+        panel_label(
+            ui,
+            "Editing this behavior affects every entity that uses it.",
+        );
+        if panel_button(ui, "Save as new behavior") {
+            p.creation = Some(BehaviorCreation {
+                source: BehaviorSource::Copy(p.behavior.clone()),
+                name: String::new(),
+                assign: path.is_some(),
+            });
+        }
+        if panel_button(ui, "Edit shared behavior") {
+            p.shared_edit = Some(p.behavior.clone());
+        }
+        p.error = error;
+        return;
+    }
+    draw_key_values(ui, editor, p, &mut error);
+    if ui
+        .checkbox(&mut p.rows, "Advanced: structured rows")
+        .changed()
+    {
+        p.loaded_state = None;
+    }
+    if p.rows {
+        let original = editor.content.behaviors.get(&p.behavior).cloned();
+        section(ui, "States", |ui| {
+            if let Some(behavior) = editor.content.behaviors.get_mut(&p.behavior) {
+                let mut names = behavior
+                    .states
                     .iter()
-                    .map(|row| SearchList {
-                        selected: Some(row.kind),
-                        ..SearchList::default()
-                    })
-                    .collect();
-                p.actions = serialize(&selected.actions).expect("serializable actions");
-                p.transitions = serialize(&selected.transitions).expect("serializable transitions");
-                p.loaded_state = Some(key);
-            }
-            panel_input(
-                ui,
-                egui::Id::new(("state name",)),
-                "State name",
-                &mut p.state_name,
-            );
-            if panel_button(ui, "Rename state") {
-                match rename_state(behavior, index, p.state_name.clone()) {
-                    Ok(()) => {
-                        editor.dirty = true;
-                        p.structured = hollow_steps::definition_editor::StateInputs::from_state(
-                            &behavior.states[index],
+                    .map(|s| s.name.clone())
+                    .collect::<Vec<_>>();
+                searchable_list(
+                    ui,
+                    egui::Id::new(("behavior states",)),
+                    "State",
+                    &names,
+                    &mut p.states,
+                );
+                panel_input(
+                    ui,
+                    egui::Id::new(("new state",)),
+                    "New state",
+                    &mut p.new_state,
+                );
+                if panel_button(ui, "Add state") {
+                    match add_state(behavior, p.new_state.clone()) {
+                        Ok(()) => {
+                            p.states.query.clear();
+                            p.states.selected = Some(behavior.states.len() - 1);
+                            p.loaded_state = None;
+                            editor.dirty = true;
+                            names = behavior.states.iter().map(|s| s.name.clone()).collect();
+                        }
+                        Err(e) => error = Some(e),
+                    }
+                }
+                let Some(index) = p.states.selected else {
+                    panel_label(ui, "Select a state to edit");
+                    return;
+                };
+                let key = (p.behavior.clone(), index);
+                if p.loaded_state.as_ref() != Some(&key) {
+                    let selected = &behavior.states[index];
+                    p.state_name = selected.name.clone();
+                    p.structured =
+                        hollow_steps::definition_editor::StateInputs::from_state(selected);
+                    p.conditions = p
+                        .structured
+                        .transitions
+                        .iter()
+                        .map(|row| SearchList {
+                            selected: Some(row.kind),
+                            ..SearchList::default()
+                        })
+                        .collect();
+                    p.actions = serialize(&selected.actions).expect("serializable actions");
+                    p.transitions =
+                        serialize(&selected.transitions).expect("serializable transitions");
+                    p.loaded_state = Some(key);
+                }
+                panel_input(
+                    ui,
+                    egui::Id::new(("state name",)),
+                    "State name",
+                    &mut p.state_name,
+                );
+                if panel_button(ui, "Rename state") {
+                    match rename_state(behavior, index, p.state_name.clone()) {
+                        Ok(()) => {
+                            editor.dirty = true;
+                            p.structured = hollow_steps::definition_editor::StateInputs::from_state(
+                                &behavior.states[index],
+                            );
+                            names = behavior.states.iter().map(|s| s.name.clone()).collect();
+                            p.transitions = serialize(&behavior.states[index].transitions)
+                                .expect("serializable transitions");
+                        }
+                        Err(e) => error = Some(e),
+                    }
+                }
+                if panel_button(ui, "Make initial") {
+                    hollow_steps::definition_editor::set_initial_state(behavior, index)
+                        .expect("selected state");
+                    editor.dirty = true;
+                }
+                panel_label(ui, &format!("Initial: {}", behavior.initial_state));
+                let before = behavior.states[index].clone();
+                if panel_button(ui, "Advanced: raw RON") {
+                    p.advanced = !p.advanced;
+                    // Switching views always starts from the last valid model.
+                    p.actions = serialize(&before.actions).expect("actions");
+                    p.transitions = serialize(&before.transitions).expect("transitions");
+                    p.structured =
+                        hollow_steps::definition_editor::StateInputs::from_state(&before);
+                    p.conditions = p
+                        .structured
+                        .transitions
+                        .iter()
+                        .map(|row| SearchList {
+                            selected: Some(row.kind),
+                            ..SearchList::default()
+                        })
+                        .collect();
+                }
+                if p.advanced {
+                    section(ui, "Actions", |ui| {
+                        panel_label(ui, "Ordered actions (RON list)");
+                        ui.add(
+                            egui::TextEdit::multiline(&mut p.actions)
+                                .id(egui::Id::new("actions"))
+                                .desired_width(ui.available_width())
+                                .desired_rows(6)
+                                .code_editor(),
                         );
-                        names = behavior.states.iter().map(|s| s.name.clone()).collect();
-                        p.transitions = serialize(&behavior.states[index].transitions)
-                            .expect("serializable transitions");
+                    });
+                    section(ui, "Transitions", |ui| {
+                        panel_label(ui, "Transitions (RON list)");
+                        ui.add(
+                            egui::TextEdit::multiline(&mut p.transitions)
+                                .id(egui::Id::new("transitions"))
+                                .desired_width(ui.available_width())
+                                .desired_rows(6)
+                                .code_editor(),
+                        );
+                    });
+                    if let Err(e) =
+                        edit_state_lists(&mut behavior.states[index], &p.actions, &p.transitions)
+                    {
+                        error = Some(e);
                     }
-                    Err(e) => error = Some(e),
+                } else {
+                    draw_state_rows(ui, p, &names, index);
+                    if let Err(e) = p.structured.apply(&mut behavior.states[index], &names) {
+                        error = Some(e);
+                    }
                 }
-            }
-            if panel_button(ui, "Make initial") {
-                hollow_steps::definition_editor::set_initial_state(behavior, index)
-                    .expect("selected state");
-                editor.dirty = true;
-            }
-            panel_label(ui, &format!("Initial: {}", behavior.initial_state));
-            let before = behavior.states[index].clone();
-            if panel_button(ui, "Advanced: raw RON") {
-                p.advanced = !p.advanced;
-                // Switching views always starts from the last valid model.
-                p.actions = serialize(&before.actions).expect("actions");
-                p.transitions = serialize(&before.transitions).expect("transitions");
-                p.structured = hollow_steps::definition_editor::StateInputs::from_state(&before);
-                p.conditions = p
-                    .structured
-                    .transitions
-                    .iter()
-                    .map(|row| SearchList {
-                        selected: Some(row.kind),
-                        ..SearchList::default()
-                    })
-                    .collect();
-            }
-            if p.advanced {
-                section(ui, "Actions", |ui| {
-                    panel_label(ui, "Ordered actions (RON list)");
-                    ui.add(
-                        egui::TextEdit::multiline(&mut p.actions)
-                            .id(egui::Id::new("actions"))
-                            .desired_width(ui.available_width())
-                            .desired_rows(6)
-                            .code_editor(),
-                    );
-                });
-                section(ui, "Transitions", |ui| {
-                    panel_label(ui, "Transitions (RON list)");
-                    ui.add(
-                        egui::TextEdit::multiline(&mut p.transitions)
-                            .id(egui::Id::new("transitions"))
-                            .desired_width(ui.available_width())
-                            .desired_rows(6)
-                            .code_editor(),
-                    );
-                });
-                if let Err(e) =
-                    edit_state_lists(&mut behavior.states[index], &p.actions, &p.transitions)
-                {
-                    error = Some(e);
+                editor.dirty |= before != behavior.states[index];
+                if panel_button(ui, "Remove state") {
+                    match remove_state(behavior, index) {
+                        Ok(()) => {
+                            p.states.selected = None;
+                            p.loaded_state = None;
+                            editor.dirty = true;
+                        }
+                        Err(e) => error = Some(e),
+                    }
                 }
             } else {
-                draw_state_rows(ui, p, &names, index);
-                if let Err(e) = p.structured.apply(&mut behavior.states[index], &names) {
-                    error = Some(e);
-                }
+                error = Some(format!("Missing behavior file {:?}", p.behavior));
             }
-            editor.dirty |= before != behavior.states[index];
-            if panel_button(ui, "Remove state") {
-                match remove_state(behavior, index) {
-                    Ok(()) => {
-                        p.states.selected = None;
-                        p.loaded_state = None;
-                        editor.dirty = true;
-                    }
-                    Err(e) => error = Some(e),
-                }
-            }
-        } else {
-            error = Some(format!("Missing behavior file {:?}", p.behavior));
+        });
+        if original.as_ref() != editor.content.behaviors.get(&p.behavior) {
+            // Structural changes invalidate numeric addresses and labels.
+            p.key_values = None;
         }
-    });
+    }
     if let Some(pending) = pending_error(editor, p) {
         error = Some(pending);
     }
@@ -777,6 +849,13 @@ fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
     {
         if let Err(error) = entity_from_fields(&p.fields) {
             return Some(error);
+        }
+    }
+    if let Some((name, values)) = &p.key_values {
+        if let Some(behavior) = editor.content.behaviors.get(name) {
+            if let Err(error) = values.apply(&mut behavior.clone()) {
+                return Some(error);
+            }
         }
     }
     if let Some((behavior, index)) = &p.loaded_state {
@@ -800,6 +879,163 @@ fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
         }
     }
     None
+}
+
+fn draw_preset_picker(
+    ui: &mut egui::Ui,
+    editor: &EditorSession,
+    p: &mut PropertyUi,
+    can_assign: bool,
+) {
+    section(ui, "New behavior from preset", |ui| {
+        let labels = editor
+            .content
+            .presets
+            .iter()
+            .map(|preset| format!("{}: {}", preset.name, preset.description))
+            .collect::<Vec<_>>();
+        let previous = p.presets.selected;
+        searchable_list(
+            ui,
+            egui::Id::new("presets"),
+            "Preset",
+            &labels,
+            &mut p.presets,
+        );
+        if p.presets.selected != previous {
+            if let Some(index) = p.presets.selected {
+                p.creation = Some(BehaviorCreation {
+                    source: BehaviorSource::Preset(index),
+                    name: String::new(),
+                    assign: can_assign,
+                });
+            }
+        }
+        if labels.is_empty() {
+            panel_label(ui, "No presets in assets/presets");
+        }
+    });
+}
+
+/// The prompt is shared by preset instantiation and copying a shared behavior.
+fn draw_behavior_creation(
+    ui: &mut egui::Ui,
+    editor: &mut EditorSession,
+    p: &mut PropertyUi,
+    path: Option<&std::path::Path>,
+) -> bool {
+    let Some(creation) = &mut p.creation else {
+        return false;
+    };
+    let title = match &creation.source {
+        BehaviorSource::Preset(index) => {
+            format!("Create from {}", editor.content.presets[*index].name)
+        }
+        BehaviorSource::Copy(name) => format!("Save {name} as new behavior"),
+    };
+    panel_label(ui, &title);
+    panel_input(
+        ui,
+        egui::Id::new("create behavior name"),
+        "Behavior name (file stem)",
+        &mut creation.name,
+    );
+    if path.is_some() {
+        ui.checkbox(
+            &mut creation.assign,
+            "Assign to selected entity (all its instances)",
+        );
+    }
+    if panel_button(ui, "Create behavior") {
+        let assign = path.filter(|_| creation.assign);
+        let result = match &creation.source {
+            BehaviorSource::Preset(index) => {
+                let preset = editor.content.presets[*index].clone();
+                editor
+                    .content
+                    .create_behavior_from_preset(&preset, &creation.name, assign)
+            }
+            BehaviorSource::Copy(source) => {
+                editor.content.copy_behavior(source, &creation.name, assign)
+            }
+        };
+        match result {
+            Ok(()) => {
+                p.behavior_list.query.clear();
+                p.behavior_list.selected = editor
+                    .content
+                    .behaviors
+                    .keys()
+                    .position(|name| name == creation.name.trim());
+                if let Some(path) = path {
+                    p.fields[5] = editor.content.entities[path].behavior.clone();
+                }
+                p.loaded_state = None;
+                p.key_values = None;
+                p.shared_edit = None;
+                p.presets.selected = None;
+                p.creation = None;
+                p.error = None;
+                editor.message.clear();
+                editor.dirty = true;
+                if let Ok(definitions) = editor.content.placement_definitions() {
+                    editor.definitions = definitions;
+                }
+            }
+            Err(error) => {
+                panel_label(ui, &error);
+                p.error = Some(error);
+            }
+        }
+        return true;
+    }
+    if panel_button(ui, "Cancel creation") {
+        p.creation = None;
+        p.presets.selected = None;
+        p.error = None;
+    }
+    false
+}
+
+fn draw_key_values(
+    ui: &mut egui::Ui,
+    editor: &mut EditorSession,
+    p: &mut PropertyUi,
+    error: &mut Option<String>,
+) {
+    use hollow_steps::behavior_values::KeyValues;
+    let Some(behavior) = editor.content.behaviors.get_mut(&p.behavior) else {
+        return;
+    };
+    let (_, values) = p
+        .key_values
+        .get_or_insert_with(|| (p.behavior.clone(), KeyValues::from_behavior(behavior)));
+    section(ui, "Key values", |ui| {
+        if values.values.is_empty() {
+            panel_label(ui, "This behavior has no numeric parameters.");
+        }
+        let mut changed = false;
+        for (index, entry) in values.values.iter_mut().enumerate() {
+            let before = entry.value.clone();
+            panel_input(
+                ui,
+                egui::Id::new(("key value", &p.behavior, index)),
+                &entry.label,
+                &mut entry.value,
+            );
+            changed |= before != entry.value;
+        }
+        if let Err(e) = values.apply(&mut behavior.clone()) {
+            ui.colored_label(egui::Color32::LIGHT_RED, &e);
+            *error = Some(e);
+        } else if changed {
+            let before = behavior.clone();
+            values.apply(behavior).expect("validated key values");
+            editor.dirty |= before != *behavior;
+            p.loaded_state = None;
+            editor.message.clear();
+        }
+    });
 }
 
 fn panel_label(ui: &mut egui::Ui, text: &str) {
@@ -1055,6 +1291,215 @@ mod tests {
                 modifiers: Default::default(),
             },
         ]
+    }
+
+    fn click(
+        ctx: &egui::Context,
+        size: egui::Vec2,
+        pos: egui::Pos2,
+        editor: &mut EditorSession,
+        state: &mut EditorUi,
+    ) {
+        frame(ctx, size, pointer(pos, true), editor, state);
+        frame(ctx, size, pointer(pos, false), editor, state);
+        frame(ctx, size, vec![], editor, state);
+    }
+
+    #[test]
+    fn choosing_preset_prompts_before_creation_and_optional_assignment() {
+        let mut game = editor();
+        let editor = game.editor_mut().unwrap();
+        let path = editor.content.entity_path("patrol").unwrap();
+        let ctx = egui::Context::default();
+        let size = egui::vec2(960.0, 2400.0);
+        let mut state = EditorUi {
+            properties: true,
+            property: PropertyUi::for_entity(editor, Some(path.clone())),
+            ..Default::default()
+        };
+        state.property.presets.query = "CHASER".into();
+        for _ in 0..3 {
+            frame(&ctx, size, vec![], editor, &mut state);
+        }
+        let (dropdown, _): (egui::Rect, egui::Id) = ctx.data(|d| {
+            d.get_temp(egui::Id::new("presets").with("dropdown"))
+                .unwrap()
+        });
+        click(&ctx, size, dropdown.center(), editor, &mut state);
+        let preset_index = editor
+            .content
+            .presets
+            .iter()
+            .position(|p| p.name == "Chaser")
+            .unwrap();
+        let preset = &editor.content.presets[preset_index];
+        let label = format!("{}: {}", preset.name, preset.description);
+        let choice: egui::Rect = ctx.data(|d| {
+            d.get_temp(egui::Id::new(("choice", label.as_str())))
+                .unwrap()
+        });
+        click(&ctx, size, choice.center(), editor, &mut state);
+        assert!(
+            matches!(state.property.creation.as_ref().unwrap().source, BehaviorSource::Preset(i) if i == preset_index)
+        );
+        assert_eq!(editor.content.behaviors.len(), 2);
+        assert_eq!(editor.content.entities[&path].behavior, "patrol");
+        state.property.creation.as_mut().unwrap().name = "new_chaser".into();
+        frame(&ctx, size, vec![], editor, &mut state);
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Create behavior").center(),
+            editor,
+            &mut state,
+        );
+        assert!(state.property.creation.is_none());
+        assert_eq!(editor.content.entities[&path].behavior, "new_chaser");
+        assert_eq!(state.property.fields[5], "new_chaser");
+        assert_eq!(
+            editor.content.behaviors["new_chaser"],
+            editor.content.presets[preset_index].behavior
+        );
+        assert!(editor.dirty);
+        state.property.creation = Some(BehaviorCreation {
+            source: BehaviorSource::Preset(preset_index),
+            name: "unassigned".into(),
+            assign: false,
+        });
+        frame(&ctx, size, vec![], editor, &mut state);
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Create behavior").center(),
+            editor,
+            &mut state,
+        );
+        assert!(editor.content.behaviors.contains_key("unassigned"));
+        assert_eq!(editor.content.entities[&path].behavior, "new_chaser");
+    }
+
+    #[test]
+    fn shared_behavior_blocks_state_edits_until_choice_and_copy_reassigns_one_entity() {
+        let mut game = editor();
+        let editor = game.editor_mut().unwrap();
+        let path = editor.content.entity_path("patrol").unwrap();
+        let other = editor.content.duplicate_entity(&path, "second").unwrap();
+        let original = editor.content.behaviors["patrol"].clone();
+        let ctx = egui::Context::default();
+        let size = egui::vec2(960.0, 2400.0);
+        let mut state = EditorUi {
+            properties: true,
+            property: PropertyUi::for_entity(editor, Some(path.clone())),
+            ..Default::default()
+        };
+        for _ in 0..3 {
+            frame(&ctx, size, vec![], editor, &mut state);
+        }
+        assert!(state.property.key_values.is_none());
+        assert!(state.property.loaded_state.is_none());
+        state.property.rows = true;
+        state.property.advanced = true;
+        state.property.loaded_state = Some(("patrol".into(), 0));
+        state.property.actions = "[wait(seconds: 999.0)]".into();
+        state.property.transitions = "[]".into();
+        frame(&ctx, size, vec![], editor, &mut state);
+        assert_eq!(editor.content.behaviors["patrol"], original);
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Edit shared behavior").center(),
+            editor,
+            &mut state,
+        );
+        assert_eq!(state.property.shared_edit.as_deref(), Some("patrol"));
+        assert_ne!(editor.content.behaviors["patrol"], original);
+        state.property.shared_edit = None;
+        frame(&ctx, size, vec![], editor, &mut state);
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Save as new behavior").center(),
+            editor,
+            &mut state,
+        );
+        state.property.creation.as_mut().unwrap().name = "personal".into();
+        frame(&ctx, size, vec![], editor, &mut state);
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Create behavior").center(),
+            editor,
+            &mut state,
+        );
+        assert_eq!(editor.content.entities[&path].behavior, "personal");
+        assert_eq!(editor.content.entities[&other].behavior, "patrol");
+        assert_eq!(editor.content.behavior_users("personal"), 1);
+        assert_eq!(editor.content.behavior_users("patrol"), 1);
+    }
+
+    #[test]
+    fn key_value_input_updates_model_and_invalid_collapsed_input_blocks_save() {
+        let mut game = editor();
+        let editor = game.editor_mut().unwrap();
+        let path = editor.content.entity_path("patrol").unwrap();
+        let ctx = egui::Context::default();
+        let size = egui::vec2(960.0, 2400.0);
+        let mut state = EditorUi {
+            properties: true,
+            property: PropertyUi::for_entity(editor, Some(path)),
+            ..Default::default()
+        };
+        for _ in 0..3 {
+            frame(&ctx, size, vec![], editor, &mut state);
+        }
+        let id = egui::Id::new(("key value", "patrol", 0_usize));
+        assert!(ctx.read_response(id).is_some());
+        ctx.memory_mut(|m| m.request_focus(id));
+        frame(
+            &ctx,
+            size,
+            vec![
+                egui::Event::Key {
+                    key: egui::Key::A,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: egui::Modifiers::COMMAND,
+                },
+                egui::Event::Text("123".into()),
+            ],
+            editor,
+            &mut state,
+        );
+        assert_eq!(
+            hollow_steps::behavior_values::KeyValues::from_behavior(
+                &editor.content.behaviors["patrol"]
+            )
+            .values[0]
+                .value,
+            "123"
+        );
+        assert!(editor.dirty);
+        let valid = editor.content.behaviors["patrol"].clone();
+        state.property.key_values.as_mut().unwrap().1.values[0].value = "NaN".into();
+        frame(&ctx, size, vec![], editor, &mut state);
+        assert!(state.property.error.is_some());
+        assert_eq!(editor.content.behaviors["patrol"], valid);
+        let section_id: egui::Id = ctx.data(|d| {
+            d.get_temp(egui::Id::new(("section", "Key values")))
+                .unwrap()
+        });
+        let mut collapse = egui::collapsing_header::CollapsingState::load_with_default_open(
+            &ctx, section_id, true,
+        );
+        collapse.set_open(false);
+        collapse.store(&ctx);
+        frame(&ctx, size, vec![], editor, &mut state);
+        assert!(pending_error(editor, &state.property).is_some());
+        assert_eq!(editor.content.behaviors["patrol"], valid);
+        state.property.key_values.as_mut().unwrap().1.values[0].value = "123".into();
+        frame(&ctx, size, vec![], editor, &mut state);
+        assert!(state.property.error.is_none());
     }
 
     #[test]

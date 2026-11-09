@@ -304,8 +304,22 @@ entity updates references in all saved rooms while retaining its entity filename
 Use **Room tools** to return to placement controls. Scroll the panel for controls
 below the visible area.
 
-The behavior section edits the selected entity's shared behavior file. Choose a
-state, rename it, make it initial, add a named state, or remove it. Renaming updates
+The behavior section edits the selected entity's shared behavior file and shows
+**used by N entities**, counting entity definitions across all rooms, including
+definitions with no placements. Before editing a behavior used by multiple
+entities, choose **Save as new behavior** to copy it under a new name, optionally
+assigning the copy to the selected entity. **Edit shared behavior** explicitly
+enables changes for all users instead. Assignment affects every placement of that
+entity definition.
+
+**Key values** lists every numeric action and condition parameter across all
+states, with state names, descriptive labels, units, and row numbers. Inverted
+conditions describe the inverted comparison, including equality. Invalid input
+keeps the last valid definition and blocks Save even with the section collapsed.
+Speeds, durations, and distances must be finite and nonnegative; health thresholds
+must be integers in 0..255. Enable **Advanced: structured rows** for state, action,
+and transition editing; **Advanced: raw RON** remains available inside that view.
+Choose a state, rename it, make it initial, add a named state, or remove it. Renaming updates
 all transition targets. Removing drops transitions targeting that state and, if
 needed, makes the first remaining state initial; the final state cannot be removed.
 Actions have a type name, labeled numeric parameters, and Up/Down/Delete controls.
@@ -340,6 +354,50 @@ the panel; correct the edit and retry. Saving keeps the existing RON schemas.
 Definition parsing, state edits, and save planning live in `definition_editor.rs`
 and are tested without a window, including save/reload and invalid-save checks.
 
+### Behavior presets
+
+In **Enemy properties**, search **New behavior from preset** by name or description.
+Choosing a preset asks for a unique behavior name (a portable filename stem without
+`.ron`) and offers **Assign to selected entity** when an entity is selected.
+**Create behavior** adds an independent draft; the pinned **Save** writes it to
+`assets/behaviors/<name>.ron` together with any assignment. Cancel leaves the draft
+unchanged. Presets never change when their instantiated behaviors are edited.
+
+Each `.ron` file in `assets/presets/` contains exactly these fields:
+
+```ron
+(
+    name: "Patrol",
+    description: "Walk between the placement's patrol endpoints.",
+    behavior: (
+        initial_state: "patrol",
+        states: [
+            (name: "patrol", actions: [patrol(speed: 80.0)], transitions: []),
+        ],
+    ),
+)
+```
+
+`behavior` is a full definition using the existing actions, conditions, state
+links, and optional transition `invert` field described above. Saved behavior
+files keep their existing format: only `initial_state` and `states`, with no
+preset metadata or reference. No new runtime actions or conditions are introduced.
+The catalog is validated when opening the editor: names and descriptions must
+be nonblank, preset names must be unique (ignoring surrounding whitespace and
+case), and the full behavior must pass normal validation. Errors identify the
+source file and invalid metadata, state, or parameter; parse errors include line
+and column. A missing presets directory gives an empty list for older projects.
+Reopen the editor after changing preset files.
+
+Shipped presets:
+
+- **Patrol** walks between placement endpoints.
+- **Chaser** starts chasing below 180 pixels and gives up above 300 pixels.
+- **Charger** detects below 240 pixels, telegraphs for 0.6 seconds, moves toward
+  the player at 420 pixels/second for up to 0.8 seconds, then rests for 1 second.
+- **Skittish** flees below 140 pixels and stops beyond 220 pixels.
+- **Stationary** has an idle state with no actions or transitions.
+
 ### Editor manual check
 
 - Shrink to 640×360 (also inspect a panel-only 360×240 window), then enlarge.
@@ -355,3 +413,7 @@ and are tested without a window, including save/reload and invalid-save checks.
   scrollbars; confirm no placement/movement/deletion leaks onto the canvas. Then
   select/drag/delete on the canvas, move patrol handles, edit exits/arrival spawn,
   create/open a room, edit properties/actions/transitions/raw RON, and save/reopen.
+- Search presets, create and assign a named behavior, edit Key values, and save/reopen.
+  Assign one behavior to two entity definitions; confirm the usage count and copy
+  warning appear before edits, then save a copy and check only the selected entity
+  switches. Check **Edit shared behavior** and both advanced views as well.

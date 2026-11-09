@@ -66,6 +66,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/health.rs`: player health, damage, and invincibility.
 - `src/enemy.rs`: enemy behavior, health, knockback, and death.
 - `src/behavior.rs`: data-driven action sequences, state transitions, and RON validation.
+- `src/preset.rs`: validated RON behavior preset catalog.
+- `src/behavior_values.rs`: numeric behavior controls and transactional validated edits.
 - `src/boss.rs`: boss health, reusable timed attacks, state machine, and death.
 - `src/boss_special.rs`: arena boss slam, summons, rings, and coin drops.
 - `src/combat.rs`: melee swing hitboxes, duration, and cooldown.

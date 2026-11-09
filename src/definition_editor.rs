@@ -18,6 +18,7 @@ pub struct DefinitionDraft {
     /// Keys are stable filenames, independent of editable entity names.
     pub entities: BTreeMap<PathBuf, EnemyDefinition>,
     pub behaviors: BTreeMap<String, BehaviorDefinition>,
+    pub presets: Vec<crate::preset::BehaviorPreset>,
     original_names: BTreeMap<PathBuf, String>,
     assets: PathBuf,
     originals: BTreeMap<PathBuf, Vec<u8>>,
@@ -63,6 +64,7 @@ impl DefinitionDraft {
             .map(|r| (r.id, crate::editor::RoomLayout::from_room(r)))
             .collect();
         let draft = Self {
+            presets: crate::preset::load_presets(&assets.join("presets"))?,
             originals,
             layouts,
             entities,
@@ -351,6 +353,70 @@ impl DefinitionDraft {
         }
         behavior.validate()?;
         self.behaviors.insert(name.to_owned(), behavior);
+        Ok(())
+    }
+
+    /// Count entity definitions, including unused entities; room placements are instances.
+    pub fn behavior_users(&self, name: &str) -> usize {
+        self.entities
+            .values()
+            .filter(|e| e.behavior == name)
+            .count()
+    }
+
+    pub fn behavior_needs_warning(&self, name: &str, approved: Option<&str>) -> bool {
+        self.behavior_users(name) > 1 && approved != Some(name)
+    }
+
+    pub fn assign_behavior(&mut self, entity: &Path, name: &str) -> Result<(), String> {
+        if !self.behaviors.contains_key(name) {
+            return Err("missing behavior".into());
+        }
+        self.entities
+            .get_mut(entity)
+            .ok_or("missing entity")?
+            .behavior = name.to_owned();
+        Ok(())
+    }
+
+    pub fn create_behavior_from_preset(
+        &mut self,
+        preset: &crate::preset::BehaviorPreset,
+        name: &str,
+        assign_to: Option<&Path>,
+    ) -> Result<(), String> {
+        preset.validate()?;
+        self.create_behavior(name, preset.behavior.clone(), assign_to)
+    }
+
+    /// Copy before editing a shared behavior, optionally switching just one entity definition.
+    pub fn copy_behavior(
+        &mut self,
+        source: &str,
+        name: &str,
+        assign_to: Option<&Path>,
+    ) -> Result<(), String> {
+        let behavior = self
+            .behaviors
+            .get(source)
+            .ok_or("missing behavior")?
+            .clone();
+        self.create_behavior(name, behavior, assign_to)
+    }
+
+    fn create_behavior(
+        &mut self,
+        name: &str,
+        behavior: BehaviorDefinition,
+        assign_to: Option<&Path>,
+    ) -> Result<(), String> {
+        if assign_to.is_some_and(|path| !self.entities.contains_key(path)) {
+            return Err("missing entity".into());
+        }
+        self.add_behavior(name, behavior)?;
+        if let Some(path) = assign_to {
+            self.assign_behavior(path, name.trim())?;
+        }
         Ok(())
     }
 

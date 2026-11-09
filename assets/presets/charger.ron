@@ -1,0 +1,22 @@
+(
+    name: "Charger",
+    description: "When the player is close, telegraph for 0.6 seconds, charge quickly, then recover.",
+    behavior: (
+        initial_state: "idle",
+        states: [
+            (name: "idle", actions: [], transitions: [
+                (target: "telegraph", condition: player_distance_less_than(240.0)),
+            ]),
+            (name: "telegraph", actions: [telegraph(seconds: 0.6)], transitions: [
+                (target: "charge", condition: action_finished),
+            ]),
+            (name: "charge", actions: [move_toward_player(speed: 420.0)], transitions: [
+                (target: "recover", condition: timer_elapsed(0.8)),
+                (target: "recover", condition: action_finished),
+            ]),
+            (name: "recover", actions: [wait(seconds: 1.0)], transitions: [
+                (target: "idle", condition: action_finished),
+            ]),
+        ],
+    ),
+)
