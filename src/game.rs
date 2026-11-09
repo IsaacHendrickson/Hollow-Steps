@@ -152,27 +152,57 @@ impl GameState {
     }
 
     pub fn save_editor(&mut self) -> Result<(), String> {
-        let session = self.editor.as_mut().ok_or("editor is closed")?;
-        session.save_content()?;
-        let mut room = session.draft.build(session.id, &session.definitions)?;
-        let catalog = session.catalog();
-        if let Some(existing) = self.rooms.iter_mut().find(|room| room.id == session.id) {
-            // Preserve session coins and boss state; editable content is deliberately reset.
-            room.coins = std::mem::take(&mut existing.coins);
-            room.boss = existing.boss.take();
-            room.boss_special = existing.boss_special.take();
-            *existing = room;
-        } else {
-            self.rooms.push(room);
+        let session = self.editor.as_ref().ok_or("editor is closed")?;
+        if session.new && session.path.exists() {
+            return Err("new room already exists".into());
         }
-        self.current_room = session.id;
-        self.player.place_at(self.room().spawn, self.world_bounds());
+        let document = crate::room::RoomEnemies {
+            enemies: session.draft.enemies.clone(),
+            layout: Some(session.draft.layout.clone()),
+        };
+        let plan = session.content.plan(&[(session.path.clone(), document)])?;
+        let (content, mut rooms) = session.content.prepare(&plan)?;
+        let definitions = content.definitions()?;
+        Self::validate_destinations(&rooms, &definitions)?;
+        if !rooms.iter().any(|r| r.id == session.id) {
+            return Err("missing edited room".into());
+        }
+        let mut draft = session.draft.clone();
+        let mut document = crate::room::RoomEnemies {
+            enemies: draft.enemies,
+            layout: None,
+        };
+        session.content.rename_placements(&mut document);
+        draft.enemies = document.enemies;
+        let catalog = rooms
+            .iter()
+            .map(|r| (r.id, editor::RoomLayout::from_room(r)))
+            .collect();
+        crate::definition_editor::write_files(&plan)?;
+        // Everything below is an infallible in-memory commit.
         let session = self.editor.as_mut().expect("editor open");
+        for room in &mut rooms {
+            if let Some(existing) = self.rooms.iter_mut().find(|r| r.id == room.id) {
+                if room.id == session.id {
+                    room.coins = std::mem::take(&mut existing.coins);
+                    room.boss = existing.boss.take();
+                    room.boss_special = existing.boss_special.take();
+                } else {
+                    std::mem::swap(&mut room.enemies, &mut existing.enemies);
+                    std::mem::swap(room, existing);
+                }
+            }
+        }
+        self.rooms = rooms;
+        self.current_room = session.id;
+        session.content = content;
+        session.definitions = definitions;
+        session.draft = draft;
         session.rooms = catalog;
         session.new = false;
         session.dirty = false;
         session.message = format!("Saved {}", session.path.display());
-        self.reload_rooms()?;
+        self.player.place_at(self.room().spawn, self.world_bounds());
         Ok(())
     }
 

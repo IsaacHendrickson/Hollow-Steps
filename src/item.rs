@@ -13,6 +13,8 @@ pub enum Item {
 }
 
 impl Item {
+    pub const ALL: &'static [Self] = &[Self::AmberShard, Self::Dash];
+
     pub fn name(self) -> &'static str {
         match self {
             Self::AmberShard => "Amber Shard",

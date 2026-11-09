@@ -13,7 +13,7 @@ fn file_error(path: &Path, error: impl std::fmt::Display) -> String {
     format!("{}: {error}", path.display())
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct DefinitionDraft {
     /// Keys are stable filenames, independent of editable entity names.
     pub entities: BTreeMap<PathBuf, EnemyDefinition>,
@@ -83,14 +83,35 @@ impl DefinitionDraft {
             .or_else(|| {
                 self.entities
                     .iter()
-                    .find(|(_, entity)| entity.name == original_name)
-                    .map(|(path, _)| path.clone())
+                    .find(|(_, e)| e.name == original_name)
+                    .map(|(p, _)| p.clone())
             })
     }
 
     pub fn definitions(&self) -> Result<EnemyDefinitions, String> {
         EnemyDefinitions::from_definitions(
             self.entities.values().cloned(),
+            self.behaviors
+                .iter()
+                .map(|(n, b)| (n.clone(), Arc::new(b.clone())))
+                .collect(),
+        )
+    }
+
+    /// Include original-name aliases while unsaved room placements still refer to them.
+    pub fn placement_definitions(&self) -> Result<EnemyDefinitions, String> {
+        let mut entities = self.entities.values().cloned().collect::<Vec<_>>();
+        for (path, original) in &self.original_names {
+            if !entities.iter().any(|e| e.name == *original) {
+                if let Some(entity) = self.entities.get(path) {
+                    let mut alias = entity.clone();
+                    alias.name = original.clone();
+                    entities.push(alias);
+                }
+            }
+        }
+        EnemyDefinitions::from_definitions(
+            entities,
             self.behaviors
                 .iter()
                 .map(|(n, b)| (n.clone(), Arc::new(b.clone())))
@@ -218,10 +239,56 @@ impl DefinitionDraft {
         check_snapshot(&self.assets, &expected)
     }
 
+    /// Prepare the post-save snapshot and every runtime room without writing or mutating self.
+    pub fn prepare(&self, plan: &SavePlan) -> Result<(Self, Vec<crate::room::Room>), String> {
+        let mut next = self.clone();
+        for path in &plan.deletes {
+            next.originals.remove(path);
+        }
+        for (path, source) in &plan.writes {
+            next.originals
+                .insert(path.clone(), source.as_bytes().to_vec());
+        }
+        next.original_names = next
+            .entities
+            .iter()
+            .map(|(p, e)| (p.clone(), e.name.clone()))
+            .collect();
+        let definitions = next.definitions()?;
+        let mut rooms = Vec::new();
+        for (path, bytes) in &next.originals {
+            if path.parent() != Some(next.assets.join("rooms").as_path()) {
+                continue;
+            }
+            let document: RoomEnemies =
+                ron::de::from_bytes(bytes).map_err(|e| file_error(path, e))?;
+            let id = room_id(path)?;
+            let layout = document
+                .layout
+                .or_else(|| {
+                    next.layouts
+                        .iter()
+                        .find(|(other, _)| *other == id)
+                        .map(|(_, l)| l.clone())
+                })
+                .ok_or("room needs layout")?;
+            rooms.push(
+                crate::editor::RoomDraft {
+                    enemies: document.enemies,
+                    layout,
+                }
+                .build(id, &definitions)?,
+            );
+        }
+        Ok((next, rooms))
+    }
+
     /// Save and refresh rename origins and conflict snapshots for the next edit.
     pub fn commit(&mut self, rooms: &[(PathBuf, RoomEnemies)]) -> Result<(), String> {
-        write_files(&self.plan(rooms)?)?;
-        *self = Self::load(&self.assets)?;
+        let plan = self.plan(rooms)?;
+        let (next, _) = self.prepare(&plan)?;
+        write_files(&plan)?;
+        *self = next;
         Ok(())
     }
 
@@ -319,7 +386,28 @@ impl DefinitionDraft {
 }
 
 fn valid_filename(name: &str) -> Result<(), String> {
-    if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\', ':']) {
+    let base = name
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches(' ')
+        .to_uppercase();
+    let reserved = matches!(
+        base.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$"
+    ) || ["COM", "LPT"].iter().any(|prefix| {
+        base.strip_prefix(prefix).is_some_and(|suffix| {
+            matches!(
+                suffix,
+                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"
+            )
+        })
+    });
+    if name.is_empty()
+        || name.ends_with(['.', ' '])
+        || reserved
+        || name.chars().any(|c| c < ' ' || "<>:\"/\\|?*".contains(c))
+    {
         return Err("invalid behavior filename".into());
     }
     Ok(())
