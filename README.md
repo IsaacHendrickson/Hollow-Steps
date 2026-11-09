@@ -158,13 +158,39 @@ Actions execute in list order, carrying unused time to the next action:
 | `patrol(speed: 90.0)` | Walk between the placement's endpoints, reflecting overshoot; run until interrupted by a transition. Return to the interval after chasing without teleporting. |
 | `wait(seconds: 0.5)` | Remain still for the duration. |
 | `telegraph(seconds: 0.5)` | Remain still and expose `Behavior::is_telegraphing()` for presentation during the duration. |
+| `jump_to_player(dx: 0.0, dy: -200.0, speed: 300.0)` | Sample the player's center plus the offsets once when this action starts. Clamp the target so the whole entity fits between the walls, the arena top (y = 0), and the floor. Move in a straight line at the given speed; finish exactly at that target. Negative dy targets above the player. |
+| `hover(seconds: 1.0)` | Hold both coordinates, including height, for the duration. |
+| `slam_down(speed: 600.0)` | Move vertically down at the given speed; finish with the body's bottom exactly on the floor. |
+| `area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 1)` | Sample `count` random circle centers anywhere inside the arena when the action starts. Show stationary warning circles, wait for the fuse, then detonate once and finish. |
 
 Completed sequences remain idle until a transition fires. Use an
 `action_finished` self-transition to repeat a sequence or continue pursuing a
 moving player after reaching them. Empty action lists are allowed and count
 as finished. Zero speeds are stationary; zero durations complete immediately
 on the next positive simulation step. Speeds are in pixels/second, positions
-and distances in pixels, and timers in seconds. Entities stay on the floor.
+and distances in pixels, and timers in seconds. Existing walking, waiting,
+and telegraph actions stay on the floor. Jump and hover preserve height after
+completion until another action moves the entity; slam lands on the floor.
+Movement actions add no attack damage of their own; configured enemy contact
+damage still applies when bodies touch. All enemy definitions can use every action.
+
+Blast centers are sampled in `[bounds.left, bounds.right]` and `[0, floor_y]`;
+circles may extend beyond the arena. Circles hit when they intersect the player's
+rectangle, including the radius boundary. Overlapping detonations apply the
+highest configured damage once per update, using normal player immunity.
+Zero count emits no circles; zero damage is harmless. Zero fuse detonates on the
+next positive simulation step. A transition interrupting a fuse cancels its
+pending blasts. Knockback pauses the fuse and airborne movement without snapping
+an airborne enemy onto the floor. Each instance owns a deterministic random stream.
+
+For example, an enemy can leap above the player's sampled position, hover, land,
+then cover the arena with delayed blasts using the existing action-list syntax:
+
+```ron
+[jump_to_player(dx: 0.0, dy: -200.0, speed: 300.0),
+ hover(seconds: 0.75), slam_down(speed: 600.0),
+ area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 2)]
+```
 
 | Condition | Meaning |
 | --- | --- |
@@ -316,8 +342,10 @@ entity definition.
 states, with state names, descriptive labels, units, and row numbers. Inverted
 conditions describe the inverted comparison, including equality. Invalid input
 keeps the last valid definition and blocks Save even with the section collapsed.
-Speeds, durations, and distances must be finite and nonnegative; health thresholds
-must be integers in 0..255. Enable **Advanced: structured rows** for state, action,
+Speeds, durations, radii, and distance thresholds must be finite and nonnegative;
+jump offsets may be any finite signed value. Blast counts must be integers in
+0..65535; damage and health thresholds must be integers in 0..255.
+Enable **Advanced: structured rows** for state, action,
 and transition editing; **Advanced: raw RON** remains available inside that view.
 Choose a state, rename it, make it initial, add a named state, or remove it. Renaming updates
 all transition targets. Removing drops transitions targeting that state and, if
@@ -326,13 +354,17 @@ Actions have a type name, labeled numeric parameters, and Up/Down/Delete control
 Choose a type and **Add action** to insert editable defaults. Transitions have
 target-state and condition dropdowns, a condition value when required, an invert
 checkbox, and the same ordering controls. Invalid numbers show errors beside their
-fields and block saving; speeds, durations, and distances must be finite and
-nonnegative, and health thresholds must be integers in 0..255.
+fields and block saving using the same validation as Key values and the loader.
 
 The loader enums and editor type catalogs come from the same `actions!` and
 `conditions!` declarations in `behavior.rs`. Add a supported variant there with
-its parameter labels and defaults to include it in the dropdown automatically.
-The compiler also requires gameplay matches to handle the new variant.
+its typed parameters, descriptive labels, and validation to include it in the
+dropdown and Key values automatically. Editor insertion defaults live in
+`data/action_defaults.ron`; existing defaults are unchanged. Inserted values are
+editable and saved in behavior files through the existing RON format. Add a
+matching default entry in the same change. The compiler also requires gameplay
+matches to handle the new variant. Gameplay tuning belongs in data parameters,
+not Rust literals; see the **Tunable values** rule in `AGENTS.md`.
 
 **Advanced: raw RON** toggles the original ordered-list text editors using the
 existing syntax:
@@ -414,6 +446,9 @@ Shipped presets:
   select/drag/delete on the canvas, move patrol handles, edit exits/arrival spawn,
   create/open a room, edit properties/actions/transitions/raw RON, and save/reopen.
 - Search presets, create and assign a named behavior, edit Key values, and save/reopen.
+- Assign the jump/hover/slam/blast example above to an enemy, edit every parameter
+  in Key values and structured rows, and save/reopen. Confirm the leap samples
+  once, holds in the air, lands, and shows warning circles before blast damage.
   Assign one behavior to two entity definitions; confirm the usage count and copy
   warning appear before edits, then save a copy and check only the selected entity
   switches. Check **Edit shared behavior** and both advanced views as well.

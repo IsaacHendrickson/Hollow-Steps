@@ -1,0 +1,11 @@
+[
+    move_toward_player(speed: 100.0),
+    move_away_from_player(speed: 100.0),
+    patrol(speed: 80.0),
+    wait(seconds: 1.0),
+    telegraph(seconds: 0.5),
+    jump_to_player(speed: 300.0, dx: 0.0, dy: -200.0),
+    hover(seconds: 1.0),
+    slam_down(speed: 600.0),
+    area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 1),
+]

@@ -308,8 +308,14 @@ impl GameState {
         let enemy_damage = room
             .enemies
             .iter()
-            .filter(|enemy| enemy.touches(self.player.position(), self.player.size()))
-            .map(|enemy| enemy.contact_damage())
+            .map(|enemy| {
+                let contact = if enemy.touches(self.player.position(), self.player.size()) {
+                    enemy.contact_damage()
+                } else {
+                    0
+                };
+                contact.max(enemy.action_damage(self.player.position(), self.player.size()))
+            })
             .max()
             .unwrap_or(0);
         let boss_damage = u8::from(
@@ -368,6 +374,50 @@ mod tests {
     fn test_game() -> GameState {
         GameState::try_new(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures"))
             .expect("fixed test assets must load")
+    }
+
+    #[test]
+    fn enemy_blasts_apply_configured_damage_once_and_respect_player_immunity() {
+        use crate::behavior::BehaviorDefinition;
+        use crate::enemy::{Enemy, EnemyDefinition};
+        use std::sync::Arc;
+
+        let mut game = test_game();
+        let bounds = game.world_bounds();
+        game.rooms[0].enemies = vec![Enemy::from_definition(
+            &EnemyDefinition {
+                name: "blaster".into(),
+                health: 3,
+                size: (36.0, 36.0),
+                contact_damage: 0,
+                behavior: "blast".into(),
+            },
+            Arc::new(
+                BehaviorDefinition::from_ron(
+                    r#"(initial_state: "blast", states: [
+                (name: "blast", actions: [
+                    area_blast(count: 2, radius: 2000.0, fuse_time: 0.5, damage: 3),
+                    area_blast(count: 1, radius: 2000.0, fuse_time: 0.5, damage: 3),
+                    area_blast(count: 1, radius: 2000.0, fuse_time: 1.5, damage: 1)
+                ], transitions: [])])"#,
+                )
+                .unwrap(),
+            ),
+            600.0,
+            600.0,
+            bounds,
+        )
+        .unwrap()];
+        game.update(PlayerInput::default(), 0.25);
+        assert_eq!(game.player.health().current(), 5);
+        game.update(PlayerInput::default(), 0.25);
+        assert_eq!(game.player.health().current(), 2);
+        game.update(PlayerInput::default(), 0.5);
+        assert_eq!(game.player.health().current(), 2);
+        game.update(PlayerInput::default(), 1.5);
+        assert_eq!(game.player.health().current(), 1);
+        game.update(PlayerInput::default(), 2.0);
+        assert_eq!(game.player.health().current(), 1);
     }
 
     fn warden_game() -> GameState {

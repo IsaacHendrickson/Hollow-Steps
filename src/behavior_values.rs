@@ -1,5 +1,5 @@
 //! Numeric behavior controls derived from every action and condition in every state.
-use crate::behavior::{Action, BehaviorDefinition, Condition};
+use crate::behavior::{BehaviorDefinition, Condition};
 
 #[derive(Clone, Debug, PartialEq)]
 enum Parameter {
@@ -31,14 +31,8 @@ impl KeyValues {
         let mut values = Vec::new();
         for (state, definition) in behavior.states.iter().enumerate() {
             for (row, action) in definition.actions.iter().enumerate() {
-                let description = match action {
-                    Action::MoveTowardPlayer { .. } => "speed toward player (pixels/second)",
-                    Action::MoveAwayFromPlayer { .. } => "speed away from player (pixels/second)",
-                    Action::Patrol { .. } => "patrol speed (pixels/second)",
-                    Action::Wait { .. } => "wait duration (seconds)",
-                    Action::Telegraph { .. } => "telegraph duration (seconds)",
-                };
                 for (field, (_, value)) in action.parameters().into_iter().enumerate() {
+                    let description = action.parameter_labels()[field];
                     values.push(KeyValue {
                         label: format!("{}: {description} [action {}]", definition.name, row + 1),
                         value,

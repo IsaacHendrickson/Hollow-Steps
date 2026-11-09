@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use macroquad::math::Vec2;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -26,15 +26,17 @@ pub struct State {
 
 /// The loader enum and editor catalog are generated together. Add variants here.
 macro_rules! actions {
-    ($( $variant:ident => $name:literal { $( $field:ident = $default:expr ),+ } ),+ $(,)?) => {
+    ($( $variant:ident => $name:literal { $( $field:ident : $ty:ty => ($label:literal, $validate:ident) ),+ } ),+ $(,)?) => {
         #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
         #[serde(rename_all = "snake_case", deny_unknown_fields)]
-        pub enum Action { $( $variant { $( $field: f32 ),+ } ),+ }
+        pub enum Action { $( $variant { $( $field: $ty ),+ } ),+ }
         impl Action {
             pub const TYPES: &'static [&'static str] = &[$($name),+];
             pub fn defaults(kind: usize) -> Option<Self> {
-                let name = Self::TYPES.get(kind)?;
-                Some(match *name { $( $name => Self::$variant { $($field: $default),+ }, )+ _ => return None })
+                static DEFAULTS: OnceLock<Vec<Action>> = OnceLock::new();
+                DEFAULTS.get_or_init(|| ron::from_str(include_str!("../data/action_defaults.ron"))
+                    .expect("valid action catalog defaults"))
+                    .iter().find(|action| action.kind() == kind).cloned()
             }
             pub fn kind(&self) -> usize {
                 let name = match self { $(Self::$variant { .. } => $name),+ };
@@ -43,22 +45,66 @@ macro_rules! actions {
             pub fn parameters(&self) -> Vec<(&'static str, String)> {
                 match self { $(Self::$variant { $($field),+ } => vec![$((stringify!($field), $field.to_string())),+]),+ }
             }
-            pub fn set_parameter(&mut self, index: usize, text: &str) -> Result<(), String> {
-                let value = parse_nonnegative(text)?;
-                let fields: Vec<&mut f32> = match self { $(Self::$variant { $($field),+ } => vec![$($field),+]),+ };
-                let field = fields.into_iter().nth(index).ok_or("missing parameter")?;
-                *field = value;
+            pub fn parameter_labels(&self) -> &'static [&'static str] {
+                match self { $(Self::$variant { .. } => &[$($label),+]),+ }
+            }
+            pub fn validate(&self) -> Result<(), String> {
+                match self { $(Self::$variant { $($field),+ } => { $(
+                    $validate(*$field).map_err(|error| format!("{}: {error}", $label))?;
+                )+ }),+ }
                 Ok(())
+            }
+            pub fn set_parameter(&mut self, index: usize, text: &str) -> Result<(), String> {
+                match self { $(Self::$variant { $($field),+ } => {
+                    let mut fields = [$(stringify!($field)),+].into_iter();
+                    let name = fields.nth(index).ok_or("missing parameter")?;
+                    match name { $(stringify!($field) => {
+                        let value = text.trim().parse::<$ty>()
+                            .map_err(|_| format!("{}: expected {} value", $label, stringify!($ty)))?;
+                        $validate(value).map_err(|error| format!("{}: {error}", $label))?;
+                        *$field = value;
+                        Ok(())
+                    },)+ _ => unreachable!("generated parameter") }
+                }),+ }
             }
         }
     }
 }
 actions! {
-    MoveTowardPlayer => "move_toward_player" { speed = 100.0 },
-    MoveAwayFromPlayer => "move_away_from_player" { speed = 100.0 },
-    Patrol => "patrol" { speed = 80.0 },
-    Wait => "wait" { seconds = 1.0 },
-    Telegraph => "telegraph" { seconds = 0.5 },
+    MoveTowardPlayer => "move_toward_player" { speed: f32 => ("speed toward player (pixels/second)", nonnegative) },
+    MoveAwayFromPlayer => "move_away_from_player" { speed: f32 => ("speed away from player (pixels/second)", nonnegative) },
+    Patrol => "patrol" { speed: f32 => ("patrol speed (pixels/second)", nonnegative) },
+    Wait => "wait" { seconds: f32 => ("wait duration (seconds)", nonnegative) },
+    Telegraph => "telegraph" { seconds: f32 => ("telegraph duration (seconds)", nonnegative) },
+    JumpToPlayer => "jump_to_player" {
+        speed: f32 => ("jump speed (pixels/second)", nonnegative),
+        dx: f32 => ("target horizontal offset from player (pixels, positive right)", finite),
+        dy: f32 => ("target vertical offset from player (pixels, negative above)", finite)
+    },
+    Hover => "hover" { seconds: f32 => ("hover duration (seconds)", nonnegative) },
+    SlamDown => "slam_down" { speed: f32 => ("downward slam speed (pixels/second)", nonnegative) },
+    AreaBlast => "area_blast" {
+        count: u16 => ("blast count (integer 0..65535)", valid_count),
+        radius: f32 => ("blast radius (pixels)", nonnegative),
+        fuse_time: f32 => ("blast fuse time (seconds)", nonnegative),
+        damage: u8 => ("blast damage (integer 0..255)", valid_damage)
+    },
+}
+
+fn finite(value: f32) -> Result<(), String> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err("expected a finite value".into())
+    }
+}
+
+// Integer ranges are enforced by the loader and editor's typed parsing.
+fn valid_count(_: u16) -> Result<(), String> {
+    Ok(())
+}
+fn valid_damage(_: u8) -> Result<(), String> {
+    Ok(())
 }
 
 macro_rules! conditions {
@@ -136,13 +182,8 @@ impl BehaviorDefinition {
         }
         for state in &self.states {
             for (index, action) in state.actions.iter().enumerate() {
-                let value = match action {
-                    Action::MoveTowardPlayer { speed }
-                    | Action::MoveAwayFromPlayer { speed }
-                    | Action::Patrol { speed } => *speed,
-                    Action::Wait { seconds } | Action::Telegraph { seconds } => *seconds,
-                };
-                nonnegative(value)
+                action
+                    .validate()
                     .map_err(|error| format!("state {:?}, action {index}: {error}", state.name))?;
             }
             for transition in &state.transitions {
@@ -258,6 +299,20 @@ pub struct Behavior {
     state_elapsed: f64,
     action_elapsed: f64,
     direction: f32,
+    action_started: bool,
+    jump_target: Option<Vec2>,
+    airborne: bool,
+    blasts: Vec<Blast>,
+    random_state: Option<u32>,
+}
+
+/// A stationary warning circle; `exploded` is a damage event for one update.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Blast {
+    pub position: Vec2,
+    pub radius: f32,
+    pub damage: u8,
+    pub exploded: bool,
 }
 
 impl Behavior {
@@ -275,6 +330,11 @@ impl Behavior {
             state_elapsed: 0.0,
             action_elapsed: 0.0,
             direction: 1.0,
+            action_started: false,
+            jump_target: None,
+            airborne: false,
+            blasts: Vec::new(),
+            random_state: None,
         })
     }
 
@@ -288,6 +348,30 @@ impl Behavior {
 
     pub fn action_finished(&self) -> bool {
         self.action == self.definition.states[self.state].actions.len()
+    }
+
+    pub fn blasts(&self) -> &[Blast] {
+        &self.blasts
+    }
+
+    pub fn blast_damage(&self, position: Vec2, size: Vec2) -> u8 {
+        self.blasts
+            .iter()
+            .filter(|blast| {
+                let nearest = blast
+                    .position
+                    .clamp(position - size / 2.0, position + size / 2.0);
+                blast.exploded
+                    && (nearest.as_dvec2() - blast.position.as_dvec2()).length()
+                        <= f64::from(blast.radius)
+            })
+            .map(|blast| blast.damage)
+            .max()
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn clear_blast_hits(&mut self) {
+        self.blasts.retain(|blast| !blast.exploded);
     }
 
     pub fn is_telegraphing(&self) -> bool {
@@ -322,12 +406,17 @@ impl Behavior {
         self.action = 0;
         self.action_elapsed = 0.0;
         self.state_elapsed = 0.0;
+        self.action_started = false;
+        self.jump_target = None;
+        // Interrupting a fuse cancels its pending attack; keep hits already emitted.
+        self.blasts.retain(|blast| blast.exploded);
         true
     }
 
     /// Transitions are checked before and after the action sequence, with at
     /// most one transition per update (including self-transitions).
     pub fn update(&mut self, position: &mut Vec2, context: BehaviorContext, delta_seconds: f32) {
+        self.clear_blast_hits();
         if !delta_seconds.is_finite()
             || delta_seconds <= 0.0
             || !context.player_position.is_finite()
@@ -338,9 +427,29 @@ impl Behavior {
         let dt = f64::from(delta_seconds);
         self.state_elapsed += dt;
         let mut remaining = dt;
-        while let Some(action) = self.definition.states[self.state].actions.get(self.action) {
-            let (used, finished) = match *action {
-                Action::Wait { seconds } | Action::Telegraph { seconds } => {
+        while let Some(action) = self.definition.states[self.state]
+            .actions
+            .get(self.action)
+            .cloned()
+        {
+            if matches!(
+                action,
+                Action::MoveTowardPlayer { .. }
+                    | Action::MoveAwayFromPlayer { .. }
+                    | Action::Patrol { .. }
+                    | Action::Wait { .. }
+                    | Action::Telegraph { .. }
+            ) {
+                self.airborne = false;
+                position.y = context.bounds.floor_y - context.size.y / 2.0;
+            }
+            let (used, finished) = match action {
+                Action::Wait { seconds }
+                | Action::Telegraph { seconds }
+                | Action::Hover { seconds } => {
+                    if matches!(action, Action::Hover { .. }) {
+                        self.airborne = true;
+                    }
                     let duration = f64::from(seconds);
                     let used = remaining.min((duration - self.action_elapsed).max(0.0));
                     self.action_elapsed += used;
@@ -369,18 +478,111 @@ impl Behavior {
                     self.patrol(position, context, f64::from(speed) * remaining);
                     (remaining, false)
                 }
+                Action::JumpToPlayer { dx, dy, speed } => {
+                    self.airborne = true;
+                    let target = *self.jump_target.get_or_insert_with(|| {
+                        let half = context.size.as_dvec2() / 2.0;
+                        let target = context.player_position.as_dvec2()
+                            + macroquad::math::DVec2::new(f64::from(dx), f64::from(dy));
+                        Vec2::new(
+                            target.x.clamp(
+                                f64::from(context.bounds.left) + half.x,
+                                f64::from(context.bounds.right) - half.x,
+                            ) as f32,
+                            target.y.clamp(
+                                half.y.min(f64::from(context.bounds.floor_y) - half.y),
+                                f64::from(context.bounds.floor_y) - half.y,
+                            ) as f32,
+                        )
+                    });
+                    Self::move_in_plane(position, target, speed, remaining)
+                }
+                Action::SlamDown { speed } => {
+                    self.airborne = true;
+                    Self::move_in_plane(
+                        position,
+                        Vec2::new(position.x, context.bounds.floor_y - context.size.y / 2.0),
+                        speed,
+                        remaining,
+                    )
+                }
+                Action::AreaBlast {
+                    count,
+                    radius,
+                    fuse_time,
+                    damage,
+                } => {
+                    if !self.action_started {
+                        for _ in 0..count {
+                            let x = f64::from(context.bounds.left)
+                                + self.next_random(*position)
+                                    * (f64::from(context.bounds.right)
+                                        - f64::from(context.bounds.left));
+                            let y = self.next_random(*position) * f64::from(context.bounds.floor_y);
+                            self.blasts.push(Blast {
+                                position: Vec2::new(x as f32, y as f32),
+                                radius,
+                                damage,
+                                exploded: false,
+                            });
+                        }
+                    }
+                    let duration = f64::from(fuse_time);
+                    let used = remaining.min((duration - self.action_elapsed).max(0.0));
+                    self.action_elapsed += used;
+                    let finished = self.action_elapsed >= duration;
+                    if finished {
+                        for blast in &mut self.blasts {
+                            blast.exploded = true;
+                        }
+                    }
+                    (used, finished)
+                }
             };
+            self.action_started = true;
             remaining = (remaining - used).max(0.0);
             if !finished {
                 break;
             }
             self.action += 1;
             self.action_elapsed = 0.0;
+            self.action_started = false;
+            self.jump_target = None;
         }
-        position.y = context.bounds.floor_y - context.size.y / 2.0;
+        if !self.airborne {
+            position.y = context.bounds.floor_y - context.size.y / 2.0;
+        }
         if !transitioned {
             self.transition(*position, context);
         }
+    }
+
+    fn move_in_plane(position: &mut Vec2, target: Vec2, speed: f32, dt: f64) -> (f64, bool) {
+        let difference = target.as_dvec2() - position.as_dvec2();
+        let distance = difference.length();
+        if distance == 0.0 {
+            return (0.0, true);
+        }
+        if speed == 0.0 {
+            return (dt, false);
+        }
+        let duration = distance / f64::from(speed);
+        if dt >= duration {
+            *position = target;
+            (duration, true)
+        } else {
+            *position = (position.as_dvec2() + difference * (dt / duration)).as_vec2();
+            (dt, false)
+        }
+    }
+
+    fn next_random(&mut self, position: Vec2) -> f64 {
+        // Per-instance deterministic PRNG; coefficients are algorithm constants.
+        let state = self
+            .random_state
+            .get_or_insert(position.x.to_bits().rotate_left(16) ^ position.y.to_bits());
+        *state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        f64::from(*state) / f64::from(u32::MAX)
     }
 
     fn move_to(&mut self, position: &mut Vec2, target: f32, speed: f32, dt: f64) -> (f64, bool) {
