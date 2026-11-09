@@ -1,0 +1,16 @@
+(
+    name: "Skittish",
+    description: "Stay still until the player is within 140 pixels; flee until they are beyond 220 pixels.",
+    behavior: (
+        initial_state: "idle",
+        states: [
+            (name: "idle", actions: [], transitions: [
+                (target: "flee", condition: player_distance_less_than(140.0)),
+            ]),
+            (name: "flee", actions: [move_away_from_player(speed: 160.0)], transitions: [
+                (target: "idle", condition: player_distance_greater_than(220.0)),
+                (target: "flee", condition: action_finished),
+            ]),
+        ],
+    ),
+)

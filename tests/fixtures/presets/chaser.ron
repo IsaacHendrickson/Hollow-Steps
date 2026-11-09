@@ -1,0 +1,16 @@
+(
+    name: "Chaser",
+    description: "Patrol until the player is within 180 pixels; chase until they are beyond 300 pixels.",
+    behavior: (
+        initial_state: "patrol",
+        states: [
+            (name: "patrol", actions: [patrol(speed: 60.0)], transitions: [
+                (target: "chase", condition: player_distance_less_than(180.0)),
+            ]),
+            (name: "chase", actions: [move_toward_player(speed: 130.0)], transitions: [
+                (target: "patrol", condition: player_distance_greater_than(300.0)),
+                (target: "chase", condition: action_finished),
+            ]),
+        ],
+    ),
+)
