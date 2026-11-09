@@ -334,3 +334,128 @@ fn filesystem_save_failure_keeps_previous_file_and_does_not_remove_existing_temp
         "another writer"
     );
 }
+
+#[test]
+fn patrol_handles_validate_walls_size_order_and_finite_positions_without_mutating_on_failure() {
+    let (mut draft, definitions, _) = setup();
+    let size = definitions.size(&draft.enemies[0].definition).unwrap();
+    let left = draft.layout.bounds.0 + size.x / 2.0;
+    let right = draft.layout.rect().right() - size.x / 2.0;
+    draft
+        .move_to(Selection::PatrolLeft(0), Vec2::new(left, 0.0), &definitions)
+        .unwrap();
+    draft
+        .move_to(
+            Selection::PatrolRight(0),
+            Vec2::new(right, 0.0),
+            &definitions,
+        )
+        .unwrap();
+    assert_eq!(draft.enemies[0].patrol_left, left);
+    assert_eq!(draft.enemies[0].patrol_right, right);
+    let before = draft.enemies.clone();
+    for (selection, x) in [
+        (Selection::PatrolLeft(0), left - 0.1),
+        (Selection::PatrolRight(0), right + 0.1),
+        (Selection::PatrolLeft(0), right + 1.0),
+        (Selection::PatrolRight(0), left - 1.0),
+        (Selection::PatrolRight(0), f32::NAN),
+    ] {
+        assert!(draft
+            .move_to(selection, Vec2::new(x, 0.0), &definitions)
+            .is_err());
+        assert_eq!(draft.enemies, before);
+    }
+    draft
+        .move_to(
+            Selection::PatrolLeft(0),
+            Vec2::new(right, 0.0),
+            &definitions,
+        )
+        .unwrap();
+    assert_eq!(draft.enemies[0].patrol_left, draft.enemies[0].patrol_right);
+}
+
+#[test]
+fn deleting_exit_or_arrival_removes_both_and_no_exits_only_warns() {
+    let (mut draft, definitions, _) = setup();
+    let count = draft.layout.exits.len();
+    assert!(draft.warnings().is_empty());
+    draft.delete(Selection::Destination(0)).unwrap();
+    assert_eq!(draft.layout.exits.len(), count - 1);
+    while !draft.layout.exits.is_empty() {
+        draft.delete(Selection::Exit(0)).unwrap();
+    }
+    assert!(draft.delete(Selection::Exit(0)).is_err());
+    assert_eq!(draft.warnings(), ["Warning: room has no exits"]);
+    draft.validate_local(&definitions).unwrap();
+}
+
+#[test]
+fn failed_editor_write_preserves_session_and_can_retry() {
+    let temp = TempAssets::new();
+    let mut game = GameState::try_new(&temp.0).unwrap();
+    game.toggle_editor().unwrap();
+    let editor = game.editor_mut().unwrap();
+    let path = editor.content.entity_path("patrol").unwrap();
+    editor.content.entities.get_mut(&path).unwrap().name = "renamed".into();
+    editor.dirty = true;
+    let original = std::fs::read(&path).unwrap();
+    let room_before = game.room().enemies.len();
+    let staging = path.with_extension("ron.tmp");
+    std::fs::create_dir(&staging).unwrap();
+    assert!(game.save_editor().is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+    assert_eq!(game.room().enemies.len(), room_before);
+    let editor = game.editor().unwrap();
+    assert!(editor.dirty);
+    assert_eq!(editor.content.entities[&path].name, "renamed");
+    assert_eq!(editor.content.entity_path("patrol"), Some(path.clone()));
+    std::fs::remove_dir(staging).unwrap();
+    game.save_editor().unwrap();
+    assert!(!game.editor().unwrap().dirty);
+    assert_eq!(
+        game.editor().unwrap().content.entity_path("renamed"),
+        Some(path)
+    );
+}
+
+#[test]
+fn item_catalog_contains_each_serializable_item_once() {
+    for item in Item::ALL {
+        let source = ron::to_string(item).unwrap();
+        assert_eq!(ron::from_str::<Item>(&source).unwrap(), *item);
+        assert_eq!(Item::ALL.iter().filter(|i| *i == item).count(), 1);
+        assert!(!item.name().is_empty());
+    }
+}
+
+#[test]
+fn patrol_handles_cannot_cross_inside_the_room() {
+    let (mut draft, definitions, _) = setup();
+    draft.enemies[0].patrol_left = 200.0;
+    draft.enemies[0].patrol_right = 300.0;
+    assert!(draft
+        .move_to(
+            Selection::PatrolLeft(0),
+            Vec2::new(301.0, 0.0),
+            &definitions
+        )
+        .is_err());
+    assert!(draft
+        .move_to(
+            Selection::PatrolRight(0),
+            Vec2::new(199.0, 0.0),
+            &definitions
+        )
+        .is_err());
+    assert!(draft
+        .move_to(
+            Selection::PatrolLeft(usize::MAX),
+            Vec2::new(250.0, 0.0),
+            &definitions
+        )
+        .is_err());
+    assert_eq!(draft.enemies[0].patrol_left, 200.0);
+    assert_eq!(draft.enemies[0].patrol_right, 300.0);
+}

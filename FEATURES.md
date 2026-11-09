@@ -26,3 +26,5 @@
 - Responsive scrollable editor with pinned Save, structured ordered action/transition rows, loader-generated type catalogs, inline numeric validation, and advanced RON editing: `src/behavior.rs`, `src/definition_editor.rs`, `src/main.rs`; `tests/definition_editor.rs`, plus manual resize/edit check.
 
 - Definition save conflict detection with consistent native paths and portable file-identification assertions, full draft and all-room validation, content-only LF writes, recoverable staging/deletions, repeat renames, and pure entity/behavior operations: `src/definition_editor.rs`, `src/editor.rs`; `tests/definition_editor.rs`.
+
+- Patrol endpoint handles with wall/body validation, exit/arrival deletion, enum item catalog, nonblocking no-exit warnings, existing-behavior selection, definition operation buttons with reference errors, stale property-error clearing, bounded mouse-wheel panel scrolling, transactional editor saves, and Windows-safe filenames: `src/editor.rs`, `src/definition_editor.rs`, `src/item.rs`, `src/game.rs`, `src/main.rs`; `tests/editor.rs`, `tests/definition_editor.rs`, `src/main.rs` UI state tests, plus manual editor check.

@@ -725,3 +725,68 @@ fn parsed_float_equality_does_not_rewrite_signed_zero() {
         vec![Action::Wait { seconds: 0.0 }];
     assert!(draft.plan(&[]).unwrap().is_empty());
 }
+
+#[test]
+fn behavior_filenames_are_portable_to_windows() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    for name in [
+        "CON",
+        "con.txt",
+        "AUX",
+        "NUL",
+        "PRN",
+        "COM1",
+        "lpt9.ron",
+        "COM¹",
+        "CONIN$",
+        "CONOUT$",
+        "bad<",
+        "bad>",
+        "bad:",
+        "bad\"",
+        "bad/",
+        "bad\\",
+        "bad|",
+        "bad?",
+        "bad*",
+        "bad\0",
+        "bad\nname",
+        "bad.",
+        ".",
+        "..",
+    ] {
+        assert!(draft.add_behavior(name, behavior()).is_err(), "{name:?}");
+    }
+    for name in ["context", "com10", "lpt0", "état", "valid_name-2"] {
+        draft.add_behavior(name, behavior()).unwrap();
+    }
+}
+
+#[test]
+fn panel_scroll_clamps_on_resize_and_content_changes() {
+    use hollow_steps::definition_editor::PanelLayout;
+    let small = PanelLayout::new(960.0, 240.0);
+    let bottom = small.scroll_bounds(1000.0, f32::INFINITY);
+    assert_eq!(bottom, 1000.0 - small.body.h);
+    assert_eq!(small.scroll_bounds(1000.0, 75.0), 75.0);
+    assert_eq!(small.scroll_bounds(1000.0, f32::NEG_INFINITY), 0.0);
+    assert_eq!(small.scroll_bounds(1000.0, f32::NAN), 0.0);
+    assert_eq!(small.scroll_bounds(10.0, bottom), 0.0);
+    let large = PanelLayout::new(960.0, 1500.0);
+    assert_eq!(large.scroll_bounds(1000.0, bottom), 0.0);
+}
+
+#[test]
+fn unsaved_entity_size_and_behavior_changes_apply_to_original_placement_names() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let path = draft.entity_path("patrol").unwrap();
+    let entity = draft.entities.get_mut(&path).unwrap();
+    entity.name = "renamed".into();
+    entity.size = (60.0, 42.0);
+    let definitions = draft.placement_definitions().unwrap();
+    assert_eq!(definitions.size("patrol").unwrap().x, 60.0);
+    assert_eq!(definitions.size("renamed").unwrap().x, 60.0);
+    assert_eq!(draft.entity_path("renamed"), Some(path));
+}

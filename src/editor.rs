@@ -155,6 +155,8 @@ impl RoomLayout {
 pub enum Selection {
     Enemy(usize),
     Item(usize),
+    PatrolLeft(usize),
+    PatrolRight(usize),
     Spawn,
     Exit(usize),
     Destination(usize),
@@ -307,6 +309,12 @@ impl RoomDraft {
                 enemy.patrol_left += delta;
                 enemy.patrol_right += delta;
             }
+            Selection::PatrolLeft(i) => {
+                next.enemies.get_mut(i).ok_or("missing enemy")?.patrol_left = position.x;
+            }
+            Selection::PatrolRight(i) => {
+                next.enemies.get_mut(i).ok_or("missing enemy")?.patrol_right = position.x;
+            }
             Selection::Item(i) => {
                 next.layout.items.get_mut(i).ok_or("missing item")?.position = position.into()
             }
@@ -369,9 +377,20 @@ impl RoomDraft {
             Selection::Item(i) if i < self.layout.items.len() => {
                 self.layout.items.remove(i);
             }
-            _ => return Err("select an enemy or item to delete".into()),
+            Selection::Exit(i) | Selection::Destination(i) if i < self.layout.exits.len() => {
+                self.layout.exits.remove(i);
+            }
+            _ => return Err("select an enemy, item, or exit to delete".into()),
         }
         Ok(())
+    }
+
+    pub fn warnings(&self) -> Vec<&'static str> {
+        if self.layout.exits.is_empty() {
+            vec!["Warning: room has no exits"]
+        } else {
+            Vec::new()
+        }
     }
 
     pub fn build(&self, id: RoomId, definitions: &EnemyDefinitions) -> Result<Room, String> {
@@ -413,7 +432,7 @@ pub fn room_filename(id: RoomId) -> String {
     }
 }
 
-/// Validate/serialize before even opening a file. Rename leaves the previous file intact on failure.
+/// Compatibility save boundary, using the same staged writer as definition saves.
 pub fn save_room(
     path: &Path,
     draft: &RoomDraft,
@@ -421,34 +440,20 @@ pub fn save_room(
     rooms: &[(RoomId, RoomLayout)],
     new: bool,
 ) -> Result<(), String> {
-    use std::io::Write;
     let source = draft.serialize(definitions, rooms)?;
-    let temporary = path.with_extension("ron.tmp");
-    let result = (|| {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)
-            .map_err(|e| e.to_string())?;
-        let write_result = (|| {
-            file.write_all(source.as_bytes())
-                .map_err(|e| e.to_string())?;
-            file.sync_all().map_err(|e| e.to_string())?;
-            drop(file);
-            if new {
-                // Hard-link is an atomic create-if-absent; never replace another new room.
-                std::fs::hard_link(&temporary, path).map_err(|e| e.to_string())?;
-                std::fs::remove_file(&temporary).map_err(|e| e.to_string())
-            } else {
-                std::fs::rename(&temporary, path).map_err(|e| e.to_string())
-            }
-        })();
-        if write_result.is_err() {
-            let _ = std::fs::remove_file(&temporary);
-        }
-        write_result
-    })();
-    result.map_err(|e| format!("{}: {e}", path.display()))
+    if new && path.exists() {
+        return Err("new room already exists".into());
+    }
+    if path.with_extension("ron.tmp").exists() {
+        return Err("room staging file already exists".into());
+    }
+    let assets = path
+        .parent()
+        .and_then(Path::parent)
+        .ok_or("invalid room path")?;
+    let content = crate::definition_editor::DefinitionDraft::load(assets)?;
+    let document = ron::from_str(&source).map_err(|e| e.to_string())?;
+    crate::definition_editor::write_files(&content.plan(&[(path.to_owned(), document)])?)
 }
 
 pub fn load_extra_rooms(
@@ -531,31 +536,6 @@ impl EditorSession {
             dirty: false,
             message: String::new(),
         })
-    }
-
-    pub fn save_content(&mut self) -> Result<(), String> {
-        if self.new && self.path.exists() {
-            return Err("new room already exists".into());
-        }
-        let mut document = RoomEnemies {
-            enemies: self.draft.enemies.clone(),
-            layout: Some(self.draft.layout.clone()),
-        };
-        let files = self
-            .content
-            .plan(&[(self.path.clone(), document.clone())])?;
-        self.content.rename_placements(&mut document);
-        let definitions = self.content.definitions()?;
-        crate::definition_editor::write_files(&files)?;
-        let assets = self
-            .path
-            .parent()
-            .and_then(Path::parent)
-            .ok_or("invalid asset path")?;
-        self.content = crate::definition_editor::DefinitionDraft::load(assets)?;
-        self.draft.enemies = document.enemies;
-        self.definitions = definitions;
-        Ok(())
     }
 
     pub fn catalog(&self) -> Vec<(RoomId, RoomLayout)> {
