@@ -34,6 +34,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
 
+      # egui uses the existing Macroquad backend; no extra Linux packages above.
+      - name: Build locked Linux binary
+        if: runner.os == 'Linux'
+        run: cargo build --locked
+
       - name: Run tests
         run: cargo test
 

@@ -808,57 +808,6 @@ pub fn move_row<T>(rows: &mut [T], index: usize, up: bool) -> Result<(), String>
     Ok(())
 }
 
-/// Fixed preferred width, capped to the viewport; Save has its own reserved strip.
-#[derive(Clone, Copy, Debug)]
-pub struct PanelLayout {
-    pub panel: macroquad::math::Rect,
-    pub body: macroquad::math::Rect,
-    pub save: macroquad::math::Rect,
-}
-impl PanelLayout {
-    pub fn new(width: f32, height: f32) -> Self {
-        use macroquad::math::Rect;
-        let width = if width.is_finite() {
-            width.max(0.0)
-        } else {
-            0.0
-        };
-        let height = if height.is_finite() {
-            height.max(0.0)
-        } else {
-            0.0
-        };
-        let w = width.min(360.0);
-        let footer = height.min(34.0);
-        Self {
-            panel: Rect::new(width - w, 0.0, w, height),
-            body: Rect::new(width - w, 0.0, w, height - footer),
-            save: Rect::new(width - w, height - footer, w, footer),
-        }
-    }
-    pub fn scroll_bounds(&self, content_height: f32, requested: f32) -> f32 {
-        requested
-            .max(0.0)
-            .min((content_height - self.body.h).max(0.0))
-    }
-}
-/// Character wrapping also splits unbroken identifiers and filesystem paths.
-pub fn wrap_label(text: &str, columns: usize) -> Vec<String> {
-    let columns = columns.max(1);
-    text.split('\n')
-        .flat_map(|line| {
-            let chars: Vec<_> = line.trim_end_matches('\r').chars().collect();
-            if chars.is_empty() {
-                return vec![String::new()];
-            }
-            chars
-                .chunks(columns)
-                .map(|chunk| chunk.iter().collect())
-                .collect::<Vec<String>>()
-        })
-        .collect()
-}
-
 pub fn validate_entity_field(index: usize, text: &str) -> Result<(), String> {
     let text = text.trim();
     match index {

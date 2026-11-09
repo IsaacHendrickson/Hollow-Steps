@@ -233,13 +233,34 @@ inventory, collected coins/items, pause state, and boss progress are preserved.
 ## Room editor design
 
 F2 pauses gameplay and opens the room editor; F2 again returns to play.
-The editor uses Macroquad's built-in immediate-mode UI (already a dependency)
-for buttons, full-width labeled inputs, dropdowns, and scrolling, avoiding another
-UI runtime or dependency. The resizable window keeps a fixed 360-pixel side panel
-(capped to the window width), wraps long labels, shortens list/dropdown captions,
-and reserves a separate always-visible Save strip below the scrolling controls.
-Mouse input and preview drawing stay in `main.rs`; `editor.rs` owns window-free
-place, move, delete, validation, and serialization rules. Edits use authored RON
+The editor uses `egui-macroquad` 0.17.3 (egui 0.31.1) for layout, input,
+dropdowns, and draggable scrollbars. Its macroquad requirement is `^0.4.14`,
+compatible with this project's `macroquad = "0.4"` and locked 0.4.16; Cargo
+resolves one macroquad and one miniquad. This dependency replaces the built-in UI
+because egui allocates control rectangles and clips nested scrolling correctly.
+Default features are disabled to avoid enabling the integration's optional audio
+backend. No additional Linux system libraries are required: the existing CI
+package list is unchanged, and CI explicitly builds the locked binary on Linux
+before testing it. The macOS clipboard dependencies in Cargo.lock are not built
+on Linux (`cargo tree --target x86_64-unknown-linux-gnu` shows the active tree).
+
+A single 360-pixel side panel (capped to the window width) contains collapsing
+**Room**, **Entity**, **Behavior**, **States**, **Actions**, and **Transitions**
+sections. **Save** is pinned outside the main scroll area. Wheel steps move
+28 UI points, and solid scrollbars reserve their own space and support dragging.
+Every searchable picker has a Filter text box, an **N of M** count, and an egui
+dropdown with a scrollable result viewport sized for at least eight rows. Its width
+follows the panel; near the window bottom egui places the popup above the picker.
+An empty filter result shows **No matches**. Existing Unicode, prefix-first
+filtering and source-index selection remain in `src/search.rs` with their tests.
+Long captions truncate with a hover tooltip, other text wraps, and text fields
+scroll horizontally. `searchable_list` in `src/editor_panel.rs` is the shared
+place for future search/navigation improvements. Pointer capture includes open
+popups and active UI drags, so panel gestures cannot edit the canvas; Delete in
+a text field cannot delete the selected canvas object.
+Mouse input and preview drawing stay in `main.rs`; panel widgets live in
+`editor_panel.rs`. `editor.rs` owns window-free place, move, delete, validation,
+and serialization rules. Edits use authored RON
 placements rather than enemies that have moved or pickups already collected.
 
 Rooms retain the legacy `enemies` field and gain optional `layout` data for
@@ -318,3 +339,19 @@ and exit destinations before any write. Syntax and validation errors appear in
 the panel; correct the edit and retry. Saving keeps the existing RON schemas.
 Definition parsing, state edits, and save planning live in `definition_editor.rs`
 and are tested without a window, including save/reload and invalid-save checks.
+
+### Editor manual check
+
+- Shrink to 640×360 (also inspect a panel-only 360×240 window), then enlarge.
+  Scroll through every section and confirm no control is covered and Save stays visible.
+- Use both the wheel and draggable scrollbars, including result lists longer than
+  eight rows. Reach the final entry, including **Item: Dash**; filter to zero matches
+  and confirm **No matches** and the count.
+- Open every dropdown near the panel bottom; check above/below placement, last-row
+  selection, dismissal, and long-name tooltips.
+- Type a very long entity/state name. Check wrapping/truncation and field scrolling;
+  enter an invalid number or raw RON, collapse its section, and confirm Save refuses it.
+- Place an enemy right beside the panel edge. Click and drag panel controls and
+  scrollbars; confirm no placement/movement/deletion leaks onto the canvas. Then
+  select/drag/delete on the canvas, move patrol handles, edit exits/arrival spawn,
+  create/open a room, edit properties/actions/transitions/raw RON, and save/reopen.

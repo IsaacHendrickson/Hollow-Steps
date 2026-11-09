@@ -81,6 +81,7 @@ Composition and front end:
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
+- `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks.
 - `src/main.rs`: Macroquad window setup, keyboard translation, drawing, and
   frame scheduling. It should stay thin; do not put movement, combat, room,
   or persistence rules here.

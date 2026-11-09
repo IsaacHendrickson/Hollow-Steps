@@ -7,5 +7,6 @@ license = "MIT"
 
 [dependencies]
 macroquad = "0.4"
+egui-macroquad = { version = "0.17.3", default-features = false }
 ron = "0.12"
 serde = { version = "1", features = ["derive"] }

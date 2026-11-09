@@ -23,10 +23,12 @@
 
 - Selected-enemy entity and behavior side panel, state/link editing, shared-name reference updates, and validated staged RON saves: `src/definition_editor.rs`, `src/editor.rs`, `src/main.rs`; `tests/definition_editor.rs`, plus manual playtest.
 
-- Responsive scrollable editor with pinned Save, structured ordered action/transition rows, loader-generated type catalogs, inline numeric validation, and advanced RON editing: `src/behavior.rs`, `src/definition_editor.rs`, `src/main.rs`; `tests/definition_editor.rs`, plus manual resize/edit check.
+- Responsive scrollable editor with pinned Save, structured ordered action/transition rows, loader-generated type catalogs, inline numeric validation, and advanced RON editing: `src/behavior.rs`, `src/definition_editor.rs`, `src/main.rs`, `src/editor_panel.rs`; `tests/definition_editor.rs`, headless egui layout/input tests, plus manual resize/edit check.
 
 - Definition save conflict detection with consistent native paths and portable file-identification assertions, full draft and all-room validation, content-only LF writes, recoverable staging/deletions, repeat renames, and pure entity/behavior operations: `src/definition_editor.rs`, `src/editor.rs`; `tests/definition_editor.rs`.
 
 - Reusable searchable room/entity/behavior/action/condition/state lists with stable selection, Unicode case-insensitive prefix-first matching, counts, no-match rows, bounded labels, and entity/behavior management buttons with reference errors: `src/search.rs`, `src/editor.rs`, `src/definition_editor.rs`, `src/main.rs`; `src/search.rs` unit tests, `tests/definition_editor.rs`, plus manual editor check.
 
 - Patrol endpoint handles with wall/body validation, exit/arrival deletion, enum item catalog, nonblocking no-exit warnings, existing-behavior selection, definition operation buttons with reference errors, stale property-error clearing, bounded mouse-wheel panel scrolling, transactional editor saves, and Windows-safe filenames: `src/editor.rs`, `src/definition_editor.rs`, `src/item.rs`, `src/game.rs`, `src/main.rs`; `tests/editor.rs`, `tests/definition_editor.rs`, `src/main.rs` UI state tests, plus manual editor check.
+
+- egui editor panel with pinned Save, collapsing sections, filtered dropdowns with eight-row scroll viewports, counts/no-match rows, tooltip truncation, draggable solid scrollbars, and canvas input capture: `src/editor_panel.rs`, `src/main.rs`; `src/editor_panel.rs` headless tests, preserved `src/search.rs` tests, plus README manual checklist.
