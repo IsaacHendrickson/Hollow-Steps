@@ -106,6 +106,16 @@ When you add, rename, or remove a module, update this list in the same change.
 - Clamp or validate external values at system boundaries. Do not scatter
   magic numbers through the rendering loop.
 
+## Tunable values
+
+Every number that affects how an entity, boss, attack, or action behaves
+(distances, speeds, durations, damage, health, counts, radii, etc.) must be a
+named parameter stored in data files and editable in the editor with a
+descriptive label and validation. Do not hardcode these values in Rust,
+apart from engine-level constants such as gravity. When adding an action,
+condition, or entity type, add its parameters to the editor's catalogs in
+the same change.
+
 ## Change workflow
 
 1. Make one small gameplay change at a time.

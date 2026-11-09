@@ -147,7 +147,7 @@ impl EnemyDefinitions {
     }
 }
 
-/// A floor-bound enemy. Patrol endpoints and position are rectangle centers.
+/// A behavior-driven enemy. Patrol endpoints and position are rectangle centers.
 #[derive(Clone, Debug)]
 pub struct Enemy {
     position: Vec2,
@@ -306,6 +306,7 @@ impl Enemy {
     }
 
     pub fn update(&mut self, player_position: Vec2, delta_seconds: f32, bounds: WorldBounds) {
+        self.behavior.clear_blast_hits();
         let dt = if delta_seconds.is_finite() {
             delta_seconds.max(0.0)
         } else {
@@ -323,7 +324,6 @@ impl Enemy {
                     bounds.right - self.size.x / 2.0,
                 );
             self.knockback_remaining = (self.knockback_remaining - dt).max(0.0);
-            self.position.y = bounds.floor_y - self.size.y / 2.0;
             return;
         }
         self.behavior.update(
@@ -344,5 +344,13 @@ impl Enemy {
         let separation = (self.position - position).abs();
         let reach = (self.size + size) / 2.0;
         !self.is_dead() && separation.x <= reach.x && separation.y <= reach.y
+    }
+
+    pub fn action_damage(&self, position: Vec2, size: Vec2) -> u8 {
+        if self.is_dead() {
+            0
+        } else {
+            self.behavior.blast_damage(position, size)
+        }
     }
 }

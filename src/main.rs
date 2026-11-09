@@ -177,6 +177,10 @@ fn draw_scene(game: &GameState) {
         );
     }
     for enemy in &game.room().enemies {
+        for blast in enemy.behavior().blasts() {
+            let color = if blast.exploded { RED } else { ORANGE };
+            draw_circle_lines(blast.position.x, blast.position.y, blast.radius, 2.0, color);
+        }
         let top_left = enemy.position() - enemy.size() / 2.0;
         draw_rectangle(
             top_left.x,

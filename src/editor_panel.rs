@@ -1124,7 +1124,7 @@ fn draw_state_rows(ui: &mut egui::Ui, p: &mut PropertyUi, names: &[String], stat
             ui.separator();
             panel_label(ui, &format!("{}. {}", i + 1, Action::TYPES[row.kind]));
             let template = Action::defaults(row.kind).expect("catalog action");
-            for (j, (label, _)) in template.parameters().iter().enumerate() {
+            for (j, label) in template.parameter_labels().iter().enumerate() {
                 panel_input(
                     ui,
                     egui::Id::new(("action value", i, j)),
