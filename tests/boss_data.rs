@@ -197,10 +197,6 @@ fn load_errors_identify_file_boss_attack_action_and_parameter() {
             WARDEN.replace("glide_to_floor(speed: 1000.0)", "glide_to_floor()"),
             "speed",
         ),
-        (
-            WARDEN.replace("glide_to_floor(speed: 1000.0)", "patrol(speed: 1000.0)"),
-            "enemy-only",
-        ),
         (WARDEN.replace("health: 100,", ""), "health"),
         (
             WARDEN.replace("contact_damage: 0", "contact_damage: 256"),
@@ -426,28 +422,16 @@ fn contact_damage_and_failed_boss_reload_use_the_normal_game_boundaries() {
 }
 
 #[test]
-fn boss_only_actions_do_not_become_enemy_behaviors_or_editor_actions() {
-    let error = BehaviorDefinition::from_ron("(initial_state: \"idle\", states: [(name: \"idle\", actions: [glide_to_floor(speed: 100.0)], transitions: [])])").unwrap_err();
-    assert!(error.contains("boss-only action"));
-    assert_eq!(
-        Action::TYPES,
-        [
-            "move_toward_player",
-            "move_away_from_player",
-            "patrol",
-            "wait",
-            "telegraph",
-            "jump_to_player",
-            "hover",
-            "legacy_slam_down",
-            "legacy_area_blast",
-            "lunge",
-            "jump_to",
-            "slam_down",
-            "shoot_projectile",
-            "area_blast"
-        ]
-    );
+fn every_registered_action_is_valid_for_enemy_behaviors_and_boss_editors() {
+    assert_eq!(Action::TYPES, Action::ALL_TYPES);
+    for kind in 0..Action::TYPES.len() {
+        let action = Action::defaults(kind).unwrap();
+        let mut definition = BehaviorDefinition::blank();
+        definition.states[0].actions.push(action.clone());
+        definition.validate().unwrap();
+        let input = hollow_steps::boss_editor::BossActionInput::new(kind).unwrap();
+        assert_eq!(input.build().unwrap(), action);
+    }
 }
 
 #[test]

@@ -11,28 +11,28 @@ pub struct BossActionInput {
 
 impl BossActionInput {
     pub fn catalog() -> Vec<(usize, &'static str)> {
-        Action::ALL_TYPES
+        Action::TYPES
             .iter()
             .enumerate()
-            .filter_map(|(kind, name)| Self::new(kind).ok().map(|_| (kind, *name)))
+            .map(|(kind, name)| (kind, *name))
             .collect()
     }
 
     pub fn new(kind: usize) -> Result<Self, String> {
-        let action = Action::all_defaults(kind).ok_or("unknown action")?;
+        let action = Action::defaults(kind).ok_or("unknown action")?;
         crate::boss_definition::validate_action(&action)?;
         Ok(Self::from_action(&action))
     }
 
     pub fn from_action(action: &Action) -> Self {
         Self {
-            kind: action.all_kind(),
+            kind: action.kind(),
             values: action.parameters().into_iter().map(|(_, v)| v).collect(),
         }
     }
 
     pub fn build(&self) -> Result<Action, String> {
-        let mut action = Action::all_defaults(self.kind).ok_or("unknown action")?;
+        let mut action = Action::defaults(self.kind).ok_or("unknown action")?;
         if self.values.len() != action.parameters().len() {
             return Err("missing action parameter".into());
         }

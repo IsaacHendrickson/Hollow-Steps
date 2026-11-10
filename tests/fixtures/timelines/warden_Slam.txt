@@ -1,0 +1,180 @@
+0 pos=684.216,430.647 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+1 pos=668.432,425.294 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+2 pos=652.649,419.942 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+3 pos=636.865,414.589 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+4 pos=621.081,409.236 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+5 pos=605.297,403.883 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+6 pos=589.514,398.531 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+7 pos=573.730,393.178 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+8 pos=557.946,387.825 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+9 pos=542.162,382.472 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+10 pos=526.379,377.120 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+11 pos=510.595,371.767 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+12 pos=494.811,366.414 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+13 pos=479.028,361.061 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+14 pos=463.244,355.709 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+15 pos=447.460,350.356 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+16 pos=431.676,345.003 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+17 pos=415.893,339.651 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+18 pos=400.109,334.298 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+19 pos=384.325,328.945 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+20 pos=368.542,323.592 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+21 pos=352.758,318.240 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+22 pos=336.974,312.887 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+23 pos=321.190,307.534 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+24 pos=305.407,302.181 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+25 pos=289.623,296.829 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+26 pos=273.839,291.476 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+27 pos=258.055,286.123 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+28 pos=242.272,280.770 attack=Some("Slam") damage=0 preview=Some((240.0, 56.0))
+29 pos=240.000,280.000 attack=None damage=0 preview=None
+30 pos=240.000,296.667 attack=None damage=0 preview=None
+31 pos=240.000,313.333 attack=None damage=0 preview=None
+32 pos=240.000,330.000 attack=None damage=0 preview=None
+33 pos=240.000,346.667 attack=None damage=0 preview=None
+34 pos=240.000,363.333 attack=None damage=0 preview=None
+35 pos=240.000,380.000 attack=None damage=0 preview=None
+36 pos=240.000,396.667 attack=None damage=0 preview=None
+37 pos=240.000,413.333 attack=None damage=0 preview=None
+38 pos=240.000,430.000 attack=None damage=0 preview=None
+39 pos=240.000,436.000 attack=None damage=0 preview=None
+40 pos=240.000,436.000 attack=None damage=0 preview=None
+41 pos=240.000,436.000 attack=None damage=0 preview=None
+42 pos=240.000,436.000 attack=None damage=0 preview=None
+43 pos=240.000,436.000 attack=None damage=0 preview=None
+44 pos=240.000,436.000 attack=None damage=0 preview=None
+45 pos=240.000,436.000 attack=None damage=0 preview=None
+46 pos=240.000,436.000 attack=None damage=0 preview=None
+47 pos=240.000,436.000 attack=None damage=0 preview=None
+48 pos=240.000,436.000 attack=None damage=0 preview=None
+49 pos=240.000,436.000 attack=None damage=0 preview=None
+50 pos=240.000,436.000 attack=None damage=0 preview=None
+51 pos=240.000,436.000 attack=None damage=0 preview=None
+52 pos=240.000,436.000 attack=None damage=0 preview=None
+53 pos=240.000,436.000 attack=None damage=0 preview=None
+54 pos=240.000,436.000 attack=None damage=0 preview=None
+55 pos=240.000,436.000 attack=None damage=0 preview=None
+56 pos=240.000,436.000 attack=None damage=0 preview=None
+57 pos=240.000,436.000 attack=None damage=0 preview=None
+58 pos=240.000,436.000 attack=None damage=0 preview=None
+59 pos=240.000,436.000 attack=None damage=0 preview=None
+60 pos=240.000,436.000 attack=None damage=0 preview=None
+61 pos=240.000,436.000 attack=None damage=0 preview=None
+62 pos=240.000,436.000 attack=None damage=0 preview=None
+63 pos=240.000,436.000 attack=None damage=0 preview=None
+64 pos=240.000,436.000 attack=None damage=0 preview=None
+65 pos=240.000,436.000 attack=None damage=0 preview=None
+66 pos=240.000,436.000 attack=None damage=0 preview=None
+67 pos=240.000,436.000 attack=None damage=0 preview=None
+68 pos=240.000,436.000 attack=None damage=0 preview=None
+69 pos=240.000,436.000 attack=None damage=0 preview=None
+70 pos=240.000,436.000 attack=None damage=0 preview=None
+71 pos=240.000,436.000 attack=None damage=0 preview=None
+72 pos=240.000,436.000 attack=None damage=0 preview=None
+73 pos=240.000,436.000 attack=None damage=0 preview=None
+74 pos=240.000,436.000 attack=None damage=0 preview=None
+75 pos=240.000,436.000 attack=None damage=0 preview=None
+76 pos=240.000,436.000 attack=None damage=0 preview=None
+77 pos=240.000,436.000 attack=None damage=0 preview=None
+78 pos=240.000,436.000 attack=None damage=0 preview=None
+79 pos=240.000,436.000 attack=None damage=0 preview=None
+80 pos=240.000,436.000 attack=None damage=0 preview=None
+81 pos=240.000,436.000 attack=None damage=0 preview=None
+82 pos=240.000,436.000 attack=None damage=0 preview=None
+83 pos=240.000,436.000 attack=None damage=0 preview=None
+84 pos=240.000,436.000 attack=None damage=0 preview=None
+85 pos=240.000,436.000 attack=None damage=0 preview=None
+86 pos=240.000,436.000 attack=None damage=0 preview=None
+87 pos=240.000,436.000 attack=None damage=0 preview=None
+88 pos=240.000,436.000 attack=None damage=0 preview=None
+89 pos=240.000,436.000 attack=None damage=0 preview=None
+90 pos=240.000,436.000 attack=None damage=0 preview=None
+91 pos=240.000,436.000 attack=None damage=0 preview=None
+92 pos=240.000,436.000 attack=None damage=0 preview=None
+93 pos=240.000,436.000 attack=None damage=0 preview=None
+94 pos=240.000,436.000 attack=None damage=0 preview=None
+95 pos=240.000,436.000 attack=None damage=0 preview=None
+96 pos=240.000,436.000 attack=None damage=0 preview=None
+97 pos=240.000,436.000 attack=None damage=0 preview=None
+98 pos=240.000,436.000 attack=None damage=0 preview=None
+99 pos=240.000,436.000 attack=None damage=0 preview=None
+100 pos=240.000,436.000 attack=None damage=0 preview=None
+101 pos=240.000,436.000 attack=None damage=0 preview=None
+102 pos=240.000,436.000 attack=None damage=0 preview=None
+103 pos=240.000,436.000 attack=None damage=0 preview=None
+104 pos=240.000,436.000 attack=None damage=0 preview=None
+105 pos=240.000,436.000 attack=None damage=0 preview=None
+106 pos=240.000,436.000 attack=None damage=0 preview=None
+107 pos=240.000,436.000 attack=None damage=0 preview=None
+108 pos=240.000,436.000 attack=None damage=0 preview=None
+109 pos=240.000,436.000 attack=None damage=0 preview=None
+110 pos=240.000,436.000 attack=None damage=0 preview=None
+111 pos=240.000,436.000 attack=None damage=0 preview=None
+112 pos=240.000,436.000 attack=None damage=0 preview=None
+113 pos=240.000,436.000 attack=None damage=0 preview=None
+114 pos=240.000,436.000 attack=None damage=0 preview=None
+115 pos=240.000,436.000 attack=None damage=0 preview=None
+116 pos=240.000,436.000 attack=None damage=0 preview=None
+117 pos=240.000,436.000 attack=None damage=0 preview=None
+118 pos=240.000,436.000 attack=None damage=0 preview=None
+119 pos=240.000,436.000 attack=None damage=0 preview=None
+120 pos=240.000,436.000 attack=None damage=0 preview=None
+121 pos=240.000,436.000 attack=None damage=0 preview=None
+122 pos=240.000,436.000 attack=None damage=0 preview=None
+123 pos=240.000,436.000 attack=None damage=0 preview=None
+124 pos=240.000,436.000 attack=None damage=0 preview=None
+125 pos=240.000,436.000 attack=None damage=0 preview=None
+126 pos=240.000,436.000 attack=None damage=0 preview=None
+127 pos=240.000,436.000 attack=None damage=0 preview=None
+128 pos=240.000,436.000 attack=None damage=0 preview=None
+129 pos=240.000,436.000 attack=None damage=0 preview=None
+130 pos=240.000,436.000 attack=None damage=0 preview=None
+131 pos=240.000,436.000 attack=None damage=0 preview=None
+132 pos=240.000,436.000 attack=None damage=0 preview=None
+133 pos=240.000,436.000 attack=None damage=0 preview=None
+134 pos=240.000,436.000 attack=None damage=0 preview=None
+135 pos=240.000,436.000 attack=None damage=0 preview=None
+136 pos=240.000,436.000 attack=None damage=0 preview=None
+137 pos=240.000,436.000 attack=None damage=0 preview=None
+138 pos=240.000,436.000 attack=None damage=0 preview=None
+139 pos=240.000,436.000 attack=None damage=0 preview=None
+140 pos=240.000,436.000 attack=None damage=0 preview=None
+141 pos=240.000,436.000 attack=None damage=0 preview=None
+142 pos=240.000,436.000 attack=None damage=0 preview=None
+143 pos=240.000,436.000 attack=None damage=0 preview=None
+144 pos=240.000,436.000 attack=None damage=0 preview=None
+145 pos=240.000,436.000 attack=None damage=0 preview=None
+146 pos=240.000,436.000 attack=None damage=0 preview=None
+147 pos=240.000,436.000 attack=None damage=0 preview=None
+148 pos=240.000,436.000 attack=None damage=0 preview=None
+149 pos=240.000,436.000 attack=None damage=0 preview=None
+150 pos=240.000,436.000 attack=None damage=0 preview=None
+151 pos=240.000,436.000 attack=None damage=0 preview=None
+152 pos=240.000,436.000 attack=None damage=0 preview=None
+153 pos=240.000,436.000 attack=None damage=0 preview=None
+154 pos=240.000,436.000 attack=None damage=0 preview=None
+155 pos=240.000,436.000 attack=None damage=0 preview=None
+156 pos=240.000,436.000 attack=None damage=0 preview=None
+157 pos=240.000,436.000 attack=None damage=0 preview=None
+158 pos=240.000,436.000 attack=None damage=0 preview=None
+159 pos=240.000,436.000 attack=None damage=0 preview=None
+160 pos=240.000,436.000 attack=None damage=0 preview=None
+161 pos=240.000,436.000 attack=None damage=0 preview=None
+162 pos=240.000,436.000 attack=None damage=0 preview=None
+163 pos=240.000,436.000 attack=None damage=0 preview=None
+164 pos=240.000,436.000 attack=None damage=0 preview=None
+165 pos=240.000,436.000 attack=None damage=0 preview=None
+166 pos=240.000,436.000 attack=None damage=0 preview=None
+167 pos=240.000,436.000 attack=None damage=0 preview=None
+168 pos=240.000,436.000 attack=None damage=0 preview=None
+169 pos=240.000,436.000 attack=None damage=0 preview=None
+170 pos=240.000,436.000 attack=None damage=0 preview=None
+171 pos=240.000,436.000 attack=None damage=0 preview=None
+172 pos=240.000,436.000 attack=None damage=0 preview=None
+173 pos=240.000,436.000 attack=None damage=0 preview=None
+174 pos=240.000,436.000 attack=None damage=0 preview=None
+175 pos=240.000,436.000 attack=None damage=0 preview=None
+176 pos=240.000,436.000 attack=None damage=0 preview=None
+177 pos=240.000,436.000 attack=None damage=0 preview=None
+178 pos=240.000,436.000 attack=None damage=0 preview=None
+179 pos=240.000,436.000 attack=None damage=0 preview=None

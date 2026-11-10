@@ -48,7 +48,14 @@ fn attack_and_action_operations_are_pure_ordered_and_bounds_checked() {
 #[test]
 fn every_boss_action_has_valid_data_defaults_and_labeled_editable_parameters() {
     let catalog = BossActionInput::catalog();
-    assert_eq!(catalog.len(), Action::ALL_TYPES.len() - 8);
+    assert_eq!(
+        catalog,
+        Action::ALL_TYPES
+            .iter()
+            .enumerate()
+            .map(|(kind, name)| (kind, *name))
+            .collect::<Vec<_>>()
+    );
     for name in [
         "lunge",
         "jump_to",
@@ -60,7 +67,7 @@ fn every_boss_action_has_valid_data_defaults_and_labeled_editable_parameters() {
             .iter()
             .position(|entry| *entry == name)
             .unwrap();
-        assert!(BossActionInput::new(kind).is_err(), "enemy action {name}");
+        assert!(BossActionInput::new(kind).is_ok(), "shared action {name}");
     }
     for (kind, name) in catalog {
         let input = BossActionInput::new(kind).unwrap();
@@ -71,19 +78,25 @@ fn every_boss_action_has_valid_data_defaults_and_labeled_editable_parameters() {
             action
                 .parameter_labels()
                 .iter()
-                .all(|label| label.contains('(')),
+                .all(|label| label.contains('(') || hollow_steps::pose::is_pose_parameter(label)),
             "{name}"
         );
         let mut definition = boss();
-        definition.attacks[0].actions = vec![action];
+        definition.attacks[0].actions = vec![action.clone()];
         definition.validate().unwrap();
         for i in 0..input.values.len() {
             let mut invalid = input.clone();
-            invalid.values[i] = "NaN".into();
+            invalid.values[i] =
+                if hollow_steps::pose::is_pose_parameter(action.parameters()[i].0) {
+                    "bad/name"
+                } else {
+                    "NaN"
+                }
+                .into();
             assert!(invalid.build().is_err(), "{name} parameter {i}");
         }
     }
-    assert!(BossActionInput::new(0).is_err());
+    assert!(BossActionInput::new(Action::ALL_TYPES.len()).is_err());
 }
 
 #[test]

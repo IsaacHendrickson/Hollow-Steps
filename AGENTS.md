@@ -70,6 +70,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/pose.rs`: semantic pose assets, presentation playback, and validation.
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
+- `src/action_runtime.rs`: shared action execution state, motion, attack output, and actor adapters.
 - `src/behavior.rs`: data-driven action sequences, state transitions, and RON validation.
 - `src/enemy_attack.rs`: shared attack geometry, timed enemy attacks, and projectiles.
 - `src/preset.rs`: validated RON behavior preset catalog.
@@ -78,7 +79,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/boss.rs`: boss health, reusable timed attacks, state machine, and death.
 - `src/boss_definition.rs`: validated RON boss definitions and attack selection settings.
 - `src/boss_editor.rs`: pure boss property buffers and ordered attack/action edits.
-- `src/boss_special.rs`: ordered shared boss actions, selection, summons, rings, and coin drops.
+- `src/boss_special.rs`: boss sequence cursors, selection, actor effect integration, and coin drops.
 - `src/combat.rs`: melee swing hitboxes, duration, and cooldown.
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.

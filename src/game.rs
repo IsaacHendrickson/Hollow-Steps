@@ -231,7 +231,8 @@ impl GameState {
     }
 
     /// Re-read every room and its enemy definitions before applying any changes.
-    /// Enemy gameplay restarts; matching body points, player, pickups, and boss progress stay intact.
+    /// Enemy gameplay restarts; matching body points, player, pickups, and unchanged bosses stay intact.
+    /// Changed boss definitions restart from their authored placement.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
         let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(&self.assets)?;
@@ -261,6 +262,14 @@ impl GameState {
                     }
                 }
                 current.enemies = std::mem::take(&mut reloaded.enemies);
+                let same_boss = match (&current.boss_special, &reloaded.boss_special) {
+                    (Some(current), Some(reloaded)) => current.same_definition(reloaded),
+                    (None, None) => true,
+                    _ => false,
+                };
+                if !same_boss {
+                    current.boss_special = reloaded.boss_special.take();
+                }
             } else {
                 self.rooms.push(reloaded);
             }
@@ -285,12 +294,18 @@ impl GameState {
         let bounds = room.world_bounds();
         let mut special_damage = 0;
         if let Some(boss) = &mut room.boss_special {
-            special_damage = boss.update(delta_seconds, self.player.position(), bounds);
+            special_damage = boss.update_with_player_size(
+                delta_seconds,
+                self.player.position(),
+                self.player.size(),
+                bounds,
+            );
             boss.schedule(delta_seconds, self.player.position(), bounds);
             self.special_attack_timer = boss.attack_timer();
             room.enemies.extend_from_slice(boss.new_enemies());
             room.coins.extend_from_slice(boss.new_coins());
         }
+        let mut spawned_positions = Vec::new();
         for enemy in &mut room.enemies {
             enemy.update_with_terrain(
                 self.player.position(),
@@ -299,7 +314,13 @@ impl GameState {
                 bounds,
                 &room.terrain,
             );
+            spawned_positions.extend(enemy.take_spawn_positions());
         }
+        room.enemies.extend(
+            spawned_positions
+                .into_iter()
+                .map(|position| crate::enemy::Enemy::new(position.x, position.x, 0.0, 0.0, bounds)),
+        );
         if let Some(boss) = &mut room.boss {
             boss.update(delta_seconds);
         }
@@ -367,6 +388,11 @@ impl GameState {
             .enemies
             .iter()
             .filter_map(|enemy| enemy.attack_hit(self.player.position(), self.player.size()))
+            .chain(
+                room.boss_special
+                    .as_ref()
+                    .and_then(|boss| boss.attack_hit(self.player.position(), self.player.size())),
+            )
             .filter(|hit| hit.damage >= i32::from(base_damage))
             .max_by_key(|hit| hit.damage)
             .unwrap_or(crate::enemy_attack::DamageHit {

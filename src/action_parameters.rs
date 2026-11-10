@@ -165,7 +165,7 @@ impl EditorParameter for AttackFeedback {
     const LABELS: &'static [&'static str] = &[
         "outline alpha (0..1)",
         "outline width (pixels)",
-        "flash cycles per wind-up",
+        "flash cycles per wind-up (count)",
         "red tint (0..1)",
         "green tint (0..1)",
         "blue tint (0..1)",

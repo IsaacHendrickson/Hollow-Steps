@@ -1,0 +1,180 @@
+0 pos=500.000,300.000 finished=false
+1 pos=500.000,300.000 finished=false
+2 pos=500.000,300.000 finished=false
+3 pos=500.000,300.000 finished=false
+4 pos=500.000,300.000 finished=false
+5 pos=500.000,300.000 finished=false
+6 pos=500.000,300.000 finished=false
+7 pos=500.000,300.000 finished=false
+8 pos=500.000,300.000 finished=false
+9 pos=500.000,300.000 finished=false
+10 pos=500.000,300.000 finished=false
+11 pos=500.000,300.000 finished=false
+12 pos=500.000,300.000 finished=false
+13 pos=500.000,300.000 finished=false
+14 pos=500.000,300.000 finished=false area=Rect center=500.000,300.000 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+15 pos=498.523,300.772 finished=false area=Rect center=498.523,300.772 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+16 pos=497.046,301.545 finished=false area=Rect center=497.046,301.545 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+17 pos=495.569,302.317 finished=false area=Rect center=495.569,302.317 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+18 pos=494.093,303.090 finished=false area=Rect center=494.093,303.090 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+19 pos=492.616,303.862 finished=false area=Rect center=492.616,303.862 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+20 pos=491.139,304.635 finished=false area=Rect center=491.139,304.635 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+21 pos=489.662,305.407 finished=false area=Rect center=489.662,305.407 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+22 pos=488.185,306.180 finished=false area=Rect center=488.185,306.180 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+23 pos=486.708,306.952 finished=false area=Rect center=486.708,306.952 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+24 pos=485.232,307.725 finished=false area=Rect center=485.232,307.725 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+25 pos=483.755,308.497 finished=false area=Rect center=483.755,308.497 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+26 pos=482.278,309.270 finished=false area=Rect center=482.278,309.270 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+27 pos=480.801,310.042 finished=false area=Rect center=480.801,310.042 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+28 pos=479.324,310.815 finished=false area=Rect center=479.324,310.815 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+29 pos=477.847,311.587 finished=false area=Rect center=477.847,311.587 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+30 pos=476.371,312.360 finished=false area=Rect center=476.371,312.360 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+31 pos=474.894,313.132 finished=false area=Rect center=474.894,313.132 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+32 pos=473.417,313.905 finished=false area=Rect center=473.417,313.905 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+33 pos=471.940,314.677 finished=false area=Rect center=471.940,314.677 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+34 pos=470.463,315.450 finished=false area=Rect center=470.463,315.450 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+35 pos=468.986,316.222 finished=false area=Rect center=468.986,316.222 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+36 pos=467.510,316.995 finished=false area=Rect center=467.510,316.995 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+37 pos=466.033,317.767 finished=false area=Rect center=466.033,317.767 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+38 pos=464.556,318.540 finished=false area=Rect center=464.556,318.540 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+39 pos=463.079,319.312 finished=false area=Rect center=463.079,319.312 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+40 pos=461.602,320.085 finished=false area=Rect center=461.602,320.085 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+41 pos=460.125,320.857 finished=false area=Rect center=460.125,320.857 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+42 pos=458.649,321.630 finished=false area=Rect center=458.649,321.630 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+43 pos=457.172,322.402 finished=false area=Rect center=457.172,322.402 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+44 pos=455.695,323.175 finished=false
+45 pos=455.695,323.564 finished=false
+46 pos=455.695,324.341 finished=false
+47 pos=455.695,325.508 finished=false
+48 pos=455.695,327.064 finished=false
+49 pos=455.695,329.008 finished=false
+50 pos=455.695,331.341 finished=false
+51 pos=455.695,334.064 finished=false
+52 pos=455.695,337.175 finished=false
+53 pos=455.695,340.675 finished=false
+54 pos=455.695,344.564 finished=false
+55 pos=455.695,348.841 finished=false
+56 pos=455.695,353.508 finished=false
+57 pos=455.695,358.564 finished=false
+58 pos=455.695,364.008 finished=false
+59 pos=455.695,369.841 finished=true
+60 pos=455.695,376.064 finished=true
+61 pos=455.695,382.675 finished=true
+62 pos=455.695,389.675 finished=true
+63 pos=455.695,397.064 finished=true
+64 pos=455.695,404.841 finished=true
+65 pos=455.695,413.008 finished=true
+66 pos=455.695,421.564 finished=true
+67 pos=455.695,430.508 finished=true
+68 pos=455.695,439.841 finished=true
+69 pos=455.695,444.000 finished=true
+70 pos=455.695,444.000 finished=true
+71 pos=455.695,444.000 finished=true
+72 pos=455.695,444.000 finished=true
+73 pos=455.695,444.000 finished=true
+74 pos=455.695,444.000 finished=true
+75 pos=455.695,444.000 finished=true
+76 pos=455.695,444.000 finished=true
+77 pos=455.695,444.000 finished=true
+78 pos=455.695,444.000 finished=true
+79 pos=455.695,444.000 finished=true
+80 pos=455.695,444.000 finished=true
+81 pos=455.695,444.000 finished=true
+82 pos=455.695,444.000 finished=true
+83 pos=455.695,444.000 finished=true
+84 pos=455.695,444.000 finished=true
+85 pos=455.695,444.000 finished=true
+86 pos=455.695,444.000 finished=true
+87 pos=455.695,444.000 finished=true
+88 pos=455.695,444.000 finished=true
+89 pos=455.695,444.000 finished=true
+90 pos=455.695,444.000 finished=true
+91 pos=455.695,444.000 finished=true
+92 pos=455.695,444.000 finished=true
+93 pos=455.695,444.000 finished=true
+94 pos=455.695,444.000 finished=true
+95 pos=455.695,444.000 finished=true
+96 pos=455.695,444.000 finished=true
+97 pos=455.695,444.000 finished=true
+98 pos=455.695,444.000 finished=true
+99 pos=455.695,444.000 finished=true
+100 pos=455.695,444.000 finished=true
+101 pos=455.695,444.000 finished=true
+102 pos=455.695,444.000 finished=true
+103 pos=455.695,444.000 finished=true
+104 pos=455.695,444.000 finished=true
+105 pos=455.695,444.000 finished=true
+106 pos=455.695,444.000 finished=true
+107 pos=455.695,444.000 finished=true
+108 pos=455.695,444.000 finished=true
+109 pos=455.695,444.000 finished=true
+110 pos=455.695,444.000 finished=true
+111 pos=455.695,444.000 finished=true
+112 pos=455.695,444.000 finished=true
+113 pos=455.695,444.000 finished=true
+114 pos=455.695,444.000 finished=true
+115 pos=455.695,444.000 finished=true
+116 pos=455.695,444.000 finished=true
+117 pos=455.695,444.000 finished=true
+118 pos=455.695,444.000 finished=true
+119 pos=455.695,444.000 finished=true
+120 pos=455.695,444.000 finished=true
+121 pos=455.695,444.000 finished=true
+122 pos=455.695,444.000 finished=true
+123 pos=455.695,444.000 finished=true
+124 pos=455.695,444.000 finished=true
+125 pos=455.695,444.000 finished=true
+126 pos=455.695,444.000 finished=true
+127 pos=455.695,444.000 finished=true
+128 pos=455.695,444.000 finished=true
+129 pos=455.695,444.000 finished=true
+130 pos=455.695,444.000 finished=true
+131 pos=455.695,444.000 finished=true
+132 pos=455.695,444.000 finished=true
+133 pos=455.695,444.000 finished=true
+134 pos=455.695,444.000 finished=true
+135 pos=455.695,444.000 finished=true
+136 pos=455.695,444.000 finished=true
+137 pos=455.695,444.000 finished=true
+138 pos=455.695,444.000 finished=true
+139 pos=455.695,444.000 finished=true
+140 pos=455.695,444.000 finished=true
+141 pos=455.695,444.000 finished=true
+142 pos=455.695,444.000 finished=true
+143 pos=455.695,444.000 finished=true
+144 pos=455.695,444.000 finished=true
+145 pos=455.695,444.000 finished=true
+146 pos=455.695,444.000 finished=true
+147 pos=455.695,444.000 finished=true
+148 pos=455.695,444.000 finished=true
+149 pos=455.695,444.000 finished=true
+150 pos=455.695,444.000 finished=true
+151 pos=455.695,444.000 finished=true
+152 pos=455.695,444.000 finished=true
+153 pos=455.695,444.000 finished=true
+154 pos=455.695,444.000 finished=true
+155 pos=455.695,444.000 finished=true
+156 pos=455.695,444.000 finished=true
+157 pos=455.695,444.000 finished=true
+158 pos=455.695,444.000 finished=true
+159 pos=455.695,444.000 finished=true
+160 pos=455.695,444.000 finished=true
+161 pos=455.695,444.000 finished=true
+162 pos=455.695,444.000 finished=true
+163 pos=455.695,444.000 finished=true
+164 pos=455.695,444.000 finished=true
+165 pos=455.695,444.000 finished=true
+166 pos=455.695,444.000 finished=true
+167 pos=455.695,444.000 finished=true
+168 pos=455.695,444.000 finished=true
+169 pos=455.695,444.000 finished=true
+170 pos=455.695,444.000 finished=true
+171 pos=455.695,444.000 finished=true
+172 pos=455.695,444.000 finished=true
+173 pos=455.695,444.000 finished=true
+174 pos=455.695,444.000 finished=true
+175 pos=455.695,444.000 finished=true
+176 pos=455.695,444.000 finished=true
+177 pos=455.695,444.000 finished=true
+178 pos=455.695,444.000 finished=true
+179 pos=455.695,444.000 finished=true

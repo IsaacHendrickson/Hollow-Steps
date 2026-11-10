@@ -129,6 +129,7 @@ async fn main() {
             body_draw::draw_body_debug_overlay(
                 &body_debug_overlay,
                 &game.room().enemies,
+                game.room().boss_special.as_ref(),
                 game.player().position(),
                 |position| letterbox.offset + (position - top_left) * letterbox.scale,
                 letterbox.scale,
@@ -279,7 +280,12 @@ fn draw_scene(game: &GameState) {
         );
     }
     for enemy in &game.room().enemies {
-        for blast in enemy.behavior().blasts() {
+        for blast in enemy
+            .behavior()
+            .blasts()
+            .iter()
+            .chain(enemy.behavior().rings())
+        {
             let color = if blast.exploded { RED } else { ORANGE };
             draw_circle_lines(blast.position.x, blast.position.y, blast.radius, 2.0, color);
         }
@@ -359,6 +365,7 @@ fn draw_boss(boss: &Boss) {
 
 fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
     if !boss.is_defeated() {
+        body_draw::draw_boss_attacks(boss);
         if let Some((target_x, radius)) = boss.landing_preview() {
             draw_rectangle(target_x - radius, floor_y - 12.0, radius * 2.0, 12.0, RED);
         }
@@ -778,9 +785,24 @@ fn draw_editor(
                     .ok()
             })
             .collect::<Vec<_>>();
+        let boss_preview = editor.draft.boss.as_ref().and_then(|placement| {
+            editor
+                .content
+                .bosses
+                .values()
+                .find(|definition| definition.name == placement.definition)
+                .and_then(|definition| {
+                    BossSpecials::from_definition(
+                        std::sync::Arc::new(definition.clone()),
+                        placement.position.into(),
+                    )
+                    .ok()
+                })
+        });
         body_draw::draw_body_debug_overlay(
             body_debug_overlay,
             &enemies,
+            boss_preview.as_ref(),
             player_position,
             |position| canvas.screen(position),
             canvas.scale,

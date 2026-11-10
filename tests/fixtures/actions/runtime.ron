@@ -1,0 +1,15 @@
+[
+    move_toward_player(speed: 100.0),
+    move_away_from_player(speed: 100.0),
+    patrol(speed: 80.0),
+    wait(seconds: 0.5),
+    telegraph(seconds: 0.25),
+    hover(seconds: 0.5),
+    glide_to_player(speed: 500.0, above_floor: 180.0),
+    glide_to_floor(speed: 600.0),
+    damage_target(radius: 80.0, damage: 2),
+    summon(inset: 120.0),
+    spawn_rings(count: 3),
+    explode_rings(radius: 48.0, damage: 2),
+    spawn_shockwave(radius: 80.0, damage: 2),
+]

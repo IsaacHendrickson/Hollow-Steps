@@ -383,6 +383,10 @@ impl Enemy {
         self.contact_damage
     }
 
+    pub(crate) fn take_spawn_positions(&mut self) -> Vec<Vec2> {
+        self.behavior.take_spawn_positions()
+    }
+
     pub fn behavior(&self) -> &Behavior {
         &self.behavior
     }

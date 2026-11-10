@@ -1,0 +1,180 @@
+0 pos=500.000,300.000 finished=false
+1 pos=500.000,300.000 finished=false
+2 pos=500.000,300.000 finished=false
+3 pos=500.000,300.000 finished=false
+4 pos=500.000,300.000 finished=false
+5 pos=500.000,300.000 finished=false
+6 pos=500.000,300.000 finished=false
+7 pos=500.000,300.000 finished=false
+8 pos=500.000,300.000 finished=false
+9 pos=500.000,300.000 finished=false
+10 pos=500.000,300.000 finished=false
+11 pos=500.000,300.000 finished=false
+12 pos=500.000,300.000 finished=false
+13 pos=500.000,300.000 finished=false
+14 pos=500.000,300.000 finished=false
+15 pos=500.000,300.000 finished=false
+16 pos=500.000,300.000 finished=false
+17 pos=500.000,300.000 finished=false
+18 pos=500.000,300.000 finished=false
+19 pos=500.000,300.000 finished=false
+20 pos=500.000,300.000 finished=false
+21 pos=500.000,300.000 finished=false
+22 pos=500.000,300.000 finished=false
+23 pos=500.000,300.000 finished=false
+24 pos=500.000,300.000 finished=false
+25 pos=500.000,300.000 finished=false
+26 pos=500.000,300.000 finished=false
+27 pos=500.000,300.000 finished=false
+28 pos=500.000,300.000 finished=false
+29 pos=500.000,300.000 finished=false
+30 pos=500.000,303.333 finished=false
+31 pos=500.000,306.667 finished=false
+32 pos=500.000,310.000 finished=false
+33 pos=500.000,313.333 finished=false
+34 pos=500.000,316.667 finished=false
+35 pos=500.000,320.000 finished=false
+36 pos=500.000,323.333 finished=false
+37 pos=500.000,326.667 finished=false
+38 pos=500.000,330.000 finished=false
+39 pos=500.000,333.333 finished=false
+40 pos=500.000,336.667 finished=false
+41 pos=500.000,340.000 finished=false
+42 pos=500.000,343.333 finished=false
+43 pos=500.000,346.667 finished=false
+44 pos=500.000,350.000 finished=false
+45 pos=500.000,353.333 finished=false
+46 pos=500.000,356.667 finished=false
+47 pos=500.000,360.000 finished=false
+48 pos=500.000,363.333 finished=false
+49 pos=500.000,366.667 finished=false
+50 pos=500.000,370.000 finished=false
+51 pos=500.000,373.333 finished=false
+52 pos=500.000,376.667 finished=false
+53 pos=500.000,380.000 finished=false
+54 pos=500.000,383.333 finished=false
+55 pos=500.000,386.667 finished=false
+56 pos=500.000,390.000 finished=false
+57 pos=500.000,393.333 finished=false
+58 pos=500.000,396.667 finished=false
+59 pos=500.000,400.000 finished=false
+60 pos=500.000,403.333 finished=false
+61 pos=500.000,406.667 finished=false
+62 pos=500.000,410.000 finished=false
+63 pos=500.000,413.333 finished=false
+64 pos=500.000,416.667 finished=false
+65 pos=500.000,420.000 finished=false
+66 pos=500.000,423.333 finished=false
+67 pos=500.000,426.667 finished=false
+68 pos=500.000,430.000 finished=false
+69 pos=500.000,433.333 finished=false
+70 pos=500.000,436.667 finished=false
+71 pos=500.000,440.000 finished=false
+72 pos=500.000,443.333 finished=false
+73 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+74 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+75 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+76 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+77 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+78 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+79 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+80 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+81 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+82 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+83 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+84 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+85 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+86 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+87 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+88 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+89 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+90 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+91 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+92 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+93 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+94 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+95 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+96 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+97 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+98 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+99 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+100 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+101 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+102 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+103 pos=500.000,444.000 finished=false
+104 pos=500.000,444.000 finished=false
+105 pos=500.000,444.000 finished=false
+106 pos=500.000,444.000 finished=false
+107 pos=500.000,444.000 finished=false
+108 pos=500.000,444.000 finished=false
+109 pos=500.000,444.000 finished=false
+110 pos=500.000,444.000 finished=false
+111 pos=500.000,444.000 finished=false
+112 pos=500.000,444.000 finished=false
+113 pos=500.000,444.000 finished=false
+114 pos=500.000,444.000 finished=false
+115 pos=500.000,444.000 finished=false
+116 pos=500.000,444.000 finished=false
+117 pos=500.000,444.000 finished=false
+118 pos=500.000,444.000 finished=false
+119 pos=500.000,444.000 finished=false
+120 pos=500.000,444.000 finished=false
+121 pos=500.000,444.000 finished=false
+122 pos=500.000,444.000 finished=false
+123 pos=500.000,444.000 finished=false
+124 pos=500.000,444.000 finished=false
+125 pos=500.000,444.000 finished=false
+126 pos=500.000,444.000 finished=false
+127 pos=500.000,444.000 finished=false
+128 pos=500.000,444.000 finished=false
+129 pos=500.000,444.000 finished=false
+130 pos=500.000,444.000 finished=false
+131 pos=500.000,444.000 finished=false
+132 pos=500.000,444.000 finished=false
+133 pos=500.000,444.000 finished=true
+134 pos=500.000,444.000 finished=true
+135 pos=500.000,444.000 finished=true
+136 pos=500.000,444.000 finished=true
+137 pos=500.000,444.000 finished=true
+138 pos=500.000,444.000 finished=true
+139 pos=500.000,444.000 finished=true
+140 pos=500.000,444.000 finished=true
+141 pos=500.000,444.000 finished=true
+142 pos=500.000,444.000 finished=true
+143 pos=500.000,444.000 finished=true
+144 pos=500.000,444.000 finished=true
+145 pos=500.000,444.000 finished=true
+146 pos=500.000,444.000 finished=true
+147 pos=500.000,444.000 finished=true
+148 pos=500.000,444.000 finished=true
+149 pos=500.000,444.000 finished=true
+150 pos=500.000,444.000 finished=true
+151 pos=500.000,444.000 finished=true
+152 pos=500.000,444.000 finished=true
+153 pos=500.000,444.000 finished=true
+154 pos=500.000,444.000 finished=true
+155 pos=500.000,444.000 finished=true
+156 pos=500.000,444.000 finished=true
+157 pos=500.000,444.000 finished=true
+158 pos=500.000,444.000 finished=true
+159 pos=500.000,444.000 finished=true
+160 pos=500.000,444.000 finished=true
+161 pos=500.000,444.000 finished=true
+162 pos=500.000,444.000 finished=true
+163 pos=500.000,444.000 finished=true
+164 pos=500.000,444.000 finished=true
+165 pos=500.000,444.000 finished=true
+166 pos=500.000,444.000 finished=true
+167 pos=500.000,444.000 finished=true
+168 pos=500.000,444.000 finished=true
+169 pos=500.000,444.000 finished=true
+170 pos=500.000,444.000 finished=true
+171 pos=500.000,444.000 finished=true
+172 pos=500.000,444.000 finished=true
+173 pos=500.000,444.000 finished=true
+174 pos=500.000,444.000 finished=true
+175 pos=500.000,444.000 finished=true
+176 pos=500.000,444.000 finished=true
+177 pos=500.000,444.000 finished=true
+178 pos=500.000,444.000 finished=true
+179 pos=500.000,444.000 finished=true
