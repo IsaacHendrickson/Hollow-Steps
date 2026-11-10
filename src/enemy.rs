@@ -443,9 +443,19 @@ impl Enemy {
         for step in self.behavior.take_pose_steps() {
             match step {
                 crate::pose::PoseStep::Face(left) => self.facing_left = left,
-                crate::pose::PoseStep::Apply { name, seconds } => {
+                crate::pose::PoseStep::Apply {
+                    name,
+                    seconds,
+                    blend_secs,
+                    stiffness_multiplier,
+                    instant,
+                } => {
                     if let Some(body) = &mut self.body {
                         body.set_pose(name.as_deref(), &self.poses);
+                        body.configure_pose_spring(blend_secs, stiffness_multiplier);
+                        if instant {
+                            body.instant_pose_impulse();
+                        }
                         body.step(seconds);
                     }
                 }

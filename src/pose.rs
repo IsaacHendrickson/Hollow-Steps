@@ -71,8 +71,62 @@ pub fn load_poses(directory: &Path) -> Result<Poses, String> {
 
 #[derive(Clone, Debug)]
 pub enum PoseStep {
-    Apply { name: Option<String>, seconds: f32 },
+    Apply {
+        name: Option<String>,
+        seconds: f32,
+        blend_secs: f32,
+        stiffness_multiplier: f32,
+        instant: bool,
+    },
     Idle(f32),
     Clear,
     Face(bool),
+}
+
+#[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PoseMotion {
+    pub settle_factor: f32,
+    pub min_blend_secs: f32,
+    /// Visual spring impulse for actions whose strike has zero simulation duration.
+    pub instant_strike_secs: f32,
+}
+#[derive(serde::Deserialize)]
+struct Defaults {
+    pose_blend_ratio: f32,
+    strike_stiffness_multiplier: f32,
+    motion: PoseMotion,
+}
+fn defaults() -> Defaults {
+    ron::from_str(include_str!("../data/pose_defaults.ron")).expect("valid pose defaults")
+}
+impl Default for PoseMotion {
+    fn default() -> Self {
+        defaults().motion
+    }
+}
+impl PoseMotion {
+    pub fn validate(self) -> Result<(), String> {
+        for value in [
+            self.settle_factor,
+            self.min_blend_secs,
+            self.instant_strike_secs,
+        ] {
+            crate::behavior::positive(value)?;
+        }
+        Ok(())
+    }
+}
+pub fn default_blend_ratio() -> f32 {
+    defaults().pose_blend_ratio
+}
+pub fn default_strike_multiplier() -> f32 {
+    defaults().strike_stiffness_multiplier
+}
+pub(crate) fn valid_blend_ratio(value: f32) -> Result<(), String> {
+    crate::behavior::positive(value)?;
+    if value > 1.0 {
+        return Err("pose blend ratio must be at most 1".into());
+    }
+    Ok(())
 }

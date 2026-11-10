@@ -17,6 +17,7 @@ use crate::enemy_attack::{
 use crate::enemy_attack::{blast_radius, valid_vector, AttackVector};
 use crate::enemy_attack::{default_feedback, valid_feedback, AttackFeedback, AttackWarning};
 use crate::player::WorldBounds;
+use crate::pose::{default_blend_ratio, default_strike_multiplier, valid_blend_ratio};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -215,6 +216,10 @@ fn deserialize_jump<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
         active_pose: Option<String>,
         #[serde(default)]
         recovery_pose: Option<String>,
+        #[serde(default = "default_blend_ratio")]
+        pose_blend_ratio: f32,
+        #[serde(default = "default_strike_multiplier")]
+        strike_stiffness_multiplier: f32,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match (p.speed, p.air_time_secs) {
@@ -225,6 +230,7 @@ fn deserialize_jump<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
             recovery_secs: p.recovery_secs.ok_or_else(|| A::Error::custom("jump_to: missing recovery_secs"))?,
             telegraph_secs: p.telegraph_secs.ok_or_else(|| A::Error::custom("jump_to: missing telegraph_secs"))?,
             telegraph_pose: p.telegraph_pose, active_pose: p.active_pose, recovery_pose: p.recovery_pose,
+            pose_blend_ratio: p.pose_blend_ratio, strike_stiffness_multiplier: p.strike_stiffness_multiplier,
             feedback: p.feedback.unwrap_or_else(default_feedback) }),
         _ => Err(A::Error::custom("jump_to: provide air_time_secs and attack parameters, or legacy speed; do not mix forms")),
     }
@@ -249,6 +255,10 @@ fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
         active_pose: Option<String>,
         #[serde(default)]
         recovery_pose: Option<String>,
+        #[serde(default = "default_blend_ratio")]
+        pose_blend_ratio: f32,
+        #[serde(default = "default_strike_multiplier")]
+        strike_stiffness_multiplier: f32,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match p.attack {
@@ -264,6 +274,8 @@ fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
             telegraph_pose: p.telegraph_pose,
             active_pose: p.active_pose,
             recovery_pose: p.recovery_pose,
+            pose_blend_ratio: p.pose_blend_ratio,
+            strike_stiffness_multiplier: p.strike_stiffness_multiplier,
             feedback: p.feedback.unwrap_or_else(default_feedback),
         }),
         None if p.recovery_secs.is_none() && p.telegraph_secs.is_none() && p.feedback.is_none() => {
@@ -303,6 +315,10 @@ fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
         active_pose: Option<String>,
         #[serde(default)]
         recovery_pose: Option<String>,
+        #[serde(default = "default_blend_ratio")]
+        pose_blend_ratio: f32,
+        #[serde(default = "default_strike_multiplier")]
+        strike_stiffness_multiplier: f32,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match (p.count, p.fuse_time, p.knockback, p.active_secs) {
@@ -313,6 +329,7 @@ fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
             knockback_secs: p.knockback_secs.unwrap_or_else(default_knockback_secs),
             telegraph_secs: p.telegraph_secs.ok_or_else(|| A::Error::custom("area_blast: missing telegraph_secs"))?,
             telegraph_pose: p.telegraph_pose, active_pose: p.active_pose, recovery_pose: p.recovery_pose,
+            pose_blend_ratio: p.pose_blend_ratio, strike_stiffness_multiplier: p.strike_stiffness_multiplier,
             feedback: p.feedback.unwrap_or_else(default_feedback) }),
         _ => Err(A::Error::custom("area_blast: requires knockback and active_secs, or legacy count and fuse_time; do not mix forms")),
     }
@@ -347,7 +364,9 @@ actions! {
         feedback: AttackFeedback => ("warning feedback", valid_feedback),
         #[serde(default)] telegraph_pose: Option<String> => ("telegraph_pose", valid_pose_name),
         #[serde(default)] active_pose: Option<String> => ("active_pose", valid_pose_name),
-        #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name)
+        #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
+        #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
+        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier", positive)
     },
     JumpTo => "jump_to" {
         air_time_secs: f32 => ("air time (seconds)", positive),
@@ -363,7 +382,9 @@ actions! {
         feedback: AttackFeedback => ("warning feedback", valid_feedback),
         #[serde(default)] telegraph_pose: Option<String> => ("telegraph_pose", valid_pose_name),
         #[serde(default)] active_pose: Option<String> => ("active_pose", valid_pose_name),
-        #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name)
+        #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
+        #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
+        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier", positive)
     },
     #[serde(rename = "slam_down")]
     ImpactSlam => "slam_down" {
@@ -375,7 +396,9 @@ actions! {
         feedback: AttackFeedback => ("warning feedback", valid_feedback),
         #[serde(default)] telegraph_pose: Option<String> => ("telegraph_pose", valid_pose_name),
         #[serde(default)] active_pose: Option<String> => ("active_pose", valid_pose_name),
-        #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name)
+        #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
+        #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
+        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier", positive)
     },
     ShootProjectile => "shoot_projectile" {
         speed: f32 => ("projectile speed (pixels/second)", positive),
@@ -390,7 +413,9 @@ actions! {
         feedback: AttackFeedback => ("warning feedback", valid_feedback),
         #[serde(default)] telegraph_pose: Option<String> => ("telegraph_pose", valid_pose_name),
         #[serde(default)] active_pose: Option<String> => ("active_pose", valid_pose_name),
-        #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name)
+        #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
+        #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
+        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier", positive)
     },
     #[serde(rename = "area_blast")]
     RadialBlast => "area_blast" {
@@ -405,7 +430,9 @@ actions! {
         feedback: AttackFeedback => ("warning feedback", valid_feedback),
         #[serde(default)] telegraph_pose: Option<String> => ("telegraph_pose", valid_pose_name),
         #[serde(default)] active_pose: Option<String> => ("active_pose", valid_pose_name),
-        #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name)
+        #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
+        #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
+        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier", positive)
     };
     GlideToPlayer => "glide_to_player" {
         speed: f32 => ("Glide speed (px/s)", positive), above_floor: f32 => ("Height above floor (px)", nonnegative)
@@ -928,6 +955,7 @@ impl Behavior {
                 self.airborne = false;
             }
             let pose_bindings = action.pose_bindings();
+            let (blend_secs, strike_multiplier) = action.pose_timing();
             if !self.action_started && pose_bindings.is_some() {
                 self.pose_steps.push(crate::pose::PoseStep::Face(
                     context.player_position.x < position.x,
@@ -1211,6 +1239,9 @@ impl Behavior {
                     self.pose_steps.push(crate::pose::PoseStep::Apply {
                         name: bindings[phase].clone(),
                         seconds,
+                        blend_secs,
+                        stiffness_multiplier: if phase == 1 { strike_multiplier } else { 1.0 },
+                        instant: phase == 1 && seconds == 0.0 && finished,
                     });
                 }
                 if finished {
@@ -1475,6 +1506,47 @@ impl Action {
                 recovery_pose.clone(),
             ]),
             _ => None,
+        }
+    }
+}
+
+impl Action {
+    pub fn pose_timing(&self) -> (f32, f32) {
+        match self {
+            Self::Lunge {
+                telegraph_secs,
+                pose_blend_ratio,
+                strike_stiffness_multiplier,
+                ..
+            }
+            | Self::JumpTo {
+                telegraph_secs,
+                pose_blend_ratio,
+                strike_stiffness_multiplier,
+                ..
+            }
+            | Self::ImpactSlam {
+                telegraph_secs,
+                pose_blend_ratio,
+                strike_stiffness_multiplier,
+                ..
+            }
+            | Self::ShootProjectile {
+                telegraph_secs,
+                pose_blend_ratio,
+                strike_stiffness_multiplier,
+                ..
+            }
+            | Self::RadialBlast {
+                telegraph_secs,
+                pose_blend_ratio,
+                strike_stiffness_multiplier,
+                ..
+            } => (
+                *telegraph_secs * *pose_blend_ratio,
+                *strike_stiffness_multiplier,
+            ),
+            _ => (0.0, 1.0),
         }
     }
 }

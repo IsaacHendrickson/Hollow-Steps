@@ -119,6 +119,8 @@ pub struct BodyPart {
 pub struct BodyTemplate {
     #[serde(default)]
     pub pose_map: BTreeMap<String, String>,
+    #[serde(default)]
+    pub pose_motion: crate::pose::PoseMotion,
     pub points: BTreeMap<String, BodyPoint>,
     pub parts: Vec<BodyPart>,
     #[serde(default)]
@@ -131,6 +133,9 @@ pub struct BodyTemplate {
 
 impl BodyTemplate {
     pub fn validate(&self) -> Result<(), String> {
+        self.pose_motion
+            .validate()
+            .map_err(|e| format!("pose motion: {e}"))?;
         self.follow.validate().map_err(|e| format!("follow: {e}"))?;
         for (name, follow) in &self.follow_overrides {
             if !self.points.contains_key(name) {
@@ -321,6 +326,7 @@ pub struct BodyInstance {
     game_time_secs: f64,
     pub pose_name: Option<String>,
     pose_points: BTreeSet<String>,
+    pose_frequency: Option<f64>,
 }
 
 impl BodyInstance {
@@ -340,6 +346,7 @@ impl BodyInstance {
             game_time_secs: 0.0,
             pose_name: None,
             pose_points: BTreeSet::new(),
+            pose_frequency: None,
             template,
             visual,
         };
@@ -389,6 +396,37 @@ impl BodyInstance {
             self.clear_target(&name).expect("resolved pose point");
         }
         self.pose_name = None;
+        self.pose_frequency = None;
+    }
+
+    pub fn configure_pose_spring(&mut self, blend_secs: f32, stiffness_multiplier: f32) {
+        self.pose_frequency = self.pose_name.as_ref().map(|_| {
+            f64::from(self.template.pose_motion.settle_factor)
+                / f64::from(blend_secs.max(self.template.pose_motion.min_blend_secs))
+                * f64::from(stiffness_multiplier).sqrt()
+        });
+    }
+
+    /// Exact critically damped spring solution, stable even for very short wind-ups.
+    fn integrate_pose(&mut self, seconds: f32) {
+        let Some(omega) = self.pose_frequency else {
+            return;
+        };
+        let dt = f64::from(seconds);
+        let decay = (-omega * dt).exp();
+        for name in &self.pose_points {
+            let target = self.targets[name].as_dvec2();
+            let position = self.points.get_mut(name).expect("pose point");
+            let velocity = self.velocities.get_mut(name).expect("pose velocity");
+            let error = position.as_dvec2() - target;
+            let c = (velocity.as_dvec2() + omega * error) * dt;
+            *position = (target + (error + c) * decay).as_vec2();
+            *velocity = ((velocity.as_dvec2() - omega * c) * decay).as_vec2();
+        }
+    }
+
+    pub fn instant_pose_impulse(&mut self) {
+        self.integrate_pose(self.template.pose_motion.instant_strike_secs);
     }
 
     pub fn snap_to_targets(&mut self) {
@@ -416,8 +454,12 @@ impl BodyInstance {
         }
         self.game_time_secs += f64::from(delta_seconds);
         self.refresh_targets();
+        self.integrate_pose(delta_seconds);
         let dt = delta_seconds.min(motion_defaults().max_step_secs);
         for (name, position) in &mut self.points {
+            if self.pose_frequency.is_some() && self.pose_points.contains(name) {
+                continue;
+            }
             let follow = self
                 .template
                 .follow_overrides

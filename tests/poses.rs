@@ -97,3 +97,46 @@ fn action_start_sets_targets_and_end_clears_them() {
         body.template.points["root"].rest.0 - 0.2
     );
 }
+
+#[test]
+fn telegraph_settles_by_blend_ratio_and_strike_is_faster() {
+    for duration in [0.01_f32, 0.15, 0.5, 2.0] {
+        for steps in [1, 30, 120] {
+            let mut body = body();
+            let poses = [(
+                "windup".into(),
+                Arc::new(ron::from_str(include_str!("fixtures/poses/windup.ron")).unwrap()),
+            )]
+            .into();
+            body.set_pose(Some("windup"), &poses);
+            let target = body.targets["root"];
+            body.configure_pose_spring(duration * 0.8, 1.0);
+            for _ in 0..steps {
+                body.step(duration * 0.8 / steps as f32);
+            }
+            assert!(
+                body.points["root"].distance(target) < 0.003,
+                "{duration}, {steps}"
+            );
+            body.step(duration * 0.2);
+            assert!(body.points["root"].distance(target) < 0.001);
+            assert!(body.points.values().all(|p| p.is_finite()));
+        }
+    }
+    let mut slow = body();
+    let poses = [(
+        "windup".into(),
+        Arc::new(ron::from_str(include_str!("fixtures/poses/windup.ron")).unwrap()),
+    )]
+    .into();
+    slow.set_pose(Some("windup"), &poses);
+    let mut fast = slow.clone();
+    slow.configure_pose_spring(0.4, 1.0);
+    fast.configure_pose_spring(0.4, 3.0);
+    slow.step(0.05);
+    fast.step(0.05);
+    assert!(
+        fast.points["root"].distance(fast.targets["root"])
+            < slow.points["root"].distance(slow.targets["root"])
+    );
+}
