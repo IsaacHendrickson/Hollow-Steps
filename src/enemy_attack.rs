@@ -550,10 +550,15 @@ pub(crate) fn blast_radius(radius: f32) -> Result<(), String> {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct AttackFeedback {
+    #[serde(default = "default_warning_tint_strength")]
+    pub warning_tint_strength: f32,
     pub outline_alpha: f32,
     pub outline_width: f32,
     pub flash_cycles: f32,
     pub tint: (f32, f32, f32),
+}
+fn default_warning_tint_strength() -> f32 {
+    default_feedback().warning_tint_strength
 }
 pub(crate) fn default_feedback() -> AttackFeedback {
     ron::from_str(include_str!("../data/attack_feedback_defaults.ron"))
@@ -562,6 +567,7 @@ pub(crate) fn default_feedback() -> AttackFeedback {
 pub(crate) fn valid_feedback(value: AttackFeedback) -> Result<(), String> {
     for channel in [
         value.outline_alpha,
+        value.warning_tint_strength,
         value.tint.0,
         value.tint.1,
         value.tint.2,

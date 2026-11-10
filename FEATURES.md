@@ -58,3 +58,4 @@
 - Data-bound attack phase pose commands and spring target cleanup on completion/interruption: `src/behavior.rs`, `src/enemy_attack.rs`, `src/enemy.rs`, `src/body.rs`; `tests/poses.rs`, `tests/attack_actions.rs`.
 - Telegraph-derived critically damped pose springs, data blend ratio and faster strike stiffness, including instantaneous shot recoil: `src/pose.rs`, `src/body.rs`, `src/behavior.rs`, `data/pose_defaults.ron`; `tests/poses.rs`.
 - Eight authored semantic poses, attack bindings including legacy separate wind-ups, and timed hurt pose/white flash without gameplay changes: `assets/poses/`, `assets/behaviors/`, `src/pose.rs`, `src/body.rs`, `src/enemy.rs`, `src/body_draw.rs`; `tests/poses.rs`.
+- Subtle data/editor warning tint strength (0.25 default) with retained 30% AttackBox outline: `src/enemy_attack.rs`, `src/body_draw.rs`, `src/action_parameters.rs`, `data/attack_feedback_defaults.ron`; `tests/attack_actions.rs`.

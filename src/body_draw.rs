@@ -79,10 +79,11 @@ fn enemy_tint(enemy: &Enemy, color: Color) -> Color {
         return color;
     };
     let tint = warning.feedback.tint;
+    let strength = warning.strength * warning.feedback.warning_tint_strength;
     Color::new(
-        color.r + (tint.0 - color.r) * warning.strength,
-        color.g + (tint.1 - color.g) * warning.strength,
-        color.b + (tint.2 - color.b) * warning.strength,
+        color.r + (tint.0 - color.r) * strength,
+        color.g + (tint.1 - color.g) * strength,
+        color.b + (tint.2 - color.b) * strength,
         color.a,
     )
 }

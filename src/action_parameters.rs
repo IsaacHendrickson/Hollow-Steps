@@ -169,6 +169,7 @@ impl EditorParameter for AttackFeedback {
         "red tint (0..1)",
         "green tint (0..1)",
         "blue tint (0..1)",
+        "warning tint strength (0..1)",
     ];
     fn editor_values(self) -> Vec<String> {
         vec![
@@ -178,6 +179,7 @@ impl EditorParameter for AttackFeedback {
             self.tint.0.to_string(),
             self.tint.1.to_string(),
             self.tint.2.to_string(),
+            self.warning_tint_strength.to_string(),
         ]
     }
     fn edit(&mut self, index: usize, text: &str) -> Result<(), String> {
@@ -188,6 +190,7 @@ impl EditorParameter for AttackFeedback {
             3 => self.tint.0 = parse(text)?,
             4 => self.tint.1 = parse(text)?,
             5 => self.tint.2 = parse(text)?,
+            6 => self.warning_tint_strength = parse(text)?,
             _ => return Err("missing feedback parameter".into()),
         }
         Ok(())
