@@ -12,6 +12,7 @@ use crate::enemy_attack::{
     valid_optional_attack, valid_size, Aim, AttackBox, AttackRuntime, AttackSize, DamageHit,
     OptionalAttack, Projectile,
 };
+use crate::enemy_attack::{blast_radius, valid_vector, AttackVector};
 use crate::player::WorldBounds;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -47,6 +48,7 @@ macro_rules! actions {
                         let (name, variant) = data.variant::<ActionIdentifier>()?;
                         if name.0 == "jump_to" { return deserialize_jump(variant); }
                         if name.0 == "slam_down" { return deserialize_slam(variant); }
+                        if name.0 == "area_blast" { return deserialize_blast(variant); }
                         match name.0.as_str() {
                             $($name => {
                                 #[derive(Deserialize)]
@@ -239,6 +241,36 @@ fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
     }
 }
 
+fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
+    variant: A,
+) -> Result<Action, A::Error> {
+    use serde::de::Error;
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Fields {
+        radius: f32,
+        damage: i32,
+        #[serde(default, deserialize_with = "present")]
+        count: Option<u16>,
+        #[serde(default, deserialize_with = "present")]
+        fuse_time: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        knockback: Option<AttackVector>,
+        #[serde(default, deserialize_with = "present")]
+        active_secs: Option<f32>,
+        #[serde(default)]
+        telegraph_secs: f32,
+    }
+    let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
+    match (p.count, p.fuse_time, p.knockback, p.active_secs) {
+        (Some(count), Some(fuse_time), None, None) if p.telegraph_secs == 0.0 => Ok(Action::AreaBlast {
+            count, fuse_time, radius: p.radius, damage: u8::try_from(p.damage).map_err(|_| A::Error::custom("legacy blast damage must be 0..255"))? }),
+        (None, None, Some(knockback), Some(active_secs)) => Ok(Action::RadialBlast {
+            radius: p.radius, damage: p.damage, knockback, active_secs, telegraph_secs: p.telegraph_secs }),
+        _ => Err(A::Error::custom("area_blast: requires knockback and active_secs, or legacy count and fuse_time; do not mix forms")),
+    }
+}
+
 actions! {
     ShootProjectile => "shoot_projectile" {
         speed: f32 => ("projectile speed (pixels/second)", positive),
@@ -287,7 +319,15 @@ actions! {
         telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
     },
     SlamDown => "legacy_slam_down" { speed: f32 => ("downward slam speed (pixels/second)", nonnegative) },
-    AreaBlast => "area_blast" {
+    #[serde(rename = "area_blast")]
+    RadialBlast => "area_blast" {
+        radius: f32 => ("blast radius (pixels)", blast_radius),
+        damage: i32 => ("blast damage (integer)", attack_damage),
+        knockback: AttackVector => ("blast knockback (pixels/second)", valid_vector),
+        active_secs: f32 => ("blast active duration (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
+    },
+    AreaBlast => "legacy_area_blast" {
         count: u16 => ("blast count (integer 0..65535)", valid_count),
         radius: f32 => ("blast radius (pixels)", nonnegative),
         fuse_time: f32 => ("blast fuse time (seconds)", nonnegative),
@@ -743,6 +783,36 @@ impl Behavior {
                 position.y = context.bounds.floor_y - context.size.y / 2.0;
             }
             let (used, finished) = match action {
+                Action::RadialBlast {
+                    radius,
+                    damage,
+                    knockback,
+                    active_secs,
+                    telegraph_secs,
+                } => {
+                    self.airborne = true;
+                    let attack = AttackBox {
+                        shape: crate::enemy_attack::AttackShape::Circle,
+                        offset: (0.0, 0.0),
+                        size: (radius * 2.0, radius * 2.0),
+                        damage,
+                        knockback: knockback.0,
+                        active_secs,
+                    };
+                    self.attack_runtime
+                        .get_or_insert_with(|| {
+                            AttackRuntime::lunge(
+                                *position,
+                                context,
+                                0.0,
+                                active_secs,
+                                attack,
+                                0.0,
+                                telegraph_secs,
+                            )
+                        })
+                        .step(position, context, remaining)
+                }
                 Action::ShootProjectile {
                     speed,
                     damage,

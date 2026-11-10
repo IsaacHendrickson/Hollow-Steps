@@ -444,7 +444,8 @@ fn boss_only_actions_do_not_become_enemy_behaviors_or_editor_actions() {
             "hover",
             "slam_down",
             "legacy_slam_down",
-            "area_blast"
+            "area_blast",
+            "legacy_area_blast"
         ]
     );
 }

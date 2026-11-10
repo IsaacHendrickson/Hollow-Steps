@@ -462,3 +462,35 @@ fn segment_rect_fraction(start: Vec2, end: Vec2, min: Vec2, max: Vec2) -> Option
     }
     Some(enter)
 }
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(transparent)]
+pub struct AttackVector(pub (f32, f32));
+impl std::fmt::Display for AttackVector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&ron::to_string(self).map_err(|_| std::fmt::Error)?)
+    }
+}
+impl std::str::FromStr for AttackVector {
+    type Err = String;
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let value: Self = ron::from_str(text).map_err(|e| e.to_string())?;
+        valid_vector(value)?;
+        Ok(value)
+    }
+}
+pub(crate) fn valid_vector(vector: AttackVector) -> Result<(), String> {
+    if vector.0 .0.is_finite() && vector.0 .1.is_finite() {
+        Ok(())
+    } else {
+        Err("knockback must be finite".into())
+    }
+}
+pub(crate) fn blast_radius(radius: f32) -> Result<(), String> {
+    crate::behavior::positive(radius)?;
+    if (radius * 2.0).is_finite() {
+        Ok(())
+    } else {
+        Err("radius is too large".into())
+    }
+}

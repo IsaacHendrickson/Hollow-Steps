@@ -219,3 +219,28 @@ fn shooting_warns_then_emits_once_with_sampled_aim() {
     behavior.update(&mut position, context(), 0.25);
     assert_eq!(behavior.projectiles().len(), 3);
 }
+
+#[test]
+fn radial_blast_warns_then_checks_circle_radius_only_while_active() {
+    let mut behavior = machine("area_blast(radius: 50.0, damage: 2, knockback: (0.0, -100.0), active_secs: 0.5, telegraph_secs: 0.5)");
+    let mut position = Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(), 0.25);
+    assert!(behavior.attack_warning().is_some());
+    assert!(behavior
+        .attack_hit(position, position, Vec2::ZERO)
+        .is_none());
+    behavior.update(&mut position, context(), 0.25);
+    assert!(behavior
+        .attack_hit(position, position + Vec2::X * 50.0, Vec2::ZERO)
+        .is_some());
+    assert!(behavior
+        .attack_hit(position, position + Vec2::X * 50.01, Vec2::ZERO)
+        .is_none());
+    assert!(behavior
+        .attack_hit(position, position + Vec2::splat(40.0), Vec2::ZERO)
+        .is_none());
+    behavior.update(&mut position, context(), 0.5);
+    assert!(behavior
+        .attack_hit(position, position, Vec2::ZERO)
+        .is_none());
+}
