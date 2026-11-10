@@ -215,3 +215,7 @@ pub fn validate_entity(
     }
     Ok(())
 }
+
+pub fn is_pose_parameter(field: &str) -> bool {
+    matches!(field, "telegraph_pose" | "active_pose" | "recovery_pose")
+}

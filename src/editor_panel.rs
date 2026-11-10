@@ -756,6 +756,7 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
     {
         p.loaded_state = None;
     }
+    let pose_names = editor.content.poses.keys().cloned().collect::<Vec<_>>();
     if p.rows {
         let original = editor.content.behaviors.get(&p.behavior).cloned();
         section(ui, "States", |ui| {
@@ -885,7 +886,7 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
                         error = Some(e);
                     }
                 } else {
-                    draw_state_rows(ui, p, &names, index);
+                    draw_state_rows(ui, p, &names, index, &pose_names);
                     if let Err(e) = p.structured.apply(&mut behavior.states[index], &names) {
                         error = Some(e);
                     }
@@ -1174,6 +1175,7 @@ fn draw_key_values(
     error: &mut Option<String>,
 ) {
     use hollow_steps::behavior_values::KeyValues;
+    let pose_names = editor.content.poses.keys().cloned().collect::<Vec<_>>();
     let Some(behavior) = editor.content.behaviors.get_mut(&p.behavior) else {
         return;
     };
@@ -1191,12 +1193,22 @@ fn draw_key_values(
         let mut changed = false;
         for (index, entry) in values.values.iter_mut().enumerate() {
             let before = entry.value.clone();
-            panel_input(
-                ui,
-                egui::Id::new(("key value", &p.behavior, index)),
-                &entry.label,
-                &mut entry.value,
-            );
+            if entry.pose_choice {
+                pose_dropdown(
+                    ui,
+                    egui::Id::new(("key value", &p.behavior, index)),
+                    &entry.label,
+                    &mut entry.value,
+                    &pose_names,
+                );
+            } else {
+                panel_input(
+                    ui,
+                    egui::Id::new(("key value", &p.behavior, index)),
+                    &entry.label,
+                    &mut entry.value,
+                );
+            }
             changed |= before != entry.value;
         }
         if let Err(e) = values.apply(&mut behavior.clone()) {
@@ -1285,7 +1297,41 @@ fn choice(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {
     response
 }
 
-fn draw_state_rows(ui: &mut egui::Ui, p: &mut PropertyUi, names: &[String], state_index: usize) {
+fn pose_dropdown(
+    ui: &mut egui::Ui,
+    id: egui::Id,
+    label: &str,
+    value: &mut String,
+    names: &[String],
+) {
+    panel_label(ui, label);
+    let response = egui::ComboBox::from_id_salt(id)
+        .selected_text(if value.is_empty() {
+            "None"
+        } else {
+            value.as_str()
+        })
+        .show_ui(ui, |ui| {
+            ui.selectable_value(value, String::new(), "None");
+            for name in names {
+                let response = ui.selectable_value(value, name.clone(), name);
+                #[cfg(test)]
+                ui.data_mut(|data| data.insert_temp(id.with(name), response.rect));
+                let _ = response;
+            }
+        });
+    #[cfg(test)]
+    ui.data_mut(|data| data.insert_temp(id, response.response.rect));
+    let _ = response;
+}
+
+fn draw_state_rows(
+    ui: &mut egui::Ui,
+    p: &mut PropertyUi,
+    names: &[String],
+    state_index: usize,
+    pose_names: &[String],
+) {
     use hollow_steps::behavior::{Action, Condition};
     use hollow_steps::definition_editor::{move_row, remove_row};
     let action_names = Action::TYPES
@@ -1304,12 +1350,22 @@ fn draw_state_rows(ui: &mut egui::Ui, p: &mut PropertyUi, names: &[String], stat
             panel_label(ui, &format!("{}. {}", i + 1, Action::TYPES[row.kind]));
             let template = Action::defaults(row.kind).expect("catalog action");
             for (j, label) in template.parameter_labels().iter().enumerate() {
-                panel_input(
-                    ui,
-                    egui::Id::new(("action value", i, j)),
-                    label,
-                    &mut row.values[j],
-                );
+                if hollow_steps::pose::is_pose_parameter(template.parameters()[j].0) {
+                    pose_dropdown(
+                        ui,
+                        egui::Id::new(("action value", i, j)),
+                        label,
+                        &mut row.values[j],
+                        pose_names,
+                    );
+                } else {
+                    panel_input(
+                        ui,
+                        egui::Id::new(("action value", i, j)),
+                        label,
+                        &mut row.values[j],
+                    );
+                }
                 let mut check = template.clone();
                 if let Err(error) = check.set_parameter(j, &row.values[j]) {
                     ui.colored_label(egui::Color32::LIGHT_RED, &error);
@@ -1477,6 +1533,50 @@ mod tests {
         frame(ctx, size, pointer(pos, true), editor, state);
         frame(ctx, size, pointer(pos, false), editor, state);
         frame(ctx, size, vec![], editor, state);
+    }
+
+    #[test]
+    fn pose_dropdown_selects_names_loaded_from_the_fixture_catalog() {
+        let ctx = egui::Context::default();
+        let id = egui::Id::new("pose dropdown test");
+        let poses = hollow_steps::pose::load_poses(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests")
+                .join("fixtures")
+                .join("poses"),
+        )
+        .unwrap();
+        let names = poses.keys().cloned().collect::<Vec<_>>();
+        let mut value = String::new();
+        let draw = |value: &mut String, events| {
+            let _ = ctx.run(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(600.0, 800.0),
+                    )),
+                    events,
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::CentralPanel::default().show(ctx, |ui| {
+                        pose_dropdown(ui, id, "telegraph_pose", value, &names);
+                    });
+                },
+            );
+        };
+        for _ in 0..3 {
+            draw(&mut value, vec![]);
+        }
+        let rect: egui::Rect = ctx.data(|d| d.get_temp(id).unwrap());
+        draw(&mut value, pointer(rect.center(), true));
+        draw(&mut value, pointer(rect.center(), false));
+        draw(&mut value, vec![]);
+        let option: egui::Rect = ctx.data(|d| d.get_temp(id.with("windup")).unwrap());
+        draw(&mut value, pointer(option.center(), true));
+        draw(&mut value, pointer(option.center(), false));
+        draw(&mut value, vec![]);
+        assert_eq!(value, "windup");
     }
 
     #[test]
