@@ -12,6 +12,7 @@ jobs:
   checks:
     name: Checks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -25,16 +26,10 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev
-
       - name: Check formatting
         run: cargo fmt --check
 
-      # egui uses the existing Macroquad backend; no extra Linux packages above.
+      # Miniquad loads X11/GL at runtime; these builds need no Linux dev packages.
       - name: Build locked Linux binary
         if: runner.os == 'Linux'
         run: cargo build --locked
