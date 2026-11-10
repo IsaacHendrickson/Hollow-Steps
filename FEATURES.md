@@ -33,7 +33,7 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 
 ## Bosses
 
-- Ash Warden timed attacks, melee damage, persistent death, locked arena exits; `src/boss.rs`; `tests/boss.rs`
+- Arena exits stay locked while the boss lives and open on defeat, which persists through respawn and room travel; `src/room.rs`, `src/boss_special.rs`; `tests/boss_special.rs`, `src/game.rs` unit tests
 - Arena boss cycling Slam, Summon, Rings with summons, death coins, drawing; `src/boss_special.rs`; `tests/boss_special.rs`
 - RON boss definitions and placements, cycle/seeded random selection, ordered actions; `src/boss_definition.rs`, `src/boss_special.rs`; `tests/boss_data.rs`
 - Boss editor: placement, drag, delete, ordered attacks/actions, staged saves with renames; `src/boss_editor.rs`, `src/editor_panel/boss.rs`; `tests/boss_editor.rs`

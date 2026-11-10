@@ -76,7 +76,6 @@ Gameplay modules (pure rules, no rendering):
 - `src/preset.rs`: validated RON behavior preset catalog.
 - `src/action_parameters.rs`: labeled scalar editor fields for the shared action registry.
 - `src/behavior_values.rs`: numeric behavior controls and transactional validated edits.
-- `src/boss.rs`: boss health, reusable timed attacks, state machine, and death.
 - `src/boss_definition.rs`: validated RON boss definitions and attack selection settings.
 - `src/boss_editor.rs`: pure boss property buffers and ordered attack/action edits.
 - `src/boss_special.rs`: boss sequence cursors, selection, actor effect integration, and coin drops.

@@ -496,7 +496,6 @@ impl RoomDraft {
             exits: Vec::new(),
             items: Vec::new(),
             coins: Vec::new(),
-            boss: None,
             boss_special: None,
         };
         self.layout.apply(&mut room)?;

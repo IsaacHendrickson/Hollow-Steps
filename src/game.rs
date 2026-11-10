@@ -200,12 +200,10 @@ impl GameState {
                 if room.id == session.id {
                     room.coins = std::mem::take(&mut existing.coins);
                     if !boss_changed {
-                        room.boss = existing.boss.take();
                         room.boss_special = existing.boss_special.take();
                     }
                 } else {
                     if boss_changed {
-                        existing.boss = room.boss.take();
                         existing.boss_special = room.boss_special.take();
                     }
                     std::mem::swap(&mut room.enemies, &mut existing.enemies);
@@ -321,9 +319,6 @@ impl GameState {
                 .into_iter()
                 .map(|position| crate::enemy::Enemy::new(position.x, position.x, 0.0, 0.0, bounds)),
         );
-        if let Some(boss) = &mut room.boss {
-            boss.update(delta_seconds);
-        }
         if let Some(hitbox) = self
             .player
             .attack()
@@ -332,11 +327,6 @@ impl GameState {
             for enemy in &mut room.enemies {
                 if enemy.touches(hitbox.center(), hitbox.size()) {
                     enemy.hit(self.player.attack().id(), self.player.attack().direction());
-                }
-            }
-            if let Some(boss) = &mut room.boss {
-                if boss.touches(hitbox.center(), hitbox.size()) {
-                    boss.hit(self.player.attack().id());
                 }
             }
             if let Some(boss) = &mut room.boss_special {
@@ -366,11 +356,6 @@ impl GameState {
             })
             .max()
             .unwrap_or(0);
-        let boss_damage = u8::from(
-            room.boss
-                .as_ref()
-                .is_some_and(|boss| boss.damages(self.player.position(), self.player.size())),
-        );
         let contact_damage = room
             .boss_special
             .as_ref()
@@ -381,7 +366,6 @@ impl GameState {
             })
             .map_or(0, |boss| boss.contact_damage());
         let base_damage = enemy_damage
-            .max(boss_damage)
             .max(special_damage.min(255) as u8)
             .max(contact_damage);
         let hit = room
@@ -511,16 +495,6 @@ mod tests {
         assert!(game.player.velocity().y < 0.0);
         game.update(PlayerInput::default(), 0.1);
         assert_eq!(game.player.health().current(), 3);
-    }
-
-    fn warden_game() -> GameState {
-        let mut game = test_game();
-        game.rooms[2].boss_special = None;
-        game.rooms[2].boss = Some(crate::boss::Boss::ash_warden(Vec2::new(
-            560.0,
-            FLOOR_Y - 40.0,
-        )));
-        game
     }
 
     fn special_game() -> GameState {
@@ -977,40 +951,31 @@ mod tests {
         assert_eq!(game.player.position().x, spawn.x + 40.0);
     }
 
-    #[test]
-    fn boss_melee_respects_range_facing_and_one_hit_per_swing() {
-        let mut game = warden_game();
-        game.current_room = RoomId::Boss;
-        game.player.place_on_floor(500.0, game.world_bounds());
-        let swing = PlayerInput {
-            attack_pressed: true,
-            ..PlayerInput::default()
-        };
-        game.update(swing, 0.0);
-        game.update(swing, 0.0);
-        assert_eq!(game.room().boss.as_ref().unwrap().health(), 29);
-        game.update(PlayerInput::default(), crate::combat::ATTACK_COOLDOWN);
-        game.update(
-            PlayerInput {
-                move_axis: -1.0,
-                ..swing
-            },
-            0.0,
+    /// Arena boss from the `ground_pound` fixture (10 health, 2 contact damage) at the
+    /// Ash Warden spot, with its attack pause pushed out so only contact can hurt.
+    fn pound_game() -> GameState {
+        let mut game = special_game();
+        let mut definition = crate::boss_definition::BossDefinition::from_ron(include_str!(
+            "../tests/fixtures/bosses/ground_pound.ron"
+        ))
+        .unwrap();
+        definition.pause_seconds = 1_000.0;
+        game.rooms[2].boss_special = Some(
+            crate::boss_special::BossSpecials::from_definition(
+                std::sync::Arc::new(definition),
+                Vec2::new(560.0, FLOOR_Y - 24.0),
+            )
+            .unwrap(),
         );
-        assert_eq!(game.room().boss.as_ref().unwrap().health(), 29);
-        game.player.place_on_floor(800.0, game.world_bounds());
-        game.update(swing, 0.0);
-        assert_eq!(game.room().boss.as_ref().unwrap().health(), 29);
+        game
     }
 
     #[test]
-    fn lethal_boss_swing_prevents_contact_unlocks_exit_and_death_persists() {
-        let mut game = warden_game();
-        game.current_room = RoomId::Boss;
-        for id in 100..129 {
-            game.rooms[2].boss.as_mut().unwrap().hit(id);
-        }
+    fn lethal_special_swing_prevents_contact_unlocks_exit_and_death_persists() {
+        let mut game = pound_game();
+        game.rooms[2].boss_special.as_mut().unwrap().damage_boss(9);
         game.player.place_on_floor(520.0, game.world_bounds());
+        assert!(game.room().exits_locked());
         game.update(
             PlayerInput {
                 attack_pressed: true,
@@ -1019,7 +984,7 @@ mod tests {
             0.0,
         );
         assert_eq!(game.player.health().current(), 5);
-        assert!(game.room().boss.as_ref().unwrap().is_dead());
+        assert!(game.room().boss_special.as_ref().unwrap().is_defeated());
         assert!(!game.room().exits_locked());
         game.player.place_on_floor(16.0, game.world_bounds());
         game.update(PlayerInput::default(), 0.0);
@@ -1032,7 +997,7 @@ mod tests {
             10.0,
         );
         assert_eq!(game.room().id, RoomId::Boss);
-        assert!(game.room().boss.as_ref().unwrap().is_dead());
+        assert!(game.room().boss_special.as_ref().unwrap().is_defeated());
         assert!(!game.room().exits_locked());
         game.player.place_on_floor(560.0, game.world_bounds());
         game.update(PlayerInput::default(), 10.0);
@@ -1040,64 +1005,20 @@ mod tests {
     }
 
     #[test]
-    fn boss_contact_deals_one_damage_respects_immunity_and_respawn_keeps_lock() {
-        let mut game = warden_game();
-        game.current_room = RoomId::Boss;
+    fn special_contact_deals_configured_damage_respects_immunity_and_respawn_keeps_lock() {
+        let mut game = pound_game();
         game.player.place_on_floor(560.0, game.world_bounds());
         game.update(PlayerInput::default(), 0.0);
-        assert_eq!(game.player.health().current(), 4);
+        assert_eq!(game.player.health().current(), 3);
         game.update(PlayerInput::default(), 0.0);
-        assert_eq!(game.player.health().current(), 4);
-        for expected in [3, 2, 1, 5] {
+        assert_eq!(game.player.health().current(), 3);
+        for expected in [1, 5] {
             game.update(PlayerInput::default(), 1.0);
             assert_eq!(game.player.health().current(), expected);
         }
         assert_eq!(game.player.position(), game.room().spawn);
-        assert_eq!(game.room().boss.as_ref().unwrap().health(), 30);
+        assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 10);
         assert!(game.room().exits_locked());
-    }
-
-    #[test]
-    fn boss_attack_damages_player_only_after_telegraph() {
-        let mut game = warden_game();
-        game.current_room = RoomId::Boss;
-        game.player.place_on_floor(440.0, game.world_bounds());
-        game.update(PlayerInput::default(), crate::boss::BOSS_PAUSE);
-        assert_eq!(game.player.health().current(), 5);
-        game.update(PlayerInput::default(), 0.75);
-        assert_eq!(game.player.health().current(), 4);
-        game.update(PlayerInput::default(), 0.0);
-        assert_eq!(game.player.health().current(), 4);
-    }
-
-    #[test]
-    fn inactive_rooms_and_inventory_pause_boss_timers() {
-        let mut game = warden_game();
-        game.update(PlayerInput::default(), 10.0);
-        assert_eq!(
-            game.rooms[2].boss.as_ref().unwrap().state(),
-            crate::boss::BossState::Idle
-        );
-        game.current_room = RoomId::Boss;
-        game.player.place_on_floor(160.0, game.world_bounds());
-        game.update(PlayerInput::default(), crate::boss::BOSS_PAUSE);
-        game.toggle_inventory();
-        game.update(PlayerInput::default(), 100.0);
-        assert_eq!(
-            game.room().boss.as_ref().unwrap().state(),
-            crate::boss::BossState::Telegraphing
-        );
-        game.toggle_inventory();
-        game.update(PlayerInput::default(), 0.5);
-        assert_eq!(
-            game.room().boss.as_ref().unwrap().state(),
-            crate::boss::BossState::Telegraphing
-        );
-        game.update(PlayerInput::default(), 0.25);
-        assert_eq!(
-            game.room().boss.as_ref().unwrap().state(),
-            crate::boss::BossState::Attacking
-        );
     }
 
     #[test]

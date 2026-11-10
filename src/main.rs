@@ -1,4 +1,3 @@
-use hollow_steps::boss::{Boss, BossState};
 use hollow_steps::boss_special::BossSpecials;
 use hollow_steps::camera::{Camera, CameraConfig, Letterbox};
 use hollow_steps::coin::COIN_RADIUS;
@@ -323,9 +322,6 @@ fn draw_scene(game: &GameState) {
             RED,
         );
     }
-    if let Some(boss) = &room.boss {
-        draw_boss(boss);
-    }
     if let Some(boss) = &room.boss_special {
         draw_boss_special(boss, bounds.floor_y);
     }
@@ -350,39 +346,6 @@ fn draw_scene(game: &GameState) {
             Color::from_rgba(110, 160, 230, 255)
         },
     );
-}
-
-fn draw_boss(boss: &Boss) {
-    if let Some(area) = boss.attack_area() {
-        let active = boss.state() == BossState::Attacking;
-        draw_rectangle(
-            area.x,
-            area.y,
-            area.w,
-            area.h,
-            if active {
-                Color::from_rgba(240, 65, 70, 160)
-            } else {
-                Color::from_rgba(250, 200, 70, 60)
-            },
-        );
-        draw_rectangle_lines(
-            area.x,
-            area.y,
-            area.w,
-            area.h,
-            3.0,
-            if active { RED } else { GOLD },
-        );
-    }
-    let top_left = boss.position() - boss.size() / 2.0;
-    let color = match boss.state() {
-        BossState::Idle => PURPLE,
-        BossState::Telegraphing => ORANGE,
-        BossState::Attacking => MAROON,
-        BossState::Dead => DARKGRAY,
-    };
-    draw_rectangle(top_left.x, top_left.y, boss.size().x, boss.size().y, color);
 }
 
 fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {

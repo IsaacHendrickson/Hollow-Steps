@@ -4,7 +4,9 @@ use hollow_steps::boss_special::{
     BossSpecials, SpecialAttack, BOSS_MOVE_SPEED, DEATH_EFFECT_SECONDS, RING_RADIUS,
     SLAM_TELEGRAPH_SECONDS, SUMMON_WINDUP_SECONDS,
 };
-use hollow_steps::player::WorldBounds;
+use hollow_steps::game::GameState;
+use hollow_steps::player::{PlayerInput, WorldBounds};
+use hollow_steps::room::{test_rooms, RoomEdge, RoomId};
 use macroquad::math::Vec2;
 
 const BOUNDS: WorldBounds = WorldBounds::new(0.0, 960.0, 460.0);
@@ -150,4 +152,54 @@ fn warden(position: Vec2) -> BossSpecials {
         .unwrap()
         .spawn("Ash Warden", position)
         .unwrap()
+}
+
+#[test]
+fn every_exit_edge_locks_while_alive_and_unlocks_immediately_on_death() {
+    let [_, _, mut room] = test_rooms();
+    for (edge, position) in [
+        (RoomEdge::Left, Vec2::new(0.0, 100.0)),
+        (RoomEdge::Right, Vec2::new(960.0, 100.0)),
+        (RoomEdge::Top, Vec2::new(100.0, 0.0)),
+        (RoomEdge::Bottom, Vec2::new(100.0, 460.0)),
+    ] {
+        room.exits[0].edge = edge;
+        room.exits[0].offset = 60.0;
+        room.boss_special = Some(warden(Vec2::new(560.0, 436.0)));
+        assert!(room.exits_locked());
+        assert!(room.exit_at(position, Vec2::ONE).is_none());
+        room.boss_special.as_mut().unwrap().damage_boss(100);
+        assert!(!room.exits_locked());
+        assert!(room.exit_at(position, Vec2::ONE).is_some());
+        assert!(room.exit_at(Vec2::new(500.0, 200.0), Vec2::ONE).is_none());
+    }
+    room.boss_special = None;
+    assert!(!room.exits_locked());
+}
+
+#[test]
+fn arena_is_reachable_from_second_room_and_live_boss_blocks_return() {
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
+    for expected in [RoomId::Second, RoomId::Boss] {
+        game.update(
+            PlayerInput {
+                move_axis: 1.0,
+                ..PlayerInput::default()
+            },
+            10.0,
+        );
+        assert_eq!(game.room().id, expected);
+    }
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 100);
+    game.update(PlayerInput::default(), 0.0);
+    assert_eq!(game.room().id, RoomId::Boss);
+    game.update(
+        PlayerInput {
+            move_axis: -1.0,
+            ..PlayerInput::default()
+        },
+        10.0,
+    );
+    assert_eq!(game.room().id, RoomId::Boss);
+    assert!(game.room().exits_locked());
 }

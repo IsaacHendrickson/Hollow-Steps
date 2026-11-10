@@ -1,6 +1,5 @@
 //! Heads-up display drawn in virtual-resolution space, anchored to the screen edges.
 
-use hollow_steps::boss::BossState;
 use hollow_steps::boss_special::SpecialAttack;
 use hollow_steps::camera::{anchored, Anchor};
 use hollow_steps::game::GameState;
@@ -63,16 +62,6 @@ pub fn draw_hud(game: &GameState, view: Vec2) {
 }
 
 fn draw_boss_hud(room: &Room, view: Vec2) {
-    if let Some(boss) = &room.boss {
-        draw_boss_health(u32::from(boss.health()), u32::from(boss.max_health()), view);
-        let cue = match boss.state() {
-            BossState::Idle => "Recovering",
-            BossState::Telegraphing => boss.current_attack().name,
-            BossState::Attacking => "Attack!",
-            BossState::Dead => "Defeated - exits open",
-        };
-        draw_boss_cue(cue, view);
-    }
     if let Some(boss) = &room.boss_special {
         draw_boss_health(boss.health(), boss.max_health(), view);
         let cue = match boss.active_attack() {
