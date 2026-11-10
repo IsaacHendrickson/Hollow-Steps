@@ -280,6 +280,13 @@ impl DefinitionDraft {
                 serialize(behavior)?,
             ));
         }
+        for (name, body) in &self.bodies {
+            valid_filename(name)?;
+            candidates.push((
+                self.assets.join("bodies").join(format!("{name}.ron")),
+                serialize(body.as_ref())?,
+            ));
+        }
         for (path, mut document) in documents {
             self.rename_placements(&mut document);
             let id = room_id(&path)?;
@@ -672,6 +679,7 @@ fn same_content(path: &Path, before: &[u8], after: &[u8]) -> Result<bool, String
         Some("entities") => compare::<EnemyDefinition>(before, after),
         Some("behaviors") => compare::<BehaviorDefinition>(before, after),
         Some("bosses") => compare::<BossDefinition>(before, after),
+        Some("bodies") => compare::<crate::body::BodyTemplate>(before, after),
         _ => compare::<RoomEnemies>(before, after),
     }
 }

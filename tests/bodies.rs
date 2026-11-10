@@ -3,10 +3,11 @@ mod support;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use hollow_steps::body::{BodyVisual, ColorSlot};
+use hollow_steps::body::{BodyTemplate, BodyVisual, ColorSlot};
 use hollow_steps::definition_editor::{serialize, write_files, DefinitionDraft};
 use hollow_steps::enemy::{EnemyDefinition, EnemyDefinitions};
 use hollow_steps::game::GameState;
+use hollow_steps::player::PlayerInput;
 use hollow_steps::player::WorldBounds;
 use macroquad::math::Vec2;
 
@@ -52,6 +53,163 @@ impl Drop for Assets {
 
 fn visual() -> BodyVisual {
     ron::from_str(include_str!("fixtures/body_visual.ron")).unwrap()
+}
+
+fn motion_visual() -> BodyVisual {
+    BodyVisual {
+        template: "motion".into(),
+        ..visual()
+    }
+}
+
+#[test]
+fn game_time_animates_bodies_and_inventory_and_editor_freeze_motion() {
+    let assets = Assets::new();
+    assets.set_body(Some(motion_visual()));
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    let body_state = |game: &GameState| format!("{:?}", game.room().enemies[0].body());
+    let spawned = body_state(&game);
+    game.update(PlayerInput::default(), 0.25);
+    let moving = body_state(&game);
+    assert_ne!(spawned, moving);
+    game.toggle_inventory();
+    game.update(PlayerInput::default(), 10.0);
+    assert_eq!(body_state(&game), moving);
+    game.toggle_inventory();
+    game.toggle_editor().unwrap();
+    game.update(PlayerInput::default(), 10.0);
+    assert_eq!(body_state(&game), moving);
+    game.toggle_editor().unwrap();
+    for delta in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+        game.update(PlayerInput::default(), delta);
+        assert_eq!(body_state(&game), moving);
+    }
+    game.update(PlayerInput::default(), 0.25);
+    assert_ne!(body_state(&game), moving);
+}
+
+#[test]
+fn idle_continues_during_knockback_but_dead_enemies_do_not_animate() {
+    let assets = Assets::new();
+    assets.set_body(Some(motion_visual()));
+    let bounds = WorldBounds::new(0.0, 960.0, 460.0);
+    let mut enemy = EnemyDefinitions::load(&assets.0)
+        .unwrap()
+        .spawn("chase", 560.0, 800.0, bounds)
+        .unwrap();
+    let points = enemy.body().unwrap().points.clone();
+    assert!(enemy.hit(1, 1.0));
+    enemy.update(Vec2::ZERO, 0.01, bounds);
+    assert_ne!(enemy.body().unwrap().points, points);
+    for id in 2..=u64::from(enemy.max_health()) {
+        assert!(enemy.hit(id, 1.0));
+    }
+    assert!(enemy.is_dead());
+    let dead = format!("{:?}", enemy.body());
+    enemy.update(Vec2::ZERO, 0.25, bounds);
+    assert_eq!(format!("{:?}", enemy.body()), dead);
+}
+
+#[test]
+fn f5_keeps_moving_points_and_phase_and_initializes_new_points_at_targets() {
+    let assets = Assets::new();
+    assets.set_body(Some(motion_visual()));
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    game.update(PlayerInput::default(), 0.25);
+    let previous = game.room().enemies[0].body().unwrap().clone();
+    let path = assets.0.join("bodies").join("motion.ron");
+    let mut replacement: BodyTemplate =
+        ron::from_str(include_str!("fixtures/bodies/motion.ron")).unwrap();
+    replacement.points.get_mut("root").unwrap().rest = (0.2, -0.1);
+    replacement.points.insert(
+        "new".into(),
+        hollow_steps::body::BodyPoint { rest: (0.2, 0.3) },
+    );
+    replacement.idle.push(hollow_steps::body::IdleMotion {
+        point: "new".into(),
+        amplitude: (0.01, 0.02),
+        period_secs: 4.0,
+        phase_offset_secs: 1.0,
+    });
+    std::fs::write(&path, serialize(&replacement).unwrap()).unwrap();
+    game.reload_rooms().unwrap();
+    let current = game.room().enemies[0].body().unwrap();
+    for name in ["root", "tip"] {
+        assert_eq!(current.points[name], previous.points[name]);
+        assert_eq!(current.velocities[name], previous.velocities[name]);
+    }
+    assert_eq!(current.points["new"], current.targets["new"]);
+    assert_eq!(current.velocities["new"], Vec2::ZERO);
+    assert_eq!(
+        current.targets["root"],
+        Vec2::new(0.2, -0.1) + replacement.idle[0].offset_at(0.25)
+    );
+    for bad in ["follow override", "idle"] {
+        let mut invalid = replacement.clone();
+        if bad == "idle" {
+            invalid.idle[0].point = "missing".into();
+        } else {
+            invalid
+                .follow_overrides
+                .insert("missing".into(), invalid.follow);
+        }
+        std::fs::write(&path, serialize(&invalid).unwrap()).unwrap();
+        let before = format!("{game:?}");
+        let error = game.reload_rooms().unwrap_err();
+        assert!(
+            error.contains("motion.ron") && error.contains(bad) && error.contains("missing"),
+            "{error}"
+        );
+        assert_eq!(format!("{game:?}"), before);
+    }
+}
+
+#[test]
+fn f5_matches_duplicate_entities_by_placement_even_when_reordered() {
+    let assets = Assets::new();
+    assets.set_body(Some(motion_visual()));
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    game.update(PlayerInput::default(), 0.25);
+    let path = assets.0.join("rooms").join("first.ron");
+    let first = r#"(definition: "chase", patrol_left: 560.0, patrol_right: 800.0)"#;
+    let second = r#"(definition: "chase", patrol_left: 300.0, patrol_right: 300.0)"#;
+    std::fs::write(&path, format!("(enemies: [{first}, {second}])")).unwrap();
+    game.reload_rooms().unwrap();
+    game.update(PlayerInput::default(), 0.01);
+    let bodies = game
+        .room()
+        .enemies
+        .iter()
+        .map(|e| e.body().unwrap().points.clone())
+        .collect::<Vec<_>>();
+    assert_ne!(bodies[0], bodies[1]);
+    std::fs::write(&path, format!("(enemies: [{second}, {first}])")).unwrap();
+    game.reload_rooms().unwrap();
+    assert_eq!(game.room().enemies[0].body().unwrap().points, bodies[1]);
+    assert_eq!(game.room().enemies[1].body().unwrap().points, bodies[0]);
+}
+
+#[test]
+fn editor_motion_values_validate_and_round_trip_without_changing_geometry() {
+    let assets = Assets::new();
+    assets.set_body(Some(motion_visual()));
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let original = draft.bodies["motion"].clone();
+    let edited = std::sync::Arc::make_mut(draft.bodies.get_mut("motion").unwrap());
+    edited.follow.stiffness = 100.0;
+    edited.follow_overrides.get_mut("tip").unwrap().damping = 9.0;
+    edited.idle[0].amplitude = (0.02, 0.01);
+    edited.idle[0].period_secs = 3.0;
+    edited.idle[0].phase_offset_secs = 0.5;
+    let expected = edited.clone();
+    let plan = draft.plan(&[]).unwrap();
+    write_files(&plan).unwrap();
+    let mut saved = DefinitionDraft::load(&assets.0).unwrap();
+    assert_eq!(saved.bodies["motion"].as_ref(), &expected);
+    assert_eq!(saved.bodies["motion"].parts, original.parts);
+    assert_eq!(saved.bodies["motion"].points, original.points);
+    std::sync::Arc::make_mut(saved.bodies.get_mut("motion").unwrap()).idle[0].period_secs = 0.0;
+    assert!(saved.plan(&[]).unwrap_err().contains("period_secs"));
 }
 
 #[test]
@@ -229,7 +387,10 @@ fn hot_reload_updates_body_geometry_and_palette_atomically_and_allows_retry() {
         .body()
         .unwrap();
     assert_eq!(runtime.visual, body);
-    assert_eq!(runtime.points["root"], Vec2::new(0.25, -0.2));
+    assert_eq!(runtime.template.points["root"].rest, (0.25, -0.2));
+    // F5 updates the rest target but preserves the surviving point's current position.
+    assert_eq!(runtime.targets["root"], Vec2::new(0.25, -0.2));
+    assert_eq!(runtime.points["root"], Vec2::new(0.1, -0.2));
     assets.set_body(None);
     game.reload_rooms().unwrap();
     assert!(game
