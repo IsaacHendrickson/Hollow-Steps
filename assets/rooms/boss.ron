@@ -1,5 +1,22 @@
 (
     enemies: [],
-    boss: Some((definition: "Ash Warden", position: (560.0, 436.0))),
-    layout: None,
+    boss: Some((
+        definition: "Ash Warden",
+        position: (560.0, 436.0),
+    )),
+    layout: Some((
+        bounds: (0.0, 0.0, 960.0, 460.0),
+        floor_y: 460.0,
+        spawn: (160.0, 436.0),
+        items: [],
+        exits: [
+            (
+                edge: Left,
+                offset: 364.0,
+                length: 96.0,
+                target_room: Second,
+                spawn: (780.0, 376.0),
+            ),
+        ],
+    )),
 )
