@@ -341,6 +341,7 @@ fn invalid_damage_durations_radius_count_and_aim_report_labeled_errors() {
         ("slam_down", "active duration", "-1"),
         ("shoot_projectile", "damage", "-1"),
         ("shoot_projectile", "lifetime", "-1"),
+        ("shoot_projectile", "recovery", "-1"),
         ("shoot_projectile", "count", "0"),
         ("shoot_projectile", "aim mode", "Unknown"),
         ("area_blast", "radius", "0"),
@@ -554,4 +555,44 @@ fn enemy_action_damage_api_includes_attack_boxes_and_closes_at_window_end() {
     );
     enemy.update(context().player_position, 0.25, context().bounds);
     assert_eq!(enemy.action_damage(enemy.position(), Vec2::ZERO), 0);
+}
+
+#[test]
+fn projectile_recovery_holds_position_and_emits_only_once_at_windup_end() {
+    let definition =
+        BehaviorDefinition::from_ron(include_str!("fixtures/attacks/shoot_recovery.ron")).unwrap();
+    let mut behavior = Behavior::new(Arc::new(definition)).unwrap();
+    let mut position = Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(), 0.5);
+    assert!(!behavior.action_finished());
+    assert_eq!(behavior.projectiles().len(), 3);
+    behavior.update(&mut position, context(), 0.25);
+    assert!(!behavior.action_finished());
+    assert_eq!(behavior.projectiles().len(), 3);
+    assert_eq!(behavior.projectiles()[1].position.x, 125.0);
+    assert_eq!(position, Vec2::new(100.0, 442.0));
+    assert!(behavior.warning(Vec2::ONE).is_none());
+    behavior.update(&mut position, context(), 0.25);
+    assert!(behavior.action_finished());
+    assert_eq!(behavior.projectiles().len(), 3);
+}
+
+#[test]
+fn projectile_recovery_does_not_delay_shots_in_large_or_zero_warning_steps() {
+    use hollow_steps::behavior::Action;
+    for telegraph in [0.0, 0.5] {
+        let mut definition =
+            BehaviorDefinition::from_ron(include_str!("fixtures/attacks/shoot_recovery.ron"))
+                .unwrap();
+        if let Action::ShootProjectile { telegraph_secs, .. } = &mut definition.states[0].actions[0]
+        {
+            *telegraph_secs = telegraph;
+        }
+        let mut behavior = Behavior::new(Arc::new(definition)).unwrap();
+        let mut position = Vec2::new(100.0, 442.0);
+        behavior.update(&mut position, context(), telegraph + 0.5);
+        assert!(behavior.action_finished());
+        assert_eq!(behavior.projectiles().len(), 3);
+        assert_eq!(behavior.projectiles()[1].position.x, 150.0);
+    }
 }

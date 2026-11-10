@@ -8,7 +8,6 @@ use macroquad::math::Vec2;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::action_parameters::EditorParameter;
-use crate::enemy_attack::default_knockback_secs;
 use crate::enemy_attack::{
     attack_damage, default_arc_height, projectile_count, spread_angles, valid_aim, valid_attack,
     valid_optional_attack, valid_size, Aim, AttackBox, AttackRuntime, AttackSize, DamageHit,
@@ -16,6 +15,7 @@ use crate::enemy_attack::{
 };
 use crate::enemy_attack::{blast_radius, valid_vector, AttackVector};
 use crate::enemy_attack::{default_feedback, valid_feedback, AttackFeedback, AttackWarning};
+use crate::enemy_attack::{default_knockback_secs, default_recovery_secs};
 use crate::player::WorldBounds;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -353,6 +353,8 @@ actions! {
         aim: Aim => ("aim mode (AtPlayer or Horizontal)", valid_aim),
         count: u16 => ("projectile count (integer, at least 1)", projectile_count),
         spread_degrees: f32 => ("total fan spread (degrees)", nonnegative),
+        #[serde(default = "default_recovery_secs")]
+        recovery_secs: f32 => ("projectile recovery duration (seconds)", nonnegative),
         telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
         #[serde(default = "default_feedback")]
         feedback: AttackFeedback => ("warning feedback", valid_feedback)
@@ -923,6 +925,7 @@ impl Behavior {
                     count,
                     spread_degrees,
                     telegraph_secs,
+                    recovery_secs,
                     ..
                 } => {
                     self.airborne = true;
@@ -945,12 +948,16 @@ impl Behavior {
                                 0.0,
                                 0.0,
                                 warning,
-                                0.0,
+                                recovery_secs,
                                 telegraph_secs,
                             )
                         })
                         .step(position, context, remaining);
-                    if finished {
+                    let previous = self.action_elapsed;
+                    self.action_elapsed += used;
+                    if self.action_elapsed >= f64::from(telegraph_secs)
+                        && (previous < f64::from(telegraph_secs) || !self.action_started)
+                    {
                         let horizontal = if target.x < position.x {
                             -Vec2::X
                         } else {
@@ -975,7 +982,7 @@ impl Behavior {
                                 remaining_secs: f64::from(lifetime_secs),
                             };
                             let (alive, hit) = projectile.step(
-                                (remaining - used).max(0.0),
+                                (previous + remaining - f64::from(telegraph_secs)).max(0.0),
                                 context.bounds,
                                 context.player_position,
                                 player_size,

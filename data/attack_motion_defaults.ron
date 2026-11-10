@@ -1,1 +1,1 @@
-(jump_arc_height: 100.0, knockback_secs: 0.16)
+(jump_arc_height: 100.0, knockback_secs: 0.16, recovery_secs: 0.0)

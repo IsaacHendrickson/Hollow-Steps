@@ -305,10 +305,14 @@ pub(crate) fn valid_optional_attack(value: OptionalAttack) -> Result<(), String>
 struct MotionDefaults {
     jump_arc_height: f32,
     knockback_secs: f32,
+    recovery_secs: f32,
 }
 fn motion_defaults() -> MotionDefaults {
     ron::from_str(include_str!("../data/attack_motion_defaults.ron"))
         .expect("valid motion defaults")
+}
+pub(crate) fn default_recovery_secs() -> f32 {
+    motion_defaults().recovery_secs
 }
 pub(crate) fn default_arc_height() -> f32 {
     motion_defaults().jump_arc_height
