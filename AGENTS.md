@@ -88,6 +88,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/camera.rs`: follow camera with look-ahead and room clamping, letterbox fit, HUD anchors; tunables in `data/camera.ron`.
 - `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
+- `src/editor_view.rs`: pure editor canvas math: zoom/pan transform, grid snapping, window regions, footer wrapping.
+- `src/room_size.rs`: validated room bounds/floor edits for the editor.
 - `src/definition_editor.rs`: pure entity/behavior edits, save planning, and staged file writes.
 - `src/search.rs`: pure editor list filtering and stable selection.
 

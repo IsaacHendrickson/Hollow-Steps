@@ -3,6 +3,7 @@ use super::{EditorSession, EditorUi, RoomEdge, SearchList, Selection};
 use egui_macroquad::egui;
 
 mod boss;
+mod canvas_tools;
 pub(super) use boss::{draw_boss_panel, BossPropertyUi};
 
 pub(super) struct PanelResponse {
@@ -271,6 +272,8 @@ fn draw_room_tools(
         panel_label(ui, "Green: exit span");
         panel_label(ui, "Purple: arrival spawn");
     });
+    canvas_tools::draw_room_size_section(ui, editor);
+    canvas_tools::draw_view_section(ui, state);
     section(ui, "Entity", |ui| {
         searchable_list(
             ui,

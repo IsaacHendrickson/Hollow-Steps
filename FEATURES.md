@@ -61,6 +61,8 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Searchable lists with stable selection, Unicode prefix-first matching, counts, management buttons; `src/search.rs`; `tests/definition_editor.rs`
 - Patrol handles, exit/arrival deletion, item catalog, no-exit warnings, transactional saves, Windows-safe names; `src/editor.rs`, `src/item.rs`; `tests/editor.rs`
 - egui panel: collapsing sections, filtered dropdowns, tooltip truncation, solid scrollbars, canvas input capture; `src/editor_panel.rs`; headless tests, manual
+- Editor canvas view: wheel zoom about the cursor, middle-drag/Space+drag pan, Home/Reset view, clamped zoom, grid overlay with snap size (default 8 px, snaps place/drag), footer sized from the window; `src/editor_view.rs`, `src/main.rs`, `src/editor_panel/canvas_tools.rs`; `tests/editor_view.rs`, headless panel tests, manual
+- Room size section (x, y, width, height, floor_y): changes that would leave the spawn, items, exits, terrain, enemies or boss outside are refused; `src/room_size.rs`, `src/editor_panel/canvas_tools.rs`; `tests/room_size.rs`
 - Behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation, usage warnings, Key values; `src/preset.rs`, `src/behavior_values.rs`; `tests/presets.rs`
 - Blank-enemy creation and behavior assignment, editable Skittish distances/speed; `src/definition_editor.rs`, `src/behavior.rs`; `tests/presets.rs`
 - Catalog-backed pose dropdowns for attack phases in rows and Key values; `src/editor_panel.rs`, `src/behavior_values.rs`; `tests/poses.rs`

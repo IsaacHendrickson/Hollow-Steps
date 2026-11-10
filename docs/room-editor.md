@@ -299,3 +299,21 @@ Manual check: watch Charger windup/strike, Hopper crouch/leap/stomp and Shooter
 windup/recoil facing both ways; damage each to check the white flash and hurt
 pose. Toggle F3 at different zoom levels. Edit a pose offset and binding, save,
 then press F5 and confirm the new motion with unchanged attack timing/hitboxes.
+
+## Canvas view, grid and room size
+
+The canvas transform is `CanvasView` in `src/editor_view.rs`. Until the user zooms or
+pans it follows the room (fit to the space between the header and footer); after that
+the view is kept, and switching to a destination room view refits. The wheel zooms
+about the cursor only when the cursor is over the canvas, so over the panel it still
+scrolls the panel. Middle-drag, or Space+left-drag while no text box has focus, pans;
+the room cannot be panned out of the viewport. **Home** or **Reset view** refits.
+
+The **Grid and snap** checkbox (off by default) draws a grid and snaps placement and
+dragging to the **Snap size** (default 8 px), measured from the room's top-left corner.
+Grid lines thin out when zoomed far out; snapping always uses the real size.
+
+**Room size** edits x, y, width, height and floor_y. `room_size::resized` validates the
+whole draft with the normal room rules, so a change that leaves the spawn, items,
+exits, terrain, enemies or boss outside the room is refused with the usual message and
+the fields snap back. Exit arrival points in *other* rooms are checked at Save, as before.

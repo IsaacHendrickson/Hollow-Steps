@@ -2,7 +2,10 @@ use hollow_steps::boss::{Boss, BossState};
 use hollow_steps::boss_special::BossSpecials;
 use hollow_steps::camera::{Camera, CameraConfig, Letterbox};
 use hollow_steps::coin::COIN_RADIUS;
-use hollow_steps::editor::{EditorSession, RoomLayout, Selection};
+use hollow_steps::editor::{EditorSession, Selection};
+use hollow_steps::editor_view::{
+    grid_lines, wrap_words, CanvasRegions, CanvasView, Grid, PanDrag, CANVAS_MARGIN,
+};
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
@@ -411,6 +414,12 @@ struct EditorUi {
     properties: bool,
     property: PropertyUi,
     boss_property: Option<BossPropertyUi>,
+    /// Canvas transform after the user zooms or pans; `None` fits the room to the window.
+    view: Option<CanvasView>,
+    /// The destination view `view` belongs to; switching rooms refits.
+    view_destination: Option<usize>,
+    pan: PanDrag,
+    grid: Grid,
 }
 
 impl EditorUi {
@@ -420,35 +429,6 @@ impl EditorUi {
         {
             self.property.error = None;
         }
-    }
-}
-
-// All canvas transforms, hit testing, mouse translation, and drawing are front-end only.
-struct EditorCanvas {
-    origin: Vec2,
-    scale: f32,
-    bounds: Rect,
-}
-impl EditorCanvas {
-    fn new(layout: &RoomLayout, panel_left: f32) -> Self {
-        let bounds = layout.rect();
-        let scale = ((panel_left - 40.0).max(1.0) / bounds.w)
-            .min((screen_height() - 180.0).max(1.0) / bounds.h);
-        Self {
-            origin: vec2(20.0, 90.0),
-            scale,
-            bounds,
-        }
-    }
-    fn screen(&self, point: Vec2) -> Vec2 {
-        self.origin + (point - self.bounds.point()) * self.scale
-    }
-    fn world(&self, point: Vec2) -> Vec2 {
-        (point - self.origin) / self.scale + self.bounds.point()
-    }
-    fn rect(&self, rect: Rect) -> Rect {
-        let p = self.screen(rect.point());
-        Rect::new(p.x, p.y, rect.w * self.scale, rect.h * self.scale)
     }
 }
 
@@ -546,7 +526,8 @@ fn draw_editor(
     body_debug: bool,
     body_debug_overlay: &body_draw::BodyDebugOverlay,
 ) {
-    clear_background(Color::from_rgba(16, 18, 31, 255));
+    let background = Color::from_rgba(16, 18, 31, 255);
+    clear_background(background);
     let player_position = game.player().position();
     let editor = game.editor_mut().expect("editor open");
     if let Ok(definitions) = editor.content.placement_definitions() {
@@ -580,9 +561,78 @@ fn draw_editor(
                 .map(|(_, layout)| layout)
         })
         .unwrap_or_else(|| editor.draft.layout.clone());
-    let canvas = EditorCanvas::new(&layout, panel.left);
+    // The status message is wrapped first: its line count sets the footer height, which
+    // sets the canvas viewport. The wrap width depends only on the window and panel width.
+    let window = vec2(screen_width(), screen_height());
+    let wrap_width = CanvasRegions::new(window, panel.left, 0).footer_wrap_width();
+    let footer_lines = wrap_words(&editor.message, wrap_width, |text| {
+        measure_text(text, None, 17, 1.0).width
+    });
+    let regions = CanvasRegions::new(window, panel.left, footer_lines.len());
+    let mouse = Vec2::from(mouse_position());
+    let over_viewport = regions.viewport.contains(mouse) && !panel.blocks_pointer;
+    if state.view_destination != state.destination {
+        state.view = None;
+        state.view_destination = state.destination;
+    }
+    if is_key_pressed(KeyCode::Home) && !panel.keyboard {
+        state.view = None;
+    }
+    let mut canvas = state
+        .view
+        .unwrap_or_else(|| CanvasView::fit(layout.rect(), regions.fit_area()));
+    // Over the canvas the wheel zooms about the cursor. Over the panel it only scrolls the
+    // panel: egui gets the wheel delta above, and only the hovered scroll area uses it.
+    let pan_held = is_mouse_button_down(MouseButton::Middle)
+        || (is_key_down(KeyCode::Space)
+            && !panel.keyboard
+            && is_mouse_button_down(MouseButton::Left));
+    let pan_delta = state
+        .pan
+        .update(pan_held && (state.pan.is_panning() || over_viewport), mouse);
+    let wheel = if over_viewport { mouse_wheel().1 } else { 0.0 };
+    let mut moved = false;
+    if wheel != 0.0 {
+        canvas.zoom_at(mouse, wheel);
+        moved = true;
+    }
+    if pan_delta != Vec2::ZERO {
+        canvas.pan_by(pan_delta);
+        moved = true;
+    }
+    if moved {
+        canvas.keep_visible(layout.rect(), regions.viewport);
+        state.view = Some(canvas);
+    }
+    // While a pan is in progress the left button belongs to it, not to the markers.
+    let panning = state.pan.is_panning();
     let area = canvas.rect(layout.rect());
     draw_rectangle_lines(area.x, area.y, area.w, area.h, 2.0, LIGHTGRAY);
+    // Grid lines start at the room's corner so they line up with its edges, and snapping
+    // uses the same origin.
+    let origin = layout.rect().point();
+    if let Some(step) = state.grid.line_step(canvas.scale) {
+        let top_left = canvas.world(regions.viewport.point());
+        let seen = Rect::new(
+            top_left.x,
+            top_left.y,
+            regions.viewport.w / canvas.scale,
+            regions.viewport.h / canvas.scale,
+        );
+        if let Some(visible) = layout.rect().intersect(seen) {
+            let from = canvas.screen(visible.point());
+            let to = canvas.screen(vec2(visible.right(), visible.bottom()));
+            let color = Color::new(1.0, 1.0, 1.0, 0.12);
+            for x in grid_lines(visible.x, visible.right(), origin.x, step) {
+                let x = canvas.screen(vec2(x, 0.0)).x;
+                draw_line(x, from.y, x, to.y, 1.0, color);
+            }
+            for y in grid_lines(visible.y, visible.bottom(), origin.y, step) {
+                let y = canvas.screen(vec2(0.0, y)).y;
+                draw_line(from.x, y, to.x, y, 1.0, color);
+            }
+        }
+    }
     if state.destination.is_some() {
         for exit in &layout.exits {
             let r = canvas.rect(exit.exit().zone(layout.rect()));
@@ -591,43 +641,20 @@ fn draw_editor(
     }
     let floor = canvas.screen(vec2(layout.bounds.0, layout.floor_y));
     draw_line(floor.x, floor.y, area.right(), floor.y, 3.0, GRAY);
-    draw_text(
-        format!(
-            "{:?} - {}",
-            editor.id,
-            if state.destination.is_some() {
-                "destination room view"
-            } else {
-                "authored room"
-            }
-        ),
-        20.0,
-        30.0,
-        24.0,
-        WHITE,
-    );
-    draw_text(
-        "F2: close (discard unsaved) | Drag: move | Right click / Del: delete",
-        20.0,
-        58.0,
-        17.0,
-        LIGHTGRAY,
-    );
     let markers = editor_markers(editor, state.destination, state.selected);
-    let mouse = Vec2::from(mouse_position());
     let world = canvas.world(mouse);
-    let over_canvas = area.contains(mouse) && mouse.x < panel.left && !panel.blocks_pointer;
+    let over_canvas = area.contains(mouse) && over_viewport;
     if is_mouse_button_pressed(MouseButton::Left) {
         state.canvas_focused = over_canvas;
     }
-    if is_mouse_button_pressed(MouseButton::Left) && over_canvas {
+    if is_mouse_button_pressed(MouseButton::Left) && over_canvas && !panning {
         if state.placing && state.destination.is_none() {
             if let Some((_, placement)) = state
                 .definition
                 .selected
                 .and_then(|i| editor.content.placement_catalog().get(i).cloned())
             {
-                match editor.place(placement, world) {
+                match editor.place(placement, state.grid.snap(world, origin)) {
                     Ok(selection) => {
                         state.selected = Some(selection);
                         editor.dirty = true;
@@ -670,9 +697,10 @@ fn draw_editor(
             }
         }
     }
-    if is_mouse_button_down(MouseButton::Left) && over_canvas {
+    if is_mouse_button_down(MouseButton::Left) && over_canvas && !panning {
         if let Some((selection, offset)) = state.dragging {
-            match editor.move_selection(selection, world - offset) {
+            let target = state.grid.snap(world - offset, origin);
+            match editor.move_selection(selection, target) {
                 Ok(()) => {
                     editor.dirty = true;
                     editor.message.clear();
@@ -737,36 +765,6 @@ fn draw_editor(
             },
         );
     }
-    // Wrap status text in the canvas footer so long filesystem/validation errors stay readable.
-    let mut line = String::new();
-    let mut y = 475.0;
-    for word in editor.message.split_whitespace() {
-        if measure_text(format!("{line} {word}"), None, 17, 1.0).width > 675.0 {
-            draw_text(&line, 20.0, y, 17.0, ORANGE);
-            y += 19.0;
-            line.clear();
-        }
-        line.push_str(word);
-        line.push(' ');
-    }
-    draw_text(&line, 20.0, y, 17.0, ORANGE);
-    let pending_error = if let Some(p) = &mut state.boss_property {
-        p.sync(editor);
-        p.error.clone()
-    } else if state.properties {
-        state.property.error.clone()
-    } else {
-        None
-    };
-    state.clear_hidden_property_error(editor.draft.enemies.len());
-    if save && pending_error.is_some() {
-        editor.message = format!(
-            "Save failed: {}",
-            pending_error.as_deref().unwrap_or_default()
-        );
-        save = false;
-    }
-    egui_macroquad::draw();
     if body_debug && state.destination.is_none() {
         // Preview authored placements and unsaved definitions without touching runtime bodies.
         let enemies = editor
@@ -808,6 +806,67 @@ fn draw_editor(
             canvas.scale,
         );
     }
+    // Zoomed content can reach past the viewport, so the header and footer are drawn over
+    // it on an opaque strip. The egui panel covers the right side.
+    for r in [regions.header, regions.footer] {
+        draw_rectangle(r.x, r.y, r.w, r.h, background);
+    }
+    draw_text(
+        format!(
+            "{:?} - {}",
+            editor.id,
+            if state.destination.is_some() {
+                "destination room view"
+            } else {
+                "authored room"
+            }
+        ),
+        CANVAS_MARGIN,
+        30.0,
+        24.0,
+        WHITE,
+    );
+    draw_text(
+        "F2: close (discard unsaved) | Drag: move | Right click / Del: delete",
+        CANVAS_MARGIN,
+        52.0,
+        17.0,
+        LIGHTGRAY,
+    );
+    draw_text(
+        "Wheel: zoom | Middle-drag or Space+drag: pan | Home: reset view",
+        CANVAS_MARGIN,
+        70.0,
+        17.0,
+        LIGHTGRAY,
+    );
+    // Status text sits in the footer so long filesystem/validation errors stay readable.
+    for (i, line) in footer_lines.iter().enumerate() {
+        draw_text(
+            line,
+            CANVAS_MARGIN,
+            regions.footer_baseline(i),
+            17.0,
+            ORANGE,
+        );
+    }
+    let pending_error = if let Some(p) = &mut state.boss_property {
+        p.sync(editor);
+        p.error.clone()
+    } else if state.properties {
+        state.property.error.clone()
+    } else {
+        None
+    };
+    state.clear_hidden_property_error(editor.draft.enemies.len());
+    if save && pending_error.is_some() {
+        editor.message = format!(
+            "Save failed: {}",
+            pending_error.as_deref().unwrap_or_default()
+        );
+        save = false;
+    }
+    egui_macroquad::draw();
     if save {
         state.dragging = None;
         if let Err(error) = game.save_editor() {
