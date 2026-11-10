@@ -107,6 +107,8 @@ use crate::behavior::BehaviorContext;
 #[derive(Clone, Debug)]
 enum Motion {
     Lunge {
+        speed: f32,
+        sampled: bool,
         velocity: Vec2,
         duration: f64,
     },
@@ -131,17 +133,18 @@ pub struct AttackRuntime {
 impl AttackRuntime {
     pub fn lunge(
         position: Vec2,
-        context: BehaviorContext,
+        _context: BehaviorContext,
         speed: f32,
         duration: f32,
         attack: AttackBox,
         recovery: f32,
         telegraph: f32,
     ) -> Self {
-        let direction = (context.player_position - position).normalize_or_zero();
         Self {
             motion: Motion::Lunge {
-                velocity: direction * speed,
+                speed,
+                sampled: false,
+                velocity: Vec2::ZERO,
                 duration: f64::from(duration),
             },
             attack: Some(attack),
@@ -226,6 +229,20 @@ impl AttackRuntime {
             self.telegraph + duration + if landing { active_duration } else { 0.0 } + self.recovery;
         let used = dt.min((end - self.elapsed).max(0.0));
         self.elapsed += used;
+        if self.elapsed >= self.telegraph {
+            if let Motion::Lunge {
+                speed,
+                sampled,
+                velocity,
+                ..
+            } = &mut self.motion
+            {
+                if !*sampled {
+                    *velocity = (context.player_position - self.start).normalize_or_zero() * *speed;
+                    *sampled = true;
+                }
+            }
+        }
         let travel_time = (self.elapsed - self.telegraph).clamp(0.0, duration);
         *position = match self.motion {
             Motion::Lunge { velocity, .. } => {

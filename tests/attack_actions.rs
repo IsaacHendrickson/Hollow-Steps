@@ -61,7 +61,7 @@ fn machine(actions: &str) -> Behavior {
 }
 
 #[test]
-fn lunge_samples_direction_once_and_stands_still_in_recovery() {
+fn lunge_samples_direction_at_telegraph_end_then_stands_still_in_recovery() {
     let mut behavior = machine("lunge(speed: 100.0, duration_secs: 1.0, attack: (shape: Rect, offset: (0.0, 0.0), size: (40.0, 40.0), damage: 2, knockback: (10.0, -10.0), active_secs: 1.0), recovery_secs: 0.5, telegraph_secs: 0.5)");
     let mut position = Vec2::new(100.0, 442.0);
     behavior.update(&mut position, context(), 0.25);
@@ -73,14 +73,14 @@ fn lunge_samples_direction_once_and_stands_still_in_recovery() {
         ..context()
     };
     behavior.update(&mut position, moved_player, 0.5);
-    assert_eq!(position.x, 125.0);
+    assert_eq!(position.x, 75.0);
     assert!(behavior.attack_hit(position, position, Vec2::ONE).is_some());
-    behavior.update(&mut position, moved_player, 0.75);
-    assert_eq!(position.x, 200.0);
+    behavior.update(&mut position, context(), 0.75);
+    assert_eq!(position.x, 18.0);
     assert!(behavior.attack_hit(position, position, Vec2::ONE).is_none());
     assert!(!behavior.action_finished());
-    behavior.update(&mut position, moved_player, 0.5);
-    assert_eq!(position.x, 200.0);
+    behavior.update(&mut position, context(), 0.5);
+    assert_eq!(position.x, 18.0);
     assert!(behavior.action_finished());
 }
 
