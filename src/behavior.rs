@@ -579,7 +579,7 @@ impl BehaviorDefinition {
         }
         for state in &self.states {
             for (index, action) in state.actions.iter().enumerate() {
-                if action.kind() == usize::MAX {
+                if action.kind() == usize::MAX && !matches!(action, Action::SpawnShockwave { .. }) {
                     return Err(format!(
                         "state {:?}, action {index}: boss-only action",
                         state.name
@@ -770,10 +770,22 @@ impl Behavior {
     }
 
     pub fn blast_damage(&self, position: Vec2, size: Vec2) -> u8 {
-        self.runtime.blast_damage(position, size)
+        let immediate = self
+            .outputs
+            .iter()
+            .filter_map(|output| match output {
+                crate::action_runtime::ActionOutput::Damage(damage) => {
+                    Some((*damage).min(u32::from(u8::MAX)) as u8)
+                }
+                _ => None,
+            })
+            .max()
+            .unwrap_or(0);
+        self.runtime.blast_damage(position, size).max(immediate)
     }
 
     pub(crate) fn clear_blast_hits(&mut self) {
+        self.outputs.clear();
         self.runtime.blasts.retain(|blast| !blast.exploded);
     }
 

@@ -104,3 +104,25 @@ fn bosses_accept_and_execute_every_modern_action_with_enemy_geometry() {
         }
     }
 }
+
+#[test]
+fn shockwaves_are_shared_immediate_horizontal_checks_even_high_above_player() {
+    for (x, expected) in [(480.0, 2), (520.0, 2), (479.0, 0), (521.0, 0)] {
+        let action = Action::SpawnShockwave {
+            radius: 20.0,
+            damage: 2,
+        };
+        let start = Vec2::new(500.0, 40.0);
+        let player = Vec2::new(x, 444.0);
+        let mut position = start;
+        let mut enemy = behavior(vec![action.clone()]);
+        let mut boss = boss(vec![action], start);
+        boss.start_attack("Test", player, BOUNDS);
+        enemy.update(&mut position, context(player), 0.01);
+        assert_eq!(enemy.blast_damage(player, Vec2::splat(200.0)), expected);
+        assert_eq!(boss.update(0.01, player, BOUNDS), u32::from(expected));
+        enemy.update(&mut position, context(player), 0.01);
+        assert_eq!(enemy.blast_damage(player, Vec2::splat(200.0)), 0);
+        assert_eq!(boss.update(0.01, player, BOUNDS), 0);
+    }
+}
