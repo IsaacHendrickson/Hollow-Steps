@@ -8,6 +8,7 @@ use macroquad::math::Vec2;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::action_parameters::EditorParameter;
+use crate::enemy_attack::default_knockback_secs;
 use crate::enemy_attack::{
     attack_damage, default_arc_height, projectile_count, spread_angles, valid_aim, valid_attack,
     valid_optional_attack, valid_size, Aim, AttackBox, AttackRuntime, AttackSize, DamageHit,
@@ -191,47 +192,36 @@ fn deserialize_jump<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
     use serde::de::Error;
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct JumpFields {
+    struct Fields {
         dx: f32,
         dy: f32,
         #[serde(default, deserialize_with = "present")]
         speed: Option<f32>,
         #[serde(default, deserialize_with = "present")]
         air_time_secs: Option<f32>,
-        #[serde(default = "default_arc_height")]
-        arc_height: f32,
+        #[serde(default, deserialize_with = "present")]
+        arc_height: Option<f32>,
         #[serde(default)]
         attack: OptionalAttack,
-        #[serde(default)]
-        recovery_secs: f32,
-        #[serde(default)]
-        telegraph_secs: f32,
-        #[serde(default = "default_feedback")]
-        feedback: AttackFeedback,
+        #[serde(default, deserialize_with = "present")]
+        recovery_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        telegraph_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        feedback: Option<AttackFeedback>,
     }
-    let p: JumpFields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
+    let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match (p.speed, p.air_time_secs) {
-        (Some(speed), None) => Ok(Action::JumpToPlayer {
-            speed,
-            dx: p.dx,
-            dy: p.dy,
-        }),
-        (None, Some(air_time_secs)) => Ok(Action::JumpTo {
-            dx: p.dx,
-            dy: p.dy,
-            air_time_secs,
-            arc_height: p.arc_height,
-            attack: p.attack,
-            recovery_secs: p.recovery_secs,
-            telegraph_secs: p.telegraph_secs,
-            feedback: p.feedback,
-        }),
-        _ => Err(A::Error::custom(
-            "jump_to: provide air_time_secs (or legacy speed), never both",
-        )),
+        (Some(speed), None) if p.arc_height.is_none() && p.attack.0.is_none() && p.recovery_secs.is_none() && p.telegraph_secs.is_none() && p.feedback.is_none()
+            => Ok(Action::JumpToPlayer { speed, dx: p.dx, dy: p.dy }),
+        (None, Some(air_time_secs)) => Ok(Action::JumpTo { dx: p.dx, dy: p.dy, air_time_secs,
+            arc_height: p.arc_height.unwrap_or_else(default_arc_height), attack: p.attack,
+            recovery_secs: p.recovery_secs.ok_or_else(|| A::Error::custom("jump_to: missing recovery_secs"))?,
+            telegraph_secs: p.telegraph_secs.ok_or_else(|| A::Error::custom("jump_to: missing telegraph_secs"))?,
+            feedback: p.feedback.unwrap_or_else(default_feedback) }),
+        _ => Err(A::Error::custom("jump_to: provide air_time_secs and attack parameters, or legacy speed; do not mix forms")),
     }
 }
-
 fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result<Action, A::Error> {
     use serde::de::Error;
     #[derive(Deserialize)]
@@ -240,23 +230,27 @@ fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
         speed: f32,
         #[serde(default, deserialize_with = "present")]
         attack: Option<AttackBox>,
-        #[serde(default)]
-        recovery_secs: f32,
-        #[serde(default)]
-        telegraph_secs: f32,
-        #[serde(default = "default_feedback")]
-        feedback: AttackFeedback,
+        #[serde(default, deserialize_with = "present")]
+        recovery_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        telegraph_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        feedback: Option<AttackFeedback>,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match p.attack {
         Some(attack) => Ok(Action::ImpactSlam {
             speed: p.speed,
             attack,
-            recovery_secs: p.recovery_secs,
-            telegraph_secs: p.telegraph_secs,
-            feedback: p.feedback,
+            recovery_secs: p
+                .recovery_secs
+                .ok_or_else(|| A::Error::custom("slam_down: missing recovery_secs"))?,
+            telegraph_secs: p
+                .telegraph_secs
+                .ok_or_else(|| A::Error::custom("slam_down: missing telegraph_secs"))?,
+            feedback: p.feedback.unwrap_or_else(default_feedback),
         }),
-        None if p.recovery_secs == 0.0 && p.telegraph_secs == 0.0 => {
+        None if p.recovery_secs.is_none() && p.telegraph_secs.is_none() && p.feedback.is_none() => {
             Ok(Action::SlamDown { speed: p.speed })
         }
         None => Err(A::Error::custom(
@@ -264,7 +258,6 @@ fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
         )),
     }
 }
-
 fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
     variant: A,
 ) -> Result<Action, A::Error> {
@@ -281,18 +274,23 @@ fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
         #[serde(default, deserialize_with = "present")]
         knockback: Option<AttackVector>,
         #[serde(default, deserialize_with = "present")]
+        knockback_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
         active_secs: Option<f32>,
-        #[serde(default)]
-        telegraph_secs: f32,
-        #[serde(default = "default_feedback")]
-        feedback: AttackFeedback,
+        #[serde(default, deserialize_with = "present")]
+        telegraph_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        feedback: Option<AttackFeedback>,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match (p.count, p.fuse_time, p.knockback, p.active_secs) {
-        (Some(count), Some(fuse_time), None, None) if p.telegraph_secs == 0.0 => Ok(Action::AreaBlast {
+        (Some(count), Some(fuse_time), None, None) if p.telegraph_secs.is_none() && p.feedback.is_none() && p.knockback_secs.is_none() => Ok(Action::AreaBlast {
             count, fuse_time, radius: p.radius, damage: u8::try_from(p.damage).map_err(|_| A::Error::custom("legacy blast damage must be 0..255"))? }),
         (None, None, Some(knockback), Some(active_secs)) => Ok(Action::RadialBlast {
-            radius: p.radius, damage: p.damage, knockback, active_secs, telegraph_secs: p.telegraph_secs, feedback: p.feedback }),
+            radius: p.radius, damage: p.damage, knockback, active_secs,
+            knockback_secs: p.knockback_secs.unwrap_or_else(default_knockback_secs),
+            telegraph_secs: p.telegraph_secs.ok_or_else(|| A::Error::custom("area_blast: missing telegraph_secs"))?,
+            feedback: p.feedback.unwrap_or_else(default_feedback) }),
         _ => Err(A::Error::custom("area_blast: requires knockback and active_secs, or legacy count and fuse_time; do not mix forms")),
     }
 }
@@ -364,6 +362,8 @@ actions! {
         radius: f32 => ("blast radius (pixels)", blast_radius),
         damage: i32 => ("blast damage (integer)", attack_damage),
         knockback: AttackVector => ("blast knockback (pixels/second)", valid_vector),
+        #[serde(default = "default_knockback_secs")]
+        knockback_secs: f32 => ("horizontal knockback duration (seconds)", nonnegative),
         active_secs: f32 => ("blast active duration (seconds)", nonnegative),
         telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
         #[serde(default = "default_feedback")]
@@ -782,6 +782,7 @@ impl Behavior {
             size: size.into(),
             damage: 0,
             knockback: (0.0, 0.0),
+            knockback_secs: 0.0,
             active_secs: 0.0,
         });
         Some(AttackWarning {
@@ -884,6 +885,7 @@ impl Behavior {
                     radius,
                     damage,
                     knockback,
+                    knockback_secs,
                     active_secs,
                     telegraph_secs,
                     ..
@@ -895,6 +897,7 @@ impl Behavior {
                         size: (radius * 2.0, radius * 2.0),
                         damage,
                         knockback: knockback.0,
+                        knockback_secs,
                         active_secs,
                     };
                     self.attack_runtime
@@ -930,6 +933,7 @@ impl Behavior {
                         size: size.0,
                         damage: 0,
                         knockback: (0.0, 0.0),
+                        knockback_secs: 0.0,
                         active_secs: 0.0,
                     };
                     let (used, finished) = self
@@ -1298,6 +1302,7 @@ impl Action {
                 radius,
                 damage,
                 knockback,
+                knockback_secs,
                 active_secs,
                 ..
             } => Some(AttackBox {
@@ -1306,6 +1311,7 @@ impl Action {
                 size: (*radius * 2.0, *radius * 2.0),
                 damage: *damage,
                 knockback: knockback.0,
+                knockback_secs: *knockback_secs,
                 active_secs: *active_secs,
             }),
             Self::ShootProjectile { size, damage, .. } => Some(AttackBox {
@@ -1314,6 +1320,7 @@ impl Action {
                 size: size.0,
                 damage: *damage,
                 knockback: (0.0, 0.0),
+                knockback_secs: 0.0,
                 active_secs: 0.0,
             }),
             _ => None,

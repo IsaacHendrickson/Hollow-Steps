@@ -455,7 +455,10 @@ impl Enemy {
         if self.is_dead() {
             0
         } else {
-            self.behavior.blast_damage(position, size)
+            self.behavior.blast_damage(position, size).max(
+                self.attack_hit(position, size)
+                    .map_or(0, |hit| hit.damage.clamp(0, i32::from(u8::MAX)) as u8),
+            )
         }
     }
 }

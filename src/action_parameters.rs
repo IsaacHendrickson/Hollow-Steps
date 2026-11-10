@@ -49,6 +49,7 @@ impl EditorParameter for AttackBox {
         "knockback x (pixels/second)",
         "knockback y (pixels/second)",
         "active duration (seconds)",
+        "horizontal knockback duration (seconds)",
     ];
     fn editor_values(self) -> Vec<String> {
         vec![
@@ -65,6 +66,7 @@ impl EditorParameter for AttackBox {
             self.knockback.0.to_string(),
             self.knockback.1.to_string(),
             self.active_secs.to_string(),
+            self.knockback_secs.to_string(),
         ]
     }
     fn edit(&mut self, index: usize, text: &str) -> Result<(), String> {
@@ -84,6 +86,7 @@ impl EditorParameter for AttackBox {
             6 => self.knockback.0 = parse(text)?,
             7 => self.knockback.1 = parse(text)?,
             8 => self.active_secs = parse(text)?,
+            9 => self.knockback_secs = parse(text)?,
             _ => return Err("missing attack parameter".into()),
         }
         Ok(())
@@ -105,6 +108,7 @@ impl EditorParameter for OptionalAttack {
         "knockback x (pixels/second)",
         "knockback y (pixels/second)",
         "active duration (seconds)",
+        "horizontal knockback duration (seconds)",
     ];
     fn editor_values(self) -> Vec<String> {
         let mut values = vec![self.0.is_some().to_string()];

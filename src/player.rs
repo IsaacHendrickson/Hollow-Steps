@@ -57,15 +57,22 @@ impl Default for PlayerConfig {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WorldBounds {
     pub left: f32,
+    /// Ceiling metadata used by enemy attacks; normal player movement is unchanged.
+    pub top: f32,
     pub right: f32,
     /// The y coordinate of the top of the floor.
     pub floor_y: f32,
 }
 
 impl WorldBounds {
+    pub const fn with_top(mut self, top: f32) -> Self {
+        self.top = top;
+        self
+    }
     pub const fn new(left: f32, right: f32, floor_y: f32) -> Self {
         Self {
             left,
+            top: 0.0,
             right,
             floor_y,
         }
@@ -88,6 +95,8 @@ pub struct Player {
     attack: Attack,
     coyote_remaining: f32,
     jump_buffer_remaining: f32,
+    attack_knockback_x: f32,
+    attack_knockback_remaining: f32,
 }
 
 impl Player {
@@ -107,6 +116,8 @@ impl Player {
             attack: Attack::default(),
             coyote_remaining: 0.0,
             jump_buffer_remaining: 0.0,
+            attack_knockback_x: 0.0,
+            attack_knockback_remaining: 0.0,
         }
     }
 
@@ -128,8 +139,14 @@ impl Player {
 
     /// Attack damage shares contact damage's immunity gate; rejected hits never move the player.
     pub fn take_attack_damage(&mut self, hit: crate::enemy_attack::DamageHit) -> bool {
+        if !hit.knockback.is_finite() || !hit.knockback_secs.is_finite() || hit.knockback_secs < 0.0
+        {
+            return false;
+        }
         if self.take_damage_amount(hit.damage.clamp(0, i32::from(u8::MAX)) as u8) {
             self.velocity += hit.knockback;
+            self.attack_knockback_x = hit.knockback.x;
+            self.attack_knockback_remaining = hit.knockback_secs;
             if hit.knockback.y < 0.0 {
                 self.grounded = false;
             }
@@ -182,6 +199,8 @@ impl Player {
     pub fn place_at(&mut self, position: Vec2, bounds: WorldBounds) {
         self.position = position;
         self.velocity = Vec2::ZERO;
+        self.attack_knockback_x = 0.0;
+        self.attack_knockback_remaining = 0.0;
         self.attack.cancel();
         self.coyote_remaining = 0.0;
         self.jump_buffer_remaining = 0.0;
@@ -275,6 +294,13 @@ impl Player {
             self.dash_cooldown = 0.0;
         }
 
+        // Attack displacement is additive; walking, jumping, and dash rules retain their normal path.
+        let knockback_dt = delta_seconds.min(self.attack_knockback_remaining);
+        self.position.x = (f64::from(self.position.x)
+            + f64::from(self.attack_knockback_x) * f64::from(knockback_dt))
+            as f32;
+        self.attack_knockback_remaining =
+            (self.attack_knockback_remaining - delta_seconds).max(0.0);
         self.resolve_horizontal_bounds(bounds);
         self.resolve_floor(bounds);
         if self.dash_remaining == 0.0 && self.grounded && self.jump_buffer_remaining > 0.0 {

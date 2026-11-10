@@ -370,6 +370,7 @@ impl GameState {
             .unwrap_or(crate::enemy_attack::DamageHit {
                 damage: i32::from(base_damage),
                 knockback: Vec2::ZERO,
+                knockback_secs: 0.0,
             });
         self.player.take_attack_damage(hit);
         if self.player.health().current() == 0 {

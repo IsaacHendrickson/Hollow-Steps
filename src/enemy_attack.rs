@@ -17,6 +17,8 @@ pub struct AttackBox {
     pub size: (f32, f32),
     pub damage: i32,
     pub knockback: (f32, f32),
+    #[serde(default = "default_knockback_secs")]
+    pub knockback_secs: f32,
     pub active_secs: f32,
 }
 
@@ -24,6 +26,7 @@ pub struct AttackBox {
 pub struct DamageHit {
     pub damage: i32,
     pub knockback: Vec2,
+    pub knockback_secs: f32,
 }
 
 impl AttackBox {
@@ -43,6 +46,8 @@ impl AttackBox {
         if self.damage < 0 {
             return Err("attack damage must be nonnegative".into());
         }
+        crate::behavior::nonnegative(self.knockback_secs)
+            .map_err(|e| format!("attack knockback seconds: {e}"))?;
         crate::behavior::nonnegative(self.active_secs)
             .map_err(|e| format!("attack active seconds: {e}"))
     }
@@ -70,6 +75,7 @@ impl AttackBox {
         DamageHit {
             damage: self.damage,
             knockback: Vec2::from(self.knockback),
+            knockback_secs: self.knockback_secs,
         }
     }
 }
@@ -253,7 +259,8 @@ fn clamp_to_room(position: &mut Vec2, context: BehaviorContext) {
         context.bounds.right - context.size.x / 2.0,
     );
     position.y = position.y.clamp(
-        (context.size.y / 2.0).min(context.bounds.floor_y - context.size.y / 2.0),
+        (context.bounds.top + context.size.y / 2.0)
+            .min(context.bounds.floor_y - context.size.y / 2.0),
         context.bounds.floor_y - context.size.y / 2.0,
     );
 }
@@ -277,14 +284,20 @@ impl std::str::FromStr for OptionalAttack {
 pub(crate) fn valid_optional_attack(value: OptionalAttack) -> Result<(), String> {
     value.0.map_or(Ok(()), AttackBox::validate)
 }
-pub(crate) fn default_arc_height() -> f32 {
-    #[derive(Deserialize)]
-    struct Defaults {
-        jump_arc_height: f32,
-    }
-    ron::from_str::<Defaults>(include_str!("../data/attack_motion_defaults.ron"))
+#[derive(Deserialize)]
+struct MotionDefaults {
+    jump_arc_height: f32,
+    knockback_secs: f32,
+}
+fn motion_defaults() -> MotionDefaults {
+    ron::from_str(include_str!("../data/attack_motion_defaults.ron"))
         .expect("valid motion defaults")
-        .jump_arc_height
+}
+pub(crate) fn default_arc_height() -> f32 {
+    motion_defaults().jump_arc_height
+}
+pub(crate) fn default_knockback_secs() -> f32 {
+    motion_defaults().knockback_secs
 }
 
 /// A quadratic Bezier-equivalent parabola with exact endpoints; height is authored.
@@ -394,7 +407,7 @@ impl Projectile {
         if !dt.is_finite() || dt < 0.0 {
             return (self.remaining_secs > 0.0, None);
         }
-        let min = Vec2::new(bounds.left, 0.0) + self.size / 2.0;
+        let min = Vec2::new(bounds.left, bounds.top) + self.size / 2.0;
         let max = Vec2::new(bounds.right, bounds.floor_y) - self.size / 2.0;
         if self.position.x < min.x
             || self.position.x > max.x
@@ -428,6 +441,7 @@ impl Projectile {
                 Some(DamageHit {
                     damage: self.damage,
                     knockback: Vec2::ZERO,
+                    knockback_secs: 0.0,
                 }),
             )
         } else {

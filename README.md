@@ -650,3 +650,28 @@ Enemy attack actions share the generated action registry and pure attack runtime
 wind-up starts. For compatibility, `jump_to(speed: ..., dx: ..., dy: ...)` still
 loads the legacy linear jump. New and legacy slam/blast forms are distinguished
 by their parameter fields, so existing enemy and boss documents retain their rules.
+
+Attack authoring notes:
+
+- All five attack types have an explicit `telegraph_secs`; `0.0` opts out of
+  their built-in wind-up. An immediately preceding `telegraph` also previews
+  the next attack's outline.
+- `AttackBox.size` is full width/height. A Circle uses width as its diameter;
+  height is retained for switching back to Rect. Offsets and knockback vectors
+  use world axes. Lunge stays active for `duration_secs`; landing/impact attacks
+  use `AttackBox.active_secs` before their recovery starts.
+- `jump_to.arc_height` is editable and defaults from `data/attack_motion_defaults.ron`.
+  Jumps and projectiles respect the authored room ceiling, side walls, and floor.
+- Knockback adds the authored vertical velocity impulse and horizontal movement
+  for `knockback_secs`, which defaults from the same motion data file. Immunity
+  rejects both damage and knockback together.
+- Projectile `spread_degrees` is the entire fan angle, so three shots at 15 degrees
+  have offsets -7.5, 0, and +7.5 degrees. Horizontal aim samples the player's side.
+- Warning `feedback` contains editable alpha, line width, flash cycles, and RGB
+  tint. Defaults live in `data/attack_feedback_defaults.ron`; alpha starts at 0.3.
+  Every nested attack/feedback value has a labeled editor field and staged-save
+  validation. F5 replaces enemy attack state and projectiles with the edited data.
+
+Manual attack check: run `cargo run`; observe Charger/Hopper/Shooter warnings and
+recovery, verify projectiles and slam hits, edit each action's nested fields in F2,
+save, then press F5 and confirm the edited attacks run with the new values.

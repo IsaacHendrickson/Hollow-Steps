@@ -9,6 +9,7 @@ fn hitbox() -> AttackBox {
         size: (20.0, 20.0),
         damage: 2,
         knockback: (40.0, -50.0),
+        knockback_secs: 0.2,
         active_secs: 0.5,
     }
 }
@@ -463,4 +464,94 @@ fn transition_interrupts_pending_and_active_attack_windows() {
         assert!(behavior.warning(Vec2::ONE).is_none());
         assert!(behavior.attack_hit(position, position, Vec2::ONE).is_none());
     }
+}
+
+#[test]
+fn horizontal_knockback_moves_for_authored_duration_and_stops_at_walls() {
+    use hollow_steps::player::PlayerInput;
+    let config = PlayerConfig {
+        gravity: 0.0,
+        ..PlayerConfig::default()
+    };
+    let mut player = Player::new(Vec2::new(100.0, 200.0), config);
+    assert!(player.take_attack_damage(hitbox().hit()));
+    player.update(PlayerInput::default(), 0.1, context().bounds);
+    assert_eq!(player.position().x, 104.0);
+    player.update(PlayerInput::default(), 0.4, context().bounds);
+    assert_eq!(player.position().x, 108.0);
+    player.update(PlayerInput::default(), 0.4, context().bounds);
+    assert_eq!(player.position().x, 108.0);
+    let mut at_wall = Player::new(Vec2::new(940.0, 200.0), config);
+    assert!(at_wall.take_attack_damage(hitbox().hit()));
+    at_wall.update(PlayerInput::default(), 1.0, context().bounds);
+    assert_eq!(at_wall.position().x, 944.0);
+}
+
+#[test]
+fn attack_motion_and_projectiles_respect_authored_room_ceiling() {
+    use hollow_steps::enemy_attack::Projectile;
+    let bounds = context().bounds.with_top(200.0);
+    let mut behavior = fixture_machine(1);
+    let mut position = Vec2::new(100.0, 242.0);
+    behavior.update(
+        &mut position,
+        BehaviorContext {
+            bounds,
+            player_position: Vec2::new(400.0, -100.0),
+            ..context()
+        },
+        0.75,
+    );
+    assert!(position.y >= 218.0);
+    let mut projectile = Projectile {
+        position: Vec2::new(100.0, 250.0),
+        velocity: -Vec2::Y * 100.0,
+        size: Vec2::splat(10.0),
+        damage: 1,
+        remaining_secs: 5.0,
+    };
+    assert!(!projectile.step(2.0, bounds, Vec2::ZERO, Vec2::ZERO).0);
+    assert_eq!(projectile.position.y, 205.0);
+}
+
+#[test]
+fn mixed_legacy_and_new_attack_fields_are_rejected_instead_of_ignored() {
+    use hollow_steps::behavior::Action;
+    for source in [
+        "jump_to(speed: 100.0, dx: 0.0, dy: 0.0, recovery_secs: -1.0)",
+        "slam_down(speed: 100.0, telegraph_secs: 0.0)",
+        "area_blast(count: 1, radius: 50.0, fuse_time: 1.0, damage: 1, active_secs: 0.5)",
+    ] {
+        assert!(ron::from_str::<Action>(source).is_err(), "{source}");
+    }
+}
+
+#[test]
+fn enemy_action_damage_api_includes_attack_boxes_and_closes_at_window_end() {
+    use hollow_steps::enemy::{Enemy, EnemyDefinition};
+    let definition =
+        BehaviorDefinition::from_ron(include_str!("fixtures/attacks/reload_lunge.ron")).unwrap();
+    let mut enemy = Enemy::from_definition(
+        &EnemyDefinition {
+            name: "attacker".into(),
+            health: 3,
+            size: (36.0, 36.0),
+            contact_damage: 0,
+            behavior: "attack".into(),
+            body: None,
+        },
+        Arc::new(definition),
+        100.0,
+        200.0,
+        context().bounds,
+    )
+    .unwrap();
+    enemy.update(context().player_position, 0.5, context().bounds);
+    assert_eq!(enemy.action_damage(enemy.position(), Vec2::ZERO), 2);
+    assert_eq!(
+        enemy.action_damage(enemy.position() + Vec2::X * 31.0, Vec2::ZERO),
+        0
+    );
+    enemy.update(context().player_position, 0.25, context().bounds);
+    assert_eq!(enemy.action_damage(enemy.position(), Vec2::ZERO), 0);
 }
