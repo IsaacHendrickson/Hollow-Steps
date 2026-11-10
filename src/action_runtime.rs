@@ -4,6 +4,40 @@ use crate::enemy_attack::{spread_angles, Aim, AttackBox, AttackRuntime, DamageHi
 use crate::player::WorldBounds;
 use macroquad::math::Vec2;
 
+/// Physical state exposed by an entity adapter; action geometry never uses render bodies.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ActorMotion {
+    pub facing: f32,
+    pub velocity: (f64, f64),
+    pub airborne: bool,
+}
+
+/// Effects leave the executor through the owning entity's sink.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ActionOutput {
+    Damage(u32),
+    DamageArea { origin: Vec2, area: AttackBox },
+    Projectile(Projectile),
+    Spawn(Vec2),
+    Glide { target: Vec2, speed: f32 },
+}
+
+/// Window-free view of either an enemy or a boss.
+pub trait ActionActor {
+    fn position(&self) -> Vec2;
+    fn set_position(&mut self, position: Vec2);
+    fn context(&self) -> BehaviorContext;
+    fn player_size(&self) -> Vec2;
+    fn motion(&self) -> ActorMotion;
+    fn set_motion(&mut self, motion: ActorMotion);
+    fn random_arena_position(&mut self) -> Vec2;
+    fn emit(&mut self, output: ActionOutput);
+    /// Legacy boss actions sample the attack's locked target and suspend ground gravity.
+    fn legacy_target(&self) -> Option<Vec2> {
+        None
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ActionRuntime {
     pub(crate) action_elapsed: f64,
@@ -13,7 +47,6 @@ pub struct ActionRuntime {
     pub(crate) airborne: bool,
     pub(crate) vertical_velocity: f64,
     pub(crate) blasts: Vec<Blast>,
-    pub(crate) random_state: Option<u32>,
     pub(crate) attack_runtime: Option<AttackRuntime>,
     pub(crate) projectiles: Vec<Projectile>,
     pub(crate) projectile_hits: Vec<DamageHit>,
@@ -30,7 +63,6 @@ impl Default for ActionRuntime {
             airborne: false,
             vertical_velocity: 0.0,
             blasts: Vec::new(),
-            random_state: None,
             attack_runtime: None,
             projectiles: Vec::new(),
             projectile_hits: Vec::new(),
@@ -40,7 +72,53 @@ impl Default for ActionRuntime {
 }
 
 impl ActionRuntime {
-    pub(crate) fn execute(
+    pub fn step(
+        &mut self,
+        action: &Action,
+        preview: &Action,
+        actor: &mut impl ActionActor,
+        remaining: f64,
+    ) -> (f64, bool) {
+        let mut position = actor.position();
+        let context = actor.context();
+        let player_size = actor.player_size();
+        let motion = actor.motion();
+        self.direction = motion.facing;
+        self.vertical_velocity = motion.velocity.1;
+        self.airborne = motion.airborne;
+        let result = self.execute(
+            action,
+            preview,
+            &mut position,
+            context,
+            player_size,
+            remaining,
+            actor,
+        );
+        actor.set_position(position);
+        actor.set_motion(ActorMotion {
+            facing: self.direction,
+            velocity: (0.0, self.vertical_velocity),
+            airborne: self.airborne,
+        });
+        if let Some(area) = self.attack_runtime.as_ref().and_then(|r| r.active) {
+            actor.emit(ActionOutput::DamageArea {
+                origin: position,
+                area,
+            });
+        }
+        result
+    }
+
+    pub fn motion(&self) -> ActorMotion {
+        ActorMotion {
+            facing: self.direction,
+            velocity: (0.0, self.vertical_velocity),
+            airborne: self.airborne,
+        }
+    }
+
+    fn execute(
         &mut self,
         action: &Action,
         preview: &Action,
@@ -48,6 +126,7 @@ impl ActionRuntime {
         context: BehaviorContext,
         player_size: Vec2,
         remaining: f64,
+        actor: &mut impl ActionActor,
     ) -> (f64, bool) {
         let action = action.clone();
         if matches!(
@@ -171,6 +250,7 @@ impl ActionRuntime {
                         );
                         self.projectile_hits.extend(hit);
                         if alive {
+                            actor.emit(ActionOutput::Projectile(projectile.clone()));
                             self.projectiles.push(projectile);
                         }
                     }
@@ -315,13 +395,9 @@ impl ActionRuntime {
             } => {
                 if !self.action_started {
                     for _ in 0..count {
-                        let x = f64::from(context.bounds.left)
-                            + self.next_random(*position)
-                                * (f64::from(context.bounds.right)
-                                    - f64::from(context.bounds.left));
-                        let y = self.next_random(*position) * f64::from(context.bounds.floor_y);
+                        let blast_position = actor.random_arena_position();
                         self.blasts.push(Blast {
-                            position: Vec2::new(x as f32, y as f32),
+                            position: blast_position,
                             radius,
                             damage,
                             exploded: false,
@@ -438,15 +514,6 @@ impl ActionRuntime {
             *position = (position.as_dvec2() + difference * (dt / duration)).as_vec2();
             (dt, false)
         }
-    }
-
-    fn next_random(&mut self, position: Vec2) -> f64 {
-        // Per-instance deterministic PRNG; coefficients are algorithm constants.
-        let state = self
-            .random_state
-            .get_or_insert(position.x.to_bits().rotate_left(16) ^ position.y.to_bits());
-        *state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-        f64::from(*state) / f64::from(u32::MAX)
     }
 
     fn move_to(&mut self, position: &mut Vec2, target: f32, speed: f32, dt: f64) -> (f64, bool) {

@@ -701,6 +701,8 @@ pub struct Behavior {
     action: usize,
     state_elapsed: f64,
     runtime: crate::action_runtime::ActionRuntime,
+    random_state: Option<u32>,
+    outputs: Vec<crate::action_runtime::ActionOutput>,
 }
 
 /// A stationary warning circle; `exploded` is a damage event for one update.
@@ -726,6 +728,8 @@ impl Behavior {
             action: 0,
             state_elapsed: 0.0,
             runtime: crate::action_runtime::ActionRuntime::default(),
+            random_state: None,
+            outputs: Vec::new(),
         })
     }
 
@@ -734,7 +738,7 @@ impl Behavior {
     }
 
     pub fn set_random_seed(&mut self, seed: u32) {
-        self.runtime.random_state = Some(seed);
+        self.random_state = Some(seed);
     }
 
     pub fn state_name(&self) -> &str {
@@ -922,6 +926,7 @@ impl Behavior {
         delta_seconds: f32,
         player_size: Vec2,
     ) {
+        self.outputs.clear();
         self.runtime.pose_steps.clear();
         self.clear_blast_hits();
         self.runtime.projectile_hits.clear();
@@ -955,9 +960,15 @@ impl Behavior {
                 &action
             };
             let preview = preview.clone();
-            let (used, finished) =
-                self.runtime
-                    .execute(&action, &preview, position, context, player_size, remaining);
+            let mut actor = EnemyActionActor {
+                position,
+                context,
+                player_size,
+                motion: self.runtime.motion(),
+                random_state: &mut self.random_state,
+                outputs: &mut self.outputs,
+            };
+            let (used, finished) = self.runtime.step(&action, &preview, &mut actor, remaining);
             remaining = (remaining - used).max(0.0);
             if !finished {
                 break;
@@ -1145,5 +1156,54 @@ impl Action {
             } => telegraph * *pose_blend_ratio,
             _ => 0.0,
         }
+    }
+}
+
+/// Enemy view used while Behavior owns the sequence cursor.
+struct EnemyActionActor<'a> {
+    position: &'a mut Vec2,
+    context: BehaviorContext,
+    player_size: Vec2,
+    motion: crate::action_runtime::ActorMotion,
+    random_state: &'a mut Option<u32>,
+    outputs: &'a mut Vec<crate::action_runtime::ActionOutput>,
+}
+impl EnemyActionActor<'_> {
+    fn next_random(&mut self) -> f64 {
+        let state = self
+            .random_state
+            .get_or_insert(self.position.x.to_bits().rotate_left(16) ^ self.position.y.to_bits());
+        *state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        f64::from(*state) / f64::from(u32::MAX)
+    }
+}
+impl crate::action_runtime::ActionActor for EnemyActionActor<'_> {
+    fn position(&self) -> Vec2 {
+        *self.position
+    }
+    fn set_position(&mut self, position: Vec2) {
+        *self.position = position;
+    }
+    fn context(&self) -> BehaviorContext {
+        self.context
+    }
+    fn player_size(&self) -> Vec2 {
+        self.player_size
+    }
+    fn motion(&self) -> crate::action_runtime::ActorMotion {
+        self.motion
+    }
+    fn set_motion(&mut self, motion: crate::action_runtime::ActorMotion) {
+        self.motion = motion;
+    }
+    fn random_arena_position(&mut self) -> Vec2 {
+        let bounds = self.context.bounds;
+        let x = f64::from(bounds.left)
+            + self.next_random() * (f64::from(bounds.right) - f64::from(bounds.left));
+        let y = self.next_random() * f64::from(bounds.floor_y);
+        Vec2::new(x as f32, y as f32)
+    }
+    fn emit(&mut self, output: crate::action_runtime::ActionOutput) {
+        self.outputs.push(output);
     }
 }
