@@ -84,6 +84,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, and terrain validation.
+- `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/definition_editor.rs`: pure entity/behavior edits, save planning, and staged file writes.
 - `src/search.rs`: pure editor list filtering and stable selection.
@@ -113,7 +114,8 @@ When you add, rename, or remove a module, update this list in the same change.
 - Player input is frame intent. `jump_pressed` is an edge event and must come
   from an API such as `is_key_pressed`, not a held-key query.
 - Update methods receive `delta_seconds`; they must not read wall-clock time
-  directly.
+  directly. `main.rs` calls `GameState::update` once per fixed tick (1/120 s,
+  `timestep.rs`), never with the raw frame time.
 - Clamp or validate external values at system boundaries. Do not scatter
   magic numbers through the rendering loop.
 - Draw code never uses fixed pixel positions or window-size constants. Use the

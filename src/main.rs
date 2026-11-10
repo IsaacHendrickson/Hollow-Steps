@@ -8,6 +8,7 @@ use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
 use hollow_steps::room::RoomEdge;
 use hollow_steps::search::SearchList;
+use hollow_steps::timestep::{FixedStep, InputLatch};
 use macroquad::prelude::*;
 mod body_draw;
 mod editor_panel;
@@ -31,9 +32,11 @@ async fn main() {
     let mut editor_ui = EditorUi::default();
     let mut body_debug = false;
     let body_debug_overlay = body_draw::BodyDebugOverlay::new();
+    let mut fixed_step = FixedStep::default();
+    let mut input_latch = InputLatch::default();
 
     loop {
-        let delta_seconds = get_frame_time().min(1.0 / 15.0);
+        let frame_seconds = get_frame_time();
         if is_key_pressed(KeyCode::F3) {
             body_debug = !body_debug;
         }
@@ -42,6 +45,8 @@ async fn main() {
                 reload_result = Some(Err(error));
             }
             editor_ui = EditorUi::default();
+            fixed_step.reset();
+            input_latch.clear();
         }
         if game.editor().is_some() {
             draw_editor(&mut game, &mut editor_ui, body_debug, &body_debug_overlay);
@@ -56,8 +61,12 @@ async fn main() {
         {
             game.toggle_inventory();
         }
-        let input = read_player_input();
-        game.update(input, delta_seconds);
+        // Edge input is latched until a tick consumes it; only the first tick of a frame
+        // sees it, while held input applies to every tick.
+        input_latch.record(read_player_input());
+        for _ in 0..fixed_step.advance(frame_seconds) {
+            game.update(input_latch.take_tick(), fixed_step.step_seconds());
+        }
 
         draw_scene(&game);
         if game.inventory_open() {
