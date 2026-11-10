@@ -18,6 +18,7 @@ enum Parameter {
 pub struct KeyValue {
     pub label: String,
     pub value: String,
+    pub pose_choice: bool,
     parameter: Parameter,
 }
 
@@ -32,11 +33,12 @@ impl KeyValues {
         for (state, definition) in behavior.states.iter().enumerate() {
             for (row, action) in definition.actions.iter().enumerate() {
                 let labels = action.parameter_labels();
-                for (field, (_, value)) in action.parameters().into_iter().enumerate() {
+                for (field, (name, value)) in action.parameters().into_iter().enumerate() {
                     let description = &labels[field];
                     values.push(KeyValue {
                         label: format!("{}: {description} [action {}]", definition.name, row + 1),
                         value,
+                        pose_choice: crate::pose::is_pose_parameter(name),
                         parameter: Parameter::Action { state, row, field },
                     });
                 }
@@ -70,6 +72,7 @@ impl KeyValues {
                         row + 1
                     ),
                     value,
+                    pose_choice: false,
                     parameter: Parameter::Condition { state, row },
                 });
             }

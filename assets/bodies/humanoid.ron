@@ -1,4 +1,5 @@
 (
+    pose_map: {"head": "head", "torso": "torso", "hand_l": "hand_l", "hand_r": "hand_r", "foot_l": "foot_l", "foot_r": "foot_r"},
     points: {
         "foot_l": (
             rest: (-0.18, 0.44),

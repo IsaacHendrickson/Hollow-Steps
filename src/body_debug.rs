@@ -178,3 +178,13 @@ pub fn nearest_entity(entities: &[Enemy], player_position: Vec2) -> Option<usize
         })
         .map(|(index, _)| index)
 }
+
+/// Nearest visible body supplies the pose label; font size matches the existing HUD.
+pub const LEGEND_FONT_SIZE: u16 = 18;
+pub fn pose_legend(enemies: &[Enemy], player_position: Vec2) -> String {
+    let pose = nearest_entity(enemies, player_position)
+        .and_then(|index| enemies[index].body())
+        .and_then(|body| body.pose_name.as_deref())
+        .unwrap_or("none");
+    format!("F3: rest gray | current green | target yellow | hitbox red | pose: {pose}")
+}

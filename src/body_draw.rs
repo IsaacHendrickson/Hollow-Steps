@@ -63,14 +63,27 @@ pub fn draw_enemy_body(enemy: &Enemy) {
 }
 
 fn enemy_tint(enemy: &Enemy, color: Color) -> Color {
+    if let Some(body) = enemy.body() {
+        let strength = body.flash_strength();
+        if strength > 0.0 {
+            let tint = body.visual.hurt.tint;
+            return Color::new(
+                color.r + (tint.0 - color.r) * strength,
+                color.g + (tint.1 - color.g) * strength,
+                color.b + (tint.2 - color.b) * strength,
+                color.a,
+            );
+        }
+    }
     let Some(warning) = enemy.behavior().warning(enemy.size()) else {
         return color;
     };
     let tint = warning.feedback.tint;
+    let strength = warning.strength * warning.feedback.warning_tint_strength;
     Color::new(
-        color.r + (tint.0 - color.r) * warning.strength,
-        color.g + (tint.1 - color.g) * warning.strength,
-        color.b + (tint.2 - color.b) * warning.strength,
+        color.r + (tint.0 - color.r) * strength,
+        color.g + (tint.1 - color.g) * strength,
+        color.b + (tint.2 - color.b) * strength,
         color.a,
     )
 }
@@ -222,6 +235,13 @@ pub fn draw_body_debug_overlay(
             }
         }
     }
+    draw_text(
+        hollow_steps::body_debug::pose_legend(enemies, player_position),
+        28.0,
+        screen_height() - 48.0,
+        f32::from(hollow_steps::body_debug::LEGEND_FONT_SIZE),
+        WHITE,
+    );
     // Later callers may cache new glyphs too; don't leave overlay text queued.
     unsafe { get_internal_gl().flush() };
 }

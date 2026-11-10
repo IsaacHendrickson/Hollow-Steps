@@ -46,12 +46,15 @@ pub fn load_presets(directory: &Path) -> Result<Vec<BehaviorPreset>, String> {
     {
         return Ok(Vec::new());
     }
+    let poses = crate::pose::load_poses(&directory.parent().unwrap_or(directory).join("poses"))?;
     let mut presets = Vec::new();
     let mut names = BTreeSet::new();
     for path in ron_files(directory)? {
         let preset: BehaviorPreset = read_ron(&path)?;
         preset
             .validate()
+            .map_err(|e| format!("{}: {e}", path.display()))?;
+        crate::pose::validate_behavior(&preset.behavior, &poses)
             .map_err(|e| format!("{}: {e}", path.display()))?;
         if !names.insert(preset.name.trim().to_lowercase()) {
             return Err(format!(

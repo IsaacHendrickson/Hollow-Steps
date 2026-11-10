@@ -65,6 +65,7 @@ Gameplay modules (pure rules, no rendering):
   collision resolution, and player-focused tests.
 - `src/health.rs`: player health, damage, and invincibility.
 - `src/enemy.rs`: enemy behavior, health, knockback, death, and body instances.
+- `src/pose.rs`: semantic pose assets, presentation playback, and validation.
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
 - `src/behavior.rs`: data-driven action sequences, state transitions, and RON validation.

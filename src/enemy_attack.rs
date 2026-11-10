@@ -205,6 +205,37 @@ impl AttackRuntime {
         }
     }
 
+    /// Presentation spans of the last simulation step, including exact phase boundaries.
+    pub fn pose_spans(&self, used: f64) -> Vec<(usize, f32)> {
+        let duration = match self.motion {
+            Motion::Lunge { duration, .. } | Motion::Jump { duration, .. } => duration,
+        };
+        let landing = matches!(self.motion, Motion::Jump { .. });
+        let active_end = self.telegraph
+            + duration
+            + if landing {
+                self.attack.map_or(0.0, |a| f64::from(a.active_secs))
+            } else {
+                0.0
+            };
+        let before = self.elapsed - used;
+        let mut spans = Vec::new();
+        for (phase, start, end) in [
+            (0, 0.0, self.telegraph),
+            (1, self.telegraph, active_end),
+            (2, active_end, active_end + self.recovery),
+        ] {
+            let seconds = self.elapsed.min(end) - before.max(start);
+            if seconds > 0.0
+                || (self.elapsed == start && end > start)
+                || (phase == 1 && start == end && self.elapsed >= start && before <= start)
+            {
+                spans.push((phase, seconds.max(0.0) as f32));
+            }
+        }
+        spans
+    }
+
     pub fn warning(&self) -> Option<AttackBox> {
         (self.elapsed < self.telegraph)
             .then_some(self.attack)
@@ -519,10 +550,15 @@ pub(crate) fn blast_radius(radius: f32) -> Result<(), String> {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct AttackFeedback {
+    #[serde(default = "default_warning_tint_strength")]
+    pub warning_tint_strength: f32,
     pub outline_alpha: f32,
     pub outline_width: f32,
     pub flash_cycles: f32,
     pub tint: (f32, f32, f32),
+}
+fn default_warning_tint_strength() -> f32 {
+    default_feedback().warning_tint_strength
 }
 pub(crate) fn default_feedback() -> AttackFeedback {
     ron::from_str(include_str!("../data/attack_feedback_defaults.ron"))
@@ -531,6 +567,7 @@ pub(crate) fn default_feedback() -> AttackFeedback {
 pub(crate) fn valid_feedback(value: AttackFeedback) -> Result<(), String> {
     for channel in [
         value.outline_alpha,
+        value.warning_tint_strength,
         value.tint.0,
         value.tint.1,
         value.tint.2,

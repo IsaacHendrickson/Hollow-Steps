@@ -3,7 +3,7 @@ use crate::enemy_attack::{
     Aim, AttackBox, AttackFeedback, AttackShape, AttackSize, AttackVector, OptionalAttack,
 };
 
-pub(crate) trait EditorParameter: Copy {
+pub(crate) trait EditorParameter: Clone {
     const LABELS: &'static [&'static str];
     fn editor_values(self) -> Vec<String>;
     fn edit(&mut self, index: usize, text: &str) -> Result<(), String>;
@@ -169,6 +169,7 @@ impl EditorParameter for AttackFeedback {
         "red tint (0..1)",
         "green tint (0..1)",
         "blue tint (0..1)",
+        "warning tint strength (0..1)",
     ];
     fn editor_values(self) -> Vec<String> {
         vec![
@@ -178,6 +179,7 @@ impl EditorParameter for AttackFeedback {
             self.tint.0.to_string(),
             self.tint.1.to_string(),
             self.tint.2.to_string(),
+            self.warning_tint_strength.to_string(),
         ]
     }
     fn edit(&mut self, index: usize, text: &str) -> Result<(), String> {
@@ -188,8 +190,27 @@ impl EditorParameter for AttackFeedback {
             3 => self.tint.0 = parse(text)?,
             4 => self.tint.1 = parse(text)?,
             5 => self.tint.2 = parse(text)?,
+            6 => self.warning_tint_strength = parse(text)?,
             _ => return Err("missing feedback parameter".into()),
         }
+        Ok(())
+    }
+}
+
+impl EditorParameter for Option<String> {
+    const LABELS: &'static [&'static str] = &[""];
+    fn editor_values(self) -> Vec<String> {
+        vec![self.unwrap_or_default()]
+    }
+    fn edit(&mut self, index: usize, text: &str) -> Result<(), String> {
+        if index != 0 {
+            return Err("missing pose parameter".into());
+        }
+        *self = if text.trim().is_empty() || text.trim() == "None" {
+            None
+        } else {
+            Some(text.trim().to_owned())
+        };
         Ok(())
     }
 }

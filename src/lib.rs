@@ -22,6 +22,7 @@ pub mod game;
 pub mod health;
 pub mod item;
 pub mod player;
+pub mod pose;
 pub mod preset;
 pub mod room;
 pub mod search;

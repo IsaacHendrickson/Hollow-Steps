@@ -12,7 +12,7 @@
         (name: "fire", actions: [
             telegraph(seconds: 0.4),
             shoot_projectile(speed: 280.0, damage: 1, lifetime_secs: 3.0, size: (12.0, 12.0),
-                aim: AtPlayer, count: 3, spread_degrees: 15.0, telegraph_secs: 0.0),
+                aim: AtPlayer, count: 3, spread_degrees: 15.0, telegraph_secs: 0.0, telegraph_pose: Some("windup"), active_pose: Some("recoil"), recovery_pose: None, pose_blend_ratio: 0.8, strike_stiffness_multiplier: 3.0),
             wait(seconds: 1.2),
         ], transitions: [
             (target: "retreat", condition: player_distance_less_than(200.0)),
