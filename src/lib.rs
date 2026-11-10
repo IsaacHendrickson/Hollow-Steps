@@ -12,6 +12,7 @@ pub mod boss;
 pub mod boss_definition;
 pub mod boss_editor;
 pub mod boss_special;
+pub mod camera;
 pub mod coin;
 pub mod combat;
 pub mod definition_editor;

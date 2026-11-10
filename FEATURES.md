@@ -7,6 +7,8 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Walking, gravity, floor and wall collision; `src/player.rs`; `tests/gameplay.rs`
 - Room terrain: solid platforms, walls, ceilings; grounded on solid tops, dash stops at walls, no tunneling; enemy movement (lunge, jump, chase, knockback) is swept against solids; optional `terrain` in room layout RON; `src/terrain.rs`, `src/player.rs`, `src/enemy.rs`, `src/editor.rs`; `tests/terrain.rs`
 - Fixed 120 Hz simulation step with capped catch-up; edge input reaches only the first tick of a frame, held input every tick; jump apex identical at 30/60/144 fps; `src/timestep.rs`, `src/main.rs`; `tests/timestep.rs`
+- Follow camera: smoothing, horizontal look-ahead by facing, clamped to room bounds (centered when the room is smaller than the view), snap on room change/teleport; tunables in `data/camera.ron`; `src/camera.rs`, `src/main.rs`; `src/camera.rs` unit tests, manual
+- Virtual 960x540 render target with letterboxed window scaling; HUD, inventory and reload panels anchored to the virtual screen; `src/camera.rs`, `src/hud.rs`, `src/main.rs`; `src/camera.rs` unit tests, manual
 - Variable jump height, coyote time, jump buffering; `src/player.rs`; `tests/jumping.rs`
 - Directional melee swing, cooldown, one hit per enemy per swing; `src/combat.rs`, `src/game.rs`; `tests/combat.rs`
 - Collectible Dash (facing, duration, cooldown, one air dash); `src/item.rs`, `src/player.rs`; `tests/items.rs`
