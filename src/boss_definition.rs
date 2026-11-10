@@ -87,7 +87,7 @@ impl BossDefinition {
     }
 }
 
-fn validate_action(action: &Action) -> Result<(), String> {
+pub(crate) fn validate_action(action: &Action) -> Result<(), String> {
     action.validate()?;
     match action {
         Action::JumpToPlayer { speed, .. } | Action::SlamDown { speed } => {
@@ -107,6 +107,27 @@ fn validate_action(action: &Action) -> Result<(), String> {
 pub struct BossDefinitions(BTreeMap<String, Arc<BossDefinition>>);
 
 impl BossDefinitions {
+    pub fn from_definitions(
+        definitions: impl IntoIterator<Item = BossDefinition>,
+    ) -> Result<Self, String> {
+        let mut catalog = BTreeMap::new();
+        for definition in definitions {
+            definition.validate()?;
+            let name = definition.name.clone();
+            if catalog.insert(name.clone(), Arc::new(definition)).is_some() {
+                return Err(format!("duplicate boss name {name:?}"));
+            }
+        }
+        Ok(Self(catalog))
+    }
+
+    pub fn size(&self, name: &str) -> Result<Vec2, String> {
+        self.0
+            .get(name)
+            .map(|b| b.size.into())
+            .ok_or_else(|| format!("missing boss definition {name:?}"))
+    }
+
     pub fn load(assets: &Path) -> Result<Self, String> {
         let directory = assets.join("bosses");
         // Older asset packs without boss placements remain valid.

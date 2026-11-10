@@ -154,6 +154,7 @@ impl RoomLayout {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Selection {
     Enemy(usize),
+    Boss,
     Item(usize),
     PatrolLeft(usize),
     PatrolRight(usize),
@@ -165,6 +166,7 @@ pub enum Selection {
 #[derive(Clone, Debug)]
 pub enum Placement {
     Enemy(String),
+    Boss(String),
     Item(Item),
 }
 
@@ -290,6 +292,7 @@ impl RoomDraft {
                 });
                 Selection::Item(index)
             }
+            Placement::Boss(_) => return Err("boss placement needs boss definitions".into()),
         };
         next.validate_local(definitions)?;
         *self = next;
@@ -307,6 +310,7 @@ impl RoomDraft {
         }
         let mut next = self.clone();
         match selection {
+            Selection::Boss => return Err("boss movement needs boss definitions".into()),
             Selection::Enemy(i) => {
                 let enemy = next.enemies.get_mut(i).ok_or("missing enemy")?;
                 let delta = position.x - enemy.patrol_left;
@@ -375,6 +379,7 @@ impl RoomDraft {
 
     pub fn delete(&mut self, selection: Selection) -> Result<(), String> {
         match selection {
+            Selection::Boss if self.boss.is_some() => self.boss = None,
             Selection::Enemy(i) if i < self.enemies.len() => {
                 self.enemies.remove(i);
             }
@@ -384,7 +389,7 @@ impl RoomDraft {
             Selection::Exit(i) | Selection::Destination(i) if i < self.layout.exits.len() => {
                 self.layout.exits.remove(i);
             }
-            _ => return Err("select an enemy, item, or exit to delete".into()),
+            _ => return Err("select a boss, enemy, item, or exit to delete".into()),
         }
         Ok(())
     }
@@ -395,6 +400,54 @@ impl RoomDraft {
         } else {
             Vec::new()
         }
+    }
+
+    pub fn validate_boss(
+        &self,
+        definitions: &crate::boss_definition::BossDefinitions,
+    ) -> Result<(), String> {
+        self.layout.validate_geometry()?;
+        if let Some(placement) = &self.boss {
+            let size = definitions.size(&placement.definition)?;
+            if !self.layout.contains_body(placement.position, size) {
+                return Err(format!(
+                    "boss {:?}: position/body must fit within room",
+                    placement.definition
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn place_boss(
+        &mut self,
+        name: &str,
+        position: Vec2,
+        definitions: &crate::boss_definition::BossDefinitions,
+    ) -> Result<Selection, String> {
+        if self.boss.is_some() {
+            return Err("room already has a boss; delete it before placing another".into());
+        }
+        let mut next = self.clone();
+        next.boss = Some(crate::room::BossPlacement {
+            definition: name.to_owned(),
+            position: position.into(),
+        });
+        next.validate_boss(definitions)?;
+        *self = next;
+        Ok(Selection::Boss)
+    }
+
+    pub fn move_boss(
+        &mut self,
+        position: Vec2,
+        definitions: &crate::boss_definition::BossDefinitions,
+    ) -> Result<(), String> {
+        let mut next = self.clone();
+        next.boss.as_mut().ok_or("missing boss")?.position = position.into();
+        next.validate_boss(definitions)?;
+        *self = next;
+        Ok(())
     }
 
     pub fn build(&self, id: RoomId, definitions: &EnemyDefinitions) -> Result<Room, String> {
@@ -511,6 +564,59 @@ pub struct EditorSession {
 }
 
 impl EditorSession {
+    pub fn place(&mut self, placement: Placement, position: Vec2) -> Result<Selection, String> {
+        match placement {
+            Placement::Boss(name) => {
+                self.draft
+                    .place_boss(&name, position, &self.content.boss_definitions()?)
+            }
+            other => self.draft.place(other, position, &self.definitions),
+        }
+    }
+
+    pub fn move_selection(&mut self, selection: Selection, position: Vec2) -> Result<(), String> {
+        if selection == Selection::Boss {
+            self.draft
+                .move_boss(position, &self.content.boss_definitions()?)
+        } else {
+            self.draft.move_to(selection, position, &self.definitions)
+        }
+    }
+
+    pub fn update_boss(
+        &mut self,
+        path: &Path,
+        boss: crate::boss_definition::BossDefinition,
+    ) -> Result<(), String> {
+        let previous = self.content.bosses.get(path).ok_or("missing boss")?;
+        if previous == &boss {
+            return Ok(());
+        }
+        let previous_name = previous.name.clone();
+        let mut next = self.content.clone();
+        next.bosses.insert(path.to_owned(), boss);
+        let definitions = next.boss_definitions()?;
+        let mut draft = self.draft.clone();
+        let mut document = RoomEnemies {
+            enemies: Vec::new(),
+            boss: draft.boss.clone(),
+            layout: None,
+        };
+        // Also handle repeated unsaved renames of the current placement.
+        if let Some(p) = &mut document.boss {
+            if p.definition == previous_name {
+                p.definition = next.bosses[path].name.clone();
+            }
+        }
+        next.rename_placements(&mut document);
+        draft.boss = document.boss;
+        draft.validate_boss(&definitions)?;
+        self.content = next;
+        self.draft = draft;
+        self.dirty = true;
+        Ok(())
+    }
+
     pub fn open(assets: &Path, room: &Room, rooms: &[Room]) -> Result<Self, String> {
         let path = assets.join("rooms").join(room_filename(room.id));
         let definitions = EnemyDefinitions::load(assets)?;
