@@ -84,6 +84,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, and terrain validation.
+- `src/camera.rs`: follow camera with look-ahead and room clamping, letterbox fit, HUD anchors; tunables in `data/camera.ron`.
+- `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/definition_editor.rs`: pure entity/behavior edits, save planning, and staged file writes.
 - `src/search.rs`: pure editor list filtering and stable selection.
@@ -95,6 +97,7 @@ Composition and front end:
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
 - `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks.
+- `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
 - `src/main.rs`: Macroquad window setup, keyboard translation, drawing, and
   frame scheduling. It should stay thin; do not put movement, combat, room,
   or persistence rules here.
@@ -113,11 +116,14 @@ When you add, rename, or remove a module, update this list in the same change.
 - Player input is frame intent. `jump_pressed` is an edge event and must come
   from an API such as `is_key_pressed`, not a held-key query.
 - Update methods receive `delta_seconds`; they must not read wall-clock time
-  directly.
+  directly. `main.rs` calls `GameState::update` once per fixed tick (1/120 s,
+  `timestep.rs`), never with the raw frame time.
 - Clamp or validate external values at system boundaries. Do not scatter
   magic numbers through the rendering loop.
 - Draw code never uses fixed pixel positions or window-size constants. Use the
-  camera and the virtual resolution only.
+  camera and the virtual resolution only. The world and HUD render to a 960x540
+  render target (`VIEW_WIDTH`/`VIEW_HEIGHT`) that is letterboxed into the window;
+  the world through the follow camera, the HUD anchored with `camera::anchored`.
 
 ## Roadmap
 

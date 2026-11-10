@@ -182,6 +182,11 @@ impl Player {
         self.config.size
     }
 
+    /// Last horizontal facing: `1.0` right, `-1.0` left.
+    pub fn facing(&self) -> f32 {
+        self.facing
+    }
+
     pub fn is_grounded(&self) -> bool {
         self.grounded
     }
