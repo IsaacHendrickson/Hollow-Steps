@@ -1,0 +1,17 @@
+[
+    lunge(speed: 100.0, duration_secs: 0.5,
+        attack: (shape: Rect, offset: (0.0, 0.0), size: (60.0, 30.0), damage: 2,
+            knockback: (80.0, -120.0), active_secs: 0.5),
+        recovery_secs: 0.25, telegraph_secs: 0.25),
+    jump_to(dx: 0.0, dy: 0.0, air_time_secs: 1.0, arc_height: 80.0,
+        attack: Some((shape: Circle, offset: (0.0, 0.0), size: (60.0, 60.0), damage: 2,
+            knockback: (0.0, -120.0), active_secs: 0.5)),
+        recovery_secs: 0.25, telegraph_secs: 0.25),
+    slam_down(speed: 200.0,
+        attack: (shape: Rect, offset: (0.0, 0.0), size: (100.0, 32.0), damage: 2,
+            knockback: (0.0, -200.0), active_secs: 0.5),
+        recovery_secs: 0.5, telegraph_secs: 0.5),
+    shoot_projectile(speed: 100.0, damage: 1, lifetime_secs: 1.0, size: (10.0, 10.0),
+        aim: AtPlayer, count: 3, spread_degrees: 15.0, telegraph_secs: 0.5),
+    area_blast(radius: 50.0, damage: 2, knockback: (0.0, -100.0), active_secs: 0.5, telegraph_secs: 0.5),
+]

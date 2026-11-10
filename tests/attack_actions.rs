@@ -371,3 +371,96 @@ fn invalid_damage_durations_radius_count_and_aim_report_labeled_errors() {
         "{error}"
     );
 }
+
+fn fixture_machine(index: usize) -> Behavior {
+    use hollow_steps::behavior::{Action, State};
+    let actions: Vec<Action> = ron::from_str(include_str!("fixtures/attacks/all.ron")).unwrap();
+    Behavior::new(Arc::new(BehaviorDefinition {
+        initial_state: "attack".into(),
+        states: vec![State {
+            name: "attack".into(),
+            actions: vec![actions[index].clone()],
+            transitions: vec![],
+        }],
+    }))
+    .unwrap()
+}
+
+#[test]
+fn landing_attack_is_inactive_in_air_and_expires_before_recovery_finishes() {
+    let mut behavior = fixture_machine(1);
+    let mut position = Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(), 0.75);
+    assert!(position.y < 442.0);
+    assert!(behavior
+        .attack_hit(position, position, Vec2::ZERO)
+        .is_none());
+    behavior.update(&mut position, context(), 0.5);
+    assert_eq!(position, Vec2::new(400.0, 442.0));
+    assert!(behavior
+        .attack_hit(position, position, Vec2::ZERO)
+        .is_some());
+    behavior.update(&mut position, context(), 0.5);
+    assert!(behavior
+        .attack_hit(position, position, Vec2::ZERO)
+        .is_none());
+    assert!(!behavior.action_finished());
+    behavior.update(&mut position, context(), 0.25);
+    assert!(behavior.action_finished());
+}
+
+#[test]
+fn projectile_manager_removes_expired_shots_after_action_finishes() {
+    let mut behavior = fixture_machine(3);
+    let mut position = Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(), 0.5);
+    assert_eq!(behavior.projectiles().len(), 3);
+    assert!(behavior.action_finished());
+    behavior.update(&mut position, context(), 1.0);
+    assert!(behavior.projectiles().is_empty());
+}
+
+#[test]
+fn each_action_handles_invalid_and_extreme_time_without_leaking_active_damage() {
+    for index in 0..5 {
+        let mut behavior = fixture_machine(index);
+        let mut position = Vec2::new(100.0, 442.0);
+        for dt in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+            behavior.update(&mut position, context(), dt);
+            assert_eq!(position, Vec2::new(100.0, 442.0));
+            assert!(!behavior.action_finished());
+            assert!(behavior.attack_hit(position, position, Vec2::ONE).is_none());
+        }
+        behavior.update(&mut position, context(), f32::MAX);
+        assert!(behavior.action_finished(), "fixture {index}");
+        assert!(behavior.attack_hit(position, position, Vec2::ONE).is_none());
+        assert!(behavior.projectiles().is_empty());
+        assert!(position.is_finite());
+    }
+}
+
+#[test]
+fn transition_interrupts_pending_and_active_attack_windows() {
+    let source = r#"(initial_state: "attack", states: [
+        (name: "attack", actions: [area_blast(radius: 50.0, damage: 2, knockback: (0.0, -100.0), active_secs: 2.0, telegraph_secs: 0.5)],
+            transitions: [(target: "idle", condition: player_distance_less_than(10.0))]),
+        (name: "idle", actions: [], transitions: [])])"#;
+    for elapsed in [0.25, 0.75] {
+        let mut behavior =
+            Behavior::new(Arc::new(BehaviorDefinition::from_ron(source).unwrap())).unwrap();
+        let mut position = Vec2::new(100.0, 442.0);
+        behavior.update(&mut position, context(), elapsed);
+        let close_player = position;
+        behavior.update(
+            &mut position,
+            BehaviorContext {
+                player_position: close_player,
+                ..context()
+            },
+            0.01,
+        );
+        assert_eq!(behavior.state_name(), "idle");
+        assert!(behavior.warning(Vec2::ONE).is_none());
+        assert!(behavior.attack_hit(position, position, Vec2::ONE).is_none());
+    }
+}
