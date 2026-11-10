@@ -7,7 +7,8 @@ pub const REST_RADIUS: f32 = 2.0;
 pub const CURRENT_RADIUS: f32 = 3.0;
 pub const TARGET_RADIUS: f32 = 3.0;
 pub const LINE_WIDTH: f32 = 1.0;
-pub const LABEL_SIZE: f32 = 12.0;
+pub const LABEL_FONT_SIZE: u16 = 12;
+pub const FONT_SIZES: [u16; 1] = [LABEL_FONT_SIZE];
 pub const LABEL_OFFSET: Vec2 = Vec2::new(6.0, -4.0);
 
 pub const REST_COLOR: (f32, f32, f32, f32) = (0.5, 0.5, 0.5, 1.0);
@@ -53,12 +54,67 @@ pub enum OverlayPrimitive {
     Label {
         position: Vec2,
         text: String,
+        font_size: u16,
         color_slot: ColorSlot,
     },
 }
 
-/// Center and size use the drawing coordinate space, keeping dot radii in pixels even
-/// on a scaled editor canvas. The gameplay box never inherits the visual body scale.
+impl OverlayPrimitive {
+    /// Project world geometry separately from generation. Display sizes stay in pixels.
+    pub fn project(&self, to_screen: impl Fn(Vec2) -> Vec2, scale: f32) -> Self {
+        match self {
+            Self::Circle {
+                position,
+                radius,
+                color_slot,
+            } => Self::Circle {
+                position: to_screen(*position),
+                radius: *radius,
+                color_slot: *color_slot,
+            },
+            Self::Line {
+                from,
+                to,
+                color_slot,
+            } => Self::Line {
+                from: to_screen(*from),
+                to: to_screen(*to),
+                color_slot: *color_slot,
+            },
+            Self::Rect { rect, color_slot } => {
+                let top_left = to_screen(rect.point());
+                Self::Rect {
+                    rect: Rect::new(top_left.x, top_left.y, rect.w * scale, rect.h * scale),
+                    color_slot: *color_slot,
+                }
+            }
+            Self::Label {
+                position,
+                text,
+                font_size,
+                color_slot,
+            } => Self::Label {
+                position: to_screen(*position - LABEL_OFFSET) + LABEL_OFFSET,
+                text: text.clone(),
+                font_size: *font_size,
+                color_slot: *color_slot,
+            },
+        }
+    }
+}
+
+/// The complete cache requests for a pass, consumed before submitting any text.
+pub fn label_requests(primitives: &[OverlayPrimitive]) -> impl Iterator<Item = (&str, u16)> {
+    primitives.iter().filter_map(|primitive| match primitive {
+        OverlayPrimitive::Label {
+            text, font_size, ..
+        } => Some((text.as_str(), *font_size)),
+        _ => None,
+    })
+}
+
+/// Generate world geometry without a camera or zoom. The gameplay box never
+/// inherits the visual body scale; display sizes are applied during projection.
 pub fn body_primitives(
     body: &BodyInstance,
     center: Vec2,
@@ -95,6 +151,7 @@ pub fn body_primitives(
             primitives.push(OverlayPrimitive::Label {
                 position: current + LABEL_OFFSET,
                 text: name.clone(),
+                font_size: LABEL_FONT_SIZE,
                 color_slot: ColorSlot::Current,
             });
         }

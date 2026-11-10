@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use hollow_steps::body::{BodyInstance, BodyTemplate, BodyTemplates, BodyVisual};
 use hollow_steps::body_debug::{
-    body_primitives, nearest_entity, ColorSlot, OverlayPrimitive, CURRENT_RADIUS, LABEL_OFFSET,
-    REST_RADIUS, TARGET_RADIUS,
+    body_primitives, label_requests, nearest_entity, ColorSlot, OverlayPrimitive, CURRENT_RADIUS,
+    FONT_SIZES, LABEL_FONT_SIZE, LABEL_OFFSET, REST_RADIUS, TARGET_RADIUS,
 };
 use hollow_steps::enemy::Enemy;
 use hollow_steps::player::WorldBounds;
@@ -19,6 +19,114 @@ fn body() -> BodyInstance {
         &BodyTemplates::from([("small".into(), Arc::new(template))]),
     )
     .unwrap()
+}
+
+#[test]
+fn every_overlay_font_request_uses_the_fixed_integer_size_set() {
+    assert_eq!(FONT_SIZES, [LABEL_FONT_SIZE]);
+    assert!(FONT_SIZES.iter().all(|size| *size > 0));
+    let body = body();
+    for facing_left in [false, true] {
+        for show_labels in [false, true] {
+            let primitives = body_primitives(
+                &body,
+                Vec2::new(100.0, 200.0),
+                Vec2::new(40.0, 60.0),
+                facing_left,
+                show_labels,
+            );
+            let requests = label_requests(&primitives).collect::<Vec<_>>();
+            assert_eq!(
+                requests.len(),
+                if show_labels { body.points.len() } else { 0 }
+            );
+            for primitive in &primitives {
+                if let OverlayPrimitive::Label {
+                    text, font_size, ..
+                } = primitive
+                {
+                    assert!(FONT_SIZES.contains(font_size));
+                    assert!(requests.contains(&(text.as_str(), *font_size)));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn camera_zoom_only_projects_primitives_and_never_changes_font_requests() {
+    let body = body();
+    let center = Vec2::new(100.0, 200.0);
+    let size = Vec2::new(40.0, 60.0);
+    for facing_left in [false, true] {
+        let primitives = body_primitives(&body, center, size, facing_left, true);
+        let requests = label_requests(&primitives).collect::<Vec<_>>();
+        for zoom in [0.125, 0.5, 1.0, 1.37, 4.0, 16.0] {
+            let origin = Vec2::new(20.0, 30.0);
+            let screen = |point: Vec2| origin + point * zoom;
+            let projected = primitives
+                .iter()
+                .map(|p| p.project(screen, zoom))
+                .collect::<Vec<_>>();
+            assert_eq!(label_requests(&projected).collect::<Vec<_>>(), requests);
+            for (world, projected) in primitives.iter().zip(&projected) {
+                match (world, projected) {
+                    (
+                        OverlayPrimitive::Circle {
+                            position,
+                            radius,
+                            color_slot,
+                        },
+                        OverlayPrimitive::Circle {
+                            position: p,
+                            radius: r,
+                            color_slot: c,
+                        },
+                    ) => {
+                        assert_eq!(*p, screen(*position));
+                        assert_eq!((r, c), (radius, color_slot));
+                    }
+                    (
+                        OverlayPrimitive::Line {
+                            from,
+                            to,
+                            color_slot,
+                        },
+                        OverlayPrimitive::Line {
+                            from: f,
+                            to: t,
+                            color_slot: c,
+                        },
+                    ) => {
+                        assert_eq!((*f, *t, c), (screen(*from), screen(*to), color_slot));
+                    }
+                    (
+                        OverlayPrimitive::Rect { rect, color_slot },
+                        OverlayPrimitive::Rect {
+                            rect: r,
+                            color_slot: c,
+                        },
+                    ) => {
+                        assert_eq!(r.point(), screen(rect.point()));
+                        assert_eq!(r.size(), rect.size() * zoom);
+                        assert_eq!(c, color_slot);
+                    }
+                    (
+                        OverlayPrimitive::Label { position, .. },
+                        OverlayPrimitive::Label { position: p, .. },
+                    ) => {
+                        assert_eq!(*p, screen(*position - LABEL_OFFSET) + LABEL_OFFSET);
+                    }
+                    _ => panic!("projection changed primitive kind"),
+                }
+            }
+            // Generation receives world geometry only; projection cannot feed zoom back into it.
+            assert_eq!(
+                body_primitives(&body, center, size, facing_left, true),
+                primitives
+            );
+        }
+    }
 }
 
 #[test]
@@ -105,6 +213,7 @@ fn rest_current_target_lines_and_labels_follow_the_part_mirror_and_scale() {
         assert!(primitives.contains(&OverlayPrimitive::Label {
             position: current + LABEL_OFFSET,
             text: "root".into(),
+            font_size: LABEL_FONT_SIZE,
             color_slot: ColorSlot::Current,
         }));
         // The eye part is anchored directly to root with no offset.
@@ -137,6 +246,7 @@ fn rest_current_target_lines_and_labels_follow_the_part_mirror_and_scale() {
         assert!(zoomed.contains(&OverlayPrimitive::Label {
             position: current * 0.5 + LABEL_OFFSET,
             text: "root".into(),
+            font_size: LABEL_FONT_SIZE,
             color_slot: ColorSlot::Current,
         }));
     }

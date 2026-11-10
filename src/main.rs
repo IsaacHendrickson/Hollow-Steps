@@ -30,6 +30,7 @@ async fn main() {
     let mut reload_scroll = 0;
     let mut editor_ui = EditorUi::default();
     let mut body_debug = false;
+    let body_debug_overlay = body_draw::BodyDebugOverlay::new();
 
     loop {
         let delta_seconds = get_frame_time().min(1.0 / 15.0);
@@ -43,7 +44,7 @@ async fn main() {
             editor_ui = EditorUi::default();
         }
         if game.editor().is_some() {
-            draw_editor(&mut game, &mut editor_ui, body_debug);
+            draw_editor(&mut game, &mut editor_ui, body_debug, &body_debug_overlay);
             next_frame().await;
             continue;
         }
@@ -71,6 +72,7 @@ async fn main() {
         egui_macroquad::draw();
         if body_debug {
             body_draw::draw_body_debug_overlay(
+                &body_debug_overlay,
                 &game.room().enemies,
                 game.player().position(),
                 |position| position,
@@ -624,7 +626,12 @@ fn editor_markers(
     markers
 }
 
-fn draw_editor(game: &mut GameState, state: &mut EditorUi, body_debug: bool) {
+fn draw_editor(
+    game: &mut GameState,
+    state: &mut EditorUi,
+    body_debug: bool,
+    body_debug_overlay: &body_draw::BodyDebugOverlay,
+) {
     clear_background(Color::from_rgba(16, 18, 31, 255));
     let player_position = game.player().position();
     let editor = game.editor_mut().expect("editor open");
@@ -865,6 +872,7 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi, body_debug: bool) {
             })
             .collect::<Vec<_>>();
         body_draw::draw_body_debug_overlay(
+            body_debug_overlay,
             &enemies,
             player_position,
             |position| canvas.screen(position),
