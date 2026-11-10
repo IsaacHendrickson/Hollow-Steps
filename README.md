@@ -719,3 +719,10 @@ supply geometry, player input, deterministic randomness and an output sink.
 Behavior transitions and boss encounter scheduling keep their own sequence cursors.
 Legacy boss targeting, nonblocking glides and arena RNG sampling remain adapter
 policies so extracting the executor does not change existing frame timelines.
+
+Shared-action manual check: in the boss attack editor, confirm modern jump, impact
+slam, projectile and radial blast actions expose labeled parameters and save/reload.
+Use F3 in gameplay and the editor to inspect boss/enemy hitboxes, then F5 after
+changing an action value. Unchanged encounters retain progress; changed boss
+definitions restart from their authored placement. Confirm warnings, projectiles,
+Ash Warden attacks and locked exits still render and play as expected.
