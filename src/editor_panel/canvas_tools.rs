@@ -83,17 +83,6 @@ mod tests {
         game
     }
 
-    fn shape_text(shape: &egui::epaint::Shape, out: &mut String) {
-        match shape {
-            egui::epaint::Shape::Text(text) => {
-                out.push_str(text.galley.text());
-                out.push('\n');
-            }
-            egui::epaint::Shape::Vec(shapes) => shapes.iter().for_each(|s| shape_text(s, out)),
-            _ => {}
-        }
-    }
-
     fn frame(
         ctx: &egui::Context,
         events: Vec<egui::Event>,
@@ -116,11 +105,7 @@ mod tests {
                 });
             },
         );
-        let mut text = String::new();
-        for clipped in &output.shapes {
-            shape_text(&clipped.shape, &mut text);
-        }
-        text
+        super::super::test_support::drawn_text(&output)
     }
 
     #[test]
@@ -169,20 +154,9 @@ mod tests {
         let rect: egui::Rect = ctx
             .data(|data| data.get_temp(egui::Id::new(("button", "Reset view"))))
             .unwrap();
-        let at = rect.center();
-        let press = |pressed| {
-            vec![
-                egui::Event::PointerMoved(at),
-                egui::Event::PointerButton {
-                    pos: at,
-                    button: egui::PointerButton::Primary,
-                    pressed,
-                    modifiers: Default::default(),
-                },
-            ]
-        };
-        frame(&ctx, press(true), editor, &mut state);
-        frame(&ctx, press(false), editor, &mut state);
+        let [press, release] = super::super::test_support::click(rect.center());
+        frame(&ctx, press, editor, &mut state);
+        frame(&ctx, release, editor, &mut state);
         frame(&ctx, vec![], editor, &mut state);
         assert!(state.view.is_none());
     }

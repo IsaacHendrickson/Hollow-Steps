@@ -4,7 +4,11 @@ use egui_macroquad::egui;
 
 mod boss;
 mod canvas_tools;
+#[cfg(test)]
+mod test_support;
+mod unsaved_dialog;
 pub(super) use boss::{draw_boss_panel, BossPropertyUi};
+pub(super) use unsaved_dialog::draw_unsaved_dialog;
 
 pub(super) struct PanelResponse {
     pub save: bool,
@@ -197,8 +201,8 @@ fn draw_room_tools(
 ) {
     section(ui, "Room", |ui| {
         if panel_button(ui, "New room") {
-            editor.new_room();
-            *state = EditorUi::default();
+            // Asks to save first if there are unsaved changes; `draw_editor` acts on it.
+            state.requested = Some(hollow_steps::editor_guard::GuardedAction::NewRoom);
         }
         searchable_list(
             ui,

@@ -317,3 +317,13 @@ Grid lines thin out when zoomed far out; snapping always uses the real size.
 whole draft with the normal room rules, so a change that leaves the spawn, items,
 exits, terrain, enemies or boss outside the room is refused with the usual message and
 the fields snap back. Exit arrival points in *other* rooms are checked at Save, as before.
+
+## Unsaved changes
+
+Closing the editor (F2), **Open room** and **New room** go through `UnsavedGuard`
+(`src/editor_guard.rs`). A session with `dirty` set opens a modal **Unsaved changes**
+window: **Save** saves (with the same invalid-text check as the pinned Save button) and
+then continues, **Discard** continues without saving, **Cancel** (also Escape or a click
+outside the window) keeps the session. If the save fails the window stays open and shows
+the error. A clean session acts immediately. While the window is open the panel and
+canvas take no input, and further F2 / room requests are ignored.

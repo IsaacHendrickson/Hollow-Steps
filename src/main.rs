@@ -3,6 +3,7 @@ use hollow_steps::boss_special::BossSpecials;
 use hollow_steps::camera::{Camera, CameraConfig, Letterbox};
 use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::editor::{EditorSession, Selection};
+use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
 use hollow_steps::editor_view::{
     grid_lines, wrap_words, CanvasRegions, CanvasView, Grid, PanDrag, CANVAS_MARGIN,
 };
@@ -53,15 +54,32 @@ async fn main() {
             body_debug = !body_debug;
         }
         if is_key_pressed(KeyCode::F2) {
-            if let Err(error) = game.toggle_editor() {
-                reload_result = Some(Err(error));
+            // Opening the editor never asks anything; closing it with unsaved changes
+            // opens the Save / Discard / Cancel dialog instead.
+            let toggle = match game.editor() {
+                Some(session) => {
+                    editor_ui.guard.request(GuardedAction::Close, session.dirty)
+                        == GuardStep::Perform(GuardedAction::Close)
+                }
+                None => true,
+            };
+            if toggle {
+                if let Err(error) = game.toggle_editor() {
+                    reload_result = Some(Err(error));
+                }
+                editor_ui = EditorUi::default();
+                fixed_step.reset();
+                input_latch.clear();
             }
-            editor_ui = EditorUi::default();
-            fixed_step.reset();
-            input_latch.clear();
         }
         if game.editor().is_some() {
             draw_editor(&mut game, &mut editor_ui, body_debug, &body_debug_overlay);
+            if game.editor().is_none() {
+                // The dialog (Save or Discard) closed the editor.
+                editor_ui = EditorUi::default();
+                fixed_step.reset();
+                input_latch.clear();
+            }
             next_frame().await;
             continue;
         }
@@ -420,6 +438,11 @@ struct EditorUi {
     view_destination: Option<usize>,
     pan: PanDrag,
     grid: Grid,
+    /// Asks before closing or replacing a session with unsaved changes.
+    guard: UnsavedGuard,
+    /// A room switch asked for by the panel this frame (New room); `draw_editor` runs it
+    /// through `guard`.
+    requested: Option<GuardedAction>,
 }
 
 impl EditorUi {
@@ -534,6 +557,7 @@ fn draw_editor(
         editor.definitions = definitions;
     }
     let mut panel = None;
+    let mut dialog = None;
     egui_macroquad::ui(|ctx| {
         // The integration divides native wheel events by 90. Normalize once to 28 points per
         // wheel step; egui then routes/consumes the delta for the hovered scroll area.
@@ -545,8 +569,12 @@ fn draw_editor(
             input.smooth_scroll_delta = delta;
         });
         panel = Some(editor_panel::draw_panel(ctx, editor, state));
+        dialog = editor_panel::draw_unsaved_dialog(ctx, &state.guard);
     });
     let panel = panel.expect("egui panel");
+    // While the dialog is open nothing behind it may take input.
+    let pointer_blocked = panel.blocks_pointer || state.guard.is_open();
+    let keys_blocked = panel.keyboard || state.guard.is_open();
     let mut save = panel.save;
     let open = panel.open;
 
@@ -570,12 +598,12 @@ fn draw_editor(
     });
     let regions = CanvasRegions::new(window, panel.left, footer_lines.len());
     let mouse = Vec2::from(mouse_position());
-    let over_viewport = regions.viewport.contains(mouse) && !panel.blocks_pointer;
+    let over_viewport = regions.viewport.contains(mouse) && !pointer_blocked;
     if state.view_destination != state.destination {
         state.view = None;
         state.view_destination = state.destination;
     }
-    if is_key_pressed(KeyCode::Home) && !panel.keyboard {
+    if is_key_pressed(KeyCode::Home) && !keys_blocked {
         state.view = None;
     }
     let mut canvas = state
@@ -585,7 +613,7 @@ fn draw_editor(
     // panel: egui gets the wheel delta above, and only the hovered scroll area uses it.
     let pan_held = is_mouse_button_down(MouseButton::Middle)
         || (is_key_down(KeyCode::Space)
-            && !panel.keyboard
+            && !keys_blocked
             && is_mouse_button_down(MouseButton::Left));
     let pan_delta = state
         .pan
@@ -715,8 +743,8 @@ fn draw_editor(
     if (is_mouse_button_pressed(MouseButton::Right) && over_canvas)
         || (is_key_pressed(KeyCode::Delete)
             && state.canvas_focused
-            && !panel.keyboard
-            && !panel.blocks_pointer)
+            && !keys_blocked
+            && !pointer_blocked)
     {
         let selection = if is_mouse_button_pressed(MouseButton::Right) {
             markers
@@ -827,7 +855,7 @@ fn draw_editor(
         WHITE,
     );
     draw_text(
-        "F2: close (discard unsaved) | Drag: move | Right click / Del: delete",
+        "F2: close (asks to save) | Drag: move | Right click / Del: delete",
         CANVAS_MARGIN,
         52.0,
         17.0,
@@ -873,11 +901,36 @@ fn draw_editor(
             game.editor_mut().expect("open").message = format!("Save failed: {error}");
         }
     }
-    if let Some(id) = open {
-        if let Err(error) = game.edit_room(id) {
-            game.editor_mut().expect("open").message = error;
+    // Closing, opening a room and New room all go through the unsaved-changes guard.
+    let dirty = game.editor().is_some_and(|session| session.dirty);
+    let mut step = GuardStep::Wait;
+    if let Some(action) = state.requested.take().or(open.map(GuardedAction::OpenRoom)) {
+        step = state.guard.request(action, dirty);
+    }
+    if let Some(choice) = dialog {
+        step = state.guard.choose(choice);
+    }
+    if step == GuardStep::Save {
+        // Same rule as the panel's Save: unapplied invalid text blocks it.
+        let result = match &pending_error {
+            Some(error) => Err(format!("Save failed: {error}")),
+            None => game
+                .save_editor()
+                .map_err(|error| format!("Save failed: {error}")),
+        };
+        if let Err(error) = &result {
+            game.editor_mut().expect("open").message = error.clone();
         }
-        *state = EditorUi::default();
+        step = state.guard.save_finished(result);
+    }
+    if let GuardStep::Perform(action) = step {
+        let result = perform(game, &action);
+        if action != GuardedAction::Close {
+            *state = EditorUi::default();
+        }
+        if let (Err(error), Some(editor)) = (result, game.editor_mut()) {
+            editor.message = error;
+        }
     }
 }
 
