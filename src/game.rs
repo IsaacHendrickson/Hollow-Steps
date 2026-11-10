@@ -277,9 +277,10 @@ impl GameState {
         } else {
             0.0
         };
-        self.player
-            .update(input, delta_seconds, self.world_bounds());
         let index = self.current_index();
+        let bounds = self.rooms[index].world_bounds();
+        self.player
+            .update_with_terrain(input, delta_seconds, bounds, &self.rooms[index].terrain);
         let room = &mut self.rooms[index];
         let bounds = room.world_bounds();
         let mut special_damage = 0;

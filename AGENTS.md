@@ -83,6 +83,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.
+- `src/terrain.rs`: solid rectangles, axis-separated substepped collision, and terrain validation.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/definition_editor.rs`: pure entity/behavior edits, save planning, and staged file writes.
 - `src/search.rs`: pure editor list filtering and stable selection.

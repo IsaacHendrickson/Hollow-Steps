@@ -79,6 +79,8 @@ pub struct Room {
     pub id: RoomId,
     pub bounds: Rect,
     pub floor_y: f32,
+    /// Solid rectangles that block the player (platforms and walls).
+    pub terrain: crate::terrain::Terrain,
     pub exits: Vec<Exit>,
     /// Default player-center respawn point for this room.
     pub spawn: Vec2,
@@ -225,6 +227,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             enemies: Vec::new(),
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
+            terrain: Default::default(),
             exits: vec![Exit {
                 edge: RoomEdge::Right,
                 offset: FLOOR_Y - 96.0,
@@ -256,6 +259,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             enemies: Vec::new(),
             bounds: Rect::new(80.0, 40.0, 800.0, 360.0),
             floor_y: 400.0,
+            terrain: Default::default(),
             exits: vec![
                 Exit {
                     edge: RoomEdge::Left,
@@ -278,6 +282,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             id: RoomId::Boss,
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
+            terrain: Default::default(),
             spawn: Vec2::new(160.0, 436.0),
             enemies: Vec::new(),
             boss: None,

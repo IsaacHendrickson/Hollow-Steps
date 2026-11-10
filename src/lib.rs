@@ -26,3 +26,4 @@ pub mod pose;
 pub mod preset;
 pub mod room;
 pub mod search;
+pub mod terrain;

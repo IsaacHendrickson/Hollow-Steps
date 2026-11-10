@@ -1,0 +1,15 @@
+// Fixed terrain fixture. Do not synchronize with editable assets.
+// Platform top y=380 (x 300..420), wall x 600..620 (y 300..460),
+// ceiling block bottom y=360 (x 100..200).
+(
+    bounds: (0.0, 0.0, 960.0, 460.0),
+    floor_y: 460.0,
+    spawn: (50.0, 436.0),
+    terrain: [
+        (300.0, 380.0, 120.0, 20.0),
+        (600.0, 300.0, 20.0, 160.0),
+        (100.0, 340.0, 100.0, 20.0),
+    ],
+    items: [],
+    exits: [],
+)
