@@ -378,3 +378,173 @@ fn hot_reload_reads_new_poses_atomically_and_keeps_point_positions() {
     assert!(game.reload_rooms().unwrap_err().contains("windup.ron"));
     assert_eq!(game.room().enemies[0].body().unwrap().points, before);
 }
+
+fn enemy_with_action(action: hollow_steps::behavior::Action) -> hollow_steps::enemy::Enemy {
+    use hollow_steps::{
+        behavior::{BehaviorDefinition, State},
+        enemy::{EnemyDefinition, EnemyDefinitions},
+    };
+    let mut entity: EnemyDefinition =
+        ron::from_str(include_str!("fixtures/entities/chase.ron")).unwrap();
+    entity.body = Some(body().visual);
+    entity.body.as_mut().unwrap().hurt.pose = Some("hurt".into());
+    let behavior = BehaviorDefinition {
+        initial_state: "run".into(),
+        states: vec![State {
+            name: "run".into(),
+            actions: vec![action],
+            transitions: vec![],
+        }],
+    };
+    let poses = load_poses(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("poses"),
+    )
+    .unwrap();
+    let definitions = EnemyDefinitions::from_definitions_with_poses(
+        [entity.clone()],
+        [(entity.behavior, Arc::new(behavior))].into(),
+        [(body().visual.template, body().template)].into(),
+        poses,
+    )
+    .unwrap();
+    definitions
+        .spawn(&entity.name, 100.0, 200.0, context().bounds)
+        .unwrap()
+}
+
+#[test]
+fn all_five_attacks_set_and_clear_pose_targets_without_changing_gameplay() {
+    use hollow_steps::{behavior::Action, pose::is_pose_parameter};
+    let actions: Vec<Action> =
+        ron::from_str(include_str!("fixtures/attacks/pose_actions.ron")).unwrap();
+    assert_eq!(actions.len(), 5);
+    for action in actions {
+        let mut plain_action = action.clone();
+        for (index, (field, _)) in action.parameters().iter().enumerate() {
+            if is_pose_parameter(field) {
+                plain_action.set_parameter(index, "None").unwrap();
+            }
+        }
+        let mut posed = enemy_with_action(action.clone());
+        let mut plain = enemy_with_action(plain_action);
+        for (step, dt) in [0.1, 0.15, 0.2, 0.5, 1.0, 10.0].into_iter().enumerate() {
+            posed.update(context().player_position, dt, context().bounds);
+            plain.update(context().player_position, dt, context().bounds);
+            if step == 0 {
+                assert_eq!(posed.body().unwrap().pose_name.as_deref(), Some("windup"));
+            }
+            assert_eq!(posed.position(), plain.position(), "{action:?}");
+            assert_eq!(posed.size(), plain.size());
+            assert_eq!(posed.health(), plain.health());
+            assert_eq!(
+                posed.attack_hit(context().player_position, context().size),
+                plain.attack_hit(context().player_position, context().size)
+            );
+            assert_eq!(
+                posed.behavior().projectiles(),
+                plain.behavior().projectiles()
+            );
+        }
+        let body = posed.body().unwrap();
+        assert!(posed.behavior().action_finished());
+        assert!(body.pose_name.is_none());
+        assert!(body.points.values().all(|p| p.is_finite()));
+        assert_ne!(
+            body.targets["root"].x,
+            body.template.points["root"].rest.0 - 0.2
+        );
+    }
+}
+
+#[test]
+fn pose_offsets_mirror_once_with_facing_and_do_not_mutate_local_targets() {
+    use hollow_steps::body::resolve_point;
+    use macroquad::math::Vec2;
+    let mut body = body();
+    let poses = load_poses(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("poses"),
+    )
+    .unwrap();
+    body.set_pose(Some("windup"), &poses);
+    let targets = body.targets.clone();
+    let rest = body.template.rest_positions();
+    let offset = |points, left| {
+        resolve_point(
+            "root",
+            points,
+            Vec2::new(100.0, 200.0),
+            Vec2::new(40.0, 60.0),
+            1.3,
+            left,
+        )
+        .unwrap()
+    };
+    let right_delta = offset(&body.targets, false) - offset(&rest, false);
+    let left_delta = offset(&body.targets, true) - offset(&rest, true);
+    assert!((left_delta.x + right_delta.x).abs() < 0.0001);
+    assert!((left_delta.y - right_delta.y).abs() < 0.0001);
+    assert!(right_delta.x < 0.0 && left_delta.x > 0.0);
+    assert_eq!(body.targets, targets);
+}
+
+#[test]
+fn damage_starts_hurt_once_and_does_not_restart_on_duplicate_hit() {
+    let actions: Vec<hollow_steps::behavior::Action> =
+        ron::from_str(include_str!("fixtures/attacks/pose_actions.ron")).unwrap();
+    let mut enemy = enemy_with_action(actions[0].clone());
+    assert!(enemy.hit(1, 1.0));
+    assert_eq!(enemy.body().unwrap().pose_name.as_deref(), Some("hurt"));
+    enemy.update(context().player_position, 0.1, context().bounds);
+    assert!(!enemy.hit(1, 1.0));
+    enemy.update(context().player_position, 0.051, context().bounds);
+    assert!(enemy.body().unwrap().pose_name.is_none());
+    assert_eq!(enemy.body().unwrap().flash_strength(), 0.0);
+}
+
+#[test]
+fn transition_interrupt_clears_targets_in_the_same_update() {
+    use hollow_steps::{
+        behavior::{Behavior, BehaviorDefinition, Condition, State, Transition},
+        pose::PoseStep,
+    };
+    let mut definition =
+        BehaviorDefinition::from_ron(include_str!("fixtures/attacks/posed.ron")).unwrap();
+    definition.states[0].transitions.push(Transition {
+        target: "idle".into(),
+        condition: Condition::TimerElapsed(0.15),
+        invert: false,
+    });
+    definition.states.push(State {
+        name: "idle".into(),
+        actions: vec![],
+        transitions: vec![],
+    });
+    let mut behavior = Behavior::new(Arc::new(definition)).unwrap();
+    let poses = load_poses(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("poses"),
+    )
+    .unwrap();
+    let mut body = body();
+    let mut position = macroquad::math::Vec2::new(100.0, 442.0);
+    for dt in [0.1, 0.1] {
+        behavior.update(&mut position, context(), dt);
+        for step in behavior.take_pose_steps() {
+            match step {
+                PoseStep::Apply { name, .. } => body.set_pose(name.as_deref(), &poses),
+                PoseStep::Clear => body.clear_pose(),
+                _ => {}
+            }
+        }
+    }
+    assert_eq!(behavior.state_name(), "idle");
+    assert!(body.pose_name.is_none());
+}
