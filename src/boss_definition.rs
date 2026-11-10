@@ -96,7 +96,8 @@ pub(crate) fn validate_action(action: &Action) -> Result<(), String> {
         _ => {}
     }
     match action {
-        Action::Lunge { .. }
+        Action::ShootProjectile { .. }
+        | Action::Lunge { .. }
         | Action::JumpTo { .. }
         | Action::ImpactSlam { .. }
         | Action::MoveTowardPlayer { .. }

@@ -432,6 +432,7 @@ fn boss_only_actions_do_not_become_enemy_behaviors_or_editor_actions() {
     assert_eq!(
         Action::TYPES,
         [
+            "shoot_projectile",
             "lunge",
             "move_toward_player",
             "move_away_from_player",

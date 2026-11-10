@@ -382,6 +382,16 @@ impl Enemy {
     }
 
     pub fn update(&mut self, player_position: Vec2, delta_seconds: f32, bounds: WorldBounds) {
+        self.update_with_player_size(player_position, Vec2::ZERO, delta_seconds, bounds);
+    }
+
+    pub fn update_with_player_size(
+        &mut self,
+        player_position: Vec2,
+        player_size: Vec2,
+        delta_seconds: f32,
+        bounds: WorldBounds,
+    ) {
         self.behavior.clear_blast_hits();
         let dt = if delta_seconds.is_finite() {
             delta_seconds.max(0.0)
@@ -406,7 +416,7 @@ impl Enemy {
             return;
         }
         let previous_x = self.position.x;
-        self.behavior.update(
+        self.behavior.update_with_player_size(
             &mut self.position,
             BehaviorContext {
                 player_position,
@@ -417,6 +427,7 @@ impl Enemy {
                 patrol_right: self.patrol_right,
             },
             dt,
+            player_size,
         );
         if self.position.x != previous_x {
             self.facing_left = self.position.x < previous_x;

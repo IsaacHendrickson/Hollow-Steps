@@ -1,4 +1,5 @@
 [
+    shoot_projectile(speed: 280.0, damage: 1, lifetime_secs: 3.0, size: (12.0, 12.0), aim: AtPlayer, count: 3, spread_degrees: 15.0, telegraph_secs: 0.4),
     slam_down(speed: 600.0, attack: (shape: Rect, offset: (0.0, 12.0), size: (100.0, 32.0), damage: 2, knockback: (0.0, -240.0), active_secs: 0.25), recovery_secs: 0.6, telegraph_secs: 0.3),
     jump_to(dx: 0.0, dy: 0.0, air_time_secs: 0.8, arc_height: 100.0, attack: None, recovery_secs: 0.2, telegraph_secs: 0.3),
     lunge(speed: 360.0, duration_secs: 0.35,

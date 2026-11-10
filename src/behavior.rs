@@ -8,8 +8,9 @@ use macroquad::math::Vec2;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::enemy_attack::{
-    default_arc_height, valid_attack, valid_optional_attack, AttackBox, AttackRuntime, DamageHit,
-    OptionalAttack,
+    attack_damage, default_arc_height, projectile_count, spread_angles, valid_aim, valid_attack,
+    valid_optional_attack, valid_size, Aim, AttackBox, AttackRuntime, AttackSize, DamageHit,
+    OptionalAttack, Projectile,
 };
 use crate::player::WorldBounds;
 
@@ -239,6 +240,16 @@ fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
 }
 
 actions! {
+    ShootProjectile => "shoot_projectile" {
+        speed: f32 => ("projectile speed (pixels/second)", positive),
+        damage: i32 => ("projectile damage (integer)", attack_damage),
+        lifetime_secs: f32 => ("projectile lifetime (seconds)", nonnegative),
+        size: AttackSize => ("projectile size (pixels)", valid_size),
+        aim: Aim => ("aim mode (AtPlayer or Horizontal)", valid_aim),
+        count: u16 => ("projectile count (integer, at least 1)", projectile_count),
+        spread_degrees: f32 => ("total fan spread (degrees)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
+    },
     Lunge => "lunge" {
         speed: f32 => ("lunge speed (pixels/second)", nonnegative),
         duration_secs: f32 => ("lunge duration (seconds)", nonnegative),
@@ -546,6 +557,8 @@ pub struct Behavior {
     blasts: Vec<Blast>,
     random_state: Option<u32>,
     attack_runtime: Option<AttackRuntime>,
+    projectiles: Vec<Projectile>,
+    projectile_hits: Vec<DamageHit>,
 }
 
 /// A stationary warning circle; `exploded` is a damage event for one update.
@@ -578,6 +591,8 @@ impl Behavior {
             blasts: Vec::new(),
             random_state: None,
             attack_runtime: None,
+            projectiles: Vec::new(),
+            projectile_hits: Vec::new(),
         })
     }
 
@@ -619,10 +634,17 @@ impl Behavior {
 
     pub fn attack_hit(&self, origin: Vec2, position: Vec2, size: Vec2) -> Option<DamageHit> {
         self.attack_runtime
-            .as_ref()?
-            .active
+            .as_ref()
+            .and_then(|r| r.active)
             .filter(|attack| attack.overlaps(origin, position, size))
             .map(AttackBox::hit)
+            .into_iter()
+            .chain(self.projectile_hits.iter().copied())
+            .max_by_key(|hit| hit.damage)
+    }
+
+    pub fn projectiles(&self) -> &[Projectile] {
+        &self.projectiles
     }
 
     pub fn attack_warning(&self) -> Option<AttackBox> {
@@ -672,13 +694,34 @@ impl Behavior {
     /// Transitions are checked before and after the action sequence, with at
     /// most one transition per update (including self-transitions).
     pub fn update(&mut self, position: &mut Vec2, context: BehaviorContext, delta_seconds: f32) {
+        self.update_with_player_size(position, context, delta_seconds, Vec2::ZERO);
+    }
+
+    pub fn update_with_player_size(
+        &mut self,
+        position: &mut Vec2,
+        context: BehaviorContext,
+        delta_seconds: f32,
+        player_size: Vec2,
+    ) {
         self.clear_blast_hits();
+        self.projectile_hits.clear();
         if !delta_seconds.is_finite()
             || delta_seconds <= 0.0
             || !context.player_position.is_finite()
         {
             return;
         }
+        self.projectiles.retain_mut(|projectile| {
+            let (alive, hit) = projectile.step(
+                f64::from(delta_seconds),
+                context.bounds,
+                context.player_position,
+                player_size,
+            );
+            self.projectile_hits.extend(hit);
+            alive
+        });
         let transitioned = self.transition(*position, context);
         let dt = f64::from(delta_seconds);
         self.state_elapsed += dt;
@@ -700,6 +743,78 @@ impl Behavior {
                 position.y = context.bounds.floor_y - context.size.y / 2.0;
             }
             let (used, finished) = match action {
+                Action::ShootProjectile {
+                    speed,
+                    damage,
+                    lifetime_secs,
+                    size,
+                    aim,
+                    count,
+                    spread_degrees,
+                    telegraph_secs,
+                } => {
+                    self.airborne = true;
+                    let target = *self.jump_target.get_or_insert(context.player_position);
+                    let warning = AttackBox {
+                        shape: crate::enemy_attack::AttackShape::Rect,
+                        offset: (0.0, 0.0),
+                        size: size.0,
+                        damage: 0,
+                        knockback: (0.0, 0.0),
+                        active_secs: 0.0,
+                    };
+                    let (used, finished) = self
+                        .attack_runtime
+                        .get_or_insert_with(|| {
+                            AttackRuntime::lunge(
+                                *position,
+                                context,
+                                0.0,
+                                0.0,
+                                warning,
+                                0.0,
+                                telegraph_secs,
+                            )
+                        })
+                        .step(position, context, remaining);
+                    if finished {
+                        let horizontal = if target.x < position.x {
+                            -Vec2::X
+                        } else {
+                            Vec2::X
+                        };
+                        let direction = match aim {
+                            Aim::Horizontal => horizontal,
+                            Aim::AtPlayer => {
+                                (target - *position).try_normalize().unwrap_or(horizontal)
+                            }
+                        };
+                        for angle in spread_angles(count, spread_degrees) {
+                            let radians = angle.to_radians();
+                            let mut projectile = Projectile {
+                                position: *position,
+                                velocity: Vec2::new(
+                                    direction.x * radians.cos() - direction.y * radians.sin(),
+                                    direction.x * radians.sin() + direction.y * radians.cos(),
+                                ) * speed,
+                                size: Vec2::from(size.0),
+                                damage,
+                                remaining_secs: f64::from(lifetime_secs),
+                            };
+                            let (alive, hit) = projectile.step(
+                                (remaining - used).max(0.0),
+                                context.bounds,
+                                context.player_position,
+                                player_size,
+                            );
+                            self.projectile_hits.extend(hit);
+                            if alive {
+                                self.projectiles.push(projectile);
+                            }
+                        }
+                    }
+                    (used, finished)
+                }
                 Action::ImpactSlam {
                     speed,
                     attack,

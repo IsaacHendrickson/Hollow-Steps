@@ -137,3 +137,85 @@ fn slam_opens_only_on_impact_and_then_recovers_without_moving() {
     assert!(behavior.action_finished());
     assert_eq!(position, Vec2::new(100.0, 442.0));
 }
+
+#[test]
+fn projectile_fan_is_symmetric_and_lifetime_and_walls_remove_it() {
+    use hollow_steps::enemy_attack::{spread_angles, Projectile};
+    assert_eq!(spread_angles(3, 15.0), vec![-7.5, 0.0, 7.5]);
+    assert_eq!(spread_angles(1, 15.0), vec![0.0]);
+    let mut projectile = Projectile {
+        position: Vec2::new(100.0, 100.0),
+        velocity: Vec2::new(100.0, 0.0),
+        size: Vec2::splat(10.0),
+        damage: 2,
+        remaining_secs: 1.0,
+    };
+    assert!(
+        projectile
+            .step(0.5, context().bounds, Vec2::splat(-100.0), Vec2::ONE)
+            .0
+    );
+    assert!(
+        !projectile
+            .step(0.5, context().bounds, Vec2::splat(-100.0), Vec2::ONE)
+            .0
+    );
+    assert_eq!(projectile.position.x, 200.0);
+    projectile.remaining_secs = 100.0;
+    assert!(
+        !projectile
+            .step(100.0, context().bounds, Vec2::splat(-100.0), Vec2::ONE)
+            .0
+    );
+    assert_eq!(projectile.position.x, 955.0);
+}
+
+#[test]
+fn projectile_sweep_hits_player_before_expiry_and_does_not_hit_beyond_it() {
+    use hollow_steps::enemy_attack::Projectile;
+    let shot = Projectile {
+        position: Vec2::new(100.0, 100.0),
+        velocity: Vec2::new(1000.0, 0.0),
+        size: Vec2::splat(10.0),
+        damage: 2,
+        remaining_secs: 0.5,
+    };
+    let (alive, hit) = shot.clone().step(
+        10.0,
+        context().bounds,
+        Vec2::new(400.0, 100.0),
+        Vec2::splat(20.0),
+    );
+    assert!(!alive);
+    assert_eq!(hit.unwrap().damage, 2);
+    assert!(shot
+        .clone()
+        .step(
+            10.0,
+            context().bounds,
+            Vec2::new(800.0, 100.0),
+            Vec2::splat(20.0)
+        )
+        .1
+        .is_none());
+}
+
+#[test]
+fn shooting_warns_then_emits_once_with_sampled_aim() {
+    let mut behavior = machine("shoot_projectile(speed: 100.0, damage: 1, lifetime_secs: 3.0, size: (10.0, 10.0), aim: AtPlayer, count: 3, spread_degrees: 15.0, telegraph_secs: 0.5)");
+    let mut position = Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(), 0.25);
+    assert!(behavior.projectiles().is_empty());
+    behavior.update(
+        &mut position,
+        BehaviorContext {
+            player_position: Vec2::new(100.0, 200.0),
+            ..context()
+        },
+        0.25,
+    );
+    assert_eq!(behavior.projectiles().len(), 3);
+    assert_eq!(behavior.projectiles()[1].velocity, Vec2::new(100.0, 0.0));
+    behavior.update(&mut position, context(), 0.25);
+    assert_eq!(behavior.projectiles().len(), 3);
+}
