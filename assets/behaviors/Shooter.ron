@@ -1,0 +1,22 @@
+(
+    initial_state: "distance",
+    states: [
+        (name: "distance", actions: [], transitions: [
+            (target: "retreat", condition: player_distance_less_than(200.0)),
+            (target: "fire", condition: player_distance_less_than(200.0), invert: true),
+        ]),
+        (name: "retreat", actions: [move_away_from_player(speed: 120.0)], transitions: [
+            (target: "fire", condition: player_distance_less_than(200.0), invert: true),
+            (target: "fire", condition: action_finished),
+        ]),
+        (name: "fire", actions: [
+            telegraph(seconds: 0.4),
+            shoot_projectile(speed: 280.0, damage: 1, lifetime_secs: 3.0, size: (12.0, 12.0),
+                aim: AtPlayer, count: 3, spread_degrees: 15.0, telegraph_secs: 0.0),
+            wait(seconds: 1.2),
+        ], transitions: [
+            (target: "retreat", condition: player_distance_less_than(200.0)),
+            (target: "distance", condition: action_finished),
+        ]),
+    ],
+)

@@ -11,5 +11,5 @@
         eye: (1.0, 1.0, 0.75, 1.0),
         scale: 1.0,
     )),
-    behavior: "chase",
+    behavior: "Charger",
 )
