@@ -27,22 +27,21 @@ pub struct GameState {
     rooms: Vec<Room>,
     editor: Option<EditorSession>,
     assets: PathBuf,
-    current_room: RoomId,
+    /// Index into `rooms` of the room being played. Rooms keep their positions, except that
+    /// `save_editor` rebuilds the list and recomputes this.
+    current: usize,
     coin_count: u32,
     inventory_open: bool,
     special_attack_timer: f32,
     last_special_hit: Option<u64>,
 }
 
-impl Default for GameState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl GameState {
-    pub fn new() -> Self {
-        Self::try_new(&Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"))
-            .expect("failed to load game assets")
+    /// Loads the game from the assets folder chosen by `assets::assets_root`. A failure
+    /// names the folder that was tried, so the caller can show it instead of panicking.
+    pub fn new() -> Result<Self, String> {
+        let root = crate::assets::assets_root();
+        Self::try_new(&root).map_err(|error| crate::assets::describe_load_failure(&root, &error))
     }
 
     pub fn try_new(assets: &Path) -> Result<Self, String> {
@@ -59,7 +58,7 @@ impl GameState {
             rooms,
             editor: None,
             assets: assets.to_owned(),
-            current_room: RoomId::First,
+            current: RoomId::First.index(),
             coin_count: 0,
             inventory_open: false,
             special_attack_timer: 0.0,
@@ -92,14 +91,7 @@ impl GameState {
     }
 
     pub fn room(&self) -> &Room {
-        &self.rooms[self.current_index()]
-    }
-
-    fn current_index(&self) -> usize {
-        self.rooms
-            .iter()
-            .position(|room| room.id == self.current_room)
-            .expect("current room exists")
+        &self.rooms[self.current]
     }
 
     fn validate_destinations(rooms: &[Room], definitions: &EnemyDefinitions) -> Result<(), String> {
@@ -134,13 +126,14 @@ impl GameState {
     }
 
     pub fn edit_room(&mut self, id: RoomId) -> Result<(), String> {
-        let room = self
+        let index = self
             .rooms
             .iter()
-            .find(|room| room.id == id)
+            .position(|room| room.id == id)
             .ok_or("missing room")?;
+        let room = &self.rooms[index];
         let editor = EditorSession::open(&self.assets, room, &self.rooms)?;
-        self.current_room = id;
+        self.current = index;
         self.player.place_at(room.spawn, room.world_bounds());
         self.editor = Some(editor);
         Ok(())
@@ -160,9 +153,12 @@ impl GameState {
         let (content, mut rooms) = session.content.prepare(&plan)?;
         let definitions = content.definitions()?;
         Self::validate_destinations(&rooms, &definitions)?;
-        if !rooms.iter().any(|r| r.id == session.id) {
-            return Err("missing edited room".into());
-        }
+        // Saving can add a room that sorts before this one, so the index is looked up in
+        // the rebuilt list. Swapping rooms below keeps each id at its position in `rooms`.
+        let edited_index = rooms
+            .iter()
+            .position(|r| r.id == session.id)
+            .ok_or("missing edited room")?;
         let mut draft = session.draft.clone();
         let mut document = crate::room::RoomEnemies {
             enemies: draft.enemies,
@@ -213,7 +209,7 @@ impl GameState {
             }
         }
         self.rooms = rooms;
-        self.current_room = session.id;
+        self.current = edited_index;
         session.content = content;
         session.definitions = definitions;
         session.draft = draft;
@@ -285,7 +281,7 @@ impl GameState {
         } else {
             0.0
         };
-        let index = self.current_index();
+        let index = self.current;
         let bounds = self.rooms[index].world_bounds();
         self.player
             .update_with_terrain(input, delta_seconds, bounds, &self.rooms[index].terrain);
@@ -357,7 +353,7 @@ impl GameState {
             return;
         }
         if input.pickup_pressed {
-            let index = self.current_index();
+            let index = self.current;
             let room = &mut self.rooms[index];
             if let Some(index) = room
                 .items
@@ -369,7 +365,7 @@ impl GameState {
             }
         }
 
-        let index = self.current_index();
+        let index = self.current;
         let coins = &mut self.rooms[index].coins;
         coins.retain(|coin| {
             if coin.touches(&self.player) {
@@ -385,8 +381,14 @@ impl GameState {
             .exit_at(self.player.position(), self.player.size())
             .copied()
         {
-            self.current_room = exit.target_room;
-            self.player.place_at(exit.spawn, self.world_bounds());
+            if let Some(target) = self
+                .rooms
+                .iter()
+                .position(|room| room.id == exit.target_room)
+            {
+                self.current = target;
+                self.player.place_at(exit.spawn, self.world_bounds());
+            }
         }
     }
 }
@@ -466,7 +468,7 @@ mod tests {
 
     fn special_game() -> GameState {
         let mut game = test_game();
-        game.current_room = RoomId::Boss;
+        game.current = RoomId::Boss.index();
         game.player.place_on_floor(240.0, game.world_bounds());
         game
     }
@@ -511,7 +513,7 @@ mod tests {
         let mut game = test_game();
         game.update(PlayerInput::default(), 100.0);
         assert_eq!(game.special_attack_timer, 0.0);
-        game.current_room = RoomId::Boss;
+        game.current = RoomId::Boss.index();
         game.player.place_on_floor(240.0, game.world_bounds());
         for dt in [0.0, -1.0, f32::NAN, f32::INFINITY] {
             game.update(PlayerInput::default(), dt);
@@ -764,7 +766,7 @@ mod tests {
     #[test]
     fn death_uses_current_room_spawn_and_inactive_enemies_stay_frozen() {
         let mut game = test_game();
-        game.current_room = RoomId::Second;
+        game.current = RoomId::Second.index();
         let first_enemy_position = game.rooms[RoomId::First.index()].enemies[0].position();
         let bounds = game.world_bounds();
         let room = &mut game.rooms[RoomId::Second.index()];

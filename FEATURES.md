@@ -19,6 +19,9 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Three rooms, directional exits, spawns, persistent contents; `src/room.rs`; `tests/rooms.rs`
 - Keyboard controls, world rendering, melee visual, health bars; `src/main.rs`; manual
 - F5 atomic reload of rooms and definitions with scrollable errors; `src/game.rs`, `src/room.rs`; `tests/reloading.rs`
+- Assets folder from `HOLLOW_STEPS_ASSETS`, then next to the executable, then the source tree; `src/assets.rs`; `src/assets.rs` unit tests
+- Startup load errors shown on screen (F5 retries) instead of a panic, with the folder tried named; `src/game.rs`, `src/startup.rs`, `src/assets.rs`; `tests/startup.rs`, manual
+- Current room kept as a stored index, recomputed when a save rebuilds the room list; `src/game.rs`; `tests/startup.rs`
 
 ## Enemies and attacks
 

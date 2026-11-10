@@ -71,6 +71,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
 - `src/action_runtime.rs`: shared action execution state, motion, attack output, and actor adapters.
+- `src/assets.rs`: assets folder resolution (`HOLLOW_STEPS_ASSETS`, next to the executable, then the source tree) and load-failure text.
 - `src/behavior.rs`: data-driven action sequences, state transitions, and RON validation.
 - `src/enemy_attack.rs`: shared attack geometry, timed enemy attacks, and projectiles.
 - `src/preset.rs`: validated RON behavior preset catalog.
@@ -103,6 +104,7 @@ Composition and front end:
   rules testable without a window.
 - `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `history_panel.rs` (Undo/Redo), `unsaved_dialog.rs` (Save / Discard / Cancel window).
 - `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
+- `src/startup.rs`: Macroquad startup: loads the game and shows load errors on the virtual-resolution screen (F5 retries); shared letterboxed frame presentation.
 - `src/main.rs`: Macroquad window setup, keyboard translation, drawing, and
   frame scheduling. It should stay thin; do not put movement, combat, room,
   or persistence rules here.

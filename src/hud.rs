@@ -157,7 +157,12 @@ pub fn draw_inventory(game: &GameState, view: Vec2) {
     );
 }
 
-pub fn draw_reload_result(result: &Result<(), String>, scroll: &mut usize, view: Vec2) {
+pub fn draw_reload_result(
+    result: &Result<(), String>,
+    failure_title: &str,
+    scroll: &mut usize,
+    view: Vec2,
+) {
     let margin = vec2(16.0, 12.0);
     let Err(error) = result else {
         let size = vec2(view.x - margin.x * 2.0, 36.0);
@@ -194,13 +199,7 @@ pub fn draw_reload_result(result: &Result<(), String>, scroll: &mut usize, view:
         panel_size.y,
         Color::from_rgba(28, 12, 18, 245),
     );
-    draw_text(
-        "Room reload failed - F5 to retry",
-        left,
-        top + 28.0,
-        22.0,
-        RED,
-    );
+    draw_text(failure_title, left, top + 28.0, 22.0, RED);
     for (index, line) in lines.iter().skip(*scroll).take(VISIBLE_LINES).enumerate() {
         draw_text(
             line,
