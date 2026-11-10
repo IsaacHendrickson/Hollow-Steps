@@ -405,6 +405,9 @@ impl Enemy {
             body.step(dt);
         }
         if self.knockback_remaining > 0.0 {
+            self.behavior.pause_attack();
+            self.behavior
+                .advance_projectiles(player_position, player_size, bounds, dt);
             let knockback_dt = dt.min(self.knockback_remaining);
             self.position.x = (self.position.x
                 + self.knockback_direction * KNOCKBACK_SPEED * knockback_dt)

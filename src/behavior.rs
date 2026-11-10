@@ -702,6 +702,27 @@ impl Behavior {
             .max_by_key(|hit| hit.damage)
     }
 
+    pub(crate) fn advance_projectiles(
+        &mut self,
+        player: Vec2,
+        player_size: Vec2,
+        bounds: WorldBounds,
+        dt: f32,
+    ) {
+        self.projectile_hits.clear();
+        self.projectiles.retain_mut(|projectile| {
+            let (alive, hit) = projectile.step(f64::from(dt), bounds, player, player_size);
+            self.projectile_hits.extend(hit);
+            alive
+        });
+    }
+
+    pub(crate) fn pause_attack(&mut self) {
+        if let Some(runtime) = &mut self.attack_runtime {
+            runtime.active = None;
+        }
+    }
+
     pub fn projectiles(&self) -> &[Projectile] {
         &self.projectiles
     }
@@ -758,7 +779,7 @@ impl Behavior {
         matches!(
             self.definition.states[self.state].actions.get(self.action),
             Some(Action::Telegraph { .. })
-        )
+        ) || self.warning(Vec2::ONE).is_some()
     }
 
     fn transition(&mut self, position: Vec2, context: BehaviorContext) -> bool {
@@ -815,16 +836,12 @@ impl Behavior {
         {
             return;
         }
-        self.projectiles.retain_mut(|projectile| {
-            let (alive, hit) = projectile.step(
-                f64::from(delta_seconds),
-                context.bounds,
-                context.player_position,
-                player_size,
-            );
-            self.projectile_hits.extend(hit);
-            alive
-        });
+        self.advance_projectiles(
+            context.player_position,
+            player_size,
+            context.bounds,
+            delta_seconds,
+        );
         let transitioned = self.transition(*position, context);
         let dt = f64::from(delta_seconds);
         self.state_elapsed += dt;
