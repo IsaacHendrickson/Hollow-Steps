@@ -100,6 +100,7 @@ Gameplay modules (pure rules, no rendering):
 Composition and front end:
 
 - `src/body_draw.rs`: Macroquad adapter for ordered body parts, legacy enemy boxes, and debug overlays.
+- `src/game/test_room.rs`: Test room: swaps the editor's draft in as the playable room, parks the editor session and player, and restores them.
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.

@@ -50,13 +50,24 @@ async fn main() {
     let camera_config = CameraConfig::default();
     let mut camera = new_camera(&game, camera_config, view);
     let mut camera_room = game.room().id;
+    // Whether a room from the editor was being played last frame.
+    let mut testing = false;
 
     loop {
         let frame_seconds = get_frame_time();
         if is_key_pressed(KeyCode::F3) {
             body_debug = !body_debug;
         }
-        if is_key_pressed(KeyCode::F2) {
+        // F6 plays the room being edited (the Test room button does the same); a draft
+        // that is not a valid room stays in the editor with the reason in its message.
+        if is_key_pressed(KeyCode::F6) && game.editor().is_some() && !editor_ui.guard.is_open() {
+            let _ = game.start_test_room();
+        }
+        if is_key_pressed(KeyCode::F2) && game.testing_room() {
+            // Back to the same editor session. Its UI state (undo history, selection, view)
+            // stays as it was, unlike opening the editor fresh.
+            let _ = game.end_test_room();
+        } else if is_key_pressed(KeyCode::F2) {
             // Opening the editor never asks anything; closing it with unsaved changes
             // opens the Save / Discard / Cancel dialog instead.
             let toggle = match game.editor() {
@@ -75,9 +86,18 @@ async fn main() {
                 input_latch.clear();
             }
         }
+        if game.testing_room() != testing {
+            // A test room started or ended: the world changed under the camera and any
+            // input or time left over from the other mode must not carry across.
+            testing = game.testing_room();
+            fixed_step.reset();
+            input_latch.clear();
+            camera = new_camera(&game, camera_config, view);
+            camera_room = game.room().id;
+        }
         if game.editor().is_some() {
             draw_editor(&mut game, &mut editor_ui, body_debug, &body_debug_overlay);
-            if game.editor().is_none() {
+            if game.editor().is_none() && !game.testing_room() {
                 // The dialog (Save or Discard) closed the editor.
                 editor_ui = editor_ui.for_new_session();
                 fixed_step.reset();
@@ -121,6 +141,9 @@ async fn main() {
             Some(screen.clone()),
         ));
         hud::draw_hud(&game, view);
+        if game.testing_room() {
+            hud::draw_test_banner(view);
+        }
         if game.inventory_open() {
             hud::draw_inventory(&game, view);
         }
@@ -595,6 +618,7 @@ fn draw_editor(
     let pointer_blocked = panel.blocks_pointer || state.guard.is_open();
     let keys_blocked = panel.keyboard || state.guard.is_open();
     let mut save = panel.save;
+    let test = panel.test && !state.guard.is_open();
     let open = panel.open;
 
     let layout = state
@@ -945,6 +969,13 @@ fn draw_editor(
         save = false;
     }
     egui_macroquad::draw();
+    if test {
+        // The main loop notices the switch and resets its clocks and camera. A refusal
+        // is left in the editor's message.
+        if game.start_test_room().is_ok() {
+            return;
+        }
+    }
     if save {
         state.dragging = None;
         if let Err(error) = game.save_editor() {

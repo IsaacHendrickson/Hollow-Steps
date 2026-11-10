@@ -11,6 +11,8 @@ use crate::item::WorldItem;
 use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
 use crate::room::{load_rooms, Room, RoomId};
 
+mod test_room;
+
 pub use crate::room::FLOOR_Y;
 
 pub const VIEW_WIDTH: f32 = 960.0;
@@ -31,6 +33,8 @@ pub struct GameState {
     inventory_open: bool,
     special_attack_timer: f32,
     last_special_hit: Option<u64>,
+    /// The room being tried out from the editor, if any.
+    test_run: Option<test_room::TestRun>,
 }
 
 impl Default for GameState {
@@ -63,6 +67,7 @@ impl GameState {
             inventory_open: false,
             special_attack_timer: 0.0,
             last_special_hit: None,
+            test_run: None,
         })
     }
 
@@ -126,6 +131,10 @@ impl GameState {
     }
 
     pub fn toggle_editor(&mut self) -> Result<(), String> {
+        if self.test_run.is_some() {
+            // Closing a test room returns to the session it came from.
+            return self.end_test_room();
+        }
         if self.editor.take().is_none() {
             self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
         }
@@ -133,6 +142,9 @@ impl GameState {
     }
 
     pub fn edit_room(&mut self, id: RoomId) -> Result<(), String> {
+        if self.test_run.is_some() {
+            return Err("leave the test room (F2) first".into());
+        }
         let room = self
             .rooms
             .iter()
@@ -234,6 +246,9 @@ impl GameState {
     /// Enemy gameplay restarts; matching body points, player, pickups, and unchanged bosses stay intact.
     /// Changed boss definitions restart from their authored placement.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
+        if self.test_run.is_some() {
+            return Err("leave the test room (F2) before reloading".into());
+        }
         let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(&self.assets)?;
         rooms.extend(editor::load_extra_rooms(&self.assets, &definitions)?);
@@ -433,6 +448,8 @@ impl GameState {
             .room()
             .exit_at(self.player.position(), self.player.size())
             .copied()
+            // A test room is a sandbox: its exits would lead into saved rooms.
+            .filter(|_| self.test_run.is_none())
         {
             self.current_room = exit.target_room;
             self.player.place_at(exit.spawn, self.world_bounds());

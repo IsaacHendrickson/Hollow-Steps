@@ -345,6 +345,22 @@ its last valid spot. Solids save to `layout.terrain` and undo/redo covers them (
 is one step). Terrain tools work in the room view, not the arrival-spawn view or the
 Entity properties panel.
 
+## Test room
+
+**Test room (F6)** (pinned above Save, or F6 with the editor open) plays the room as it is
+in the editor, unsaved edits included: `GameState::start_test_room` builds a `Room` from
+the draft with `RoomDraft::build` (using the session's preview definitions, and placing the
+boss if there is one), puts the player at the room's spawn with full health and closes
+the editor view. **F2** returns to the same session: draft, unsaved flag, message,
+selection and undo history are as you left them.
+
+While a test runs the built room stands in for the saved room with that id (or is added
+temporarily for a New room), and the player, inventory, coin count and boss timers are
+parked and restored, so playing never changes a saved room or the session. Nothing is
+written to disk. Exits are inert (they would lead into saved rooms); F5 reload and Open
+room are refused until F2. A draft that is not a valid room (for example a solid over the
+spawn that bypassed the editor) does not start; the reason appears in the editor message.
+
 ## Unsaved changes
 
 Closing the editor (F2), **Open room** and **New room** go through `UnsavedGuard`
@@ -414,3 +430,19 @@ Run `cargo run`, press F2 and use a room with a few entities.
 - Right-click a solid, and select one and press Delete. Click **Delete selected**.
 - Save, press F5 or restart: the solids are loaded in the game and stop the player.
 - Open the Entity properties panel (or the arrival-spawn view): drawing is off there.
+
+### Manual check: test room
+
+- Draw a platform, move the blue spawn onto it, press **F6** (or click **Test room (F6)**):
+  the game view appears with an amber "TEST ROOM" line at the bottom, the player starts on
+  the spawn, and the platform stops the player.
+- Walk into the green exit: nothing happens. Pick up an item, take a hit, then press **F2**:
+  the editor is back with the same draft, the "*" unsaved mark, the same selection, and
+  Ctrl+Z still undoes your last edit.
+- Close the editor (Discard) and play: the saved room has none of the test's changes
+  (item still there, health full, no platform) and no file changed.
+- New room, add a platform, F6, F2: the unsaved room is still a draft.
+- Put a solid over the spawn by editing the RON by hand, open the room, F6: it does not
+  start and the footer says why.
+- Press F5 and Open room during a test: refused until you press F2. Resize the window and
+  repeat: the view letterboxes as in normal play.

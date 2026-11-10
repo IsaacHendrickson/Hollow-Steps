@@ -18,6 +18,8 @@ pub(super) use unsaved_dialog::draw_unsaved_dialog;
 
 pub(super) struct PanelResponse {
     pub save: bool,
+    /// The Test room button was clicked.
+    pub test: bool,
     pub open: Option<hollow_steps::room::RoomId>,
     pub left: f32,
     pub blocks_pointer: bool,
@@ -43,6 +45,7 @@ pub(super) fn draw_panel(
         .collect::<Vec<_>>();
     let names = &definitions;
     let mut save = false;
+    let mut test = false;
     let mut open = None;
     let width = ctx.screen_rect().width().min(360.0);
     let response = egui::SidePanel::right("editor panel")
@@ -55,6 +58,7 @@ pub(super) fn draw_panel(
             // Bottom-up layout reserves the footer before laying out the scroll viewport.
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
                 save = panel_button(ui, "Save");
+                test = panel_button(ui, "Test room (F6)");
                 ui.separator();
                 let scroll = egui::ScrollArea::vertical()
                     .id_salt("editor controls")
@@ -174,6 +178,7 @@ pub(super) fn draw_panel(
         });
     PanelResponse {
         save,
+        test,
         open,
         left: response.response.rect.left(),
         blocks_pointer: ctx.is_pointer_over_area() || ctx.wants_pointer_input(),

@@ -139,6 +139,49 @@ mod tests {
         assert_eq!(editor.draft, with_solid);
     }
 
+    /// One frame of the whole panel, returning what it reported.
+    fn panel(
+        ctx: &egui::Context,
+        events: Vec<egui::Event>,
+        editor: &mut EditorSession,
+        state: &mut EditorUi,
+    ) -> super::super::PanelResponse {
+        let mut response = None;
+        let _ = ctx.run(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(960.0, 3000.0),
+                )),
+                events,
+                ..Default::default()
+            },
+            |ctx| response = Some(super::super::draw_panel(ctx, editor, state)),
+        );
+        response.expect("the panel ran")
+    }
+
+    #[test]
+    fn the_test_room_button_reports_a_click_and_nothing_else() {
+        let mut game = editor();
+        let editor = game.editor_mut().unwrap();
+        let mut state = EditorUi::default();
+        let ctx = egui::Context::default();
+        for _ in 0..3 {
+            assert!(!panel(&ctx, vec![], editor, &mut state).test);
+        }
+        let rect: egui::Rect = ctx
+            .data(|data| data.get_temp(egui::Id::new(("button", "Test room (F6)"))))
+            .expect("a Test room button");
+        let [press, release] = super::super::test_support::click(rect.center());
+        assert!(!panel(&ctx, press, editor, &mut state).test);
+        let clicked = panel(&ctx, release, editor, &mut state);
+        assert!(clicked.test && !clicked.save);
+        assert!(!panel(&ctx, vec![], editor, &mut state).test);
+        // The panel only reports the click: nothing was started or changed.
+        assert!(!editor.dirty && editor.message.is_empty());
+    }
+
     #[test]
     fn delete_selected_with_nothing_selected_changes_nothing() {
         let mut game = editor();
