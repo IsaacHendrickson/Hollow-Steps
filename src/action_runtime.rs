@@ -19,6 +19,7 @@ pub enum ActionOutput {
     DamageArea { origin: Vec2, area: AttackBox },
     Projectile(Projectile),
     Spawn(Vec2),
+    Hold(Vec2),
     Glide { target: Vec2, speed: f32 },
 }
 
@@ -47,6 +48,7 @@ pub struct ActionRuntime {
     pub(crate) airborne: bool,
     pub(crate) vertical_velocity: f64,
     pub(crate) blasts: Vec<Blast>,
+    pub(crate) rings: Vec<Blast>,
     pub(crate) attack_runtime: Option<AttackRuntime>,
     pub(crate) projectiles: Vec<Projectile>,
     pub(crate) projectile_hits: Vec<DamageHit>,
@@ -63,6 +65,7 @@ impl Default for ActionRuntime {
             airborne: false,
             vertical_velocity: 0.0,
             blasts: Vec::new(),
+            rings: Vec::new(),
             attack_runtime: None,
             projectiles: Vec::new(),
             projectile_hits: Vec::new(),
@@ -79,6 +82,9 @@ impl ActionRuntime {
         actor: &mut impl ActionActor,
         remaining: f64,
     ) -> (f64, bool) {
+        if !remaining.is_finite() || remaining < 0.0 {
+            return (0.0, false);
+        }
         let mut position = actor.position();
         let context = actor.context();
         let player_size = actor.player_size();
@@ -108,6 +114,13 @@ impl ActionRuntime {
             });
         }
         result
+    }
+
+    pub fn finish_action(&mut self) {
+        self.attack_runtime = None;
+        self.action_elapsed = 0.0;
+        self.action_started = false;
+        self.jump_target = None;
     }
 
     pub fn motion(&self) -> ActorMotion {
@@ -336,6 +349,9 @@ impl ActionRuntime {
             | Action::Hover { seconds } => {
                 if matches!(action, Action::Hover { .. }) {
                     self.airborne = true;
+                    if actor.legacy_target().is_some() {
+                        actor.emit(ActionOutput::Hold(*position));
+                    }
                 }
                 let duration = f64::from(seconds);
                 let used = remaining.min((duration - self.action_elapsed).max(0.0));
@@ -365,27 +381,25 @@ impl ActionRuntime {
                 self.patrol(position, context, f64::from(speed) * remaining);
                 (remaining, false)
             }
-            Action::JumpToPlayer { dx, dy, speed } => {
+            Action::JumpToPlayer { speed, .. } | Action::SlamDown { speed } => {
                 self.airborne = true;
-                let target = *self.jump_target.get_or_insert_with(|| {
-                    Self::clamped_jump_target(
-                        context.player_position,
+                if matches!(action, Action::SlamDown { .. }) && actor.legacy_target().is_none() {
+                    self.jump_target = None;
+                }
+                let target = *self.jump_target.get_or_insert_with(|| match action {
+                    Action::JumpToPlayer { dx, dy, .. } => Self::clamped_jump_target(
+                        actor.legacy_target().unwrap_or(context.player_position),
                         context.size,
                         context.bounds,
                         dx,
                         dy,
-                    )
+                    ),
+                    _ => Vec2::new(position.x, context.bounds.floor_y - context.size.y / 2.0),
                 });
+                if !self.action_started && actor.legacy_target().is_some() {
+                    actor.emit(ActionOutput::Glide { target, speed });
+                }
                 Self::move_in_plane(position, target, speed, remaining)
-            }
-            Action::SlamDown { speed } => {
-                self.airborne = true;
-                Self::move_in_plane(
-                    position,
-                    Vec2::new(position.x, context.bounds.floor_y - context.size.y / 2.0),
-                    speed,
-                    remaining,
-                )
             }
             Action::AreaBlast {
                 count,
@@ -393,11 +407,19 @@ impl ActionRuntime {
                 fuse_time,
                 damage,
             } => {
+                let legacy_boss = actor.legacy_target().is_some();
+                let blasts = if legacy_boss {
+                    &mut self.rings
+                } else {
+                    &mut self.blasts
+                };
                 if !self.action_started {
+                    if legacy_boss {
+                        blasts.clear();
+                    }
                     for _ in 0..count {
-                        let blast_position = actor.random_arena_position();
-                        self.blasts.push(Blast {
-                            position: blast_position,
+                        blasts.push(Blast {
+                            position: actor.random_arena_position(),
                             radius,
                             damage,
                             exploded: false,
@@ -409,13 +431,100 @@ impl ActionRuntime {
                 self.action_elapsed += used;
                 let finished = self.action_elapsed >= duration;
                 if finished {
-                    for blast in &mut self.blasts {
+                    for blast in blasts.iter_mut() {
                         blast.exploded = true;
+                    }
+                    if legacy_boss
+                        && blasts
+                            .iter()
+                            .any(|b| b.position.distance(context.player_position) <= radius)
+                    {
+                        actor.emit(ActionOutput::Damage(u32::from(damage)));
                     }
                 }
                 (used, finished)
             }
-            _ => unreachable!("validated enemy action"),
+            Action::GlideToPlayer { speed, above_floor } => {
+                let target = actor.legacy_target().unwrap_or(context.player_position);
+                actor.emit(ActionOutput::Glide {
+                    target: Vec2::new(
+                        target.x,
+                        if above_floor == 0.0 {
+                            position.y
+                        } else {
+                            context.bounds.floor_y - above_floor
+                        },
+                    ),
+                    speed,
+                });
+                (0.0, true)
+            }
+            Action::GlideToFloor { speed } => {
+                let target = actor.legacy_target().unwrap_or(context.player_position);
+                actor.emit(ActionOutput::Glide {
+                    target: Vec2::new(target.x, context.bounds.floor_y - context.size.y / 2.0),
+                    speed,
+                });
+                (0.0, true)
+            }
+            Action::DamageTarget { radius, damage } | Action::SpawnShockwave { radius, damage } => {
+                let x = if matches!(action, Action::DamageTarget { .. }) {
+                    actor.legacy_target().unwrap_or(context.player_position).x
+                } else {
+                    position.x
+                };
+                // Historical immediate horizontal-radius check; deliberately ignores y and player size.
+                if (context.player_position.x - x).abs() <= radius {
+                    actor.emit(ActionOutput::Damage(u32::from(damage)));
+                }
+                (0.0, true)
+            }
+            Action::Summon { inset } => {
+                let inset = inset.clamp(
+                    crate::enemy::ENEMY_SIZE.x / 2.0,
+                    (context.bounds.right - context.bounds.left) / 2.0,
+                );
+                let y = context.bounds.floor_y - crate::enemy::ENEMY_SIZE.y / 2.0;
+                actor.emit(ActionOutput::Spawn(Vec2::new(
+                    context.bounds.left + inset,
+                    y,
+                )));
+                actor.emit(ActionOutput::Spawn(Vec2::new(
+                    context.bounds.right - inset,
+                    y,
+                )));
+                (0.0, true)
+            }
+            Action::SpawnRings { count } => {
+                let radius = match preview {
+                    Action::ExplodeRings { radius, .. } => *radius,
+                    _ => 0.0,
+                };
+                self.rings = (0..count)
+                    .map(|_| Blast {
+                        position: actor.random_arena_position(),
+                        radius,
+                        damage: 0,
+                        exploded: false,
+                    })
+                    .collect();
+                (0.0, true)
+            }
+            Action::ExplodeRings { radius, damage } => {
+                if self
+                    .rings
+                    .iter()
+                    .any(|r| !r.exploded && r.position.distance(context.player_position) <= radius)
+                {
+                    actor.emit(ActionOutput::Damage(u32::from(damage)));
+                }
+                for ring in &mut self.rings {
+                    ring.radius = radius;
+                    ring.damage = damage;
+                    ring.exploded = true;
+                }
+                (0.0, true)
+            }
         };
         if let (Some(bindings), Some(runtime)) = (pose_bindings, &self.attack_runtime) {
             for (phase, seconds) in runtime.pose_spans(used) {
@@ -447,7 +556,7 @@ impl ActionRuntime {
         if self.airborne {
             // Authored jump/slam arcs and explicit hover retain their trajectories.
             self.vertical_velocity = 0.0;
-        } else {
+        } else if actor.legacy_target().is_none() || action.windup_seconds().is_some() {
             let gravity_seconds = lunge_gravity_seconds.unwrap_or(used);
             self.apply_gravity(position, context, gravity_seconds);
         }

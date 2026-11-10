@@ -714,6 +714,18 @@ pub struct Blast {
     pub exploded: bool,
 }
 
+impl Blast {
+    pub fn position(&self) -> Vec2 {
+        self.position
+    }
+    pub fn radius(&self) -> f32 {
+        self.radius
+    }
+    pub fn exploded(&self) -> bool {
+        self.exploded
+    }
+}
+
 impl Behavior {
     pub fn new(definition: Arc<BehaviorDefinition>) -> Result<Self, String> {
         definition.validate()?;
