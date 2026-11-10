@@ -13,6 +13,7 @@ use crate::enemy_attack::{
     OptionalAttack, Projectile,
 };
 use crate::enemy_attack::{blast_radius, valid_vector, AttackVector};
+use crate::enemy_attack::{default_feedback, valid_feedback, AttackFeedback, AttackWarning};
 use crate::player::WorldBounds;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -188,6 +189,8 @@ fn deserialize_jump<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
         recovery_secs: f32,
         #[serde(default)]
         telegraph_secs: f32,
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback,
     }
     let p: JumpFields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match (p.speed, p.air_time_secs) {
@@ -204,6 +207,7 @@ fn deserialize_jump<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
             attack: p.attack,
             recovery_secs: p.recovery_secs,
             telegraph_secs: p.telegraph_secs,
+            feedback: p.feedback,
         }),
         _ => Err(A::Error::custom(
             "jump_to: provide air_time_secs (or legacy speed), never both",
@@ -223,6 +227,8 @@ fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
         recovery_secs: f32,
         #[serde(default)]
         telegraph_secs: f32,
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match p.attack {
@@ -231,6 +237,7 @@ fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
             attack,
             recovery_secs: p.recovery_secs,
             telegraph_secs: p.telegraph_secs,
+            feedback: p.feedback,
         }),
         None if p.recovery_secs == 0.0 && p.telegraph_secs == 0.0 => {
             Ok(Action::SlamDown { speed: p.speed })
@@ -260,13 +267,15 @@ fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
         active_secs: Option<f32>,
         #[serde(default)]
         telegraph_secs: f32,
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match (p.count, p.fuse_time, p.knockback, p.active_secs) {
         (Some(count), Some(fuse_time), None, None) if p.telegraph_secs == 0.0 => Ok(Action::AreaBlast {
             count, fuse_time, radius: p.radius, damage: u8::try_from(p.damage).map_err(|_| A::Error::custom("legacy blast damage must be 0..255"))? }),
         (None, None, Some(knockback), Some(active_secs)) => Ok(Action::RadialBlast {
-            radius: p.radius, damage: p.damage, knockback, active_secs, telegraph_secs: p.telegraph_secs }),
+            radius: p.radius, damage: p.damage, knockback, active_secs, telegraph_secs: p.telegraph_secs, feedback: p.feedback }),
         _ => Err(A::Error::custom("area_blast: requires knockback and active_secs, or legacy count and fuse_time; do not mix forms")),
     }
 }
@@ -280,14 +289,18 @@ actions! {
         aim: Aim => ("aim mode (AtPlayer or Horizontal)", valid_aim),
         count: u16 => ("projectile count (integer, at least 1)", projectile_count),
         spread_degrees: f32 => ("total fan spread (degrees)", nonnegative),
-        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
     },
     Lunge => "lunge" {
         speed: f32 => ("lunge speed (pixels/second)", nonnegative),
         duration_secs: f32 => ("lunge duration (seconds)", nonnegative),
         attack: AttackBox => ("attack box", valid_attack),
         recovery_secs: f32 => ("recovery duration (seconds)", nonnegative),
-        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
     },
     MoveTowardPlayer => "move_toward_player" { speed: f32 => ("speed toward player (pixels/second)", nonnegative) },
     MoveAwayFromPlayer => "move_away_from_player" { speed: f32 => ("speed away from player (pixels/second)", nonnegative) },
@@ -303,7 +316,9 @@ actions! {
         #[serde(default)]
         attack: OptionalAttack => ("optional landing attack box", valid_optional_attack),
         recovery_secs: f32 => ("landing recovery (seconds)", nonnegative),
-        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
     },
     JumpToPlayer => "jump_to_player" {
         speed: f32 => ("jump speed (pixels/second)", nonnegative),
@@ -316,7 +331,9 @@ actions! {
         speed: f32 => ("downward slam speed (pixels/second)", positive),
         attack: AttackBox => ("impact attack box", valid_attack),
         recovery_secs: f32 => ("impact recovery (seconds)", nonnegative),
-        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
     },
     SlamDown => "legacy_slam_down" { speed: f32 => ("downward slam speed (pixels/second)", nonnegative) },
     #[serde(rename = "area_blast")]
@@ -325,7 +342,9 @@ actions! {
         damage: i32 => ("blast damage (integer)", attack_damage),
         knockback: AttackVector => ("blast knockback (pixels/second)", valid_vector),
         active_secs: f32 => ("blast active duration (seconds)", nonnegative),
-        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
     },
     AreaBlast => "legacy_area_blast" {
         count: u16 => ("blast count (integer 0..65535)", valid_count),
@@ -691,6 +710,50 @@ impl Behavior {
         self.attack_runtime.as_ref()?.warning()
     }
 
+    pub fn projectile_feedback(&self) -> AttackFeedback {
+        self.definition.states[self.state]
+            .actions
+            .get(self.action)
+            .and_then(Action::feedback)
+            .unwrap_or_else(default_feedback)
+    }
+
+    pub fn warning(&self, size: Vec2) -> Option<AttackWarning> {
+        let actions = &self.definition.states[self.state].actions;
+        let current = actions.get(self.action)?;
+        let (preview, progress) = if let Action::Telegraph { seconds } = current {
+            if *seconds <= 0.0 {
+                return None;
+            }
+            (
+                actions.get(self.action + 1).unwrap_or(current),
+                (self.action_elapsed / f64::from(*seconds)) as f32,
+            )
+        } else {
+            let progress = match &self.attack_runtime {
+                Some(runtime) => runtime.windup_progress()?,
+                None if current.windup_seconds()? > 0.0 => 0.0,
+                None => return None,
+            };
+            (current, progress)
+        };
+        let feedback = preview.feedback().unwrap_or_else(default_feedback);
+        let attack = preview.preview_attack().unwrap_or(AttackBox {
+            shape: crate::enemy_attack::AttackShape::Rect,
+            offset: (0.0, 0.0),
+            size: size.into(),
+            damage: 0,
+            knockback: (0.0, 0.0),
+            active_secs: 0.0,
+        });
+        Some(AttackWarning {
+            attack,
+            feedback,
+            strength: (1.0 + (std::f32::consts::TAU * feedback.flash_cycles * progress).cos())
+                / 2.0,
+        })
+    }
+
     pub fn is_telegraphing(&self) -> bool {
         matches!(
             self.definition.states[self.state].actions.get(self.action),
@@ -789,6 +852,7 @@ impl Behavior {
                     knockback,
                     active_secs,
                     telegraph_secs,
+                    ..
                 } => {
                     self.airborne = true;
                     let attack = AttackBox {
@@ -822,6 +886,7 @@ impl Behavior {
                     count,
                     spread_degrees,
                     telegraph_secs,
+                    ..
                 } => {
                     self.airborne = true;
                     let target = *self.jump_target.get_or_insert(context.player_position);
@@ -890,6 +955,7 @@ impl Behavior {
                     attack,
                     recovery_secs,
                     telegraph_secs,
+                    ..
                 } => {
                     self.airborne = true;
                     self.attack_runtime
@@ -913,6 +979,7 @@ impl Behavior {
                     attack,
                     recovery_secs,
                     telegraph_secs,
+                    ..
                 } => {
                     self.airborne = true;
                     self.attack_runtime
@@ -936,6 +1003,7 @@ impl Behavior {
                     attack,
                     recovery_secs,
                     telegraph_secs,
+                    ..
                 } => {
                     self.airborne = true;
                     self.attack_runtime
@@ -1163,6 +1231,58 @@ impl Behavior {
                         2.0 * width - phase
                     }) as f32;
             }
+        }
+    }
+}
+
+impl Action {
+    pub fn windup_seconds(&self) -> Option<f32> {
+        match self {
+            Self::Lunge { telegraph_secs, .. }
+            | Self::JumpTo { telegraph_secs, .. }
+            | Self::ImpactSlam { telegraph_secs, .. }
+            | Self::ShootProjectile { telegraph_secs, .. }
+            | Self::RadialBlast { telegraph_secs, .. } => Some(*telegraph_secs),
+            _ => None,
+        }
+    }
+    pub fn feedback(&self) -> Option<AttackFeedback> {
+        match self {
+            Self::Lunge { feedback, .. }
+            | Self::JumpTo { feedback, .. }
+            | Self::ImpactSlam { feedback, .. }
+            | Self::ShootProjectile { feedback, .. }
+            | Self::RadialBlast { feedback, .. } => Some(*feedback),
+            _ => None,
+        }
+    }
+    pub fn preview_attack(&self) -> Option<AttackBox> {
+        match self {
+            Self::Lunge { attack, .. } | Self::ImpactSlam { attack, .. } => Some(*attack),
+            Self::JumpTo { attack, .. } => attack.0,
+            Self::RadialBlast {
+                radius,
+                damage,
+                knockback,
+                active_secs,
+                ..
+            } => Some(AttackBox {
+                shape: crate::enemy_attack::AttackShape::Circle,
+                offset: (0.0, 0.0),
+                size: (*radius * 2.0, *radius * 2.0),
+                damage: *damage,
+                knockback: knockback.0,
+                active_secs: *active_secs,
+            }),
+            Self::ShootProjectile { size, damage, .. } => Some(AttackBox {
+                shape: crate::enemy_attack::AttackShape::Rect,
+                offset: (0.0, 0.0),
+                size: size.0,
+                damage: *damage,
+                knockback: (0.0, 0.0),
+                active_secs: 0.0,
+            }),
+            _ => None,
         }
     }
 }

@@ -14,7 +14,7 @@ pub fn draw_enemy_body(enemy: &Enemy) {
             top_left.y,
             enemy.size().x,
             enemy.size().y,
-            MAROON,
+            enemy_tint(enemy, MAROON),
         );
         return;
     };
@@ -23,7 +23,7 @@ pub fn draw_enemy_body(enemy: &Enemy) {
             .part_transform(part, enemy.position(), enemy.size(), enemy.facing_left())
             .expect("validated body points and geometry");
         let (r, g, b, a) = body.visual.color(part.color_slot);
-        let color = Color::new(r, g, b, a);
+        let color = enemy_tint(enemy, Color::new(r, g, b, a));
         match part.shape {
             Shape::Ellipse => draw_ellipse(
                 transform.center.x,
@@ -59,6 +59,61 @@ pub fn draw_enemy_body(enemy: &Enemy) {
                 );
             }
         }
+    }
+}
+
+fn enemy_tint(enemy: &Enemy, color: Color) -> Color {
+    let Some(warning) = enemy.behavior().warning(enemy.size()) else {
+        return color;
+    };
+    let tint = warning.feedback.tint;
+    Color::new(
+        color.r + (tint.0 - color.r) * warning.strength,
+        color.g + (tint.1 - color.g) * warning.strength,
+        color.b + (tint.2 - color.b) * warning.strength,
+        color.a,
+    )
+}
+
+pub fn draw_enemy_attacks(enemy: &Enemy) {
+    if let Some(warning) = enemy.behavior().warning(enemy.size()) {
+        let center = warning.attack.center(enemy.position());
+        let size = Vec2::from(warning.attack.size);
+        let feedback = warning.feedback;
+        let color = Color::new(
+            feedback.tint.0,
+            feedback.tint.1,
+            feedback.tint.2,
+            feedback.outline_alpha,
+        );
+        match warning.attack.shape {
+            hollow_steps::enemy_attack::AttackShape::Rect => draw_rectangle_lines(
+                center.x - size.x / 2.0,
+                center.y - size.y / 2.0,
+                size.x,
+                size.y,
+                feedback.outline_width,
+                color,
+            ),
+            hollow_steps::enemy_attack::AttackShape::Circle => draw_circle_lines(
+                center.x,
+                center.y,
+                size.x / 2.0,
+                feedback.outline_width,
+                color,
+            ),
+        }
+    }
+    let tint = enemy.behavior().projectile_feedback().tint;
+    for projectile in enemy.behavior().projectiles() {
+        let top_left = projectile.position - projectile.size / 2.0;
+        draw_rectangle(
+            top_left.x,
+            top_left.y,
+            projectile.size.x,
+            projectile.size.y,
+            Color::new(tint.0, tint.1, tint.2, 1.0),
+        );
     }
 }
 

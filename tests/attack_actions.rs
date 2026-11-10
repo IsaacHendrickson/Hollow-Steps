@@ -244,3 +244,19 @@ fn radial_blast_warns_then_checks_circle_radius_only_while_active() {
         .attack_hit(position, position, Vec2::ZERO)
         .is_none());
 }
+
+#[test]
+fn warning_preview_exists_before_first_tick_and_ends_when_attack_fires() {
+    let mut behavior = machine("area_blast(radius: 50.0, damage: 2, knockback: (0.0, -100.0), active_secs: 0.5, telegraph_secs: 0.5)");
+    let size = Vec2::splat(36.0);
+    let warning = behavior.warning(size).unwrap();
+    assert_eq!(warning.feedback.outline_alpha, 0.3);
+    assert_eq!(warning.attack.shape, AttackShape::Circle);
+    let mut position = Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(), 0.5);
+    assert!(behavior.warning(size).is_none());
+    let immediate = machine("area_blast(radius: 50.0, damage: 2, knockback: (0.0, -100.0), active_secs: 0.5, telegraph_secs: 0.0)");
+    assert!(immediate.warning(size).is_none());
+    let explicit = machine("telegraph(seconds: 0.5), area_blast(radius: 70.0, damage: 2, knockback: (0.0, 0.0), active_secs: 0.5, telegraph_secs: 0.0)");
+    assert_eq!(explicit.warning(size).unwrap().attack.size, (140.0, 140.0));
+}

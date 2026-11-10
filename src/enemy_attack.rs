@@ -494,3 +494,54 @@ pub(crate) fn blast_radius(radius: f32) -> Result<(), String> {
         Err("radius is too large".into())
     }
 }
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct AttackFeedback {
+    pub outline_alpha: f32,
+    pub outline_width: f32,
+    pub flash_cycles: f32,
+    pub tint: (f32, f32, f32),
+}
+pub(crate) fn default_feedback() -> AttackFeedback {
+    ron::from_str(include_str!("../data/attack_feedback_defaults.ron"))
+        .expect("valid attack feedback defaults")
+}
+pub(crate) fn valid_feedback(value: AttackFeedback) -> Result<(), String> {
+    for channel in [
+        value.outline_alpha,
+        value.tint.0,
+        value.tint.1,
+        value.tint.2,
+    ] {
+        if !channel.is_finite() || !(0.0..=1.0).contains(&channel) {
+            return Err("warning alpha/tint must be between 0 and 1".into());
+        }
+    }
+    crate::behavior::positive(value.outline_width)?;
+    crate::behavior::nonnegative(value.flash_cycles)
+}
+impl std::fmt::Display for AttackFeedback {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&ron::to_string(self).map_err(|_| std::fmt::Error)?)
+    }
+}
+impl std::str::FromStr for AttackFeedback {
+    type Err = String;
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let value: Self = ron::from_str(text).map_err(|e| e.to_string())?;
+        valid_feedback(value)?;
+        Ok(value)
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AttackWarning {
+    pub attack: AttackBox,
+    pub feedback: AttackFeedback,
+    pub strength: f32,
+}
+impl AttackRuntime {
+    pub fn windup_progress(&self) -> Option<f32> {
+        (self.elapsed < self.telegraph).then(|| (self.elapsed / self.telegraph) as f32)
+    }
+}

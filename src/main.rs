@@ -195,6 +195,7 @@ fn draw_scene(game: &GameState) {
         }
         let top_left = enemy.position() - enemy.size() / 2.0;
         body_draw::draw_enemy_body(enemy);
+        body_draw::draw_enemy_attacks(enemy);
         draw_rectangle(top_left.x, top_left.y - 8.0, enemy.size().x, 4.0, DARKGRAY);
         draw_rectangle(
             top_left.x,
