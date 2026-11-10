@@ -178,6 +178,30 @@ impl AttackRuntime {
         }
     }
 
+    pub fn slam(
+        position: Vec2,
+        context: BehaviorContext,
+        speed: f32,
+        attack: AttackBox,
+        recovery: f32,
+        telegraph: f32,
+    ) -> Self {
+        let target = Vec2::new(position.x, context.bounds.floor_y - context.size.y / 2.0);
+        Self {
+            motion: Motion::Jump {
+                target,
+                duration: f64::from((target.y - position.y).max(0.0)) / f64::from(speed),
+                height: 0.0,
+            },
+            attack: Some(attack),
+            telegraph: f64::from(telegraph),
+            recovery: f64::from(recovery),
+            elapsed: 0.0,
+            start: position,
+            active: None,
+        }
+    }
+
     pub fn warning(&self) -> Option<AttackBox> {
         (self.elapsed < self.telegraph)
             .then_some(self.attack)
@@ -204,9 +228,16 @@ impl AttackRuntime {
             Motion::Lunge { velocity, .. } => {
                 (self.start.as_dvec2() + velocity.as_dvec2() * travel_time).as_vec2()
             }
-            Motion::Jump { target, height, .. } => {
-                parabolic_position(self.start, target, travel_time / duration, height)
-            }
+            Motion::Jump { target, height, .. } => parabolic_position(
+                self.start,
+                target,
+                if duration == 0.0 {
+                    1.0
+                } else {
+                    travel_time / duration
+                },
+                height,
+            ),
         };
         clamp_to_room(position, context);
         self.active =

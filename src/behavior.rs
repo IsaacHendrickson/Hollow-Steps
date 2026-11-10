@@ -45,6 +45,7 @@ macro_rules! actions {
                         use serde::de::{Error, VariantAccess};
                         let (name, variant) = data.variant::<ActionIdentifier>()?;
                         if name.0 == "jump_to" { return deserialize_jump(variant); }
+                        if name.0 == "slam_down" { return deserialize_slam(variant); }
                         match name.0.as_str() {
                             $($name => {
                                 #[derive(Deserialize)]
@@ -207,6 +208,36 @@ fn deserialize_jump<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
     }
 }
 
+fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result<Action, A::Error> {
+    use serde::de::Error;
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Fields {
+        speed: f32,
+        #[serde(default, deserialize_with = "present")]
+        attack: Option<AttackBox>,
+        #[serde(default)]
+        recovery_secs: f32,
+        #[serde(default)]
+        telegraph_secs: f32,
+    }
+    let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
+    match p.attack {
+        Some(attack) => Ok(Action::ImpactSlam {
+            speed: p.speed,
+            attack,
+            recovery_secs: p.recovery_secs,
+            telegraph_secs: p.telegraph_secs,
+        }),
+        None if p.recovery_secs == 0.0 && p.telegraph_secs == 0.0 => {
+            Ok(Action::SlamDown { speed: p.speed })
+        }
+        None => Err(A::Error::custom(
+            "slam_down: impact/recovery parameters require an attack box",
+        )),
+    }
+}
+
 actions! {
     Lunge => "lunge" {
         speed: f32 => ("lunge speed (pixels/second)", nonnegative),
@@ -237,7 +268,14 @@ actions! {
         dy: f32 => ("target vertical offset from player (pixels, negative above)", finite)
     },
     Hover => "hover" { seconds: f32 => ("hover duration (seconds)", nonnegative) },
-    SlamDown => "slam_down" { speed: f32 => ("downward slam speed (pixels/second)", nonnegative) },
+    #[serde(rename = "slam_down")]
+    ImpactSlam => "slam_down" {
+        speed: f32 => ("downward slam speed (pixels/second)", positive),
+        attack: AttackBox => ("impact attack box", valid_attack),
+        recovery_secs: f32 => ("impact recovery (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
+    },
+    SlamDown => "legacy_slam_down" { speed: f32 => ("downward slam speed (pixels/second)", nonnegative) },
     AreaBlast => "area_blast" {
         count: u16 => ("blast count (integer 0..65535)", valid_count),
         radius: f32 => ("blast radius (pixels)", nonnegative),
@@ -662,6 +700,26 @@ impl Behavior {
                 position.y = context.bounds.floor_y - context.size.y / 2.0;
             }
             let (used, finished) = match action {
+                Action::ImpactSlam {
+                    speed,
+                    attack,
+                    recovery_secs,
+                    telegraph_secs,
+                } => {
+                    self.airborne = true;
+                    self.attack_runtime
+                        .get_or_insert_with(|| {
+                            AttackRuntime::slam(
+                                *position,
+                                context,
+                                speed,
+                                attack,
+                                recovery_secs,
+                                telegraph_secs,
+                            )
+                        })
+                        .step(position, context, remaining)
+                }
                 Action::JumpTo {
                     dx,
                     dy,

@@ -120,3 +120,20 @@ fn jump_stays_inside_room_with_large_offsets_and_time() {
     behavior.update(&mut position, context(), f32::MAX);
     assert_eq!(position, Vec2::new(942.0, 442.0));
 }
+
+#[test]
+fn slam_opens_only_on_impact_and_then_recovers_without_moving() {
+    let mut behavior = machine("slam_down(speed: 200.0, attack: (shape: Rect, offset: (0.0, 0.0), size: (100.0, 32.0), damage: 2, knockback: (0.0, -200.0), active_secs: 0.5), recovery_secs: 0.5, telegraph_secs: 0.5)");
+    let mut position = Vec2::new(100.0, 242.0);
+    behavior.update(&mut position, context(), 1.0);
+    assert_eq!(position, Vec2::new(100.0, 342.0));
+    assert!(behavior.attack_hit(position, position, Vec2::ONE).is_none());
+    behavior.update(&mut position, context(), 0.5);
+    assert_eq!(position, Vec2::new(100.0, 442.0));
+    assert!(behavior.attack_hit(position, position, Vec2::ONE).is_some());
+    behavior.update(&mut position, context(), 0.5);
+    assert!(behavior.attack_hit(position, position, Vec2::ONE).is_none());
+    behavior.update(&mut position, context(), 0.5);
+    assert!(behavior.action_finished());
+    assert_eq!(position, Vec2::new(100.0, 442.0));
+}

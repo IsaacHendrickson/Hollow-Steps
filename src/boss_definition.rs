@@ -96,7 +96,10 @@ pub(crate) fn validate_action(action: &Action) -> Result<(), String> {
         _ => {}
     }
     match action {
-        Action::MoveTowardPlayer { .. }
+        Action::Lunge { .. }
+        | Action::JumpTo { .. }
+        | Action::ImpactSlam { .. }
+        | Action::MoveTowardPlayer { .. }
         | Action::MoveAwayFromPlayer { .. }
         | Action::Patrol { .. } => Err("enemy-only movement action".into()),
         _ => Ok(()),
