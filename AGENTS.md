@@ -80,6 +80,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/boss_editor.rs`: pure boss property buffers and ordered attack/action edits.
 - `src/boss_special.rs`: boss sequence cursors, selection, actor effect integration, and coin drops.
 - `src/combat.rs`: melee swing hitboxes, duration, and cooldown.
+- `src/damage.rs`: `DamageResolver` combines enemy contact/blast/attack and boss action/contact damage into the single hit applied to the player.
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.

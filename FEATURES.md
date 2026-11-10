@@ -27,6 +27,7 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Shared lunge, jump, slam, projectile fan, radial blast, warning and recovery actions; `src/enemy_attack.rs`, `src/behavior.rs`; `tests/attack_actions.rs`
 - Lunge samples player direction once, suspends gravity, stops at walls, keeps authored trajectories; `src/enemy_attack.rs`; `tests/attack_actions.rs`
 - Rect/circle attack boxes, immunity-gated damage and knockback; `src/enemy_attack.rs`, `src/player.rs`; `tests/attack_actions.rs`
+- One hit per tick: strongest of enemy contact/blast/attack and boss action/contact damage; an attack hit keeps its knockback only when it is the strongest; `src/damage.rs`, `src/game.rs`; `src/damage.rs` unit tests, `src/game.rs` blast and attack tests
 - Jump-to-player, hover, slam, random area blasts with arena clamping and editor parameters; `src/behavior.rs`, `src/behavior_values.rs`; `tests/arena_actions.rs`
 - Warning tint strength (0.25) and 30% AttackBox outline; `src/enemy_attack.rs`, `src/body_draw.rs`; `tests/attack_actions.rs`
 - Compile-time guard keeping hitbox/attack motion independent of body state; `src/enemy_attack.rs`; `tests/pose_geometry.rs`

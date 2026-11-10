@@ -15,6 +15,7 @@ pub mod boss_special;
 pub mod camera;
 pub mod coin;
 pub mod combat;
+pub mod damage;
 pub mod definition_editor;
 pub mod editor;
 pub mod editor_guard;

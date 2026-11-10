@@ -5,6 +5,7 @@ use macroquad::math::{Rect, Vec2};
 #[cfg(test)]
 use crate::boss_special::SpecialAttack;
 use crate::coin::Coin;
+use crate::damage::DamageResolver;
 use crate::editor::{self, EditorSession};
 use crate::enemy::EnemyDefinitions;
 use crate::item::WorldItem;
@@ -343,47 +344,13 @@ impl GameState {
             }
         }
         room.enemies.retain(|enemy| !enemy.is_dead());
-        let enemy_damage = room
-            .enemies
-            .iter()
-            .map(|enemy| {
-                let contact = if enemy.touches(self.player.position(), self.player.size()) {
-                    enemy.contact_damage()
-                } else {
-                    0
-                };
-                contact.max(enemy.action_damage(self.player.position(), self.player.size()))
-            })
-            .max()
-            .unwrap_or(0);
-        let contact_damage = room
-            .boss_special
-            .as_ref()
-            .filter(|boss| {
-                let separation = (boss.position() - self.player.position()).abs();
-                let reach = (boss.size() + self.player.size()) / 2.0;
-                separation.x <= reach.x && separation.y <= reach.y
-            })
-            .map_or(0, |boss| boss.contact_damage());
-        let base_damage = enemy_damage
-            .max(special_damage.min(255) as u8)
-            .max(contact_damage);
-        let hit = room
-            .enemies
-            .iter()
-            .filter_map(|enemy| enemy.attack_hit(self.player.position(), self.player.size()))
-            .chain(
-                room.boss_special
-                    .as_ref()
-                    .and_then(|boss| boss.attack_hit(self.player.position(), self.player.size())),
-            )
-            .filter(|hit| hit.damage >= i32::from(base_damage))
-            .max_by_key(|hit| hit.damage)
-            .unwrap_or(crate::enemy_attack::DamageHit {
-                damage: i32::from(base_damage),
-                knockback: Vec2::ZERO,
-                knockback_secs: 0.0,
-            });
+        let hit = DamageResolver::gather(
+            room,
+            self.player.position(),
+            self.player.size(),
+            special_damage,
+        )
+        .resolve();
         self.player.take_attack_damage(hit);
         if self.player.health().current() == 0 {
             self.player.respawn(room.spawn, bounds);
