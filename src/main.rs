@@ -5,6 +5,7 @@ use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
 use hollow_steps::editor_history::{shortcut, tracked, History};
+use hollow_steps::editor_tools::{tool_shortcut, EditorTool, TerrainTool};
 use hollow_steps::editor_view::{
     grid_lines, wrap_words, CanvasRegions, CanvasView, Grid, PanDrag, CANVAS_MARGIN,
 };
@@ -18,6 +19,7 @@ use macroquad::prelude::*;
 mod body_draw;
 mod editor_panel;
 mod hud;
+mod terrain_canvas;
 use editor_panel::{BossPropertyUi, PropertyUi};
 
 fn window_conf() -> Conf {
@@ -425,7 +427,10 @@ struct EditorUi {
     target: SearchList,
     new_entity: String,
     edge: usize,
-    placing: bool,
+    /// What a click or drag on the canvas does.
+    tool: EditorTool,
+    /// The selected solid and the solid drag in progress.
+    terrain: TerrainTool,
     canvas_focused: bool,
     selected: Option<Selection>,
     dragging: Option<(Selection, Vec2)>,
@@ -686,11 +691,13 @@ fn draw_editor(
     let markers = editor_markers(editor, state.destination, state.selected);
     let world = canvas.world(mouse);
     let over_canvas = area.contains(mouse) && over_viewport;
+    state.terrain.sync(&editor.draft);
+    let reach = terrain_canvas::handle_reach(&canvas);
     if is_mouse_button_pressed(MouseButton::Left) {
         state.canvas_focused = over_canvas;
     }
     if is_mouse_button_pressed(MouseButton::Left) && over_canvas && !panning {
-        if state.placing && state.destination.is_none() {
+        if state.tool == EditorTool::Place && state.destination.is_none() {
             if let Some((_, placement)) = state
                 .definition
                 .selected
@@ -706,46 +713,58 @@ fn draw_editor(
                     Err(error) => editor.message = error,
                 }
             }
+        } else if state.tool == EditorTool::Terrain && state.destination.is_none() {
+            terrain_canvas::press_draw(state, editor, world);
+        } else if state.tool == EditorTool::Erase && state.destination.is_none() {
+            terrain_canvas::erase(state, editor, &markers, world);
         } else {
             let hit = markers.iter().rev().find(|(_, rect, _)| {
                 let r = canvas.rect(*rect);
                 Rect::new(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0).contains(mouse)
             });
-            state.selected = hit.map(|(selection, _, _)| match *selection {
-                Selection::PatrolLeft(i) | Selection::PatrolRight(i) => Selection::Enemy(i),
-                other => other,
-            });
-            state.dragging = hit.map(|(selection, rect, _)| (*selection, world - rect.center()));
-            if state.dragging.is_some() {
-                // The whole drag, press to release, becomes one undo step.
-                state.history.begin_gesture(&editor.draft);
-            }
-            if state.selected == Some(Selection::Boss) {
-                if let Some(path) = editor
-                    .draft
-                    .boss
-                    .as_ref()
-                    .and_then(|b| editor.content.boss_path(&b.definition))
-                {
-                    if !state.boss_property.as_ref().is_some_and(|p| p.path == path) {
-                        state.boss_property = Some(BossPropertyUi::new(editor, path));
-                    }
-                    state.properties = true;
-                    state.property.error = None;
+            // A solid (or a handle of the selected one) can take the click before the markers.
+            if terrain_canvas::press_select(state, editor, hit.is_some(), world, reach) {
+                // The solid is selected and its move or resize has begun.
+            } else {
+                state.selected = hit.map(|(selection, _, _)| match *selection {
+                    Selection::PatrolLeft(i) | Selection::PatrolRight(i) => Selection::Enemy(i),
+                    other => other,
+                });
+                state.dragging =
+                    hit.map(|(selection, rect, _)| (*selection, world - rect.center()));
+                if state.dragging.is_some() {
+                    // The whole drag, press to release, becomes one undo step.
+                    state.history.begin_gesture(&editor.draft);
                 }
-            } else if state.properties {
-                state.boss_property = None;
-                if let Some(Selection::Enemy(index)) = state.selected {
-                    let path = editor
-                        .content
-                        .entity_path(&editor.draft.enemies[index].definition);
-                    state.property = PropertyUi::for_entity(editor, path);
+                if state.selected == Some(Selection::Boss) {
+                    if let Some(path) = editor
+                        .draft
+                        .boss
+                        .as_ref()
+                        .and_then(|b| editor.content.boss_path(&b.definition))
+                    {
+                        if !state.boss_property.as_ref().is_some_and(|p| p.path == path) {
+                            state.boss_property = Some(BossPropertyUi::new(editor, path));
+                        }
+                        state.properties = true;
+                        state.property.error = None;
+                    }
+                } else if state.properties {
+                    state.boss_property = None;
+                    if let Some(Selection::Enemy(index)) = state.selected {
+                        let path = editor
+                            .content
+                            .entity_path(&editor.draft.enemies[index].definition);
+                        state.property = PropertyUi::for_entity(editor, path);
+                    }
                 }
             }
         }
     }
-    if is_mouse_button_down(MouseButton::Left) && over_canvas && !panning {
-        if let Some((selection, offset)) = state.dragging {
+    if is_mouse_button_down(MouseButton::Left) && !panning {
+        if state.terrain.has_gesture() {
+            terrain_canvas::drag(state, editor, world);
+        } else if let (true, Some((selection, offset))) = (over_canvas, state.dragging) {
             let target = state.grid.snap(world - offset, origin);
             match editor.move_selection(selection, target) {
                 Ok(()) => {
@@ -760,34 +779,17 @@ fn draw_editor(
     // open and block undo.
     if !is_mouse_button_down(MouseButton::Left) {
         state.dragging = None;
+        terrain_canvas::release(state, editor);
         state.history.end_gesture(&editor.draft);
     }
-    if (is_mouse_button_pressed(MouseButton::Right) && over_canvas)
-        || (is_key_pressed(KeyCode::Delete)
-            && state.canvas_focused
-            && !keys_blocked
-            && !pointer_blocked)
+    if is_mouse_button_pressed(MouseButton::Right) && over_canvas {
+        terrain_canvas::erase(state, editor, &markers, world);
+    } else if is_key_pressed(KeyCode::Delete)
+        && state.canvas_focused
+        && !keys_blocked
+        && !pointer_blocked
     {
-        let selection = if is_mouse_button_pressed(MouseButton::Right) {
-            markers
-                .iter()
-                .rev()
-                .find(|(_, rect, _)| rect.contains(world))
-                .map(|(selection, _, _)| *selection)
-        } else {
-            state.selected
-        };
-        if let Some(selection) = selection {
-            match tracked(&mut state.history, editor, |e| e.draft.delete(selection)) {
-                Ok(()) => {
-                    state.selected = None;
-                    state.dragging = None;
-                    state.destination = None;
-                    editor.dirty = true;
-                }
-                Err(error) => editor.message = error,
-            }
-        }
+        terrain_canvas::delete_selected(state, editor);
     }
     if state.canvas_focused && !keys_blocked {
         let down = |left, right| is_key_down(left) || is_key_down(right);
@@ -799,7 +801,22 @@ fn draw_editor(
         ) {
             editor_panel::apply_history(editor, state, key);
         }
+        // Tool keys are for the room tools; the properties panel hides the tool buttons.
+        let modified = down(KeyCode::LeftControl, KeyCode::RightControl)
+            || down(KeyCode::LeftAlt, KeyCode::RightAlt);
+        if let Some(tool) = tool_shortcut(
+            modified || state.properties,
+            is_key_pressed(KeyCode::V),
+            is_key_pressed(KeyCode::P),
+            is_key_pressed(KeyCode::T),
+            is_key_pressed(KeyCode::E),
+        ) {
+            editor_panel::choose_tool(editor, state, tool);
+        }
     }
+    let erase_target =
+        terrain_canvas::erase_target(state, editor, &markers, world).filter(|_| over_canvas);
+    terrain_canvas::draw(state, &layout, &canvas, erase_target);
     for (selection, rect, color) in editor_markers(editor, state.destination, state.selected) {
         let r = canvas.rect(rect);
         draw_rectangle(
@@ -888,7 +905,7 @@ fn draw_editor(
         WHITE,
     );
     draw_text(
-        "F2: close (asks to save) | Drag: move | Right click / Del: delete",
+        "F2: close | V/P/T/E: tools | Drag: move | Right click / Del: delete",
         CANVAS_MARGIN,
         52.0,
         17.0,
@@ -982,6 +999,8 @@ mod editor_ui_tests {
         state.grid.enabled = true;
         state.grid.size = 16.0;
         state.selected = Some(Selection::Item(0));
+        state.tool = EditorTool::Terrain;
+        state.terrain.select(Some(0));
         state.view = Some(CanvasView {
             offset: Vec2::ZERO,
             scale: 2.0,
@@ -997,6 +1016,10 @@ mod editor_ui_tests {
         let next = state.for_new_session();
         assert!(!next.history.can_undo() && !next.history.can_redo());
         assert_eq!(next.selected, None);
+        assert_eq!(
+            (next.tool, next.terrain.selected()),
+            (EditorTool::Select, None)
+        );
         assert!(next.view.is_none());
         assert!(next.grid.enabled);
         assert_eq!(next.grid.size, 16.0);

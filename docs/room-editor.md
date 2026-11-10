@@ -48,9 +48,11 @@ New room creates an empty draft with the current room's geometry and a unique
 these files are loaded at startup. Exits can target any saved room. Room IDs are
 stable numeric IDs, independent of list order. Coins remain outside this editor's scope.
 
-Choose an entity in the **Entity** list, click **Place**, then click the room.
-Choose **Select / drag** to move entities, the blue respawn marker, or a green
-exit span. Right-click an enemy/item/boss or select it and press Delete to remove it.
+Pick a tool in the **Tools** section (keys V, P, T, E with the canvas focused). Choose an
+entity in the **Entity** list, pick **Place**, then click the room. **Select** moves
+entities, the blue respawn marker, or a green exit span, and selects solids (see
+"Terrain tools"). Right-click an enemy/item/boss/exit/solid, use **Erase**, or select
+it and press Delete to remove it.
 Select an exit, choose a **Target**, and click **Set exit target**; use
 **Arrival spawn** to drag its purple arrival marker in the target
 room's coordinate space. **Back to room** restores the current-room view.
@@ -318,6 +320,31 @@ whole draft with the normal room rules, so a change that leaves the spawn, items
 exits, terrain, enemies or boss outside the room is refused with the usual message and
 the fields snap back. Exit arrival points in *other* rooms are checked at Save, as before.
 
+## Terrain tools
+
+The **Tools** section replaces the old Place and Select / drag buttons. Keys (canvas
+focused, no text box focused, no Ctrl or Alt): **V** Select, **P** Place, **T** Terrain,
+**E** Erase. Place needs an entity or item chosen in the Entity list first.
+
+- **Terrain**: drag a rectangle to make a solid (snapped when Grid and snap is on, kept
+  inside the room). Nothing is added until you release; the green preview shows the size.
+  A plain click adds nothing; a solid under 8 px wide or tall is refused.
+- **Select**: click a solid to select it (white outline, size label, eight handles). Drag
+  the body to move it; drag a handle to resize it, which stops at 8 px and at the room
+  walls. Where a marker overlaps a solid a click selects the marker, and a handle of the
+  selected solid wins over both.
+- **Erase**: click an enemy, item, boss, exit or solid to delete it (markers first, the
+  spawn and patrol handles are skipped). Right-click and Delete (with the canvas focused)
+  do the same for the thing under the cursor or the selection; **Delete selected** too.
+
+Rules live in `src/editor_terrain.rs` (add, move, resize, delete, hit tests) and
+`src/editor_tools.rs` (tool enum, key map, drag state). Every edit is validated with
+`RoomLayout::validate_geometry` on a copy, so a solid over the spawn, an item or an exit,
+or outside the room, is refused with the usual message; a drag the rules refuse stays at
+its last valid spot. Solids save to `layout.terrain` and undo/redo covers them (a drag
+is one step). Terrain tools work in the room view, not the arrival-spawn view or the
+Entity properties panel.
+
 ## Unsaved changes
 
 Closing the editor (F2), **Open room** and **New room** go through `UnsavedGuard`
@@ -371,3 +398,19 @@ Run `cargo run`, press F2 and use a room with a few entities.
 - Click a text box in the panel and press Ctrl+Z: the canvas does not change. Click the
   canvas and it does. After undo, make a new edit and confirm redo is gone.
 - Hover **Undo** and **Redo** and read the tooltip. Open another room: Undo is greyed out.
+
+### Manual check: terrain tools
+
+- Press T (click the canvas first), drag a rectangle: a green preview with its size, then
+  a solid on release. Ctrl+Z removes it, Ctrl+Y brings it back.
+- Turn on Grid and snap (16) and draw, move and resize: edges land on grid lines.
+- Press V, click the solid: handles appear. Drag the body (one Ctrl+Z puts it back), drag
+  a corner and an edge handle, drag a handle past the opposite edge (stops at 8 px) and
+  past the room wall (stops at the wall).
+- Drag a solid over the blue spawn marker, an item or the green exit: it stops and the
+  footer explains why. Draw one across the spawn: refused, nothing added.
+- Press E and hover a solid (red highlight), click it: it goes; Ctrl+Z restores it. Click
+  an enemy or item with Erase: it is deleted instead of the solid behind it.
+- Right-click a solid, and select one and press Delete. Click **Delete selected**.
+- Save, press F5 or restart: the solids are loaded in the game and stop the player.
+- Open the Entity properties panel (or the arrival-spawn view): drawing is off there.

@@ -2,15 +2,18 @@
 use super::{EditorSession, EditorUi, RoomEdge, SearchList, Selection};
 use egui_macroquad::egui;
 use hollow_steps::editor_history::tracked;
+use hollow_steps::editor_tools::EditorTool;
 
 mod boss;
 mod canvas_tools;
 mod history_panel;
 #[cfg(test)]
 mod test_support;
+mod tool_panel;
 mod unsaved_dialog;
 pub(super) use boss::{draw_boss_panel, BossPropertyUi};
 pub(super) use history_panel::apply_history;
+pub(super) use tool_panel::choose_tool;
 pub(super) use unsaved_dialog::draw_unsaved_dialog;
 
 pub(super) struct PanelResponse {
@@ -80,7 +83,7 @@ pub(super) fn draw_panel(
                             ) {
                                 state.properties = !state.properties;
                                 if state.properties {
-                                    state.placing = false;
+                                    state.tool = EditorTool::Select;
                                     state.destination = None;
                                     state.dragging = None;
                                     let boss_path = match state.selected {
@@ -202,6 +205,7 @@ fn draw_room_tools(
     room_labels: &[String],
     open: &mut Option<hollow_steps::room::RoomId>,
 ) {
+    tool_panel::draw_tool_section(ui, editor, state);
     history_panel::draw_history_section(ui, editor, state);
     section(ui, "Room", |ui| {
         if panel_button(ui, "New room") {
@@ -256,7 +260,7 @@ fn draw_room_tools(
                 if let Ok(selection) = added {
                     state.selected = Some(selection);
                     editor.dirty = true;
-                    state.placing = false;
+                    state.tool = EditorTool::Select;
                     state.destination = None;
                 }
             }
@@ -281,7 +285,7 @@ fn draw_room_tools(
             if panel_button(ui, "Arrival spawn") {
                 state.destination = Some(i);
                 state.selected = Some(Selection::Destination(i));
-                state.placing = false;
+                state.tool = EditorTool::Select;
             }
         }
         if state.destination.is_some() && panel_button(ui, "Back to room") {
@@ -304,33 +308,6 @@ fn draw_room_tools(
             &mut state.definition,
         );
         draw_entity_tools(ui, editor, state, entity_paths);
-        if panel_button(ui, if state.placing { "[Place]" } else { "Place" }) {
-            state.placing = state.definition.selected.is_some();
-            state.destination = None;
-            state.selected = None;
-        }
-        if panel_button(
-            ui,
-            if !state.placing {
-                "[Select / drag]"
-            } else {
-                "Select / drag"
-            },
-        ) {
-            state.placing = false;
-        }
-        if panel_button(ui, "Delete selected") {
-            if let Some(selection) = state.selected {
-                match tracked(&mut state.history, editor, |e| e.draft.delete(selection)) {
-                    Ok(()) => {
-                        state.selected = None;
-                        state.destination = None;
-                        editor.dirty = true;
-                    }
-                    Err(error) => editor.message = error,
-                }
-            }
-        }
     });
 }
 
@@ -444,7 +421,7 @@ fn draw_entity_tools(
             state.definition.selected = path
                 .as_ref()
                 .and_then(|p| editor.content.entities.keys().position(|key| key == p));
-            state.placing = false;
+            state.tool = EditorTool::Select;
             if path.is_some() {
                 state.boss_property = None;
                 state.property = PropertyUi::for_entity(editor, path);
