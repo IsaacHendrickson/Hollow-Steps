@@ -130,3 +130,32 @@ pub(crate) fn valid_blend_ratio(value: f32) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct HurtFeedback {
+    pub pose: Option<String>,
+    pub duration_secs: f32,
+    pub blend_secs: f32,
+    pub flash_secs: f32,
+    pub tint: (f32, f32, f32),
+    pub tint_strength: f32,
+}
+impl Default for HurtFeedback {
+    fn default() -> Self {
+        ron::from_str(include_str!("../data/hurt_defaults.ron")).expect("valid hurt defaults")
+    }
+}
+impl HurtFeedback {
+    pub fn validate(&self) -> Result<(), String> {
+        crate::behavior::nonnegative(self.duration_secs)?;
+        crate::behavior::positive(self.blend_secs)?;
+        crate::behavior::nonnegative(self.flash_secs)?;
+        for value in [self.tint.0, self.tint.1, self.tint.2, self.tint_strength] {
+            if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                return Err("hurt tint must be in 0..1".into());
+            }
+        }
+        Ok(())
+    }
+}

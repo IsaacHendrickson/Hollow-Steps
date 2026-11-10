@@ -39,7 +39,7 @@ fn semantic_resolution_ignores_missing_points() {
         )
         .unwrap()
         .len(),
-        1
+        2
     );
 }
 
@@ -139,4 +139,54 @@ fn telegraph_settles_by_blend_ratio_and_strike_is_faster() {
         fast.points["root"].distance(fast.targets["root"])
             < slow.points["root"].distance(slow.targets["root"])
     );
+}
+
+#[test]
+fn hurt_pose_and_flash_expire_on_game_time_and_resume_action() {
+    let poses = load_poses(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("poses"),
+    )
+    .unwrap();
+    let mut body = body();
+    body.visual.hurt.pose = Some("hurt".into());
+    body.set_pose(Some("windup"), &poses);
+    body.configure_pose_spring(0.4, 1.0);
+    body.hurt(&poses);
+    assert_eq!(body.pose_name.as_deref(), Some("hurt"));
+    assert_eq!(body.flash_strength(), 1.0);
+    body.step(f32::NAN);
+    body.step(0.0);
+    body.step(-1.0);
+    assert_eq!(body.pose_name.as_deref(), Some("hurt"));
+    body.step(0.08);
+    assert_eq!(body.flash_strength(), 0.0);
+    assert_eq!(body.pose_name.as_deref(), Some("hurt"));
+    body.step(0.069);
+    assert_eq!(body.pose_name.as_deref(), Some("hurt"));
+    body.step(0.002);
+    assert_eq!(body.pose_name.as_deref(), Some("windup"));
+    body.hurt(&poses);
+    body.clear_pose(); // Attack ending during hurt must not cancel the damage response.
+    assert_eq!(body.pose_name.as_deref(), Some("hurt"));
+    body.step(10.0);
+    assert!(body.pose_name.is_none());
+    assert!(body.points.values().all(|p| p.is_finite()));
+}
+
+#[test]
+fn separate_telegraph_uses_following_action_binding_and_duration() {
+    use hollow_steps::pose::PoseStep;
+    let mut behavior = machine("telegraph(seconds: 0.5), shoot_projectile(speed: 280.0, damage: 1, lifetime_secs: 3.0, size: (12.0, 12.0), aim: AtPlayer, count: 1, spread_degrees: 0.0, telegraph_secs: 0.0, telegraph_pose: Some(\"windup\"), active_pose: Some(\"recoil\"))");
+    let mut position = macroquad::math::Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(), 0.25);
+    assert!(behavior.take_pose_steps().iter().any(|s| matches!(s, PoseStep::Apply { name: Some(name), seconds, blend_secs, .. } if name == "windup" && *seconds == 0.25 && *blend_secs == 0.4)));
+    assert!(behavior.projectiles().is_empty());
+    behavior.update(&mut position, context(), 0.25);
+    assert_eq!(behavior.projectiles().len(), 1);
+    assert!(behavior.take_pose_steps().iter().any(
+        |s| matches!(s, PoseStep::Apply { name: Some(name), instant: true, .. } if name == "recoil")
+    ));
 }

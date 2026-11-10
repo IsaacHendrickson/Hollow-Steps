@@ -245,6 +245,8 @@ pub fn load_body_templates(directory: &Path) -> Result<BodyTemplates, String> {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct BodyVisual {
+    #[serde(default)]
+    pub hurt: crate::pose::HurtFeedback,
     pub template: String,
     pub primary: (f32, f32, f32, f32),
     pub secondary: (f32, f32, f32, f32),
@@ -271,6 +273,9 @@ impl BodyVisual {
     }
 
     pub fn validate(&self) -> Result<(), String> {
+        self.hurt
+            .validate()
+            .map_err(|e| format!("hurt feedback: {e}"))?;
         if self.template.trim().is_empty() {
             return Err("missing body template name".into());
         }
@@ -327,6 +332,11 @@ pub struct BodyInstance {
     pub pose_name: Option<String>,
     pose_points: BTreeSet<String>,
     pose_frequency: Option<f64>,
+    action_pose: Option<String>,
+    action_frequency: Option<f64>,
+    hurt_remaining: f32,
+    flash_remaining: f32,
+    pose_catalog: crate::pose::Poses,
 }
 
 impl BodyInstance {
@@ -347,6 +357,11 @@ impl BodyInstance {
             pose_name: None,
             pose_points: BTreeSet::new(),
             pose_frequency: None,
+            action_pose: None,
+            action_frequency: None,
+            hurt_remaining: 0.0,
+            flash_remaining: 0.0,
+            pose_catalog: crate::pose::Poses::new(),
             template,
             visual,
         };
@@ -380,10 +395,19 @@ impl BodyInstance {
     }
 
     pub fn set_pose(&mut self, name: Option<&str>, poses: &crate::pose::Poses) {
+        self.action_pose = name.map(str::to_owned);
+        self.pose_catalog = poses.clone();
+        if self.hurt_remaining > 0.0 {
+            return;
+        }
+        self.apply_pose(name, poses);
+    }
+
+    fn apply_pose(&mut self, name: Option<&str>, poses: &crate::pose::Poses) {
         if self.pose_name.as_deref() == name {
             return;
         }
-        self.clear_pose();
+        self.clear_active_pose();
         if let Some((name, pose)) = name.and_then(|n| poses.get(n).map(|p| (n, p))) {
             self.pose_points = pose.resolve(&self.template).into_keys().collect();
             pose.apply(self);
@@ -392,6 +416,13 @@ impl BodyInstance {
     }
 
     pub fn clear_pose(&mut self) {
+        self.action_pose = None;
+        self.action_frequency = None;
+        if self.hurt_remaining <= 0.0 {
+            self.clear_active_pose();
+        }
+    }
+    fn clear_active_pose(&mut self) {
         for name in std::mem::take(&mut self.pose_points) {
             self.clear_target(&name).expect("resolved pose point");
         }
@@ -400,11 +431,14 @@ impl BodyInstance {
     }
 
     pub fn configure_pose_spring(&mut self, blend_secs: f32, stiffness_multiplier: f32) {
-        self.pose_frequency = self.pose_name.as_ref().map(|_| {
+        self.action_frequency = self.action_pose.as_ref().map(|_| {
             f64::from(self.template.pose_motion.settle_factor)
                 / f64::from(blend_secs.max(self.template.pose_motion.min_blend_secs))
                 * f64::from(stiffness_multiplier).sqrt()
         });
+        if self.hurt_remaining <= 0.0 {
+            self.pose_frequency = self.action_frequency;
+        }
     }
 
     /// Exact critically damped spring solution, stable even for very short wind-ups.
@@ -426,6 +460,9 @@ impl BodyInstance {
     }
 
     pub fn instant_pose_impulse(&mut self) {
+        if self.hurt_remaining > 0.0 {
+            return;
+        }
         self.integrate_pose(self.template.pose_motion.instant_strike_secs);
     }
 
@@ -448,7 +485,50 @@ impl BodyInstance {
     }
 
     /// Explicit game delta only. Idle uses game time; only spring integration is capped.
+    pub fn hurt(&mut self, poses: &crate::pose::Poses) {
+        self.pose_catalog = poses.clone();
+        let feedback = self.visual.hurt.clone();
+        self.flash_remaining = feedback.flash_secs;
+        self.hurt_remaining = feedback.duration_secs;
+        if self.hurt_remaining > 0.0 {
+            self.apply_pose(feedback.pose.as_deref(), poses);
+            self.pose_frequency = self.pose_name.as_ref().map(|_| {
+                f64::from(self.template.pose_motion.settle_factor)
+                    / f64::from(
+                        feedback
+                            .blend_secs
+                            .max(self.template.pose_motion.min_blend_secs),
+                    )
+            });
+        }
+    }
+    pub fn flash_strength(&self) -> f32 {
+        if self.flash_remaining > 0.0 {
+            self.visual.hurt.tint_strength
+        } else {
+            0.0
+        }
+    }
     pub fn step(&mut self, delta_seconds: f32) {
+        if !delta_seconds.is_finite() || delta_seconds <= 0.0 {
+            return;
+        }
+        self.flash_remaining = (self.flash_remaining - delta_seconds).max(0.0);
+        let hurt_dt = delta_seconds.min(self.hurt_remaining);
+        if hurt_dt > 0.0 {
+            self.step_motion(hurt_dt);
+            self.hurt_remaining = (self.hurt_remaining - hurt_dt).max(0.0);
+            if self.hurt_remaining == 0.0 {
+                self.apply_pose(
+                    self.action_pose.clone().as_deref(),
+                    &self.pose_catalog.clone(),
+                );
+                self.pose_frequency = self.action_frequency;
+            }
+        }
+        self.step_motion(delta_seconds - hurt_dt);
+    }
+    fn step_motion(&mut self, delta_seconds: f32) {
         if !delta_seconds.is_finite() || delta_seconds <= 0.0 {
             return;
         }

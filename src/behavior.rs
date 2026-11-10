@@ -954,8 +954,20 @@ impl Behavior {
             ) {
                 self.airborne = false;
             }
-            let pose_bindings = action.pose_bindings();
-            let (blend_secs, strike_multiplier) = action.pose_timing();
+            let preview = if matches!(action, Action::Telegraph { .. }) {
+                self.definition.states[self.state]
+                    .actions
+                    .get(self.action + 1)
+                    .unwrap_or(&action)
+            } else {
+                &action
+            };
+            let preview = preview.clone();
+            let pose_bindings = preview.pose_bindings();
+            let (mut blend_secs, strike_multiplier) = preview.pose_timing();
+            if let Action::Telegraph { seconds } = action {
+                blend_secs = preview.pose_blend_seconds(seconds);
+            }
             if !self.action_started && pose_bindings.is_some() {
                 self.pose_steps.push(crate::pose::PoseStep::Face(
                     context.player_position.x < position.x,
@@ -1247,6 +1259,16 @@ impl Behavior {
                 if finished {
                     self.pose_steps.push(crate::pose::PoseStep::Clear);
                 }
+            } else if let (Action::Telegraph { .. }, Some(bindings)) =
+                (&action, preview.pose_bindings())
+            {
+                self.pose_steps.push(crate::pose::PoseStep::Apply {
+                    name: bindings[0].clone(),
+                    seconds: used as f32,
+                    blend_secs,
+                    stiffness_multiplier: 1.0,
+                    instant: false,
+                });
             } else {
                 self.pose_steps
                     .push(crate::pose::PoseStep::Idle(used as f32));
@@ -1547,6 +1569,29 @@ impl Action {
                 *strike_stiffness_multiplier,
             ),
             _ => (0.0, 1.0),
+        }
+    }
+}
+
+impl Action {
+    pub fn pose_blend_seconds(&self, telegraph: f32) -> f32 {
+        match self {
+            Self::Lunge {
+                pose_blend_ratio, ..
+            }
+            | Self::JumpTo {
+                pose_blend_ratio, ..
+            }
+            | Self::ImpactSlam {
+                pose_blend_ratio, ..
+            }
+            | Self::ShootProjectile {
+                pose_blend_ratio, ..
+            }
+            | Self::RadialBlast {
+                pose_blend_ratio, ..
+            } => telegraph * *pose_blend_ratio,
+            _ => 0.0,
         }
     }
 }

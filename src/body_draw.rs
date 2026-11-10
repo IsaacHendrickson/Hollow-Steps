@@ -63,6 +63,18 @@ pub fn draw_enemy_body(enemy: &Enemy) {
 }
 
 fn enemy_tint(enemy: &Enemy, color: Color) -> Color {
+    if let Some(body) = enemy.body() {
+        let strength = body.flash_strength();
+        if strength > 0.0 {
+            let tint = body.visual.hurt.tint;
+            return Color::new(
+                color.r + (tint.0 - color.r) * strength,
+                color.g + (tint.1 - color.g) * strength,
+                color.b + (tint.2 - color.b) * strength,
+                color.a,
+            );
+        }
+    }
     let Some(warning) = enemy.behavior().warning(enemy.size()) else {
         return color;
     };

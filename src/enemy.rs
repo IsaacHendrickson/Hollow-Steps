@@ -376,6 +376,9 @@ impl Enemy {
         }
         self.last_attack_id = Some(attack_id);
         self.health -= 1;
+        if let Some(body) = &mut self.body {
+            body.hurt(&self.poses);
+        }
         self.knockback_direction = direction.signum();
         self.knockback_remaining = KNOCKBACK_SECONDS;
         true
