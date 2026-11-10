@@ -1,0 +1,5 @@
+[
+    jump_to(dx: 0.0, dy: -160.0, speed: 180.0),
+    slam_down(speed: 250.0),
+    area_blast(count: 3, radius: 48.0, fuse_time: 0.5, damage: 2),
+]

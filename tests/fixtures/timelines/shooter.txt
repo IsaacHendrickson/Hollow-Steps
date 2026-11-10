@@ -1,0 +1,180 @@
+0 pos=500.000,300.000 finished=false
+1 pos=500.000,300.000 finished=false
+2 pos=500.000,300.000 finished=false
+3 pos=500.000,300.000 finished=false
+4 pos=500.000,300.000 finished=false
+5 pos=500.000,300.000 finished=false
+6 pos=500.000,300.000 finished=false
+7 pos=500.000,300.000 finished=false
+8 pos=500.000,300.000 finished=false
+9 pos=500.000,300.000 finished=false
+10 pos=500.000,300.000 finished=false
+11 pos=500.000,300.000 finished=false
+12 pos=500.000,300.000 finished=false
+13 pos=500.000,300.000 finished=false
+14 pos=500.000,300.000 finished=false
+15 pos=500.000,300.000 finished=false
+16 pos=500.000,300.000 finished=false
+17 pos=500.000,300.000 finished=false
+18 pos=500.000,300.000 finished=false
+19 pos=500.000,300.000 finished=false
+20 pos=500.000,300.000 finished=false
+21 pos=500.000,300.000 finished=false
+22 pos=500.000,300.000 finished=false
+23 pos=500.000,300.000 finished=false
+24 pos=500.000,300.000 finished=false
+25 pos=500.000,300.000 finished=false
+26 pos=500.000,300.000 finished=false
+27 pos=500.000,300.000 finished=false
+28 pos=500.000,300.000 finished=false
+29 pos=500.000,300.000 finished=true projectile=500.000,300.000 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=1.000 projectile=500.000,300.000 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=1.000 projectile=500.000,300.000 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=1.000
+30 pos=500.000,300.000 finished=true projectile=498.637,300.959 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.983 projectile=498.523,300.772 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.983 projectile=498.435,300.573 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.983
+31 pos=500.000,300.000 finished=true projectile=497.273,301.917 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.967 projectile=497.046,301.545 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.967 projectile=496.870,301.146 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.967
+32 pos=500.000,300.000 finished=true projectile=495.910,302.876 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.950 projectile=495.569,302.317 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.950 projectile=495.305,301.719 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.950
+33 pos=500.000,300.000 finished=true projectile=494.547,303.835 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.933 projectile=494.093,303.090 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.933 projectile=493.740,302.292 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.933
+34 pos=500.000,300.000 finished=true projectile=493.183,304.793 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.917 projectile=492.616,303.862 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.917 projectile=492.175,302.866 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.917
+35 pos=500.000,300.000 finished=true projectile=491.820,305.752 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.900 projectile=491.139,304.635 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.900 projectile=490.610,303.439 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.900
+36 pos=500.000,300.000 finished=true projectile=490.456,306.711 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.883 projectile=489.662,305.407 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.883 projectile=489.045,304.012 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.883
+37 pos=500.000,300.000 finished=true projectile=489.093,307.669 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.867 projectile=488.185,306.180 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.867 projectile=487.480,304.585 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.867
+38 pos=500.000,300.000 finished=true projectile=487.730,308.628 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.850 projectile=486.708,306.952 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.850 projectile=485.915,305.158 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.850
+39 pos=500.000,300.000 finished=true projectile=486.366,309.586 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.833 projectile=485.232,307.725 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.833 projectile=484.350,305.731 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.833
+40 pos=500.000,300.000 finished=true projectile=485.003,310.545 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.817 projectile=483.755,308.497 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.817 projectile=482.785,306.304 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.817
+41 pos=500.000,300.000 finished=true projectile=483.640,311.504 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.800 projectile=482.278,309.270 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.800 projectile=481.220,306.877 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.800
+42 pos=500.000,300.000 finished=true projectile=482.276,312.462 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.783 projectile=480.801,310.042 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.783 projectile=479.655,307.451 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.783
+43 pos=500.000,300.000 finished=true projectile=480.913,313.421 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.767 projectile=479.324,310.815 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.767 projectile=478.090,308.024 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.767
+44 pos=500.000,300.000 finished=true projectile=479.549,314.380 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.750 projectile=477.847,311.587 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.750 projectile=476.525,308.597 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.750
+45 pos=500.000,300.000 finished=true projectile=478.186,315.338 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.733 projectile=476.371,312.360 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.733 projectile=474.959,309.170 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.733
+46 pos=500.000,300.000 finished=true projectile=476.823,316.297 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.717 projectile=474.894,313.132 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.717 projectile=473.394,309.743 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.717
+47 pos=500.000,300.000 finished=true projectile=475.459,317.256 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.700 projectile=473.417,313.905 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.700 projectile=471.829,310.316 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.700
+48 pos=500.000,300.000 finished=true projectile=474.096,318.214 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.683 projectile=471.940,314.677 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.683 projectile=470.264,310.889 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.683
+49 pos=500.000,300.000 finished=true projectile=472.733,319.173 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.667 projectile=470.463,315.450 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.667 projectile=468.699,311.462 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.667
+50 pos=500.000,300.000 finished=true projectile=471.369,320.132 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.650 projectile=468.986,316.222 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.650 projectile=467.134,312.036 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.650
+51 pos=500.000,300.000 finished=true projectile=470.006,321.090 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.633 projectile=467.510,316.995 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.633 projectile=465.569,312.609 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.633
+52 pos=500.000,300.000 finished=true projectile=468.642,322.049 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.617 projectile=466.033,317.767 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.617 projectile=464.004,313.182 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.617
+53 pos=500.000,300.000 finished=true projectile=467.279,323.008 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.600 projectile=464.556,318.540 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.600 projectile=462.439,313.755 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.600
+54 pos=500.000,300.000 finished=true projectile=465.916,323.966 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.583 projectile=463.079,319.312 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.583 projectile=460.874,314.328 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.583
+55 pos=500.000,300.000 finished=true projectile=464.552,324.925 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.567 projectile=461.602,320.085 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.567 projectile=459.309,314.901 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.567
+56 pos=500.000,300.000 finished=true projectile=463.189,325.884 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.550 projectile=460.125,320.857 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.550 projectile=457.744,315.474 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.550
+57 pos=500.000,300.000 finished=true projectile=461.826,326.842 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.533 projectile=458.649,321.630 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.533 projectile=456.179,316.047 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.533
+58 pos=500.000,300.000 finished=true projectile=460.462,327.801 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.517 projectile=457.172,322.402 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.517 projectile=454.614,316.620 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.517
+59 pos=500.000,300.000 finished=true projectile=459.099,328.759 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.500 projectile=455.695,323.175 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.500 projectile=453.049,317.194 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.500
+60 pos=500.000,300.000 finished=true projectile=457.735,329.718 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.483 projectile=454.218,323.947 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.483 projectile=451.484,317.767 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.483
+61 pos=500.000,300.000 finished=true projectile=456.372,330.677 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.467 projectile=452.741,324.720 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.467 projectile=449.919,318.340 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.467
+62 pos=500.000,300.000 finished=true projectile=455.009,331.635 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.450 projectile=451.264,325.492 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.450 projectile=448.354,318.913 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.450
+63 pos=500.000,300.000 finished=true projectile=453.645,332.594 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.433 projectile=449.788,326.265 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.433 projectile=446.789,319.486 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.433
+64 pos=500.000,300.000 finished=true projectile=452.282,333.553 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.417 projectile=448.311,327.037 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.417 projectile=445.224,320.059 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.417
+65 pos=500.000,300.000 finished=true projectile=450.919,334.511 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.400 projectile=446.834,327.810 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.400 projectile=443.659,320.632 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.400
+66 pos=500.000,300.000 finished=true projectile=449.555,335.470 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.383 projectile=445.357,328.582 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.383 projectile=442.094,321.205 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.383
+67 pos=500.000,300.000 finished=true projectile=448.192,336.429 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.367 projectile=443.880,329.355 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.367 projectile=440.529,321.779 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.367
+68 pos=500.000,300.000 finished=true projectile=446.828,337.387 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.350 projectile=442.403,330.127 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.350 projectile=438.964,322.352 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.350
+69 pos=500.000,300.000 finished=true projectile=445.465,338.346 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.333 projectile=440.927,330.900 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.333 projectile=437.399,322.925 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.333
+70 pos=500.000,300.000 finished=true projectile=444.102,339.305 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.317 projectile=439.450,331.672 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.317 projectile=435.834,323.498 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.317
+71 pos=500.000,300.000 finished=true projectile=442.738,340.263 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.300 projectile=437.973,332.445 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.300 projectile=434.269,324.071 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.300
+72 pos=500.000,300.000 finished=true projectile=441.375,341.222 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.283 projectile=436.496,333.217 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.283 projectile=432.704,324.644 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.283
+73 pos=500.000,300.000 finished=true projectile=440.012,342.181 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.267 projectile=435.019,333.990 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.267 projectile=431.139,325.217 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.267
+74 pos=500.000,300.000 finished=true projectile=438.648,343.139 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.250 projectile=433.542,334.762 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.250 projectile=429.574,325.790 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.250
+75 pos=500.000,300.000 finished=true projectile=437.285,344.098 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.233 projectile=432.065,335.535 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.233 projectile=428.008,326.364 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.233
+76 pos=500.000,300.000 finished=true projectile=435.921,345.056 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.217 projectile=430.589,336.307 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.217 projectile=426.443,326.937 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.217
+77 pos=500.000,300.000 finished=true projectile=434.558,346.015 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.200 projectile=429.112,337.080 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.200 projectile=424.878,327.510 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.200
+78 pos=500.000,300.000 finished=true projectile=433.195,346.974 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.183 projectile=427.635,337.852 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.183 projectile=423.313,328.083 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.183
+79 pos=500.000,300.000 finished=true projectile=431.831,347.932 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.167 projectile=426.158,338.625 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.167 projectile=421.748,328.656 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.167
+80 pos=500.000,300.000 finished=true projectile=430.468,348.891 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.150 projectile=424.681,339.397 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.150 projectile=420.183,329.229 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.150
+81 pos=500.000,300.000 finished=true projectile=429.105,349.850 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.133 projectile=423.204,340.170 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.133 projectile=418.618,329.802 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.133
+82 pos=500.000,300.000 finished=true projectile=427.741,350.808 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.117 projectile=421.728,340.942 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.117 projectile=417.053,330.375 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.117
+83 pos=500.000,300.000 finished=true projectile=426.378,351.767 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.100 projectile=420.251,341.715 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.100 projectile=415.488,330.948 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.100
+84 pos=500.000,300.000 finished=true projectile=425.014,352.726 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.083 projectile=418.774,342.487 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.083 projectile=413.923,331.522 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.083
+85 pos=500.000,300.000 finished=true projectile=423.651,353.684 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.067 projectile=417.297,343.260 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.067 projectile=412.358,332.095 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.067
+86 pos=500.000,300.000 finished=true projectile=422.288,354.643 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.050 projectile=415.820,344.032 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.050 projectile=410.793,332.668 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.050
+87 pos=500.000,300.000 finished=true projectile=420.924,355.602 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.033 projectile=414.343,344.805 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.033 projectile=409.228,333.241 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.033
+88 pos=500.000,300.000 finished=true projectile=419.561,356.560 velocity=-81.802,57.519 size=10.000,10.000 damage=1 remaining=0.017 projectile=412.867,345.577 velocity=-88.610,46.350 size=10.000,10.000 damage=1 remaining=0.017 projectile=407.663,333.814 velocity=-93.902,34.387 size=10.000,10.000 damage=1 remaining=0.017
+89 pos=500.000,300.000 finished=true
+90 pos=500.000,300.000 finished=true
+91 pos=500.000,300.000 finished=true
+92 pos=500.000,300.000 finished=true
+93 pos=500.000,300.000 finished=true
+94 pos=500.000,300.000 finished=true
+95 pos=500.000,300.000 finished=true
+96 pos=500.000,300.000 finished=true
+97 pos=500.000,300.000 finished=true
+98 pos=500.000,300.000 finished=true
+99 pos=500.000,300.000 finished=true
+100 pos=500.000,300.000 finished=true
+101 pos=500.000,300.000 finished=true
+102 pos=500.000,300.000 finished=true
+103 pos=500.000,300.000 finished=true
+104 pos=500.000,300.000 finished=true
+105 pos=500.000,300.000 finished=true
+106 pos=500.000,300.000 finished=true
+107 pos=500.000,300.000 finished=true
+108 pos=500.000,300.000 finished=true
+109 pos=500.000,300.000 finished=true
+110 pos=500.000,300.000 finished=true
+111 pos=500.000,300.000 finished=true
+112 pos=500.000,300.000 finished=true
+113 pos=500.000,300.000 finished=true
+114 pos=500.000,300.000 finished=true
+115 pos=500.000,300.000 finished=true
+116 pos=500.000,300.000 finished=true
+117 pos=500.000,300.000 finished=true
+118 pos=500.000,300.000 finished=true
+119 pos=500.000,300.000 finished=true
+120 pos=500.000,300.000 finished=true
+121 pos=500.000,300.000 finished=true
+122 pos=500.000,300.000 finished=true
+123 pos=500.000,300.000 finished=true
+124 pos=500.000,300.000 finished=true
+125 pos=500.000,300.000 finished=true
+126 pos=500.000,300.000 finished=true
+127 pos=500.000,300.000 finished=true
+128 pos=500.000,300.000 finished=true
+129 pos=500.000,300.000 finished=true
+130 pos=500.000,300.000 finished=true
+131 pos=500.000,300.000 finished=true
+132 pos=500.000,300.000 finished=true
+133 pos=500.000,300.000 finished=true
+134 pos=500.000,300.000 finished=true
+135 pos=500.000,300.000 finished=true
+136 pos=500.000,300.000 finished=true
+137 pos=500.000,300.000 finished=true
+138 pos=500.000,300.000 finished=true
+139 pos=500.000,300.000 finished=true
+140 pos=500.000,300.000 finished=true
+141 pos=500.000,300.000 finished=true
+142 pos=500.000,300.000 finished=true
+143 pos=500.000,300.000 finished=true
+144 pos=500.000,300.000 finished=true
+145 pos=500.000,300.000 finished=true
+146 pos=500.000,300.000 finished=true
+147 pos=500.000,300.000 finished=true
+148 pos=500.000,300.000 finished=true
+149 pos=500.000,300.000 finished=true
+150 pos=500.000,300.000 finished=true
+151 pos=500.000,300.000 finished=true
+152 pos=500.000,300.000 finished=true
+153 pos=500.000,300.000 finished=true
+154 pos=500.000,300.000 finished=true
+155 pos=500.000,300.000 finished=true
+156 pos=500.000,300.000 finished=true
+157 pos=500.000,300.000 finished=true
+158 pos=500.000,300.000 finished=true
+159 pos=500.000,300.000 finished=true
+160 pos=500.000,300.000 finished=true
+161 pos=500.000,300.000 finished=true
+162 pos=500.000,300.000 finished=true
+163 pos=500.000,300.000 finished=true
+164 pos=500.000,300.000 finished=true
+165 pos=500.000,300.000 finished=true
+166 pos=500.000,300.000 finished=true
+167 pos=500.000,300.000 finished=true
+168 pos=500.000,300.000 finished=true
+169 pos=500.000,300.000 finished=true
+170 pos=500.000,300.000 finished=true
+171 pos=500.000,300.000 finished=true
+172 pos=500.000,300.000 finished=true
+173 pos=500.000,300.000 finished=true
+174 pos=500.000,300.000 finished=true
+175 pos=500.000,300.000 finished=true
+176 pos=500.000,300.000 finished=true
+177 pos=500.000,300.000 finished=true
+178 pos=500.000,300.000 finished=true
+179 pos=500.000,300.000 finished=true

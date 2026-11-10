@@ -1,0 +1,180 @@
+0 pos=500.000,300.000 finished=false
+1 pos=500.000,300.000 finished=false
+2 pos=500.000,300.000 finished=false
+3 pos=500.000,300.000 finished=false
+4 pos=500.000,300.000 finished=false
+5 pos=500.000,300.000 finished=false
+6 pos=500.000,300.000 finished=false
+7 pos=500.000,300.000 finished=false
+8 pos=500.000,300.000 finished=false
+9 pos=500.000,300.000 finished=false
+10 pos=500.000,300.000 finished=false
+11 pos=500.000,300.000 finished=false
+12 pos=500.000,300.000 finished=false
+13 pos=500.000,300.000 finished=false
+14 pos=500.000,300.000 finished=false
+15 pos=495.667,297.022 finished=false
+16 pos=491.333,294.222 finished=false
+17 pos=487.000,291.600 finished=false
+18 pos=482.667,289.156 finished=false
+19 pos=478.333,286.889 finished=false
+20 pos=474.000,284.800 finished=false
+21 pos=469.667,282.889 finished=false
+22 pos=465.333,281.156 finished=false
+23 pos=461.000,279.600 finished=false
+24 pos=456.667,278.222 finished=false
+25 pos=452.333,277.022 finished=false
+26 pos=448.000,276.000 finished=false
+27 pos=443.667,275.156 finished=false
+28 pos=439.333,274.489 finished=false
+29 pos=435.000,274.000 finished=false
+30 pos=430.667,273.689 finished=false
+31 pos=426.333,273.556 finished=false
+32 pos=422.000,273.600 finished=false
+33 pos=417.667,273.822 finished=false
+34 pos=413.333,274.222 finished=false
+35 pos=409.000,274.800 finished=false
+36 pos=404.667,275.556 finished=false
+37 pos=400.333,276.489 finished=false
+38 pos=396.000,277.600 finished=false
+39 pos=391.667,278.889 finished=false
+40 pos=387.333,280.356 finished=false
+41 pos=383.000,282.000 finished=false
+42 pos=378.667,283.822 finished=false
+43 pos=374.333,285.822 finished=false
+44 pos=370.000,288.000 finished=false
+45 pos=365.667,290.356 finished=false
+46 pos=361.333,292.889 finished=false
+47 pos=357.000,295.600 finished=false
+48 pos=352.667,298.489 finished=false
+49 pos=348.333,301.556 finished=false
+50 pos=344.000,304.800 finished=false
+51 pos=339.667,308.222 finished=false
+52 pos=335.333,311.822 finished=false
+53 pos=331.000,315.600 finished=false
+54 pos=326.667,319.556 finished=false
+55 pos=322.333,323.689 finished=false
+56 pos=318.000,328.000 finished=false
+57 pos=313.667,332.489 finished=false
+58 pos=309.333,337.156 finished=false
+59 pos=305.000,342.000 finished=false
+60 pos=300.667,347.022 finished=false
+61 pos=296.333,352.222 finished=false
+62 pos=292.000,357.600 finished=false
+63 pos=287.667,363.156 finished=false
+64 pos=283.333,368.889 finished=false
+65 pos=279.000,374.800 finished=false
+66 pos=274.667,380.889 finished=false
+67 pos=270.333,387.156 finished=false
+68 pos=266.000,393.600 finished=false
+69 pos=261.667,400.222 finished=false
+70 pos=257.333,407.022 finished=false
+71 pos=253.000,414.000 finished=false
+72 pos=248.667,421.156 finished=false
+73 pos=244.333,428.489 finished=false
+74 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+75 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+76 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+77 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+78 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+79 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+80 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+81 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+82 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+83 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+84 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+85 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+86 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+87 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+88 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+89 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+90 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+91 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+92 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+93 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+94 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+95 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+96 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+97 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+98 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+99 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+100 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+101 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+102 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+103 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+104 pos=240.000,436.000 finished=false
+105 pos=240.000,436.000 finished=false
+106 pos=240.000,436.000 finished=false
+107 pos=240.000,436.000 finished=false
+108 pos=240.000,436.000 finished=false
+109 pos=240.000,436.000 finished=false
+110 pos=240.000,436.000 finished=false
+111 pos=240.000,436.000 finished=false
+112 pos=240.000,436.000 finished=false
+113 pos=240.000,436.000 finished=false
+114 pos=240.000,436.000 finished=false
+115 pos=240.000,436.000 finished=false
+116 pos=240.000,436.000 finished=false
+117 pos=240.000,436.000 finished=false
+118 pos=240.000,436.000 finished=false
+119 pos=240.000,436.000 finished=true
+120 pos=240.000,436.000 finished=true
+121 pos=240.000,436.000 finished=true
+122 pos=240.000,436.000 finished=true
+123 pos=240.000,436.000 finished=true
+124 pos=240.000,436.000 finished=true
+125 pos=240.000,436.000 finished=true
+126 pos=240.000,436.000 finished=true
+127 pos=240.000,436.000 finished=true
+128 pos=240.000,436.000 finished=true
+129 pos=240.000,436.000 finished=true
+130 pos=240.000,436.000 finished=true
+131 pos=240.000,436.000 finished=true
+132 pos=240.000,436.000 finished=true
+133 pos=240.000,436.000 finished=true
+134 pos=240.000,436.000 finished=true
+135 pos=240.000,436.000 finished=true
+136 pos=240.000,436.000 finished=true
+137 pos=240.000,436.000 finished=true
+138 pos=240.000,436.000 finished=true
+139 pos=240.000,436.000 finished=true
+140 pos=240.000,436.000 finished=true
+141 pos=240.000,436.000 finished=true
+142 pos=240.000,436.000 finished=true
+143 pos=240.000,436.000 finished=true
+144 pos=240.000,436.000 finished=true
+145 pos=240.000,436.000 finished=true
+146 pos=240.000,436.000 finished=true
+147 pos=240.000,436.000 finished=true
+148 pos=240.000,436.000 finished=true
+149 pos=240.000,436.000 finished=true
+150 pos=240.000,436.000 finished=true
+151 pos=240.000,436.000 finished=true
+152 pos=240.000,436.000 finished=true
+153 pos=240.000,436.000 finished=true
+154 pos=240.000,436.000 finished=true
+155 pos=240.000,436.000 finished=true
+156 pos=240.000,436.000 finished=true
+157 pos=240.000,436.000 finished=true
+158 pos=240.000,436.000 finished=true
+159 pos=240.000,436.000 finished=true
+160 pos=240.000,436.000 finished=true
+161 pos=240.000,436.000 finished=true
+162 pos=240.000,436.000 finished=true
+163 pos=240.000,436.000 finished=true
+164 pos=240.000,436.000 finished=true
+165 pos=240.000,436.000 finished=true
+166 pos=240.000,436.000 finished=true
+167 pos=240.000,436.000 finished=true
+168 pos=240.000,436.000 finished=true
+169 pos=240.000,436.000 finished=true
+170 pos=240.000,436.000 finished=true
+171 pos=240.000,436.000 finished=true
+172 pos=240.000,436.000 finished=true
+173 pos=240.000,436.000 finished=true
+174 pos=240.000,436.000 finished=true
+175 pos=240.000,436.000 finished=true
+176 pos=240.000,436.000 finished=true
+177 pos=240.000,436.000 finished=true
+178 pos=240.000,436.000 finished=true
+179 pos=240.000,436.000 finished=true

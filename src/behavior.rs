@@ -755,6 +755,10 @@ impl Behavior {
         std::mem::take(&mut self.pose_steps)
     }
 
+    pub fn set_random_seed(&mut self, seed: u32) {
+        self.random_state = Some(seed);
+    }
+
     pub fn state_name(&self) -> &str {
         &self.definition.states[self.state].name
     }
@@ -789,6 +793,13 @@ impl Behavior {
 
     pub(crate) fn clear_blast_hits(&mut self) {
         self.blasts.retain(|blast| !blast.exploded);
+    }
+
+    /// Current damage geometry, independent of collision targets.
+    pub fn active_damage_area(&self) -> Option<AttackBox> {
+        self.attack_runtime
+            .as_ref()
+            .and_then(|runtime| runtime.active)
     }
 
     pub fn attack_hit(&self, origin: Vec2, position: Vec2, size: Vec2) -> Option<DamageHit> {
