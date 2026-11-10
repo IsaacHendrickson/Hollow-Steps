@@ -326,3 +326,48 @@ fn optional_landing_attack_can_be_enabled_and_edited_without_raw_ron() {
         _ => unreachable!(),
     }
 }
+
+#[test]
+fn invalid_damage_durations_radius_count_and_aim_report_labeled_errors() {
+    use hollow_steps::behavior::Action;
+    use hollow_steps::definition_editor::ActionInput;
+    for (name, field, value) in [
+        ("lunge", "duration", "-1"),
+        ("lunge", "damage", "-1"),
+        ("lunge", "recovery", "-1"),
+        ("lunge", "wind-up", "-1"),
+        ("jump_to", "air time", "-1"),
+        ("slam_down", "active duration", "-1"),
+        ("shoot_projectile", "damage", "-1"),
+        ("shoot_projectile", "lifetime", "-1"),
+        ("shoot_projectile", "count", "0"),
+        ("shoot_projectile", "aim mode", "Unknown"),
+        ("area_blast", "radius", "0"),
+        ("area_blast", "radius", "-1"),
+        ("area_blast", "damage", "-1"),
+        ("area_blast", "active duration", "-1"),
+    ] {
+        let kind = Action::TYPES
+            .iter()
+            .position(|entry| *entry == name)
+            .unwrap();
+        let mut input = ActionInput::new(kind).unwrap();
+        let labels = input.build().unwrap().parameter_labels();
+        let index = labels
+            .iter()
+            .position(|label| label.contains(field))
+            .unwrap();
+        input.values[index] = value.into();
+        let error = input.build().unwrap_err();
+        assert!(
+            error.contains(field)
+                || (field == "active duration" && error.contains("active seconds")),
+            "{name}: {error}"
+        );
+    }
+    let error = ron::from_str::<Action>("shoot_projectile(speed: 1.0, damage: 0, lifetime_secs: 1.0, size: (2.0, 2.0), aim: Unknown, count: 1, spread_degrees: 0.0, telegraph_secs: 0.0)").unwrap_err().to_string();
+    assert!(
+        error.contains("Unknown") && error.contains("AtPlayer"),
+        "{error}"
+    );
+}
