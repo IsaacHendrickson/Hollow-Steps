@@ -211,6 +211,15 @@ impl AttackRuntime {
             .flatten()
     }
 
+    /// Portion of the last step after lunge travel, including recovery.
+    pub(crate) fn lunge_gravity_seconds(&self, used: f64) -> f64 {
+        let Motion::Lunge { duration, .. } = self.motion else {
+            return 0.0;
+        };
+        let end = self.telegraph + duration;
+        (self.elapsed - end).max(0.0) - (self.elapsed - used - end).max(0.0)
+    }
+
     pub fn step(&mut self, position: &mut Vec2, context: BehaviorContext, dt: f64) -> (f64, bool) {
         let (duration, landing) = match self.motion {
             Motion::Lunge { duration, .. } => (duration, false),
@@ -225,12 +234,13 @@ impl AttackRuntime {
         let end =
             self.telegraph + duration + if landing { active_duration } else { 0.0 } + self.recovery;
         let used = dt.min((end - self.elapsed).max(0.0));
+        let previous_travel = (self.elapsed - self.telegraph).clamp(0.0, duration);
         self.elapsed += used;
         let travel_time = (self.elapsed - self.telegraph).clamp(0.0, duration);
         *position = match self.motion {
-            Motion::Lunge { velocity, .. } => {
-                (self.start.as_dvec2() + velocity.as_dvec2() * travel_time).as_vec2()
-            }
+            Motion::Lunge { velocity, .. } => (position.as_dvec2()
+                + velocity.as_dvec2() * (travel_time - previous_travel))
+                .as_vec2(),
             Motion::Jump { target, height, .. } => parabolic_position(
                 self.start,
                 target,

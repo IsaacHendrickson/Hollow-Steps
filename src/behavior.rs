@@ -630,6 +630,7 @@ pub struct Behavior {
     action_started: bool,
     jump_target: Option<Vec2>,
     airborne: bool,
+    vertical_velocity: f64,
     blasts: Vec<Blast>,
     random_state: Option<u32>,
     attack_runtime: Option<AttackRuntime>,
@@ -664,6 +665,7 @@ impl Behavior {
             action_started: false,
             jump_target: None,
             airborne: false,
+            vertical_velocity: 0.0,
             blasts: Vec::new(),
             random_state: None,
             attack_runtime: None,
@@ -878,8 +880,8 @@ impl Behavior {
                     | Action::Telegraph { .. }
             ) {
                 self.airborne = false;
-                position.y = context.bounds.floor_y - context.size.y / 2.0;
             }
+            let mut lunge_gravity_seconds = None;
             let (used, finished) = match action {
                 Action::RadialBlast {
                     radius,
@@ -1043,20 +1045,24 @@ impl Behavior {
                     telegraph_secs,
                     ..
                 } => {
-                    self.airborne = true;
-                    self.attack_runtime
-                        .get_or_insert_with(|| {
-                            AttackRuntime::lunge(
-                                *position,
-                                context,
-                                speed,
-                                duration_secs,
-                                attack,
-                                recovery_secs,
-                                telegraph_secs,
-                            )
-                        })
-                        .step(position, context, remaining)
+                    self.airborne = false;
+                    if self.attack_runtime.is_none() {
+                        self.vertical_velocity = 0.0;
+                    }
+                    let runtime = self.attack_runtime.get_or_insert_with(|| {
+                        AttackRuntime::lunge(
+                            *position,
+                            context,
+                            speed,
+                            duration_secs,
+                            attack,
+                            recovery_secs,
+                            telegraph_secs,
+                        )
+                    });
+                    let result = runtime.step(position, context, remaining);
+                    lunge_gravity_seconds = Some(runtime.lunge_gravity_seconds(result.0));
+                    result
                 }
                 Action::Wait { seconds }
                 | Action::Telegraph { seconds }
@@ -1148,6 +1154,13 @@ impl Behavior {
                 }
                 _ => unreachable!("validated enemy action"),
             };
+            if self.airborne {
+                // Authored jump/slam arcs and explicit hover retain their trajectories.
+                self.vertical_velocity = 0.0;
+            } else {
+                let gravity_seconds = lunge_gravity_seconds.unwrap_or(used);
+                self.apply_gravity(position, context, gravity_seconds);
+            }
             self.action_started = true;
             remaining = (remaining - used).max(0.0);
             if !finished {
@@ -1160,10 +1173,27 @@ impl Behavior {
             self.jump_target = None;
         }
         if !self.airborne {
-            position.y = context.bounds.floor_y - context.size.y / 2.0;
+            self.apply_gravity(position, context, remaining);
         }
         if !transitioned {
             self.transition(*position, context);
+        }
+    }
+
+    /// Shared vertical integration for ground movement, lunges, and idle time.
+    fn apply_gravity(&mut self, position: &mut Vec2, context: BehaviorContext, dt: f64) {
+        const GRAVITY: f64 = 1_400.0;
+        if dt <= 0.0 {
+            return;
+        }
+        self.vertical_velocity += GRAVITY * dt;
+        let floor = f64::from(context.bounds.floor_y - context.size.y / 2.0);
+        let y = f64::from(position.y) + self.vertical_velocity * dt;
+        if y >= floor {
+            position.y = floor as f32;
+            self.vertical_velocity = 0.0;
+        } else {
+            position.y = y as f32;
         }
     }
 
