@@ -103,7 +103,15 @@ use crate::behavior::BehaviorContext;
 
 #[derive(Clone, Debug)]
 enum Motion {
-    Lunge { velocity: Vec2, duration: f64 },
+    Lunge {
+        velocity: Vec2,
+        duration: f64,
+    },
+    Jump {
+        target: Vec2,
+        duration: f64,
+        height: f32,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -142,6 +150,34 @@ impl AttackRuntime {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn jump(
+        position: Vec2,
+        context: BehaviorContext,
+        offset: Vec2,
+        air_time: f32,
+        height: f32,
+        attack: Option<AttackBox>,
+        recovery: f32,
+        telegraph: f32,
+    ) -> Self {
+        let mut target = (context.player_position.as_dvec2() + offset.as_dvec2()).as_vec2();
+        clamp_to_room(&mut target, context);
+        Self {
+            motion: Motion::Jump {
+                target,
+                duration: f64::from(air_time),
+                height,
+            },
+            attack,
+            telegraph: f64::from(telegraph),
+            recovery: f64::from(recovery),
+            elapsed: 0.0,
+            start: position,
+            active: None,
+        }
+    }
+
     pub fn warning(&self) -> Option<AttackBox> {
         (self.elapsed < self.telegraph)
             .then_some(self.attack)
@@ -149,19 +185,36 @@ impl AttackRuntime {
     }
 
     pub fn step(&mut self, position: &mut Vec2, context: BehaviorContext, dt: f64) -> (f64, bool) {
-        let Motion::Lunge { velocity, duration } = self.motion;
-        let end = self.telegraph + duration + self.recovery;
+        let (duration, landing) = match self.motion {
+            Motion::Lunge { duration, .. } => (duration, false),
+            Motion::Jump { duration, .. } => (duration, true),
+        };
+        let active_duration = if landing {
+            self.attack.map_or(0.0, |a| f64::from(a.active_secs))
+        } else {
+            duration
+        };
+        let active_start = self.telegraph + if landing { duration } else { 0.0 };
+        let end =
+            self.telegraph + duration + if landing { active_duration } else { 0.0 } + self.recovery;
         let used = dt.min((end - self.elapsed).max(0.0));
         self.elapsed += used;
         let travel_time = (self.elapsed - self.telegraph).clamp(0.0, duration);
-        *position = (self.start.as_dvec2() + velocity.as_dvec2() * travel_time).as_vec2();
-        clamp_to_room(position, context);
-        self.active = if self.elapsed >= self.telegraph && self.elapsed < self.telegraph + duration
-        {
-            self.attack
-        } else {
-            None
+        *position = match self.motion {
+            Motion::Lunge { velocity, .. } => {
+                (self.start.as_dvec2() + velocity.as_dvec2() * travel_time).as_vec2()
+            }
+            Motion::Jump { target, height, .. } => {
+                parabolic_position(self.start, target, travel_time / duration, height)
+            }
         };
+        clamp_to_room(position, context);
+        self.active =
+            if self.elapsed >= active_start && self.elapsed < active_start + active_duration {
+                self.attack
+            } else {
+                None
+            };
         (used, self.elapsed >= end)
     }
 }
@@ -175,4 +228,46 @@ fn clamp_to_room(position: &mut Vec2, context: BehaviorContext) {
         (context.size.y / 2.0).min(context.bounds.floor_y - context.size.y / 2.0),
         context.bounds.floor_y - context.size.y / 2.0,
     );
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[serde(transparent)]
+pub struct OptionalAttack(pub Option<AttackBox>);
+impl std::fmt::Display for OptionalAttack {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&ron::to_string(self).map_err(|_| std::fmt::Error)?)
+    }
+}
+impl std::str::FromStr for OptionalAttack {
+    type Err = String;
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let value: Self = ron::from_str(text).map_err(|e| e.to_string())?;
+        valid_optional_attack(value)?;
+        Ok(value)
+    }
+}
+pub(crate) fn valid_optional_attack(value: OptionalAttack) -> Result<(), String> {
+    value.0.map_or(Ok(()), AttackBox::validate)
+}
+pub(crate) fn default_arc_height() -> f32 {
+    #[derive(Deserialize)]
+    struct Defaults {
+        jump_arc_height: f32,
+    }
+    ron::from_str::<Defaults>(include_str!("../data/attack_motion_defaults.ron"))
+        .expect("valid motion defaults")
+        .jump_arc_height
+}
+
+/// A quadratic Bezier-equivalent parabola with exact endpoints; height is authored.
+pub fn parabolic_position(start: Vec2, target: Vec2, progress: f64, height: f32) -> Vec2 {
+    if progress >= 1.0 {
+        return target;
+    }
+    if progress <= 0.0 {
+        return start;
+    }
+    let linear = start.as_dvec2().lerp(target.as_dvec2(), progress);
+    (linear - macroquad::math::DVec2::Y * (4.0 * f64::from(height) * progress * (1.0 - progress)))
+        .as_vec2()
 }

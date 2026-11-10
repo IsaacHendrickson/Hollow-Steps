@@ -7,7 +7,10 @@ use std::sync::{Arc, OnceLock};
 use macroquad::math::Vec2;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::enemy_attack::{valid_attack, AttackBox, AttackRuntime, DamageHit};
+use crate::enemy_attack::{
+    default_arc_height, valid_attack, valid_optional_attack, AttackBox, AttackRuntime, DamageHit,
+    OptionalAttack,
+};
 use crate::player::WorldBounds;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -27,11 +30,43 @@ pub struct State {
 
 /// Shared action library. Boss-only actions are excluded from the enemy editor catalog.
 macro_rules! actions {
-    ($( $(#[$meta:meta])* $variant:ident => $name:literal { $( $field:ident : $ty:ty => ($label:literal, $validate:ident) ),+ } ),+ $(,)?;
+    ($( $(#[$meta:meta])* $variant:ident => $name:literal { $( $(#[$fm:meta])* $field:ident : $ty:ty => ($label:literal, $validate:ident) ),+ } ),+ $(,)?;
      $( $boss:ident => $boss_name:literal { $( $param:ident : $param_ty:ty => ($param_label:literal, $param_validate:ident) ),+ } ),+ $(,)?) => {
-        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+        #[derive(Clone, Debug, Serialize, PartialEq)]
         #[serde(rename_all = "snake_case", deny_unknown_fields)]
-        pub enum Action { $( $(#[$meta])* $variant { $( $field: $ty ),+ } ),+, $( $boss { $( $param: $param_ty ),+ } ),+ }
+        pub enum Action { $( $(#[$meta])* $variant { $( $(#[$fm])* $field: $ty ),+ } ),+, $( $boss { $( $param: $param_ty ),+ } ),+ }
+        impl<'de> Deserialize<'de> for Action {
+            fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                struct ActionVisitor;
+                impl<'de> serde::de::Visitor<'de> for ActionVisitor {
+                    type Value = Action;
+                    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str("a registered action") }
+                    fn visit_enum<A: serde::de::EnumAccess<'de>>(self, data: A) -> Result<Action, A::Error> {
+                        use serde::de::{Error, VariantAccess};
+                        let (name, variant) = data.variant::<ActionIdentifier>()?;
+                        if name.0 == "jump_to" { return deserialize_jump(variant); }
+                        match name.0.as_str() {
+                            $($name => {
+                                #[derive(Deserialize)]
+                                #[serde(deny_unknown_fields)]
+                                struct Fields { $( $(#[$fm])* $field: $ty ),+ }
+                                let fields: Fields = variant.struct_variant(&[$(stringify!($field)),+], FieldsVisitor(std::marker::PhantomData))?;
+                                Ok(Action::$variant { $($field: fields.$field),+ })
+                            },)+
+                            $($boss_name => {
+                                #[derive(Deserialize)]
+                                #[serde(deny_unknown_fields)]
+                                struct Fields { $( $param: $param_ty ),+ }
+                                let fields: Fields = variant.struct_variant(&[$(stringify!($param)),+], FieldsVisitor(std::marker::PhantomData))?;
+                                Ok(Action::$boss { $($param: fields.$param),+ })
+                            },)+
+                            _ => Err(A::Error::custom(format!("unknown action {:?}", name.0)))
+                        }
+                    }
+                }
+                deserializer.deserialize_enum("Action", Action::ALL_TYPES, ActionVisitor)
+            }
+        }
         impl Action {
             pub const TYPES: &'static [&'static str] = &[$($name),+];
             pub const ALL_TYPES: &'static [&'static str] = &[$($name),+, $($boss_name),+];
@@ -97,6 +132,81 @@ macro_rules! actions {
         }
     }
 }
+// RON uses struct variants. This adapter keeps one registry while allowing old
+// jump_to(speed: ...) documents alongside the time-based parabolic action.
+struct FieldsVisitor<T>(std::marker::PhantomData<T>);
+impl<'de, T: Deserialize<'de>> serde::de::Visitor<'de> for FieldsVisitor<T> {
+    type Value = T;
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("labeled action parameters")
+    }
+    fn visit_map<A: serde::de::MapAccess<'de>>(self, map: A) -> Result<T, A::Error> {
+        T::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+    }
+}
+struct ActionIdentifier(String);
+impl<'de> Deserialize<'de> for ActionIdentifier {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct IdentifierVisitor;
+        impl serde::de::Visitor<'_> for IdentifierVisitor {
+            type Value = ActionIdentifier;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("action name")
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                Ok(ActionIdentifier(value.into()))
+            }
+        }
+        d.deserialize_identifier(IdentifierVisitor)
+    }
+}
+fn present<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    T::deserialize(d).map(Some)
+}
+fn deserialize_jump<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result<Action, A::Error> {
+    use serde::de::Error;
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct JumpFields {
+        dx: f32,
+        dy: f32,
+        #[serde(default, deserialize_with = "present")]
+        speed: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        air_time_secs: Option<f32>,
+        #[serde(default = "default_arc_height")]
+        arc_height: f32,
+        #[serde(default)]
+        attack: OptionalAttack,
+        #[serde(default)]
+        recovery_secs: f32,
+        #[serde(default)]
+        telegraph_secs: f32,
+    }
+    let p: JumpFields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
+    match (p.speed, p.air_time_secs) {
+        (Some(speed), None) => Ok(Action::JumpToPlayer {
+            speed,
+            dx: p.dx,
+            dy: p.dy,
+        }),
+        (None, Some(air_time_secs)) => Ok(Action::JumpTo {
+            dx: p.dx,
+            dy: p.dy,
+            air_time_secs,
+            arc_height: p.arc_height,
+            attack: p.attack,
+            recovery_secs: p.recovery_secs,
+            telegraph_secs: p.telegraph_secs,
+        }),
+        _ => Err(A::Error::custom(
+            "jump_to: provide air_time_secs (or legacy speed), never both",
+        )),
+    }
+}
+
 actions! {
     Lunge => "lunge" {
         speed: f32 => ("lunge speed (pixels/second)", nonnegative),
@@ -110,7 +220,17 @@ actions! {
     Patrol => "patrol" { speed: f32 => ("patrol speed (pixels/second)", nonnegative) },
     Wait => "wait" { seconds: f32 => ("wait duration (seconds)", nonnegative) },
     Telegraph => "telegraph" { seconds: f32 => ("telegraph duration (seconds)", nonnegative) },
-    #[serde(alias = "jump_to")]
+    JumpTo => "jump_to" {
+        dx: f32 => ("target offset x (pixels)", finite),
+        dy: f32 => ("target offset y (pixels)", finite),
+        air_time_secs: f32 => ("air time (seconds)", positive),
+        #[serde(default = "default_arc_height")]
+        arc_height: f32 => ("arc height (pixels)", nonnegative),
+        #[serde(default)]
+        attack: OptionalAttack => ("optional landing attack box", valid_optional_attack),
+        recovery_secs: f32 => ("landing recovery (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
+    },
     JumpToPlayer => "jump_to_player" {
         speed: f32 => ("jump speed (pixels/second)", nonnegative),
         dx: f32 => ("target horizontal offset from player (pixels, positive right)", finite),
@@ -542,6 +662,31 @@ impl Behavior {
                 position.y = context.bounds.floor_y - context.size.y / 2.0;
             }
             let (used, finished) = match action {
+                Action::JumpTo {
+                    dx,
+                    dy,
+                    air_time_secs,
+                    arc_height,
+                    attack,
+                    recovery_secs,
+                    telegraph_secs,
+                } => {
+                    self.airborne = true;
+                    self.attack_runtime
+                        .get_or_insert_with(|| {
+                            AttackRuntime::jump(
+                                *position,
+                                context,
+                                Vec2::new(dx, dy),
+                                air_time_secs,
+                                arc_height,
+                                attack.0,
+                                recovery_secs,
+                                telegraph_secs,
+                            )
+                        })
+                        .step(position, context, remaining)
+                }
                 Action::Lunge {
                     speed,
                     duration_secs,

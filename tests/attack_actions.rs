@@ -82,3 +82,41 @@ fn lunge_samples_direction_once_and_stands_still_in_recovery() {
     assert_eq!(position.x, 200.0);
     assert!(behavior.action_finished());
 }
+
+#[test]
+fn parabola_lands_exactly_and_jump_target_never_tracks_player() {
+    use hollow_steps::enemy_attack::parabolic_position;
+    let start = Vec2::new(100.0, 442.0);
+    let target = Vec2::new(400.0, 442.0);
+    assert_eq!(parabolic_position(start, target, 0.0, 80.0), start);
+    assert_eq!(parabolic_position(start, target, 1.0, 80.0), target);
+    assert_eq!(
+        parabolic_position(start, target, 0.5, 80.0),
+        Vec2::new(250.0, 362.0)
+    );
+    let mut behavior = machine("jump_to(dx: 0.0, dy: 0.0, air_time_secs: 1.0, arc_height: 80.0, attack: None, recovery_secs: 0.5, telegraph_secs: 0.0)");
+    let mut position = start;
+    behavior.update(&mut position, context(), 0.5);
+    assert_eq!(position, Vec2::new(250.0, 362.0));
+    behavior.update(
+        &mut position,
+        BehaviorContext {
+            player_position: Vec2::new(700.0, 200.0),
+            ..context()
+        },
+        0.5,
+    );
+    assert_eq!(position, target);
+    behavior.update(&mut position, context(), 0.5);
+    assert!(behavior.action_finished());
+}
+
+#[test]
+fn jump_stays_inside_room_with_large_offsets_and_time() {
+    let mut behavior = machine("jump_to(dx: 2000.0, dy: 2000.0, air_time_secs: 1.0, arc_height: 10000.0, attack: None, recovery_secs: 0.0, telegraph_secs: 0.0)");
+    let mut position = Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(), 0.5);
+    assert!(position.y >= 18.0 && position.x <= 942.0);
+    behavior.update(&mut position, context(), f32::MAX);
+    assert_eq!(position, Vec2::new(942.0, 442.0));
+}

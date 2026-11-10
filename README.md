@@ -644,3 +644,9 @@ Shipped presets:
   Assign one behavior to two entity definitions; confirm the usage count and copy
   warning appear before edits, then save a copy and check only the selected entity
   switches. Check **Edit shared behavior** and both advanced views as well.
+
+Enemy attack actions share the generated action registry and pure attack runtime.
+`jump_to` uses an authored air time and arc height; the target is sampled when
+wind-up starts. For compatibility, `jump_to(speed: ..., dx: ..., dy: ...)` still
+loads the legacy linear jump. New and legacy slam/blast forms are distinguished
+by their parameter fields, so existing enemy and boss documents retain their rules.
