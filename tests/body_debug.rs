@@ -311,3 +311,10 @@ fn nearest_selection_uses_player_distance_and_ignores_bodyless_entities() {
         2
     );
 }
+
+#[test]
+fn pose_legend_uses_an_existing_hud_size_and_handles_no_body() {
+    use hollow_steps::body_debug::{pose_legend, LEGEND_FONT_SIZE};
+    assert_eq!(LEGEND_FONT_SIZE, 18);
+    assert!(pose_legend(&[], Vec2::ZERO).ends_with("pose: none"));
+}

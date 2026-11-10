@@ -61,3 +61,4 @@
 - Subtle data/editor warning tint strength (0.25 default) with retained 30% AttackBox outline: `src/enemy_attack.rs`, `src/body_draw.rs`, `src/action_parameters.rs`, `data/attack_feedback_defaults.ron`; `tests/attack_actions.rs`.
 - Charger/Hopper/Shooter assignments use humanoid/animal/bird bodies with distinct palettes and visual scales: `assets/entities/`; `tests/shipped_rooms.rs`, `tests/bodies.rs`; manual visual check.
 - Compile-time hitbox/AttackBox/attack motion API guard against body-state parameters: `src/enemy_attack.rs`, `src/enemy.rs`; `tests/pose_geometry.rs`.
+- F3 legend shows the nearest body's current pose using the existing 18px HUD size: `src/body_debug.rs`, `src/body_draw.rs`; `tests/body_debug.rs`; manual F3 check.
