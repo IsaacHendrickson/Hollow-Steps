@@ -1,6 +1,6 @@
 # Features
 
-- Shared lunge (direction sampled once at wind-up end), parabolic jump, impact slam, projectile fan with editable recovery, radial blast with editable recovery, warning feedback and recovery actions; Charger/Hopper/Shooter assignments preserve legacy behavior and boss rules: `src/enemy_attack.rs`, `src/behavior.rs`, `src/game.rs`, `src/body_draw.rs`, `data/action_defaults.ron`, `assets/behaviors/`; `tests/attack_actions.rs`, `tests/arena_actions.rs`, `tests/boss_data.rs`, `tests/definition_editor.rs`, `tests/reloading.rs`, `src/game.rs` immunity regression; manual warning/projectile/editor check.
+- Shared lunge (direction sampled once at wind-up end), parabolic jump, impact slam, projectile fan with editable recovery, radial blast with editable recovery, warning feedback and recovery actions; Charger/Hopper/Shooter assignments use action wind-ups of 0.5/0.5/0.4 seconds and preserve legacy behavior and boss rules: `src/enemy_attack.rs`, `src/behavior.rs`, `src/game.rs`, `src/body_draw.rs`, `data/action_defaults.ron`, `assets/behaviors/`; `tests/attack_actions.rs`, `tests/arena_actions.rs`, `tests/boss_data.rs`, `tests/definition_editor.rs`, `tests/reloading.rs`, `src/game.rs` immunity regression; manual warning/projectile/editor check.
 
 - Shared rectangular/circular enemy attack boxes, independent body geometry and immunity-gated damage/knockback: `src/enemy_attack.rs`, `src/player.rs`; `tests/attack_actions.rs`.
 

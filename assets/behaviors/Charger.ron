@@ -5,11 +5,10 @@
             (target: "charge", condition: player_distance_less_than(120.0)),
         ]),
         (name: "charge", actions: [
-            telegraph(seconds: 0.5),
             lunge(speed: 360.0, duration_secs: 0.4,
                 attack: (shape: Rect, offset: (0.0, 0.0), size: (64.0, 40.0), damage: 1,
                     knockback: (0.0, -180.0), active_secs: 0.4),
-                recovery_secs: 0.65, telegraph_secs: 0.0),
+                recovery_secs: 0.65, telegraph_secs: 0.5),
         ], transitions: [(target: "chase", condition: action_finished)]),
     ],
 )
