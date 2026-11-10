@@ -13,6 +13,8 @@ single large system.
 
 The project owner wants features added with as few tokens as possible.
 
+- Reference notes (bodies, bosses, rooms, enemy data, editor) are in `docs/`;
+  open one only when the task needs it. `README.md` is a short overview.
 - Read this file, then open only the files relevant to the task. Do not read
   or re-print the whole repository.
 - Edit files in place in the repository. Do not produce `.patch` files or
@@ -82,6 +84,9 @@ Gameplay modules (pure rules, no rendering):
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.
+- `src/terrain.rs`: solid rectangles, axis-separated substepped collision, and terrain validation.
+- `src/camera.rs`: follow camera with look-ahead and room clamping, letterbox fit, HUD anchors; tunables in `data/camera.ron`.
+- `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/definition_editor.rs`: pure entity/behavior edits, save planning, and staged file writes.
 - `src/search.rs`: pure editor list filtering and stable selection.
@@ -93,6 +98,7 @@ Composition and front end:
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
 - `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks.
+- `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
 - `src/main.rs`: Macroquad window setup, keyboard translation, drawing, and
   frame scheduling. It should stay thin; do not put movement, combat, room,
   or persistence rules here.
@@ -111,21 +117,39 @@ When you add, rename, or remove a module, update this list in the same change.
 - Player input is frame intent. `jump_pressed` is an edge event and must come
   from an API such as `is_key_pressed`, not a held-key query.
 - Update methods receive `delta_seconds`; they must not read wall-clock time
-  directly.
+  directly. `main.rs` calls `GameState::update` once per fixed tick (1/120 s,
+  `timestep.rs`), never with the raw frame time.
 - Clamp or validate external values at system boundaries. Do not scatter
   magic numbers through the rendering loop.
+- Draw code never uses fixed pixel positions or window-size constants. Use the
+  camera and the virtual resolution only. The world and HUD render to a 960x540
+  render target (`VIEW_WIDTH`/`VIEW_HEIGHT`) that is letterboxed into the window;
+  the world through the follow camera, the HUD anchored with `camera::anchored`.
+
+## Roadmap
+
+Work in this priority order; do not keep adding enemy-action parameters while
+earlier items are missing:
+
+1. Terrain collision (platforms, walls, ceilings)
+2. Camera (follow camera, virtual resolution)
+3. Fixed timestep
+4. Editor tools (terrain painting, zoom/pan/grid, undo, play-from-here)
+5. Player feel (acceleration, up/down strikes, pogo, hit-stop, shake)
+6. Visuals (player body, HUD, particles, atmosphere)
+7. Audio
 
 ## Tunable values
 
-Every tunable value must be a named parameter in data files and editable in the editor.
+Tunable numbers live in data files, as named and validated parameters. Do not
+hardcode values that affect how an entity, boss, attack, action or the player
+behaves (distances, speeds, durations, damage, health, counts, radii, etc.) in
+Rust, apart from engine-level constants such as gravity.
 
-Every number that affects how an entity, boss, attack, or action behaves
-(distances, speeds, durations, damage, health, counts, radii, etc.) must be a
-named parameter stored in data files and editable in the editor with a
-descriptive label and validation. Do not hardcode these values in Rust,
-apart from engine-level constants such as gravity. When adding an action,
-condition, or entity type, add its parameters to the editor's catalogs in
-the same change.
+Editor controls are required for enemy, boss, attack and player-feel values.
+Numeric values use sliders (`DragValue` with a clamped range and units), not
+text boxes; text boxes are for names only. When adding an action, condition or
+entity type, add its parameters to the editor's catalogs in the same change.
 
 ## Change workflow
 
@@ -239,9 +263,10 @@ press Space, confirm the player jumps and lands on the floor").
   assets.
 - If a requested feature needs a choice that changes the architecture (for
   example, a physics library, ECS, or save format), document the decision in
-  `README.md` or a short design note before implementing it.
+  a file in `docs/` or a short design note before implementing it.
 - Keep files focused and reasonably small so future agents only need to read
-  the module they are changing.
+  the module they are changing. Any file over ~600 lines must be split before
+  adding to it.
 
 ## Handoff format
 

@@ -9,6 +9,7 @@ use crate::enemy::EnemyDefinitions;
 use crate::item::{Item, WorldItem, ITEM_SIZE};
 use crate::player::WorldBounds;
 use crate::room::{EnemyPlacement, Exit, Room, RoomEdge, RoomEnemies, RoomId};
+use crate::terrain::Terrain;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -47,6 +48,9 @@ pub struct RoomLayout {
     pub spawn: (f32, f32),
     pub items: Vec<ItemPlacement>,
     pub exits: Vec<ExitPlacement>,
+    /// Solid `(x, y, width, height)` rectangles; absent in older room files.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub terrain: Vec<(f32, f32, f32, f32)>,
 }
 
 impl RoomLayout {
@@ -55,6 +59,12 @@ impl RoomLayout {
             bounds: (room.bounds.x, room.bounds.y, room.bounds.w, room.bounds.h),
             floor_y: room.floor_y,
             spawn: room.spawn.into(),
+            terrain: room
+                .terrain
+                .solids()
+                .iter()
+                .map(|r| (r.x, r.y, r.w, r.h))
+                .collect(),
             items: room
                 .items
                 .iter()
@@ -108,12 +118,20 @@ impl RoomLayout {
         {
             return Err("invalid room bounds or floor".into());
         }
+        Terrain::validate(&self.terrain, self.rect())?;
+        let terrain = Terrain::from_tuples(&self.terrain);
         if !self.contains_body(self.spawn, Vec2::new(32.0, 48.0)) {
             return Err("spawn must keep the player's body inside the room above the floor".into());
+        }
+        if terrain.overlaps_body(self.spawn.into(), Vec2::new(32.0, 48.0)) {
+            return Err("spawn must not be inside terrain".into());
         }
         for item in &self.items {
             if !self.contains_body(item.position, ITEM_SIZE) {
                 return Err("item must be inside the room above the floor".into());
+            }
+            if terrain.overlaps_body(item.position.into(), ITEM_SIZE) {
+                return Err("item must not be inside terrain".into());
             }
         }
         for exit in &self.exits {
@@ -130,6 +148,9 @@ impl RoomLayout {
             {
                 return Err("exit span or destination spawn is invalid".into());
             }
+            if terrain.overlaps_rect(&exit.exit().zone(self.rect())) {
+                return Err("exit must not be inside terrain".into());
+            }
         }
         Ok(())
     }
@@ -138,6 +159,7 @@ impl RoomLayout {
         self.validate_geometry()?;
         room.bounds = self.rect();
         room.floor_y = self.floor_y;
+        room.terrain = Terrain::from_tuples(&self.terrain);
         room.spawn = self.spawn.into();
         room.items = self
             .items
@@ -457,6 +479,7 @@ impl RoomDraft {
             id,
             bounds: self.layout.rect(),
             floor_y: self.layout.floor_y,
+            terrain: Default::default(),
             spawn: self.layout.spawn.into(),
             enemies: self
                 .enemies

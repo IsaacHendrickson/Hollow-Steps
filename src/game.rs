@@ -286,9 +286,10 @@ impl GameState {
         } else {
             0.0
         };
-        self.player
-            .update(input, delta_seconds, self.world_bounds());
         let index = self.current_index();
+        let bounds = self.rooms[index].world_bounds();
+        self.player
+            .update_with_terrain(input, delta_seconds, bounds, &self.rooms[index].terrain);
         let room = &mut self.rooms[index];
         let bounds = room.world_bounds();
         let mut special_damage = 0;
@@ -306,11 +307,12 @@ impl GameState {
         }
         let mut spawned_positions = Vec::new();
         for enemy in &mut room.enemies {
-            enemy.update_with_player_size(
+            enemy.update_with_terrain(
                 self.player.position(),
                 self.player.size(),
                 delta_seconds,
                 bounds,
+                &room.terrain,
             );
             spawned_positions.extend(enemy.take_spawn_positions());
         }

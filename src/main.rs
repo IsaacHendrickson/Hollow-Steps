@@ -1,16 +1,18 @@
 use hollow_steps::boss::{Boss, BossState};
-use hollow_steps::boss_special::{BossSpecials, SpecialAttack};
+use hollow_steps::boss_special::BossSpecials;
+use hollow_steps::camera::{Camera, CameraConfig, Letterbox};
 use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::editor::{EditorSession, RoomLayout, Selection};
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
-use hollow_steps::health::MAX_HEALTH;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
 use hollow_steps::room::RoomEdge;
 use hollow_steps::search::SearchList;
+use hollow_steps::timestep::{FixedStep, InputLatch};
 use macroquad::prelude::*;
 mod body_draw;
 mod editor_panel;
+mod hud;
 use editor_panel::{BossPropertyUi, PropertyUi};
 
 fn window_conf() -> Conf {
@@ -31,9 +33,19 @@ async fn main() {
     let mut editor_ui = EditorUi::default();
     let mut body_debug = false;
     let body_debug_overlay = body_draw::BodyDebugOverlay::new();
+    let mut fixed_step = FixedStep::default();
+    let mut input_latch = InputLatch::default();
+    // The world and HUD are drawn at the virtual resolution into this target, which is
+    // then scaled to the window with letterboxing.
+    let view = vec2(VIEW_WIDTH, VIEW_HEIGHT);
+    let screen = render_target(VIEW_WIDTH as u32, VIEW_HEIGHT as u32);
+    screen.texture.set_filter(FilterMode::Linear);
+    let camera_config = CameraConfig::default();
+    let mut camera = new_camera(&game, camera_config, view);
+    let mut camera_room = game.room().id;
 
     loop {
-        let delta_seconds = get_frame_time().min(1.0 / 15.0);
+        let frame_seconds = get_frame_time();
         if is_key_pressed(KeyCode::F3) {
             body_debug = !body_debug;
         }
@@ -42,6 +54,8 @@ async fn main() {
                 reload_result = Some(Err(error));
             }
             editor_ui = EditorUi::default();
+            fixed_step.reset();
+            input_latch.clear();
         }
         if game.editor().is_some() {
             draw_editor(&mut game, &mut editor_ui, body_debug, &body_debug_overlay);
@@ -56,32 +70,91 @@ async fn main() {
         {
             game.toggle_inventory();
         }
-        let input = read_player_input();
-        game.update(input, delta_seconds);
+        // Edge input is latched until a tick consumes it; only the first tick of a frame
+        // sees it, while held input applies to every tick.
+        input_latch.record(read_player_input());
+        for _ in 0..fixed_step.advance(frame_seconds) {
+            game.update(input_latch.take_tick(), fixed_step.step_seconds());
+            if game.room().id == camera_room {
+                let player = game.player();
+                camera.update(
+                    player.position(),
+                    player.facing(),
+                    game.room().bounds,
+                    view,
+                    fixed_step.step_seconds(),
+                );
+            } else {
+                camera_room = game.room().id;
+                camera = new_camera(&game, camera_config, view);
+            }
+        }
 
+        set_camera(&screen_camera(camera.view_rect(view), Some(screen.clone())));
         draw_scene(&game);
+        set_camera(&screen_camera(
+            Rect::new(0.0, 0.0, view.x, view.y),
+            Some(screen.clone()),
+        ));
+        hud::draw_hud(&game, view);
         if game.inventory_open() {
-            draw_inventory(&game);
+            hud::draw_inventory(&game, view);
         }
         if let Some(result) = &reload_result {
-            draw_reload_result(result, &mut reload_scroll);
+            hud::draw_reload_result(result, &mut reload_scroll, view);
         }
+        set_default_camera();
+        clear_background(BLACK);
+        let letterbox = Letterbox::fit(vec2(screen_width(), screen_height()), view);
+        draw_texture_ex(
+            &screen.texture,
+            letterbox.offset.x,
+            letterbox.offset.y,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(letterbox.size),
+                // Render targets come out upside down otherwise.
+                flip_y: true,
+                ..Default::default()
+            },
+        );
         // Drain the integration's event subscription while the editor is closed, so reopening
         // cannot replay earlier gameplay clicks or keys into its controls.
         egui_macroquad::ui(|_| {});
         egui_macroquad::draw();
         if body_debug {
+            // The overlay draws in window space, so project world points through the
+            // camera and letterbox.
+            let top_left = camera.view_rect(view).point();
             body_draw::draw_body_debug_overlay(
                 &body_debug_overlay,
                 &game.room().enemies,
                 game.room().boss_special.as_ref(),
                 game.player().position(),
-                |position| position,
-                1.0,
+                |position| letterbox.offset + (position - top_left) * letterbox.scale,
+                letterbox.scale,
             );
         }
         next_frame().await;
     }
+}
+
+fn screen_camera(rect: Rect, target: Option<RenderTarget>) -> Camera2D {
+    Camera2D {
+        render_target: target,
+        ..Camera2D::from_display_rect(rect)
+    }
+}
+
+fn new_camera(game: &GameState, config: CameraConfig, view: Vec2) -> Camera {
+    let player = game.player();
+    Camera::new(
+        config,
+        player.position(),
+        player.facing(),
+        game.room().bounds,
+        view,
+    )
 }
 
 fn read_player_input() -> PlayerInput {
@@ -115,7 +188,7 @@ fn draw_scene(game: &GameState) {
         bounds.left,
         bounds.floor_y,
         bounds.right - bounds.left,
-        VIEW_HEIGHT - bounds.floor_y,
+        room.bounds.bottom() - bounds.floor_y,
         Color::from_rgba(34, 37, 58, 255),
     );
     draw_line(
@@ -126,6 +199,23 @@ fn draw_scene(game: &GameState) {
         4.0,
         Color::from_rgba(111, 122, 164, 255),
     );
+    for solid in room.terrain.solids() {
+        draw_rectangle(
+            solid.x,
+            solid.y,
+            solid.w,
+            solid.h,
+            Color::from_rgba(34, 37, 58, 255),
+        );
+        draw_rectangle_lines(
+            solid.x,
+            solid.y,
+            solid.w,
+            solid.h,
+            3.0,
+            Color::from_rgba(111, 122, 164, 255),
+        );
+    }
     draw_rectangle_lines(
         room.bounds.x,
         room.bounds.y,
@@ -238,113 +328,6 @@ fn draw_scene(game: &GameState) {
             Color::from_rgba(110, 160, 230, 255)
         },
     );
-    draw_text(
-        "A/D: move   Space/Z: hold jump   X: attack   Up: pickup   Shift: dash   I: inventory",
-        24.0,
-        36.0,
-        21.0,
-        Color::from_rgba(220, 231, 255, 255),
-    );
-    draw_text(
-        format!("Health: {}/{}", player.health().current(), MAX_HEALTH),
-        24.0,
-        92.0,
-        22.0,
-        WHITE,
-    );
-    draw_text(
-        format!(
-            "Coins: {}    Items: {}",
-            game.coin_count(),
-            player.collected_items().len()
-        ),
-        24.0,
-        64.0,
-        22.0,
-        WHITE,
-    );
-    draw_text(
-        format!(
-            "Room: {:?} ({})",
-            room.id,
-            if room.exits_locked() {
-                "exits locked until the boss falls"
-            } else {
-                "walk into a green exit"
-            }
-        ),
-        24.0,
-        120.0,
-        22.0,
-        WHITE,
-    );
-    draw_text(
-        "F5: reload rooms, definitions and bodies",
-        24.0,
-        148.0,
-        18.0,
-        LIGHTGRAY,
-    );
-}
-
-fn draw_reload_result(result: &Result<(), String>, scroll: &mut usize) {
-    let Err(error) = result else {
-        draw_rectangle(16.0, VIEW_HEIGHT - 48.0, VIEW_WIDTH - 32.0, 36.0, BLACK);
-        draw_text("Rooms reloaded", 28.0, VIEW_HEIGHT - 24.0, 22.0, GREEN);
-        return;
-    };
-
-    const VISIBLE_LINES: usize = 8;
-    const FONT_SIZE: u16 = 18;
-    let mut lines = Vec::new();
-    for paragraph in error.lines() {
-        let mut line = String::new();
-        for character in paragraph.chars() {
-            line.push(character);
-            if measure_text(&line, None, FONT_SIZE, 1.0).width > VIEW_WIDTH - 72.0 {
-                line.pop();
-                lines.push(std::mem::take(&mut line));
-                line.push(character);
-            }
-        }
-        lines.push(line);
-    }
-    let max_scroll = lines.len().saturating_sub(VISIBLE_LINES);
-    *scroll = (*scroll as f32 - mouse_wheel().1).clamp(0.0, max_scroll as f32) as usize;
-    let top = VIEW_HEIGHT - 260.0;
-    draw_rectangle(
-        16.0,
-        top,
-        VIEW_WIDTH - 32.0,
-        248.0,
-        Color::from_rgba(28, 12, 18, 245),
-    );
-    draw_text(
-        "Room reload failed - F5 to retry",
-        28.0,
-        top + 28.0,
-        22.0,
-        RED,
-    );
-    for (index, line) in lines.iter().skip(*scroll).take(VISIBLE_LINES).enumerate() {
-        draw_text(
-            line,
-            28.0,
-            top + 56.0 + index as f32 * 22.0,
-            FONT_SIZE as f32,
-            WHITE,
-        );
-    }
-    let hint = if max_scroll > 0 {
-        format!(
-            "Mouse wheel: scroll errors ({}/{})",
-            *scroll + 1,
-            max_scroll + 1
-        )
-    } else {
-        "Fix the files, then press F5 to retry".to_owned()
-    };
-    draw_text(&hint, 28.0, top + 232.0, 18.0, LIGHTGRAY);
 }
 
 fn draw_boss(boss: &Boss) {
@@ -378,14 +361,6 @@ fn draw_boss(boss: &Boss) {
         BossState::Dead => DARKGRAY,
     };
     draw_rectangle(top_left.x, top_left.y, boss.size().x, boss.size().y, color);
-    draw_boss_health(u32::from(boss.health()), u32::from(boss.max_health()));
-    let cue = match boss.state() {
-        BossState::Idle => "Recovering",
-        BossState::Telegraphing => boss.current_attack().name,
-        BossState::Attacking => "Attack!",
-        BossState::Dead => "Defeated - exits open",
-    };
-    draw_text(cue, 300.0, 206.0, 22.0, WHITE);
 }
 
 fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
@@ -419,75 +394,6 @@ fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
     } else if boss.is_death_effect_active() {
         draw_circle(boss.position().x, boss.position().y, boss.size().x, WHITE);
     }
-    draw_boss_health(boss.health(), boss.max_health());
-    let cue = match boss.active_attack() {
-        Some(SpecialAttack::Slam) => "Slam - move out of the red zone!",
-        Some(SpecialAttack::Summon) => "Summoning enemies",
-        Some(SpecialAttack::Rings) => "Rings - avoid the red circles!",
-        None if boss.is_defeated() => "Defeated - collect the coins!",
-        None => boss.active_attack_name().unwrap_or("Recovering"),
-    };
-    draw_text(cue, 300.0, 206.0, 22.0, WHITE);
-}
-
-fn draw_boss_health(health: u32, max_health: u32) {
-    draw_text(
-        format!("Ash Warden: {health}/{max_health}"),
-        300.0,
-        156.0,
-        26.0,
-        WHITE,
-    );
-    draw_rectangle(300.0, 166.0, 360.0, 12.0, DARKGRAY);
-    draw_rectangle(
-        300.0,
-        166.0,
-        360.0 * health as f32 / max_health as f32,
-        12.0,
-        RED,
-    );
-}
-
-fn draw_inventory(game: &GameState) {
-    draw_rectangle(
-        0.0,
-        0.0,
-        VIEW_WIDTH,
-        VIEW_HEIGHT,
-        Color::from_rgba(0, 0, 0, 180),
-    );
-    draw_rectangle(
-        200.0,
-        130.0,
-        560.0,
-        310.0,
-        Color::from_rgba(28, 32, 50, 255),
-    );
-    draw_rectangle_lines(200.0, 130.0, 560.0, 310.0, 2.0, GRAY);
-    draw_text("Inventory", 232.0, 180.0, 36.0, WHITE);
-    draw_text(
-        format!("Coins: {}", game.coin_count()),
-        232.0,
-        224.0,
-        26.0,
-        GOLD,
-    );
-    draw_text("Collected items", 232.0, 270.0, 24.0, WHITE);
-    let items = game.player().collected_items();
-    if items.is_empty() {
-        draw_text("No items collected yet", 232.0, 306.0, 22.0, LIGHTGRAY);
-    } else {
-        for (index, item) in items.iter().enumerate() {
-            draw_text(item.name(), 232.0, 306.0 + index as f32 * 28.0, 22.0, GOLD);
-        }
-    }
-    draw_text(
-        "Paused  |  I or Esc to return",
-        232.0,
-        408.0,
-        22.0,
-        LIGHTGRAY,
-    );
 }
 
 #[derive(Default)]
