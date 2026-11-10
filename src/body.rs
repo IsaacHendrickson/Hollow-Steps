@@ -117,6 +117,8 @@ pub struct BodyPart {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct BodyTemplate {
+    #[serde(default)]
+    pub pose_map: BTreeMap<String, String>,
     pub points: BTreeMap<String, BodyPoint>,
     pub parts: Vec<BodyPart>,
     #[serde(default)]

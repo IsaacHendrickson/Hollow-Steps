@@ -1,4 +1,5 @@
 (
+    pose_map: {"head": "head", "torso": "torso", "hand_l": "front_l", "hand_r": "front_r", "foot_l": "back_l", "foot_r": "back_r", "tail": "tail"},
     follow: (stiffness: 120.0, damping: 22.0),
     follow_overrides: {"tail": (stiffness: 80.0, damping: 10.0)},
     idle: [
