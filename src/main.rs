@@ -4,6 +4,7 @@ use hollow_steps::camera::{Camera, CameraConfig, Letterbox};
 use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
+use hollow_steps::editor_history::{shortcut, tracked, History};
 use hollow_steps::editor_view::{
     grid_lines, wrap_words, CanvasRegions, CanvasView, Grid, PanDrag, CANVAS_MARGIN,
 };
@@ -67,7 +68,7 @@ async fn main() {
                 if let Err(error) = game.toggle_editor() {
                     reload_result = Some(Err(error));
                 }
-                editor_ui = EditorUi::default();
+                editor_ui = editor_ui.for_new_session();
                 fixed_step.reset();
                 input_latch.clear();
             }
@@ -76,7 +77,7 @@ async fn main() {
             draw_editor(&mut game, &mut editor_ui, body_debug, &body_debug_overlay);
             if game.editor().is_none() {
                 // The dialog (Save or Discard) closed the editor.
-                editor_ui = EditorUi::default();
+                editor_ui = editor_ui.for_new_session();
                 fixed_step.reset();
                 input_latch.clear();
             }
@@ -443,9 +444,22 @@ struct EditorUi {
     /// A room switch asked for by the panel this frame (New room); `draw_editor` runs it
     /// through `guard`.
     requested: Option<GuardedAction>,
+    /// Undo and redo for the draft; reset with the rest of this state when a room is opened
+    /// or created.
+    history: History,
 }
 
 impl EditorUi {
+    /// State for a newly opened or created room, or a reopened editor: everything resets
+    /// (selection, view, undo history, dialogs) except the grid and snap settings, which
+    /// belong to the editor rather than to a room.
+    fn for_new_session(&self) -> Self {
+        Self {
+            grid: self.grid,
+            ..Self::default()
+        }
+    }
+
     fn clear_hidden_property_error(&mut self, enemy_count: usize) {
         if !self.properties
             || !matches!(self.selected, Some(Selection::Enemy(i)) if i < enemy_count)
@@ -682,7 +696,8 @@ fn draw_editor(
                 .selected
                 .and_then(|i| editor.content.placement_catalog().get(i).cloned())
             {
-                match editor.place(placement, state.grid.snap(world, origin)) {
+                let at = state.grid.snap(world, origin);
+                match tracked(&mut state.history, editor, |e| e.place(placement, at)) {
                     Ok(selection) => {
                         state.selected = Some(selection);
                         editor.dirty = true;
@@ -701,6 +716,10 @@ fn draw_editor(
                 other => other,
             });
             state.dragging = hit.map(|(selection, rect, _)| (*selection, world - rect.center()));
+            if state.dragging.is_some() {
+                // The whole drag, press to release, becomes one undo step.
+                state.history.begin_gesture(&editor.draft);
+            }
             if state.selected == Some(Selection::Boss) {
                 if let Some(path) = editor
                     .draft
@@ -737,8 +756,11 @@ fn draw_editor(
             }
         }
     }
-    if is_mouse_button_released(MouseButton::Left) {
+    // Also covers a release that was missed (focus lost mid-drag), so a drag cannot stay
+    // open and block undo.
+    if !is_mouse_button_down(MouseButton::Left) {
         state.dragging = None;
+        state.history.end_gesture(&editor.draft);
     }
     if (is_mouse_button_pressed(MouseButton::Right) && over_canvas)
         || (is_key_pressed(KeyCode::Delete)
@@ -756,7 +778,7 @@ fn draw_editor(
             state.selected
         };
         if let Some(selection) = selection {
-            match editor.draft.delete(selection) {
+            match tracked(&mut state.history, editor, |e| e.draft.delete(selection)) {
                 Ok(()) => {
                     state.selected = None;
                     state.dragging = None;
@@ -765,6 +787,17 @@ fn draw_editor(
                 }
                 Err(error) => editor.message = error,
             }
+        }
+    }
+    if state.canvas_focused && !keys_blocked {
+        let down = |left, right| is_key_down(left) || is_key_down(right);
+        if let Some(key) = shortcut(
+            down(KeyCode::LeftControl, KeyCode::RightControl),
+            down(KeyCode::LeftShift, KeyCode::RightShift),
+            is_key_pressed(KeyCode::Z),
+            is_key_pressed(KeyCode::Y),
+        ) {
+            editor_panel::apply_history(editor, state, key);
         }
     }
     for (selection, rect, color) in editor_markers(editor, state.destination, state.selected) {
@@ -862,7 +895,7 @@ fn draw_editor(
         LIGHTGRAY,
     );
     draw_text(
-        "Wheel: zoom | Middle-drag or Space+drag: pan | Home: reset view",
+        "Wheel: zoom | Middle/Space-drag: pan | Home: reset | Ctrl+Z / Ctrl+Y: undo / redo",
         CANVAS_MARGIN,
         70.0,
         17.0,
@@ -926,7 +959,7 @@ fn draw_editor(
     if let GuardStep::Perform(action) = step {
         let result = perform(game, &action);
         if action != GuardedAction::Close {
-            *state = EditorUi::default();
+            *state = state.for_new_session();
         }
         if let (Err(error), Some(editor)) = (result, game.editor_mut()) {
             editor.message = error;
@@ -937,6 +970,40 @@ fn draw_editor(
 #[cfg(test)]
 mod editor_ui_tests {
     use super::*;
+
+    #[test]
+    fn a_new_session_forgets_history_and_selection_but_keeps_grid_settings() {
+        let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures");
+        let mut game = GameState::try_new(&assets).unwrap();
+        game.toggle_editor().unwrap();
+        let mut state = EditorUi::default();
+        state.grid.enabled = true;
+        state.grid.size = 16.0;
+        state.selected = Some(Selection::Item(0));
+        state.view = Some(CanvasView {
+            offset: Vec2::ZERO,
+            scale: 2.0,
+        });
+        let editor = game.editor_mut().unwrap();
+        let before = editor.draft.clone();
+        tracked(&mut state.history, editor, |e| {
+            e.draft.delete(Selection::Item(0))
+        })
+        .unwrap();
+        assert!(state.history.can_undo());
+
+        let next = state.for_new_session();
+        assert!(!next.history.can_undo() && !next.history.can_redo());
+        assert_eq!(next.selected, None);
+        assert!(next.view.is_none());
+        assert!(next.grid.enabled);
+        assert_eq!(next.grid.size, 16.0);
+        // The old state is untouched, so the draft it recorded can still be restored.
+        assert!(state.history.can_undo());
+        assert_ne!(game.editor().unwrap().draft, before);
+    }
 
     #[test]
     fn authored_boss_has_a_canvas_marker() {

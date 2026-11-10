@@ -193,7 +193,7 @@ pub enum Placement {
     Item(Item),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RoomDraft {
     pub enemies: Vec<EnemyPlacement>,
     pub boss: Option<crate::room::BossPlacement>,

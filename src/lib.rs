@@ -19,6 +19,7 @@ pub mod combat;
 pub mod definition_editor;
 pub mod editor;
 pub mod editor_guard;
+pub mod editor_history;
 pub mod editor_view;
 pub mod enemy;
 pub mod enemy_attack;

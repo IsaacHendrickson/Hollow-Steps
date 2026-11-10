@@ -327,3 +327,47 @@ then continues, **Discard** continues without saving, **Cancel** (also Escape or
 outside the window) keeps the session. If the save fails the window stays open and shows
 the error. A clean session acts immediately. While the window is open the panel and
 canvas take no input, and further F2 / room requests are ignored.
+
+## Undo and redo
+
+`History` (`src/editor_history.rs`) keeps whole `RoomDraft` snapshots: up to 100 undo
+steps (the oldest are dropped) and a redo stack. A snapshot is taken before each
+discrete change: placing, deleting, **Add exit**, **Set exit target**, **Delete
+selected**, and each accepted **Room size** edit. Dragging a marker on the canvas, or
+dragging a Room size field, is one step from press to release. Any new edit clears redo,
+and opening or creating a room starts with an empty history.
+
+Undo is **Ctrl+Z**; redo is **Ctrl+Y** or **Ctrl+Shift+Z**. The keys work only while the
+canvas has focus (you last clicked it) and no text box or dialog wants the keyboard. The
+**Undo** and **Redo** buttons in the **History** section do the same and are greyed out
+when there is nothing to do or a drag is in progress. Undo and redo mark the session as
+having unsaved changes and drop the current selection.
+
+Entity, behavior and boss *definition* edits (`EditorSession::content`) are not part of
+history; the tooltip on the buttons says so. A step whose snapshot uses an entity or boss
+that was renamed or deleted since is refused with a message instead of being applied, and
+that step is dropped; the steps before it still work.
+
+### Manual check: navigation, unsaved changes and undo
+
+Run `cargo run`, press F2 and use a room with a few entities.
+
+- Wheel over the canvas zooms about the cursor; wheel over the panel still scrolls the
+  panel. Middle-drag and Space+drag pan. **Home** and **Reset view** refit. Zoom stops at
+  both ends.
+- Turn on **Grid and snap**, set Snap size to 16, place and drag an enemy: it lands on
+  grid points. Turn it off and confirm free placement.
+- Resize the window and wrap a long status message (try a bad Room size): the footer
+  follows the window and the message is not clipped.
+- In **Room size**, drag Width up (fine) and try to make it smaller than an entity's x
+  (refused with a message, field snaps back).
+- Make a change, then F2, **Open room** and **New room**: each asks Save / Discard /
+  Cancel. Cancel keeps everything; Discard drops the edits; Save saves first. With no
+  changes they act at once. Make Save fail (for example a read-only room file) and
+  confirm the dialog stays open with the error.
+- Place an enemy, drag it across the room and release: Ctrl+Z puts it back where it was
+  in one step, another Ctrl+Z removes it, Ctrl+Y brings it back. Delete it with Del, undo.
+  Add an exit, retarget it, undo twice. Drag Width, release, undo once.
+- Click a text box in the panel and press Ctrl+Z: the canvas does not change. Click the
+  canvas and it does. After undo, make a new edit and confirm redo is gone.
+- Hover **Undo** and **Redo** and read the tooltip. Open another room: Undo is greyed out.

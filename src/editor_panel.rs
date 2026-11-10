@@ -1,13 +1,16 @@
 //! egui presentation only; authored content and filter rules stay in the library.
 use super::{EditorSession, EditorUi, RoomEdge, SearchList, Selection};
 use egui_macroquad::egui;
+use hollow_steps::editor_history::tracked;
 
 mod boss;
 mod canvas_tools;
+mod history_panel;
 #[cfg(test)]
 mod test_support;
 mod unsaved_dialog;
 pub(super) use boss::{draw_boss_panel, BossPropertyUi};
+pub(super) use history_panel::apply_history;
 pub(super) use unsaved_dialog::draw_unsaved_dialog;
 
 pub(super) struct PanelResponse {
@@ -199,6 +202,7 @@ fn draw_room_tools(
     room_labels: &[String],
     open: &mut Option<hollow_steps::room::RoomId>,
 ) {
+    history_panel::draw_history_section(ui, editor, state);
     section(ui, "Room", |ui| {
         if panel_button(ui, "New room") {
             // Asks to save first if there are unsaved changes; `draw_editor` acts on it.
@@ -234,30 +238,43 @@ fn draw_room_tools(
             &mut state.target,
         );
         if panel_button(ui, "Add exit") {
-            if let Some((id, layout)) = state.target.selected.and_then(|i| editor.rooms.get(i)) {
-                state.selected = Some(editor.draft.add_exit(
-                    [
-                        RoomEdge::Left,
-                        RoomEdge::Right,
-                        RoomEdge::Top,
-                        RoomEdge::Bottom,
-                    ][state.edge],
-                    *id,
-                    layout.spawn.into(),
-                ));
-                editor.dirty = true;
-                state.placing = false;
-                state.destination = None;
+            let target = state
+                .target
+                .selected
+                .and_then(|i| editor.rooms.get(i))
+                .map(|(id, layout)| (*id, layout.spawn));
+            if let Some((id, spawn)) = target {
+                let edge = [
+                    RoomEdge::Left,
+                    RoomEdge::Right,
+                    RoomEdge::Top,
+                    RoomEdge::Bottom,
+                ][state.edge];
+                let added = tracked(&mut state.history, editor, |e| {
+                    Ok(e.draft.add_exit(edge, id, spawn.into()))
+                });
+                if let Ok(selection) = added {
+                    state.selected = Some(selection);
+                    editor.dirty = true;
+                    state.placing = false;
+                    state.destination = None;
+                }
             }
         }
         if let Some(Selection::Exit(i) | Selection::Destination(i)) = state.selected {
             if panel_button(ui, "Set exit target") {
-                if let Some((id, layout)) = state.target.selected.and_then(|i| editor.rooms.get(i))
-                {
-                    if let Err(error) = editor.draft.set_exit_target(i, *id, layout.spawn.into()) {
-                        editor.message = error;
-                    } else {
-                        editor.dirty = true;
+                let target = state
+                    .target
+                    .selected
+                    .and_then(|i| editor.rooms.get(i))
+                    .map(|(id, layout)| (*id, layout.spawn));
+                if let Some((id, spawn)) = target {
+                    let result = tracked(&mut state.history, editor, |e| {
+                        e.draft.set_exit_target(i, id, spawn.into())
+                    });
+                    match result {
+                        Ok(()) => editor.dirty = true,
+                        Err(error) => editor.message = error,
                     }
                 }
             }
@@ -276,7 +293,7 @@ fn draw_room_tools(
         panel_label(ui, "Green: exit span");
         panel_label(ui, "Purple: arrival spawn");
     });
-    canvas_tools::draw_room_size_section(ui, editor);
+    canvas_tools::draw_room_size_section(ui, editor, &mut state.history);
     canvas_tools::draw_view_section(ui, state);
     section(ui, "Entity", |ui| {
         searchable_list(
@@ -304,7 +321,7 @@ fn draw_room_tools(
         }
         if panel_button(ui, "Delete selected") {
             if let Some(selection) = state.selected {
-                match editor.draft.delete(selection) {
+                match tracked(&mut state.history, editor, |e| e.draft.delete(selection)) {
                     Ok(()) => {
                         state.selected = None;
                         state.destination = None;

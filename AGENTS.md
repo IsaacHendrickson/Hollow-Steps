@@ -89,6 +89,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/editor_guard.rs`: unsaved-changes state machine (Save / Discard / Cancel) and the approved-action runner.
+- `src/editor_history.rs`: snapshot undo/redo for the room draft (limit 100; a drag is one step) and the Ctrl+Z / Ctrl+Y key mapping.
 - `src/editor_view.rs`: pure editor canvas math: zoom/pan transform, grid snapping, window regions, footer wrapping.
 - `src/room_size.rs`: validated room bounds/floor edits for the editor.
 - `src/definition_editor.rs`: pure entity/behavior edits, save planning, and staged file writes.
@@ -100,7 +101,7 @@ Composition and front end:
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
-- `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks.
+- `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `history_panel.rs` (Undo/Redo), `unsaved_dialog.rs` (Save / Discard / Cancel window).
 - `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
 - `src/main.rs`: Macroquad window setup, keyboard translation, drawing, and
   frame scheduling. It should stay thin; do not put movement, combat, room,
