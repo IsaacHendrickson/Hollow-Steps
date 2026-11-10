@@ -10,7 +10,7 @@
         secondary: (0.08, 0.23, 0.39, 1.0),
         accent: (0.98, 0.64, 0.2, 1.0),
         eye: (0.8, 1.0, 1.0, 1.0),
-        scale: 1.0,
+        scale: 0.9,
     )),
     behavior: "Shooter",
 )
