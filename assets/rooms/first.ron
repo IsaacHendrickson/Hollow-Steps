@@ -2,15 +2,16 @@
     enemies: [
         (
             definition: "chase",
-            patrol_left: 534.07794,
-            patrol_right: 688.36365,
+            patrol_left: 700.36365,
+            patrol_right: 746.64935,
         ),
         (
             definition: "scittish",
             patrol_left: 783.4286,
-            patrol_right: 783.4286,
+            patrol_right: 852.0,
         ),
     ],
+    boss: None,
     layout: Some((
         bounds: (0.0, 0.0, 960.0, 460.0),
         floor_y: 460.0,
