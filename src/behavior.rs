@@ -881,6 +881,7 @@ impl Behavior {
             ) {
                 self.airborne = false;
             }
+            let mut lunge_gravity_seconds = None;
             let (used, finished) = match action {
                 Action::RadialBlast {
                     radius,
@@ -1045,19 +1046,23 @@ impl Behavior {
                     ..
                 } => {
                     self.airborne = false;
-                    self.attack_runtime
-                        .get_or_insert_with(|| {
-                            AttackRuntime::lunge(
-                                *position,
-                                context,
-                                speed,
-                                duration_secs,
-                                attack,
-                                recovery_secs,
-                                telegraph_secs,
-                            )
-                        })
-                        .step(position, context, remaining)
+                    if self.attack_runtime.is_none() {
+                        self.vertical_velocity = 0.0;
+                    }
+                    let runtime = self.attack_runtime.get_or_insert_with(|| {
+                        AttackRuntime::lunge(
+                            *position,
+                            context,
+                            speed,
+                            duration_secs,
+                            attack,
+                            recovery_secs,
+                            telegraph_secs,
+                        )
+                    });
+                    let result = runtime.step(position, context, remaining);
+                    lunge_gravity_seconds = Some(runtime.lunge_gravity_seconds(result.0));
+                    result
                 }
                 Action::Wait { seconds }
                 | Action::Telegraph { seconds }
@@ -1153,7 +1158,8 @@ impl Behavior {
                 // Authored jump/slam arcs and explicit hover retain their trajectories.
                 self.vertical_velocity = 0.0;
             } else {
-                self.apply_gravity(position, context, used);
+                let gravity_seconds = lunge_gravity_seconds.unwrap_or(used);
+                self.apply_gravity(position, context, gravity_seconds);
             }
             self.action_started = true;
             remaining = (remaining - used).max(0.0);

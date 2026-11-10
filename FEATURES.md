@@ -1,6 +1,6 @@
 # Features
 
-- Horizontal-only sampled lunges share gravity/floor collision with ordinary enemy movement, fall through recovery without ground snapping, stop at walls, and preserve flat-ground speed/distance and authored jump/slam trajectories: `src/enemy_attack.rs`, `src/behavior.rs`; fixture-only pure regressions in `tests/attack_actions.rs`.
+- Lunges sample full player direction once, suspend gravity during travel, resume shared gravity/floor collision in recovery without ground snapping, stop at walls, and preserve flat-ground speed/distance and authored jump/slam trajectories: `src/enemy_attack.rs`, `src/behavior.rs`; fixture-only pure regressions in `tests/attack_actions.rs`.
 
 - Shared lunge, parabolic jump, impact slam, projectile fan, radial blast, warning feedback and recovery actions; Charger/Hopper/Shooter assignments preserve legacy behavior and boss rules: `src/enemy_attack.rs`, `src/behavior.rs`, `src/game.rs`, `src/body_draw.rs`, `data/action_defaults.ron`, `assets/behaviors/`; `tests/attack_actions.rs`, `tests/arena_actions.rs`, `tests/boss_data.rs`, `tests/definition_editor.rs`, `tests/reloading.rs`, `src/game.rs` immunity regression; manual warning/projectile/editor check.
 

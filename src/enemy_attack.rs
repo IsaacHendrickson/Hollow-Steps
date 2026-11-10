@@ -138,13 +138,7 @@ impl AttackRuntime {
         recovery: f32,
         telegraph: f32,
     ) -> Self {
-        let direction = if context.player_position.x < position.x {
-            -Vec2::X
-        } else if context.player_position.x > position.x {
-            Vec2::X
-        } else {
-            Vec2::ZERO
-        };
+        let direction = (context.player_position - position).normalize_or_zero();
         Self {
             motion: Motion::Lunge {
                 velocity: direction * speed,
@@ -215,6 +209,15 @@ impl AttackRuntime {
         (self.elapsed < self.telegraph)
             .then_some(self.attack)
             .flatten()
+    }
+
+    /// Portion of the last step after lunge travel, including recovery.
+    pub(crate) fn lunge_gravity_seconds(&self, used: f64) -> f64 {
+        let Motion::Lunge { duration, .. } = self.motion else {
+            return 0.0;
+        };
+        let end = self.telegraph + duration;
+        (self.elapsed - end).max(0.0) - (self.elapsed - used - end).max(0.0)
     }
 
     pub fn step(&mut self, position: &mut Vec2, context: BehaviorContext, dt: f64) -> (f64, bool) {

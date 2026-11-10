@@ -557,7 +557,7 @@ fn enemy_action_damage_api_includes_attack_boxes_and_closes_at_window_end() {
 }
 
 #[test]
-fn lunge_off_ledge_falls_each_frame_through_recovery_and_next_action() {
+fn lunge_off_ledge_defers_gravity_until_recovery_then_falls_without_snapping() {
     use hollow_steps::behavior::{Action, State};
     let actions: Vec<Action> = ron::from_str(include_str!("fixtures/attacks/all.ron")).unwrap();
     let mut behavior = Behavior::new(Arc::new(BehaviorDefinition {
@@ -581,7 +581,9 @@ fn lunge_off_ledge_falls_each_frame_through_recovery_and_next_action() {
     let mut velocity = 0.0;
     for frame in 0..64 {
         let previous = position;
-        velocity += 1400.0 * dt;
+        if frame >= 32 {
+            velocity += 1400.0 * dt;
+        }
         behavior.update(&mut position, ledge, dt);
         let expected_y = (previous.y + velocity * dt).min(982.0);
         assert!(
@@ -602,7 +604,7 @@ fn lunge_flat_ground_speed_distance_and_wall_collision_are_preserved() {
         let mut behavior = fixture_machine(0);
         let mut position = Vec2::new(start_x, 442.0);
         let ctx = BehaviorContext {
-            player_position: Vec2::new(960.0, 100.0),
+            player_position: Vec2::new(960.0, 442.0),
             ..context()
         };
         for frame in 0..64 {
@@ -641,4 +643,49 @@ fn elevated_jump_lands_exactly_before_wait_falls_without_snapping() {
     assert_eq!(position, ctx.player_position);
     behavior.update(&mut position, ctx, 1.0 / 64.0);
     assert!((position.y - (200.0 + 1400.0 / (64.0 * 64.0))).abs() < 0.001);
+}
+
+#[test]
+fn lunge_aims_up_once_then_falls_during_recovery_and_after_completion() {
+    let mut behavior = fixture_machine(0);
+    let mut position = Vec2::new(100.0, 442.0);
+    let ctx = BehaviorContext {
+        player_position: Vec2::new(400.0, 42.0),
+        ..context()
+    };
+    behavior.update(&mut position, ctx, 0.25);
+    assert_eq!(position, Vec2::new(100.0, 442.0));
+    let moved_player = BehaviorContext {
+        player_position: Vec2::new(0.0, 442.0),
+        ..ctx
+    };
+    for frame in 1..=32 {
+        behavior.update(&mut position, moved_player, 1.0 / 64.0);
+        let travel = frame as f32 / 64.0;
+        assert!((position.x - (100.0 + 60.0 * travel)).abs() < 0.001);
+        assert!((position.y - (442.0 - 80.0 * travel)).abs() < 0.001);
+    }
+    let mut velocity = 0.0;
+    for _ in 0..32 {
+        let previous = position;
+        velocity += 1400.0 / 64.0;
+        behavior.update(&mut position, moved_player, 1.0 / 64.0);
+        assert_eq!(position.x, 130.0);
+        assert!((position.y - (previous.y + velocity / 64.0).min(442.0)).abs() < 0.001);
+    }
+    assert!(behavior.action_finished());
+}
+
+#[test]
+fn lunge_crossing_end_applies_gravity_only_to_recovery_time() {
+    let mut behavior = fixture_machine(0);
+    let mut position = Vec2::new(100.0, 442.0);
+    let ctx = BehaviorContext {
+        player_position: Vec2::new(100.0, 42.0),
+        ..context()
+    };
+    behavior.update(&mut position, ctx, 0.625);
+    assert_eq!(position, Vec2::new(100.0, 404.5));
+    behavior.update(&mut position, ctx, 0.25);
+    assert_eq!(position, Vec2::new(100.0, 392.0 + 1400.0 * 0.125 * 0.125));
 }
