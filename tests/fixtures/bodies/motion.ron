@@ -3,7 +3,7 @@
         "root": (rest: (0.1, -0.2)),
         "tip": (rest: (0.4, 0.3)),
     },
-    follow: (stiffness: 120.0, damping: 18.0),
+    follow: (stiffness: 120.0, damping: 22.0),
     follow_overrides: {"tip": (stiffness: 80.0, damping: 8.0)},
     idle: [
         (point: "root", amplitude: (0.01, 0.02), period_secs: 4.0, phase_offset_secs: 1.0),

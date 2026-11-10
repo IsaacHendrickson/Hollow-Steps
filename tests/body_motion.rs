@@ -48,25 +48,26 @@ fn default_spring_converges_and_does_not_overshoot_at_the_capped_step() {
 }
 
 #[test]
-fn legacy_templates_inherit_data_defaults_and_high_rate_overshoot_stays_small() {
+fn legacy_templates_inherit_defaults_that_settle_without_overshoot_at_common_rates() {
     let template: BodyTemplate = ron::from_str(include_str!("fixtures/bodies/small.ron")).unwrap();
     assert_eq!(
         template.follow,
         Follow {
             stiffness: 120.0,
-            damping: 18.0
+            damping: 22.0
         }
     );
     assert!(template.idle.is_empty());
     assert!(template.follow_overrides.is_empty());
-    // The requested 120/18 spring is slightly underdamped below the capped step.
-    for rate in [60, 120, 240] {
+    for rate in [30, 60, 120, 240] {
         let mut body = instance(template.clone());
-        let target = body.points["root"] + Vec2::X;
+        let target = body.points["root"] + Vec2::new(0.5, -0.25);
         body.set_target("root", target).unwrap();
         for _ in 0..5 * rate {
+            let previous = body.points["root"];
             body.step(1.0 / rate as f32);
-            assert!(body.points["root"].x < target.x + 0.01);
+            assert!(body.points["root"].x >= previous.x && body.points["root"].x <= target.x);
+            assert!(body.points["root"].y <= previous.y && body.points["root"].y >= target.y);
         }
         near(body.points["root"], target);
         near(body.velocities["root"], Vec2::ZERO);

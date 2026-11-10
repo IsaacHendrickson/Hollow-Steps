@@ -75,7 +75,7 @@ Templates also accept motion data (omitted fields use the defaults in
 `data/body_motion_defaults.ron`):
 
 ```ron
-follow: (stiffness: 120.0, damping: 18.0),
+follow: (stiffness: 120.0, damping: 22.0),
 follow_overrides: {"tail": (stiffness: 80.0, damping: 10.0)},
 idle: [
     (point: "tail", amplitude: (0.015, 0.02), period_secs: 1.8, phase_offset_secs: 0.0),
@@ -93,10 +93,8 @@ Each step uses semi-implicit Euler: update velocity by
 `(stiffness * (target - position) - damping * velocity) * dt`, then position by
 the new velocity times `dt`. Only this spring delta is capped at 1/30 second;
 idle time advances with the supplied game delta. Inventory, the editor, and
-inactive rooms freeze motion. The exact 120/18 defaults settle monotonically at
-the capped step but allow tiny overshoot at higher frame rates (about 0.19% at
-60 FPS); damping 22 can be authored for monotonic settling. Lower damping gives
-tails and wings more overshoot. Stiffness must be finite and positive, damping
+inactive rooms freeze motion. The 120/22 defaults settle without overshoot.
+Lower damping gives tails and wings more overshoot. Stiffness must be finite and positive, damping
 finite and nonnegative, and idle periods finite and positive. Amplitudes/phases
 must be finite; idle and override names must exist in the point map.
 
