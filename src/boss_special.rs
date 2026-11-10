@@ -57,6 +57,8 @@ pub struct BossSpecials {
     next_attack: usize,
     attack_timer: f64,
     runtime: ActionRuntime,
+    player_size: Vec2,
+    uses_ground_motion: bool,
     summoned_enemies: Vec<Enemy>,
     coins: Vec<Coin>,
     imported_enemies: usize,
@@ -86,6 +88,8 @@ impl BossSpecials {
             next_attack: 0,
             attack_timer: 0.0,
             runtime: ActionRuntime::default(),
+            player_size: Vec2::ZERO,
+            uses_ground_motion: false,
             summoned_enemies: Vec::new(),
             coins: Vec::new(),
             imported_enemies: 0,
@@ -145,6 +149,29 @@ impl BossSpecials {
             Some("Rings") => Some(SpecialAttack::Rings),
             _ => None,
         }
+    }
+    pub fn attack_hit(&self, player: Vec2, size: Vec2) -> Option<crate::enemy_attack::DamageHit> {
+        if self.defeated {
+            None
+        } else {
+            self.runtime.attack_hit(self.position, player, size)
+        }
+    }
+    pub fn active_damage_area(&self) -> Option<crate::enemy_attack::AttackBox> {
+        if self.defeated {
+            None
+        } else {
+            self.runtime.attack_runtime.as_ref().and_then(|r| r.active)
+        }
+    }
+    pub fn projectiles(&self) -> &[crate::enemy_attack::Projectile] {
+        &self.runtime.projectiles
+    }
+    pub fn attack_warning(&self) -> Option<crate::enemy_attack::AttackBox> {
+        self.runtime
+            .attack_runtime
+            .as_ref()
+            .and_then(|r| r.warning())
     }
     pub fn rings(&self) -> &[Ring] {
         &self.runtime.rings
@@ -257,6 +284,16 @@ impl BossSpecials {
 
     /// Advances one finite action sequence, returning its damage events.
     pub fn update(&mut self, dt: f32, player: Vec2, bounds: WorldBounds) -> u32 {
+        self.update_with_player_size(dt, player, Vec2::ZERO, bounds)
+    }
+
+    pub fn update_with_player_size(
+        &mut self,
+        dt: f32,
+        player: Vec2,
+        player_size: Vec2,
+        bounds: WorldBounds,
+    ) -> u32 {
         if !dt.is_finite() || dt <= 0.0 || !player.is_finite() {
             return 0;
         }
@@ -273,6 +310,9 @@ impl BossSpecials {
             }
             return 0;
         }
+        self.player_size = player_size;
+        self.runtime
+            .advance_projectiles(player, player_size, bounds, dt);
         // Nonblocking glides start during action entry and move on the next update.
         let blocking = self.active.is_some_and(|a| {
             matches!(
@@ -280,11 +320,16 @@ impl BossSpecials {
                 Some(Action::JumpToPlayer { .. } | Action::SlamDown { .. } | Action::Hover { .. })
             )
         });
-        if !blocking {
+        if !blocking && !self.uses_ground_motion {
             self.glide(f64::from(dt));
         }
         let pending = std::mem::take(&mut self.pending_damage);
-        pending.saturating_add(self.run_actions(f64::from(dt), player, bounds))
+        let damage = pending.saturating_add(self.run_actions(f64::from(dt), player, bounds));
+        let modern_damage = self
+            .attack_hit(player, player_size)
+            .map_or(0, |hit| hit.damage.max(0) as u32)
+            .max(u32::from(self.runtime.blast_damage(player, player_size)));
+        damage.saturating_add(modern_damage)
     }
 
     fn glide(&mut self, dt: f64) {
@@ -316,10 +361,17 @@ impl BossSpecials {
             } else {
                 action
             };
+            if action.uses_ground_motion() {
+                self.uses_ground_motion = true;
+            } else if !matches!(action, Action::Wait { .. } | Action::Telegraph { .. }) {
+                self.uses_ground_motion = false;
+            }
+            let ground_physics = self.uses_ground_motion;
             let mut runtime = std::mem::take(&mut self.runtime);
             let motion = runtime.motion();
             let size = self.size();
             let health = self.health.min(u32::from(u8::MAX)) as u8;
+            let player_size = self.player_size;
             let mut actor = BossActionActor {
                 boss: self,
                 context: BehaviorContext {
@@ -330,7 +382,8 @@ impl BossSpecials {
                     patrol_left: bounds.left + size.x / 2.0,
                     patrol_right: bounds.right - size.x / 2.0,
                 },
-                player_size: Vec2::ZERO,
+                player_size,
+                ground_physics,
                 motion,
                 target: active.target,
                 damage: 0,
@@ -347,6 +400,21 @@ impl BossSpecials {
             if !finished {
                 break;
             }
+        }
+        if self.uses_ground_motion && !self.runtime.airborne {
+            self.runtime.apply_gravity(
+                &mut self.position,
+                BehaviorContext {
+                    player_position: player,
+                    health: self.health.min(255) as u8,
+                    size: self.definition.size.into(),
+                    bounds,
+                    patrol_left: bounds.left,
+                    patrol_right: bounds.right,
+                },
+                remaining,
+            );
+            self.target_position = self.position;
         }
         damage
     }
@@ -373,6 +441,7 @@ struct BossActionActor<'a> {
     boss: &'a mut BossSpecials,
     context: BehaviorContext,
     player_size: Vec2,
+    ground_physics: bool,
     motion: ActorMotion,
     target: Vec2,
     damage: u32,
@@ -395,6 +464,9 @@ impl ActionActor for BossActionActor<'_> {
     }
     fn set_motion(&mut self, motion: ActorMotion) {
         self.motion = motion;
+    }
+    fn ground_physics(&self) -> bool {
+        self.ground_physics
     }
     fn legacy_target(&self) -> Option<Vec2> {
         Some(self.target)

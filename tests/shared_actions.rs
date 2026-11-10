@@ -71,3 +71,36 @@ fn legacy_forms_remain_distinct_and_execute_without_data_conversion() {
     assert_eq!(boss.rings().len(), 3);
     assert!(boss.rings().iter().all(|ring| ring.exploded()));
 }
+
+#[test]
+fn bosses_accept_and_execute_every_modern_action_with_enemy_geometry() {
+    let actions: Vec<Action> = ron::from_str(include_str!("fixtures/attacks/all.ron")).unwrap();
+    let player = Vec2::new(540.0, 444.0);
+    let player_size = Vec2::new(24.0, 48.0);
+    for action in actions {
+        let start = Vec2::new(500.0, 300.0);
+        let mut position = start;
+        let mut enemy = behavior(vec![action.clone()]);
+        let mut boss = boss(vec![action.clone()], start);
+        boss.start_attack("Test", player, BOUNDS);
+        for frame in 0..180 {
+            enemy.update_with_player_size(&mut position, context(player), 1.0 / 60.0, player_size);
+            boss.update_with_player_size(1.0 / 60.0, player, player_size, BOUNDS);
+            assert_eq!(position, boss.position(), "{action:?} frame {frame}");
+            assert_eq!(
+                enemy.active_damage_area(),
+                boss.active_damage_area(),
+                "{action:?} frame {frame}"
+            );
+            assert_eq!(
+                enemy.projectiles(),
+                boss.projectiles(),
+                "{action:?} frame {frame}"
+            );
+            assert_eq!(
+                enemy.attack_hit(position, player, player_size),
+                boss.attack_hit(player, player_size)
+            );
+        }
+    }
+}

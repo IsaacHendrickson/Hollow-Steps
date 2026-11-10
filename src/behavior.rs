@@ -770,20 +770,7 @@ impl Behavior {
     }
 
     pub fn blast_damage(&self, position: Vec2, size: Vec2) -> u8 {
-        self.runtime
-            .blasts
-            .iter()
-            .filter(|blast| {
-                let nearest = blast
-                    .position
-                    .clamp(position - size / 2.0, position + size / 2.0);
-                blast.exploded
-                    && (nearest.as_dvec2() - blast.position.as_dvec2()).length()
-                        <= f64::from(blast.radius)
-            })
-            .map(|blast| blast.damage)
-            .max()
-            .unwrap_or(0)
+        self.runtime.blast_damage(position, size)
     }
 
     pub(crate) fn clear_blast_hits(&mut self) {
@@ -799,15 +786,7 @@ impl Behavior {
     }
 
     pub fn attack_hit(&self, origin: Vec2, position: Vec2, size: Vec2) -> Option<DamageHit> {
-        self.runtime
-            .attack_runtime
-            .as_ref()
-            .and_then(|r| r.active)
-            .filter(|attack| attack.overlaps(origin, position, size))
-            .map(AttackBox::hit)
-            .into_iter()
-            .chain(self.runtime.projectile_hits.iter().copied())
-            .max_by_key(|hit| hit.damage)
+        self.runtime.attack_hit(origin, position, size)
     }
 
     pub(crate) fn advance_projectiles(
@@ -817,12 +796,8 @@ impl Behavior {
         bounds: WorldBounds,
         dt: f32,
     ) {
-        self.runtime.projectile_hits.clear();
-        self.runtime.projectiles.retain_mut(|projectile| {
-            let (alive, hit) = projectile.step(f64::from(dt), bounds, player, player_size);
-            self.runtime.projectile_hits.extend(hit);
-            alive
-        });
+        self.runtime
+            .advance_projectiles(player, player_size, bounds, dt);
     }
 
     pub(crate) fn pause_attack(&mut self) {

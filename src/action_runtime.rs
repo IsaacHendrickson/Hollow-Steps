@@ -34,6 +34,9 @@ pub trait ActionActor {
     fn random_arena_position(&mut self) -> Vec2;
     fn emit(&mut self, output: ActionOutput);
     /// Legacy boss actions sample the attack's locked target and suspend ground gravity.
+    fn ground_physics(&self) -> bool {
+        true
+    }
     fn legacy_target(&self) -> Option<Vec2> {
         None
     }
@@ -75,6 +78,48 @@ impl Default for ActionRuntime {
 }
 
 impl ActionRuntime {
+    pub fn advance_projectiles(
+        &mut self,
+        player: Vec2,
+        player_size: Vec2,
+        bounds: WorldBounds,
+        dt: f32,
+    ) {
+        self.projectile_hits.clear();
+        self.projectiles.retain_mut(|projectile| {
+            let (alive, hit) = projectile.step(f64::from(dt), bounds, player, player_size);
+            self.projectile_hits.extend(hit);
+            alive
+        });
+    }
+
+    pub fn attack_hit(&self, origin: Vec2, position: Vec2, size: Vec2) -> Option<DamageHit> {
+        self.attack_runtime
+            .as_ref()
+            .and_then(|r| r.active)
+            .filter(|attack| attack.overlaps(origin, position, size))
+            .map(AttackBox::hit)
+            .into_iter()
+            .chain(self.projectile_hits.iter().copied())
+            .max_by_key(|hit| hit.damage)
+    }
+
+    pub fn blast_damage(&self, position: Vec2, size: Vec2) -> u8 {
+        self.blasts
+            .iter()
+            .filter(|blast| {
+                let nearest = blast
+                    .position
+                    .clamp(position - size / 2.0, position + size / 2.0);
+                blast.exploded
+                    && (nearest.as_dvec2() - blast.position.as_dvec2()).length()
+                        <= f64::from(blast.radius)
+            })
+            .map(|blast| blast.damage)
+            .max()
+            .unwrap_or(0)
+    }
+
     pub fn step(
         &mut self,
         action: &Action,
@@ -102,6 +147,9 @@ impl ActionRuntime {
             actor,
         );
         actor.set_position(position);
+        if action.uses_ground_motion() {
+            actor.emit(ActionOutput::Hold(position));
+        }
         actor.set_motion(ActorMotion {
             facing: self.direction,
             velocity: (0.0, self.vertical_velocity),
@@ -556,7 +604,7 @@ impl ActionRuntime {
         if self.airborne {
             // Authored jump/slam arcs and explicit hover retain their trajectories.
             self.vertical_velocity = 0.0;
-        } else if actor.legacy_target().is_none() || action.windup_seconds().is_some() {
+        } else if actor.ground_physics() {
             let gravity_seconds = lunge_gravity_seconds.unwrap_or(used);
             self.apply_gravity(position, context, gravity_seconds);
         }
@@ -674,5 +722,21 @@ impl ActionRuntime {
                     }) as f32;
             }
         }
+    }
+}
+
+impl Action {
+    pub(crate) fn uses_ground_motion(&self) -> bool {
+        matches!(
+            self,
+            Self::Lunge { .. }
+                | Self::JumpTo { .. }
+                | Self::ImpactSlam { .. }
+                | Self::RadialBlast { .. }
+                | Self::ShootProjectile { .. }
+                | Self::MoveTowardPlayer { .. }
+                | Self::MoveAwayFromPlayer { .. }
+                | Self::Patrol { .. }
+        )
     }
 }

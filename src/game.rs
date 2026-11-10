@@ -284,7 +284,12 @@ impl GameState {
         let bounds = room.world_bounds();
         let mut special_damage = 0;
         if let Some(boss) = &mut room.boss_special {
-            special_damage = boss.update(delta_seconds, self.player.position(), bounds);
+            special_damage = boss.update_with_player_size(
+                delta_seconds,
+                self.player.position(),
+                self.player.size(),
+                bounds,
+            );
             boss.schedule(delta_seconds, self.player.position(), bounds);
             self.special_attack_timer = boss.attack_timer();
             room.enemies.extend_from_slice(boss.new_enemies());
@@ -365,6 +370,11 @@ impl GameState {
             .enemies
             .iter()
             .filter_map(|enemy| enemy.attack_hit(self.player.position(), self.player.size()))
+            .chain(
+                room.boss_special
+                    .as_ref()
+                    .and_then(|boss| boss.attack_hit(self.player.position(), self.player.size())),
+            )
             .filter(|hit| hit.damage >= i32::from(base_damage))
             .max_by_key(|hit| hit.damage)
             .unwrap_or(crate::enemy_attack::DamageHit {

@@ -197,10 +197,6 @@ fn load_errors_identify_file_boss_attack_action_and_parameter() {
             WARDEN.replace("glide_to_floor(speed: 1000.0)", "glide_to_floor()"),
             "speed",
         ),
-        (
-            WARDEN.replace("glide_to_floor(speed: 1000.0)", "patrol(speed: 1000.0)"),
-            "enemy-only",
-        ),
         (WARDEN.replace("health: 100,", ""), "health"),
         (
             WARDEN.replace("contact_damage: 0", "contact_damage: 256"),
