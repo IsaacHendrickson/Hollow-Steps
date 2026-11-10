@@ -13,6 +13,8 @@ single large system.
 
 The project owner wants features added with as few tokens as possible.
 
+- Reference notes (bodies, bosses, rooms, enemy data, editor) are in `docs/`;
+  open one only when the task needs it. `README.md` is a short overview.
 - Read this file, then open only the files relevant to the task. Do not read
   or re-print the whole repository.
 - Edit files in place in the repository. Do not produce `.patch` files or
@@ -113,18 +115,33 @@ When you add, rename, or remove a module, update this list in the same change.
   directly.
 - Clamp or validate external values at system boundaries. Do not scatter
   magic numbers through the rendering loop.
+- Draw code never uses fixed pixel positions or window-size constants. Use the
+  camera and the virtual resolution only.
+
+## Roadmap
+
+Work in this priority order; do not keep adding enemy-action parameters while
+earlier items are missing:
+
+1. Terrain collision (platforms, walls, ceilings)
+2. Camera (follow camera, virtual resolution)
+3. Fixed timestep
+4. Editor tools (terrain painting, zoom/pan/grid, undo, play-from-here)
+5. Player feel (acceleration, up/down strikes, pogo, hit-stop, shake)
+6. Visuals (player body, HUD, particles, atmosphere)
+7. Audio
 
 ## Tunable values
 
-Every tunable value must be a named parameter in data files and editable in the editor.
+Tunable numbers live in data files, as named and validated parameters. Do not
+hardcode values that affect how an entity, boss, attack, action or the player
+behaves (distances, speeds, durations, damage, health, counts, radii, etc.) in
+Rust, apart from engine-level constants such as gravity.
 
-Every number that affects how an entity, boss, attack, or action behaves
-(distances, speeds, durations, damage, health, counts, radii, etc.) must be a
-named parameter stored in data files and editable in the editor with a
-descriptive label and validation. Do not hardcode these values in Rust,
-apart from engine-level constants such as gravity. When adding an action,
-condition, or entity type, add its parameters to the editor's catalogs in
-the same change.
+Editor controls are required for enemy, boss, attack and player-feel values.
+Numeric values use sliders (`DragValue` with a clamped range and units), not
+text boxes; text boxes are for names only. When adding an action, condition or
+entity type, add its parameters to the editor's catalogs in the same change.
 
 ## Change workflow
 
@@ -238,9 +255,10 @@ press Space, confirm the player jumps and lands on the floor").
   assets.
 - If a requested feature needs a choice that changes the architecture (for
   example, a physics library, ECS, or save format), document the decision in
-  `README.md` or a short design note before implementing it.
+  a file in `docs/` or a short design note before implementing it.
 - Keep files focused and reasonably small so future agents only need to read
-  the module they are changing.
+  the module they are changing. Any file over ~600 lines must be split before
+  adding to it.
 
 ## Handoff format
 

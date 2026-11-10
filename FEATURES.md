@@ -1,68 +1,68 @@
 # Features
 
-- Lunges sample full player direction once, suspend gravity during travel, resume shared gravity/floor collision in recovery without ground snapping, stop at walls, and preserve flat-ground speed/distance and authored jump/slam trajectories: `src/enemy_attack.rs`, `src/behavior.rs`; fixture-only pure regressions in `tests/attack_actions.rs`.
+One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md.
 
-- Shared lunge, parabolic jump, impact slam, projectile fan, radial blast, warning feedback and recovery actions; Charger/Hopper/Shooter assignments preserve legacy behavior and boss rules: `src/enemy_attack.rs`, `src/behavior.rs`, `src/game.rs`, `src/body_draw.rs`, `data/action_defaults.ron`, `assets/behaviors/`; `tests/attack_actions.rs`, `tests/arena_actions.rs`, `tests/boss_data.rs`, `tests/definition_editor.rs`, `tests/reloading.rs`, `src/game.rs` immunity regression; manual warning/projectile/editor check.
+## Player and world
 
-- Shared rectangular/circular enemy attack boxes, independent body geometry and immunity-gated damage/knockback: `src/enemy_attack.rs`, `src/player.rs`; `tests/attack_actions.rs`.
+- Walking, gravity, floor and wall collision; `src/player.rs`; `tests/gameplay.rs`
+- Variable jump height, coyote time, jump buffering; `src/player.rs`; `tests/jumping.rs`
+- Directional melee swing, cooldown, one hit per enemy per swing; `src/combat.rs`, `src/game.rs`; `tests/combat.rs`
+- Collectible Dash (facing, duration, cooldown, one air dash); `src/item.rs`, `src/player.rs`; `tests/items.rs`
+- Player health, invincibility, respawn; `src/health.rs`; `tests/enemies.rs`
+- Grounded item pickup, persistent session inventory; `src/item.rs`; `tests/items.rs`, `tests/rooms.rs`
+- Coin pickups, persistent session balance; `src/coin.rs`; `src/coin.rs` unit tests
+- Inventory screen with paused gameplay; `src/game.rs`, `src/main.rs`; `src/game.rs` unit tests, manual
+- Three rooms, directional exits, spawns, persistent contents; `src/room.rs`; `tests/rooms.rs`
+- Keyboard controls, world rendering, melee visual, health bars; `src/main.rs`; manual
+- F5 atomic reload of rooms and definitions with scrollable errors; `src/game.rs`, `src/room.rs`; `tests/reloading.rs`
 
-- Session-only F3 body debug overlay in gameplay and the room editor, mirrored rest/current/target dots, target lines, gameplay hitboxes, and nearest-body point labels with fixed integer font sizes, zoom-independent generation, and a private font atlas using egui's bundled monospace font so overlay glyphs never resize/corrupt the HUD atlas; camera/filter state stays unchanged: `src/body_debug.rs`, `src/body_draw.rs`, `src/main.rs`; `tests/body_debug.rs`, `src/body_draw.rs` headless font test, plus manual F3/facing/editor/HUD check.
+## Enemies and attacks
 
-- Data-driven damped point following with 120/22 defaults and subtle humanoid/bird/animal idle motion, game-time pause, local-space target/snap API, per-point spring overrides, validation, F5 motion preservation, and shared-template editor controls/save round trips: `src/body.rs`, `src/enemy.rs`, `src/game.rs`, `src/definition_editor.rs`, `src/editor_panel.rs`, `data/body_motion_defaults.ron`, `assets/bodies/`; `tests/body_motion.rs`, `tests/bodies.rs`, `src/editor_panel.rs` headless tests, plus README manual check.
+- Enemy patrol, chase, contact damage, health, knockback, death; `src/enemy.rs`; `tests/enemies.rs`
+- RON enemy definitions and room placements, sequential actions, conditional transitions, asset validation; `src/behavior.rs`; `tests/behavior.rs`, `tests/definitions.rs`
+- Shared lunge, jump, slam, projectile fan, radial blast, warning and recovery actions; `src/enemy_attack.rs`, `src/behavior.rs`; `tests/attack_actions.rs`
+- Lunge samples player direction once, suspends gravity, stops at walls, keeps authored trajectories; `src/enemy_attack.rs`; `tests/attack_actions.rs`
+- Rect/circle attack boxes, immunity-gated damage and knockback; `src/enemy_attack.rs`, `src/player.rs`; `tests/attack_actions.rs`
+- Jump-to-player, hover, slam, random area blasts with arena clamping and editor parameters; `src/behavior.rs`, `src/behavior_values.rs`; `tests/arena_actions.rs`
+- Warning tint strength (0.25) and 30% AttackBox outline; `src/enemy_attack.rs`, `src/body_draw.rs`; `tests/attack_actions.rs`
+- Compile-time guard keeping hitbox/attack motion independent of body state; `src/enemy_attack.rs`; `tests/pose_geometry.rs`
 
-- RON humanoid/bird/animal body templates, per-enemy palettes/scale and runtime point maps, ordered anchored shapes/point-connected limbs, horizontal mirroring, unchanged box fallback and hitboxes, editor body controls and staged-save validation, and atomic F5 body reload: `src/body.rs`, `src/body_draw.rs`, `src/enemy.rs`, `src/definition_editor.rs`, `src/editor_panel.rs`, `assets/bodies/`; `src/body.rs` unit tests, `tests/bodies.rs`, `tests/shipped_rooms.rs`, plus manual visual/editor check.
+## Bosses
 
-- Boss entity picker and canvas placement/selection/drag/delete, egui boss properties and ordered attack/action editing with searchable action catalog, transactional validation and staged boss saves with rename propagation and runtime refresh: `src/boss_editor.rs`, `src/editor.rs`, `src/editor_panel/boss.rs`, `src/definition_editor.rs`, `src/game.rs`, `src/main.rs`; `tests/boss_editor.rs`, `tests/definition_editor.rs`, headless panel and canvas regression tests, plus manual editor check.
+- Ash Warden timed attacks, melee damage, persistent death, locked arena exits; `src/boss.rs`; `tests/boss.rs`
+- Arena boss cycling Slam, Summon, Rings with summons, death coins, drawing; `src/boss_special.rs`; `tests/boss_special.rs`
+- RON boss definitions and placements, cycle/seeded random selection, ordered actions; `src/boss_definition.rs`, `src/boss_special.rs`; `tests/boss_data.rs`
+- Boss editor: placement, drag, delete, ordered attacks/actions, staged saves with renames; `src/boss_editor.rs`, `src/editor_panel/boss.rs`; `tests/boss_editor.rs`
 
-- Validated RON boss definitions and room placements, cycle/seeded random attack selection, ordered shared actions, preserved Ash Warden Slam/Summon/Rings behavior, and a fixture-only ground pound: `src/boss_definition.rs`, `src/boss_special.rs`, `src/behavior.rs`, `src/room.rs`, `assets/bosses/`; `tests/boss_data.rs`, `tests/boss_special.rs`, `src/game.rs` boss tests.
+## Bodies and poses
 
-- Data-driven jump-to-player, hover, downward slam, and fused random area blasts for every enemy, arena/body clamping, blast damage through player immunity, generated labeled/validated editor parameters and data-backed insertion defaults: `src/behavior.rs`, `src/enemy.rs`, `src/game.rs`, `src/behavior_values.rs`, `src/editor_panel.rs`, `src/main.rs`, `data/action_defaults.ron`; `tests/arena_actions.rs`, `src/game.rs` blast test, existing catalog/save round-trip tests in `tests/definition_editor.rs`, plus README manual playtest.
+- RON humanoid/bird/animal body templates, palettes, scale, point maps, mirroring, box fallback; `src/body.rs`, `src/body_draw.rs`; `tests/bodies.rs`
+- Damped point following, idle motion, per-point springs, F5 motion preservation; `src/body.rs`, `data/body_motion_defaults.ron`; `tests/body_motion.rs`
+- Charger/Hopper/Shooter use distinct bodies, palettes, scales; `assets/entities/`; `tests/shipped_rooms.rs`, `tests/bodies.rs`
+- Semantic pose assets and per-template point mapping; `src/pose.rs`; `tests/poses.rs`
+- Attack phase pose commands with spring target cleanup; `src/behavior.rs`, `src/enemy_attack.rs`; `tests/poses.rs`
+- Telegraph-derived critically damped pose springs, blend ratio, strike stiffness, shot recoil; `src/pose.rs`, `data/pose_defaults.ron`; `tests/poses.rs`
+- Eight authored poses, attack bindings, timed hurt pose and white flash; `assets/poses/`, `src/body.rs`; `tests/poses.rs`
+- Pose catalog/binding validation shared by load and staged saves; F5 reloads poses; `src/pose.rs`, `src/definition_editor.rs`; `tests/poses.rs`, `tests/reloading.rs`
+- Fixture-only pose regression suite (semantics, lifecycle, facing, hurt timing, hot reload); `tests/poses.rs`, `tests/fixtures/`
+- F3 body debug overlay (dots, lines, hitboxes, nearest-point labels, private font atlas); `src/body_debug.rs`, `src/body_draw.rs`; `tests/body_debug.rs`, manual
+- F3 legend shows nearest body's current pose; `src/body_debug.rs`; `tests/body_debug.rs`, manual
 
-- Validated RON behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation and optional entity assignment, shared-behavior usage/copy warning, and labeled numeric Key values with advanced rows: `src/preset.rs`, `src/behavior_values.rs`, `src/definition_editor.rs`, `src/editor_panel.rs`, `assets/presets/`; `tests/presets.rs`, `tests/shipped_rooms.rs`, `src/editor_panel.rs` headless tests, plus manual editor check.
-- Independent blank-enemy creation, blank-behavior assignment with structured controls, and editable Skittish start/stop distances and speed persisted to gameplay: `src/definition_editor.rs`, `src/editor_panel.rs`, `src/behavior.rs`, `src/behavior_values.rs`; `tests/definition_editor.rs`, `tests/presets.rs`, `src/editor_panel.rs` headless tests.
+## Room and definition editor
 
-- Continuous integration: `.github/workflows/ci.yml`; formatting, tests, and Clippy on Linux and Windows for pull requests and pushes to `main`, with a 20-minute job limit and no unnecessary apt dependencies.
-- Walking, gravity, floor and wall collision: `src/player.rs`; `src/player.rs` unit tests, `tests/gameplay.rs`.
-- Variable jump height, coyote time, and jump buffering: `src/player.rs`; `tests/jumping.rs`.
-- Directional melee swing, short hitbox, cooldown, and one hit per enemy per swing: `src/combat.rs`, `src/player.rs`, `src/game.rs`; `tests/combat.rs`, `src/game.rs` unit tests.
-- Enemy patrol, chase, contact damage, health, knockback, and death: `src/enemy.rs`, `src/game.rs`; `tests/enemies.rs`, `tests/combat.rs`, `src/game.rs` unit tests.
-- RON enemy definitions and room placements, sequential movement/wait/telegraph actions, conditional state transitions, and asset validation with portable error assertions: `src/behavior.rs`, `src/enemy.rs`, `src/room.rs`, `assets/`; `tests/behavior.rs`, `tests/definitions.rs`.
-- F5 reloads all room placements and enemy definitions atomically, with wrapped, scrollable on-screen validation errors and retry: `src/game.rs`, `src/room.rs`, `src/main.rs`; `tests/reloading.rs`, plus manual playtest.
-- Player health, invincibility, and respawn: `src/health.rs`, `src/player.rs`, `src/game.rs`; `tests/enemies.rs`, `src/game.rs` unit tests.
-- Grounded item pickup and persistent session inventory: `src/item.rs`, `src/player.rs`, `src/game.rs`; `tests/items.rs`, `tests/rooms.rs`.
-- Collectible Dash ability, facing, duration, cooldown, and one air dash per landing: `src/item.rs`, `src/player.rs`; `src/player.rs` dash tests, `tests/items.rs`, `src/game.rs` unit tests.
-- Coin contact pickups and persistent session balance: `src/coin.rs`, `src/game.rs`, `src/room.rs`; `src/coin.rs` and `src/game.rs` unit tests.
-- Inventory screen and paused gameplay: `src/game.rs`, `src/main.rs`; `src/game.rs` unit tests (screen needs manual playtest).
-- Three rooms, directional exits, spawn handling, and persistent room contents: `src/room.rs`, `src/game.rs`; `tests/rooms.rs`, `tests/boss.rs`, `src/room.rs` and `src/game.rs` unit tests.
-- Reusable Ash Warden timed attacks, melee damage, persistent death, and locked arena exits: `src/boss.rs`, `src/room.rs`, `src/game.rs`; `tests/boss.rs`, `src/game.rs` boss tests.
-- Playable arena boss gliding at a fixed speed while cycling Slam, Summon, and Rings every three seconds, melee damage, summoned enemies, death coins, and attack drawing: `src/boss_special.rs`, `src/game.rs`, `src/room.rs`, `src/main.rs`; `tests/boss_special.rs`, `src/game.rs` special tests, plus manual playtest.
-- Keyboard controls, world rendering, melee visualization, and health bars: `src/main.rs`; gameplay tests above, plus manual playtest.
+- F2 paused room editor: placement, move, delete, entity list, spawn/exit editing, atomic RON saves, custom rooms; `src/editor.rs`; `tests/editor.rs`
+- Entity/behavior side panel, state/link editing, shared-name updates, staged RON saves; `src/definition_editor.rs`; `tests/definition_editor.rs`
+- Responsive scrollable panel, pinned Save, ordered action/transition rows, type catalogs, advanced RON editing; `src/editor_panel.rs`; `tests/definition_editor.rs`
+- Save conflict detection, full validation, LF writes, recoverable staging, repeat renames; `src/definition_editor.rs`; `tests/definition_editor.rs`
+- Searchable lists with stable selection, Unicode prefix-first matching, counts, management buttons; `src/search.rs`; `tests/definition_editor.rs`
+- Patrol handles, exit/arrival deletion, item catalog, no-exit warnings, transactional saves, Windows-safe names; `src/editor.rs`, `src/item.rs`; `tests/editor.rs`
+- egui panel: collapsing sections, filtered dropdowns, tooltip truncation, solid scrollbars, canvas input capture; `src/editor_panel.rs`; headless tests, manual
+- Behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation, usage warnings, Key values; `src/preset.rs`, `src/behavior_values.rs`; `tests/presets.rs`
+- Blank-enemy creation and behavior assignment, editable Skittish distances/speed; `src/definition_editor.rs`, `src/behavior.rs`; `tests/presets.rs`
+- Catalog-backed pose dropdowns for attack phases in rows and Key values; `src/editor_panel.rs`, `src/behavior_values.rs`; `tests/poses.rs`
+- Body, pose, spring, hurt, blend and tint values all have data, validation, editor controls; `src/body.rs`, `src/pose.rs`, `data/`; `tests/poses.rs`
 
-- F2 paused room editor, mouse placement/movement/deletion, entity list, spawn/exit editing, validated atomic RON saves, and persistent custom rooms: `src/editor.rs`, `src/game.rs`, `src/main.rs`, `src/room.rs`; `tests/editor.rs`, plus manual playtest.
+## Tests and CI
 
-- Behavioral tests use fixed room/entity/behavior fixtures independently of editable game assets; one shipped-content validation smoke test: `tests/fixtures/`, `tests/support/mod.rs`, `tests/shipped_rooms.rs`, `src/game.rs`, `src/room.rs`; existing behavioral suites.
-
-- Selected-enemy entity and behavior side panel, state/link editing, shared-name reference updates, and validated staged RON saves: `src/definition_editor.rs`, `src/editor.rs`, `src/main.rs`; `tests/definition_editor.rs`, plus manual playtest.
-
-- Responsive scrollable editor with pinned Save, structured ordered action/transition rows, loader-generated type catalogs, inline numeric validation, and advanced RON editing: `src/behavior.rs`, `src/definition_editor.rs`, `src/main.rs`, `src/editor_panel.rs`; `tests/definition_editor.rs`, headless egui layout/input tests, plus manual resize/edit check.
-
-- Definition save conflict detection with consistent native paths and portable file-identification assertions, full draft and all-room validation, content-only LF writes, recoverable staging/deletions, repeat renames, and pure entity/behavior operations: `src/definition_editor.rs`, `src/editor.rs`; `tests/definition_editor.rs`.
-
-- Reusable searchable room/entity/behavior/action/condition/state lists with stable selection, Unicode case-insensitive prefix-first matching, counts, no-match rows, bounded labels, and entity/behavior management buttons with reference errors: `src/search.rs`, `src/editor.rs`, `src/definition_editor.rs`, `src/main.rs`; `src/search.rs` unit tests, `tests/definition_editor.rs`, plus manual editor check.
-
-- Patrol endpoint handles with wall/body validation, exit/arrival deletion, enum item catalog, nonblocking no-exit warnings, existing-behavior selection, definition operation buttons with reference errors, stale property-error clearing, bounded mouse-wheel panel scrolling, transactional editor saves, and Windows-safe filenames: `src/editor.rs`, `src/definition_editor.rs`, `src/item.rs`, `src/game.rs`, `src/main.rs`; `tests/editor.rs`, `tests/definition_editor.rs`, `src/main.rs` UI state tests, plus manual editor check.
-
-- egui editor panel with pinned Save, collapsing sections, filtered dropdowns with eight-row scroll viewports, counts/no-match rows, tooltip truncation, draggable solid scrollbars, and canvas input capture: `src/editor_panel.rs`, `src/main.rs`; `src/editor_panel.rs` headless tests, preserved `src/search.rs` tests, plus README manual checklist.
-
-- Semantic pose assets and per-template point mapping: `src/pose.rs`, `src/body.rs`, `assets/poses/`; `tests/poses.rs`.
-- Data-bound attack phase pose commands and spring target cleanup on completion/interruption: `src/behavior.rs`, `src/enemy_attack.rs`, `src/enemy.rs`, `src/body.rs`; `tests/poses.rs`, `tests/attack_actions.rs`.
-- Telegraph-derived critically damped pose springs, data blend ratio and faster strike stiffness, including instantaneous shot recoil: `src/pose.rs`, `src/body.rs`, `src/behavior.rs`, `data/pose_defaults.ron`; `tests/poses.rs`.
-- Eight authored semantic poses, attack bindings including legacy separate wind-ups, and timed hurt pose/white flash without gameplay changes: `assets/poses/`, `assets/behaviors/`, `src/pose.rs`, `src/body.rs`, `src/enemy.rs`, `src/body_draw.rs`; `tests/poses.rs`.
-- Subtle data/editor warning tint strength (0.25 default) with retained 30% AttackBox outline: `src/enemy_attack.rs`, `src/body_draw.rs`, `src/action_parameters.rs`, `data/attack_feedback_defaults.ron`; `tests/attack_actions.rs`.
-- Charger/Hopper/Shooter assignments use humanoid/animal/bird bodies with distinct palettes and visual scales: `assets/entities/`; `tests/shipped_rooms.rs`, `tests/bodies.rs`; manual visual check.
-- Compile-time hitbox/AttackBox/attack motion API guard against body-state parameters: `src/enemy_attack.rs`, `src/enemy.rs`; `tests/pose_geometry.rs`.
-- F3 legend shows the nearest body's current pose using the existing 18px HUD size: `src/body_debug.rs`, `src/body_draw.rs`; `tests/body_debug.rs`; manual F3 check.
-- Pose catalog/reference/semantic-map/body-binding validation shared by loading and transactional staged editor saves; F5 reload includes poses and discards stale pose overrides while preserving point motion: `src/pose.rs`, `src/body.rs`, `src/enemy.rs`, `src/definition_editor.rs`, `src/game.rs`; `tests/poses.rs`, `tests/bodies.rs`, `tests/reloading.rs`.
-- Catalog-backed None/pose dropdowns for all attack phase fields in structured rows and Key values: `src/editor_panel.rs`, `src/behavior_values.rs`, `src/pose.rs`; `src/editor_panel.rs` headless dropdown test, `tests/poses.rs`.
-- Fixture-only pose regression tests cover semantic resolution/missing parts, phase target lifecycle, telegraph tolerance, facing, hurt/flash/duplicate damage timing, interruption, all five attacks with identical gameplay, staged validation and atomic hot reload: `tests/poses.rs`, `tests/fixtures/attacks/`, `tests/fixtures/poses/`.
-- Every new pose offset, semantic mapping, spring/impulse setting, hurt/flash value and attack blend/tint value has data, validation and editor controls; pose asset creation and complete staged save/reload: `src/pose.rs`, `src/body.rs`, `src/editor_panel.rs`, `src/definition_editor.rs`, `data/`, `assets/poses/`; `tests/poses.rs`, `src/editor_panel.rs` headless checks; README manual checks.
+- Fixture-based behavioral tests plus one shipped-content smoke test; `tests/fixtures/`, `tests/support/mod.rs`; `tests/shipped_rooms.rs`
+- CI: fmt, test, Clippy on Linux and Windows for PRs and `main`; `.github/workflows/ci.yml`
