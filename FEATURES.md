@@ -60,3 +60,4 @@
 - Eight authored semantic poses, attack bindings including legacy separate wind-ups, and timed hurt pose/white flash without gameplay changes: `assets/poses/`, `assets/behaviors/`, `src/pose.rs`, `src/body.rs`, `src/enemy.rs`, `src/body_draw.rs`; `tests/poses.rs`.
 - Subtle data/editor warning tint strength (0.25 default) with retained 30% AttackBox outline: `src/enemy_attack.rs`, `src/body_draw.rs`, `src/action_parameters.rs`, `data/attack_feedback_defaults.ron`; `tests/attack_actions.rs`.
 - Charger/Hopper/Shooter assignments use humanoid/animal/bird bodies with distinct palettes and visual scales: `assets/entities/`; `tests/shipped_rooms.rs`, `tests/bodies.rs`; manual visual check.
+- Compile-time hitbox/AttackBox/attack motion API guard against body-state parameters: `src/enemy_attack.rs`, `src/enemy.rs`; `tests/pose_geometry.rs`.
