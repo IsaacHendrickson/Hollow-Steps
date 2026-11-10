@@ -1,0 +1,9 @@
+// Palette for assigning a template in the editor; each entity saves its own copy.
+(
+    template: "",
+    primary: (0.55, 0.25, 0.35, 1.0),
+    secondary: (0.25, 0.12, 0.25, 1.0),
+    accent: (0.95, 0.65, 0.25, 1.0),
+    eye: (1.0, 1.0, 0.85, 1.0),
+    scale: 1.0,
+)

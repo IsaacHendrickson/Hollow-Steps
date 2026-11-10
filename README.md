@@ -49,7 +49,7 @@ above; Windows needs no extra system libraries.
 - `I`: open/close the inventory screen to see coins and collected items.
   Gameplay pauses while it is open; `Esc` also closes it.
 - `F2`: open/close the room editor (gameplay pauses).
-- `F5`: validate room files and their enemy, behavior, and boss definitions, including
+- `F5`: validate room files and their enemy, body template, behavior, and boss definitions, including
   while the inventory is open. Errors appear on screen; fix the files and
   press `F5` again to retry. Use the mouse wheel to scroll long errors.
 - Touch a gold coin to collect it automatically, including while airborne.
@@ -61,6 +61,57 @@ above; Windows needs no extra system libraries.
 - Walk into the right exit of the first room to enter the second room; its
   left exit leads back. The second room's right exit leads to the Ash Warden.
   Its arena exit stays red and locked until the boss is defeated.
+
+## Enemy body templates
+
+Presentation is separate from collision and simulation. `assets/bodies/<name>.ron`
+contains one strict body template, selected by the filename stem. Each template
+has a `points` map (`"head": (rest: (x, y))`) and ordered `parts`. Positions and
+sizes are fractions of the enemy's unchanged collision box, centered at `(0, 0)`,
+with x right and y down. Enemy instances own a current point map initialized from
+rest positions; drawing resolves that map each frame.
+
+Each part has `name`, `shape` (`Ellipse`, `Triangle`, `Rect`, or `Line`), `size:
+(w, h)`, `rotation` in clockwise degrees, and `color_slot` (`primary`, `secondary`,
+`accent`, or `eye`). Non-Line parts use `anchor: Some("head")` and `offset:
+Some((x, y))`; Line parts use `from: Some("torso")` and `to: Some("hand_l")`
+instead. Missing optional fields are omitted. Ellipses/rectangles are centered;
+a triangle points right before rotation. Offsets use the box axes; rotation
+turns the shape about its resolved center. A Line connects its two current
+points, with thickness `min(w * box_width, h * box_height)`; its rotation turns
+both endpoints about their midpoint (use zero to connect the points exactly).
+Horizontal facing mirrors the complete result about the enemy center.
+
+An enemy definition may include:
+
+```ron
+body: Some((
+    template: "humanoid",
+    primary: (0.55, 0.19, 0.30, 1.0),
+    secondary: (0.27, 0.10, 0.23, 1.0),
+    accent: (0.95, 0.57, 0.23, 1.0),
+    eye: (1.0, 1.0, 0.75, 1.0),
+    scale: 1.0,
+)),
+```
+
+All four colors are normalized RGBA channels in `0..=1`. Scale defaults to one
+and must be finite and positive; it scales points, offsets, and shapes about
+the entity center. Omitting `body` or using `None` keeps the original maroon box.
+The editor's **Body visual** section selects a template or Box and edits scale
+and all four colors. New assignments copy `data/body_visual_defaults.ron`;
+existing palettes are preserved when switching templates. Template geometry
+remains authored in RON. Loading and staged saves validate template names and
+point references; unknown color slots are parse errors. F5 reloads templates
+and enemy settings together, retaining the current game if validation fails.
+Editor saves also reject body files changed since the editor opened.
+
+Manual check: run the game, confirm chase (humanoid) and scittish (bird) have
+visible bright eyes, watch the bird/beak mirror when it turns, and confirm an
+enemy without a body still draws as a box. Edit a template point/part and an enemy palette/scale,
+press F5, and confirm both refresh. In F2, edit an enemy's health and palette,
+save, reopen, and confirm its body is retained. Hitboxes and health bars stay at
+the original box size even if visual scale changes.
 
 ## Boss architecture
 

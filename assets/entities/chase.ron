@@ -3,5 +3,13 @@
     health: 3,
     size: (36.0, 36.0),
     contact_damage: 1,
+    body: Some((
+        template: "humanoid",
+        primary: (0.55, 0.19, 0.3, 1.0),
+        secondary: (0.27, 0.1, 0.23, 1.0),
+        accent: (0.95, 0.57, 0.23, 1.0),
+        eye: (1.0, 1.0, 0.75, 1.0),
+        scale: 1.0,
+    )),
     behavior: "chase",
 )

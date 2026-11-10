@@ -1,0 +1,24 @@
+(
+    points: {
+        "head": (rest: (0.2, -0.24)),
+        "torso": (rest: (-0.04, 0.06)),
+        "wing_l": (rest: (-0.22, 0.02)),
+        "wing_r": (rest: (0.07, 0.1)),
+        "tail": (rest: (-0.4, 0.05)),
+        "foot_l": (rest: (-0.15, 0.43)),
+        "foot_r": (rest: (0.14, 0.43)),
+    },
+    parts: [
+        (name: "tail", shape: Triangle, anchor: Some("tail"), offset: Some((0.0, 0.0)), size: (0.29, 0.27), rotation: 180.0, color_slot: accent),
+        (name: "leg_l", shape: Line, from: Some("torso"), to: Some("foot_l"), size: (0.06, 0.06), rotation: 0.0, color_slot: accent),
+        (name: "leg_r", shape: Line, from: Some("torso"), to: Some("foot_r"), size: (0.06, 0.06), rotation: 0.0, color_slot: accent),
+        (name: "wing_l", shape: Ellipse, anchor: Some("wing_l"), offset: Some((0.0, 0.0)), size: (0.35, 0.34), rotation: -25.0, color_slot: secondary),
+        (name: "torso", shape: Ellipse, anchor: Some("torso"), offset: Some((0.0, 0.0)), size: (0.62, 0.58), rotation: -15.0, color_slot: primary),
+        (name: "wing_r", shape: Ellipse, anchor: Some("wing_r"), offset: Some((0.0, 0.0)), size: (0.34, 0.37), rotation: 30.0, color_slot: secondary),
+        (name: "head", shape: Ellipse, anchor: Some("head"), offset: Some((0.0, 0.0)), size: (0.4, 0.34), rotation: 0.0, color_slot: primary),
+        (name: "beak", shape: Triangle, anchor: Some("head"), offset: Some((0.23, 0.015)), size: (0.23, 0.15), rotation: 0.0, color_slot: accent),
+        (name: "foot_l", shape: Rect, anchor: Some("foot_l"), offset: Some((0.04, 0.0)), size: (0.22, 0.06), rotation: 0.0, color_slot: accent),
+        (name: "foot_r", shape: Rect, anchor: Some("foot_r"), offset: Some((0.04, 0.0)), size: (0.22, 0.06), rotation: 0.0, color_slot: accent),
+        (name: "eye", shape: Ellipse, anchor: Some("head"), offset: Some((0.07, -0.035)), size: (0.12, 0.12), rotation: 0.0, color_slot: eye),
+    ],
+)

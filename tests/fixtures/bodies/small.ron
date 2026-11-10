@@ -1,0 +1,12 @@
+(
+    points: {
+        "root": (rest: (0.1, -0.2)),
+        "tip": (rest: (0.4, 0.3)),
+    },
+    parts: [
+        (name: "limb", shape: Line, from: Some("root"), to: Some("tip"), size: (0.04, 0.08), rotation: 0.0, color_slot: secondary),
+        (name: "core", shape: Rect, anchor: Some("root"), offset: Some((0.05, 0.1)), size: (0.2, 0.4), rotation: 90.0, color_slot: primary),
+        (name: "beak", shape: Triangle, anchor: Some("tip"), offset: Some((0.0, 0.0)), size: (0.3, 0.2), rotation: 30.0, color_slot: accent),
+        (name: "eye", shape: Ellipse, anchor: Some("root"), offset: Some((0.0, 0.0)), size: (0.1, 0.1), rotation: 0.0, color_slot: eye),
+    ],
+)

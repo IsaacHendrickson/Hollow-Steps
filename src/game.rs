@@ -400,6 +400,7 @@ mod tests {
                 size: (36.0, 36.0),
                 contact_damage: 0,
                 behavior: "blast".into(),
+                body: None,
             },
             Arc::new(
                 BehaviorDefinition::from_ron(

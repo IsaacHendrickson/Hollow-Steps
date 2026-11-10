@@ -9,6 +9,7 @@ use hollow_steps::player::PlayerInput;
 use hollow_steps::room::RoomEdge;
 use hollow_steps::search::SearchList;
 use macroquad::prelude::*;
+mod body_draw;
 mod editor_panel;
 use editor_panel::{BossPropertyUi, PropertyUi};
 
@@ -179,13 +180,7 @@ fn draw_scene(game: &GameState) {
             draw_circle_lines(blast.position.x, blast.position.y, blast.radius, 2.0, color);
         }
         let top_left = enemy.position() - enemy.size() / 2.0;
-        draw_rectangle(
-            top_left.x,
-            top_left.y,
-            enemy.size().x,
-            enemy.size().y,
-            MAROON,
-        );
+        body_draw::draw_enemy_body(enemy);
         draw_rectangle(top_left.x, top_left.y - 8.0, enemy.size().x, 4.0, DARKGRAY);
         draw_rectangle(
             top_left.x,
@@ -262,7 +257,13 @@ fn draw_scene(game: &GameState) {
         22.0,
         WHITE,
     );
-    draw_text("F5: reload room files", 24.0, 148.0, 18.0, LIGHTGRAY);
+    draw_text(
+        "F5: reload rooms, definitions and bodies",
+        24.0,
+        148.0,
+        18.0,
+        LIGHTGRAY,
+    );
 }
 
 fn draw_reload_result(result: &Result<(), String>, scroll: &mut usize) {
