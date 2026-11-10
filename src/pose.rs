@@ -159,3 +159,59 @@ impl HurtFeedback {
         Ok(())
     }
 }
+
+pub fn validate_behavior(
+    behavior: &crate::behavior::BehaviorDefinition,
+    poses: &Poses,
+) -> Result<(), String> {
+    for state in &behavior.states {
+        for (index, action) in state.actions.iter().enumerate() {
+            if let Some(bindings) = action.pose_bindings() {
+                for (field, name) in ["telegraph_pose", "active_pose", "recovery_pose"]
+                    .into_iter()
+                    .zip(bindings)
+                {
+                    if let Some(name) = name {
+                        if !poses.contains_key(&name) {
+                            return Err(format!(
+                                "state {:?}, action {index}, {field}: unknown pose {name:?}",
+                                state.name
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+pub fn validate_entity(
+    entity: &crate::enemy::EnemyDefinition,
+    behavior: &crate::behavior::BehaviorDefinition,
+    poses: &Poses,
+) -> Result<(), String> {
+    let has_binding = behavior
+        .states
+        .iter()
+        .flat_map(|s| &s.actions)
+        .filter_map(crate::behavior::Action::pose_bindings)
+        .flatten()
+        .any(|n| n.is_some());
+    if entity.body.is_none() && has_binding {
+        return Err(format!(
+            "entity {:?}: pose binding requires a body template",
+            entity.name
+        ));
+    }
+    if let Some(body) = &entity.body {
+        if let Some(name) = &body.hurt.pose {
+            if !poses.contains_key(name) {
+                return Err(format!(
+                    "entity {:?}, hurt pose: unknown pose {name:?}",
+                    entity.name
+                ));
+            }
+        }
+    }
+    Ok(())
+}

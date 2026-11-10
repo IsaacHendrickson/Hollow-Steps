@@ -21,6 +21,7 @@ pub struct DefinitionDraft {
     pub entities: BTreeMap<PathBuf, EnemyDefinition>,
     pub behaviors: BTreeMap<String, BehaviorDefinition>,
     pub bodies: BodyTemplates,
+    pub poses: crate::pose::Poses,
     pub bosses: BTreeMap<PathBuf, BossDefinition>,
     original_boss_names: BTreeMap<PathBuf, String>,
     pub presets: Vec<crate::preset::BehaviorPreset>,
@@ -35,8 +36,17 @@ impl DefinitionDraft {
         let assets: PathBuf = assets.components().collect();
         let assets = assets.as_path();
         let mut originals = BTreeMap::new();
-        for directory in ["entities", "behaviors", "rooms", "bosses", "bodies"] {
-            if matches!(directory, "bosses" | "bodies") && !assets.join(directory).exists() {
+        for directory in [
+            "entities",
+            "behaviors",
+            "rooms",
+            "bosses",
+            "bodies",
+            "poses",
+        ] {
+            if matches!(directory, "bosses" | "bodies" | "poses")
+                && !assets.join(directory).exists()
+            {
                 continue;
             }
             for path in ron_files(&assets.join(directory))? {
@@ -78,6 +88,7 @@ impl DefinitionDraft {
             .collect();
         let draft = Self {
             bodies: load_body_templates(&assets.join("bodies"))?,
+            poses: crate::pose::load_poses(&assets.join("poses"))?,
             presets: crate::preset::load_presets(&assets.join("presets"))?,
             originals,
             layouts,
@@ -148,20 +159,30 @@ impl DefinitionDraft {
 
     pub fn definitions(&self) -> Result<EnemyDefinitions, String> {
         for (name, behavior) in &self.behaviors {
-            behavior.validate().map_err(|error| {
-                file_error(
-                    &self.assets.join("behaviors").join(format!("{name}.ron")),
-                    error,
-                )
-            })?;
+            behavior
+                .validate()
+                .and_then(|_| crate::pose::validate_behavior(behavior, &self.poses))
+                .map_err(|error| {
+                    file_error(
+                        &self.assets.join("behaviors").join(format!("{name}.ron")),
+                        error,
+                    )
+                })?;
         }
-        EnemyDefinitions::from_definitions(
+        for (path, entity) in &self.entities {
+            if let Some(behavior) = self.behaviors.get(&entity.behavior) {
+                crate::pose::validate_entity(entity, behavior, &self.poses)
+                    .map_err(|e| file_error(path, e))?;
+            }
+        }
+        EnemyDefinitions::from_definitions_with_poses(
             self.entities.values().cloned(),
             self.behaviors
                 .iter()
                 .map(|(n, b)| (n.clone(), Arc::new(b.clone())))
                 .collect(),
             self.bodies.clone(),
+            self.poses.clone(),
         )
     }
 
@@ -177,13 +198,14 @@ impl DefinitionDraft {
                 }
             }
         }
-        EnemyDefinitions::from_definitions(
+        EnemyDefinitions::from_definitions_with_poses(
             entities,
             self.behaviors
                 .iter()
                 .map(|(n, b)| (n.clone(), Arc::new(b.clone())))
                 .collect(),
             self.bodies.clone(),
+            self.poses.clone(),
         )
     }
 
@@ -286,6 +308,13 @@ impl DefinitionDraft {
             candidates.push((
                 self.assets.join("behaviors").join(format!("{name}.ron")),
                 serialize(behavior)?,
+            ));
+        }
+        for (name, pose) in &self.poses {
+            valid_filename(name)?;
+            candidates.push((
+                self.assets.join("poses").join(format!("{name}.ron")),
+                serialize(pose.as_ref())?,
             ));
         }
         for (name, body) in &self.bodies {
@@ -688,6 +717,7 @@ fn same_content(path: &Path, before: &[u8], after: &[u8]) -> Result<bool, String
         Some("behaviors") => compare::<BehaviorDefinition>(before, after),
         Some("bosses") => compare::<BossDefinition>(before, after),
         Some("bodies") => compare::<crate::body::BodyTemplate>(before, after),
+        Some("poses") => compare::<crate::pose::Pose>(before, after),
         _ => compare::<RoomEnemies>(before, after),
     }
 }
@@ -711,8 +741,15 @@ fn check_snapshot(
     expected: &BTreeMap<PathBuf, Option<Vec<u8>>>,
 ) -> Result<(), String> {
     check_expected(expected)?;
-    for directory in ["entities", "behaviors", "rooms", "bosses", "bodies"] {
-        if matches!(directory, "bosses" | "bodies") && !assets.join(directory).exists() {
+    for directory in [
+        "entities",
+        "behaviors",
+        "rooms",
+        "bosses",
+        "bodies",
+        "poses",
+    ] {
+        if matches!(directory, "bosses" | "bodies" | "poses") && !assets.join(directory).exists() {
             continue;
         }
         for path in ron_files(&assets.join(directory))? {

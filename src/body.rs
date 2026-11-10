@@ -133,6 +133,11 @@ pub struct BodyTemplate {
 
 impl BodyTemplate {
     pub fn validate(&self) -> Result<(), String> {
+        for semantic in self.pose_map.keys() {
+            if !crate::pose::SEMANTIC_POINTS.contains(&semantic.as_str()) {
+                return Err(format!("pose_map: unknown semantic point {semantic:?}"));
+            }
+        }
         self.pose_motion
             .validate()
             .map_err(|e| format!("pose motion: {e}"))?;
@@ -562,7 +567,9 @@ impl BodyInstance {
         self.target_overrides = previous
             .target_overrides
             .iter()
-            .filter(|(name, _)| self.template.points.contains_key(*name))
+            .filter(|(name, _)| {
+                self.template.points.contains_key(*name) && !previous.pose_points.contains(*name)
+            })
             .map(|(name, target)| (name.clone(), *target))
             .collect();
         self.refresh_targets();

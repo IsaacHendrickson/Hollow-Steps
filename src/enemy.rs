@@ -73,6 +73,17 @@ impl EnemyDefinitions {
         let behaviors = load_behaviors(&assets.join("behaviors"))?;
         let bodies = load_body_templates(&assets.join("bodies"))?;
         let poses = Arc::new(crate::pose::load_poses(&assets.join("poses"))?);
+        for (name, behavior) in &behaviors {
+            crate::pose::validate_behavior(behavior, &poses).map_err(|e| {
+                format!(
+                    "{}: {e}",
+                    assets
+                        .join("behaviors")
+                        .join(format!("{name}.ron"))
+                        .display()
+                )
+            })?;
+        }
         let mut entities = BTreeMap::new();
         for path in ron_files(&assets.join("entities"))? {
             let entity: EnemyDefinition = read_ron(&path)?;
@@ -87,6 +98,8 @@ impl EnemyDefinitions {
                     entity.behavior
                 ));
             }
+            crate::pose::validate_entity(&entity, &behaviors[&entity.behavior], &poses)
+                .map_err(|e| format!("{}: {e}", path.display()))?;
             if let Some(body) = &entity.body {
                 body.validate_template(&bodies)
                     .map_err(|e| format!("{}: entity {:?}: {e}", path.display(), entity.name))?;
@@ -113,6 +126,18 @@ impl EnemyDefinitions {
         behaviors: BTreeMap<String, Arc<BehaviorDefinition>>,
         bodies: BodyTemplates,
     ) -> Result<Self, String> {
+        Self::from_definitions_with_poses(entities, behaviors, bodies, crate::pose::Poses::new())
+    }
+
+    pub fn from_definitions_with_poses(
+        entities: impl IntoIterator<Item = EnemyDefinition>,
+        behaviors: BTreeMap<String, Arc<BehaviorDefinition>>,
+        bodies: BodyTemplates,
+        poses: crate::pose::Poses,
+    ) -> Result<Self, String> {
+        for (name, pose) in &poses {
+            pose.validate().map_err(|e| format!("pose {name:?}: {e}"))?;
+        }
         for (name, template) in &bodies {
             template
                 .validate()
@@ -120,6 +145,7 @@ impl EnemyDefinitions {
         }
         for behavior in behaviors.values() {
             behavior.validate()?;
+            crate::pose::validate_behavior(behavior, &poses)?;
         }
         let mut result = BTreeMap::new();
         for entity in entities {
@@ -131,6 +157,7 @@ impl EnemyDefinitions {
             if !behaviors.contains_key(&entity.behavior) {
                 return Err(format!("missing behavior {:?}", entity.behavior));
             }
+            crate::pose::validate_entity(&entity, &behaviors[&entity.behavior], &poses)?;
             if result.insert(entity.name.clone(), entity).is_some() {
                 return Err("duplicate entity name".into());
             }
@@ -139,7 +166,7 @@ impl EnemyDefinitions {
             entities: result,
             behaviors,
             bodies,
-            poses: Arc::default(),
+            poses: Arc::new(poses),
         })
     }
 

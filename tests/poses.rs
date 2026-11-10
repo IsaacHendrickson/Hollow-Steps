@@ -190,3 +190,191 @@ fn separate_telegraph_uses_following_action_binding_and_duration() {
         |s| matches!(s, PoseStep::Apply { name: Some(name), instant: true, .. } if name == "recoil")
     ));
 }
+
+#[test]
+fn validation_reports_unknown_pose_semantic_and_missing_body() {
+    use hollow_steps::{
+        behavior::BehaviorDefinition,
+        enemy::EnemyDefinition,
+        pose::{validate_behavior, validate_entity},
+    };
+    let poses = load_poses(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("poses"),
+    )
+    .unwrap();
+    let mut behavior =
+        BehaviorDefinition::from_ron(include_str!("fixtures/attacks/posed.ron")).unwrap();
+    validate_behavior(&behavior, &poses).unwrap();
+    let action = &mut behavior.states[0].actions[0];
+    let index = action
+        .parameters()
+        .iter()
+        .position(|(key, _)| *key == "telegraph_pose")
+        .unwrap();
+    action.set_parameter(index, "missing").unwrap();
+    let error = validate_behavior(&behavior, &poses).unwrap_err();
+    assert!(
+        error.contains("telegraph_pose")
+            && error.contains("unknown pose")
+            && error.contains("missing")
+    );
+    let entity: EnemyDefinition =
+        ron::from_str(include_str!("fixtures/entities/chase.ron")).unwrap();
+    assert!(validate_entity(&entity, &behavior, &poses)
+        .unwrap_err()
+        .contains("requires a body template"));
+    let mut template = body().template.as_ref().clone();
+    template.pose_map.insert("elbow".into(), "root".into());
+    let error = template.validate().unwrap_err();
+    assert!(
+        error.contains("pose_map")
+            && error.contains("unknown semantic point")
+            && error.contains("elbow")
+    );
+    let mut pose: Pose = ron::from_str(include_str!("fixtures/poses/windup.ron")).unwrap();
+    pose.offsets.insert("elbow".into(), (0.0, 0.0));
+    assert!(pose
+        .validate()
+        .unwrap_err()
+        .contains("unknown semantic point"));
+}
+
+struct Assets(std::path::PathBuf);
+impl Assets {
+    fn new() -> Self {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "hollow-poses-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures");
+        for directory in [
+            "entities",
+            "behaviors",
+            "rooms",
+            "bosses",
+            "bodies",
+            "poses",
+        ] {
+            std::fs::create_dir_all(path.join(directory)).unwrap();
+            for entry in std::fs::read_dir(fixture.join(directory)).unwrap() {
+                let entry = entry.unwrap();
+                std::fs::copy(entry.path(), path.join(directory).join(entry.file_name())).unwrap();
+            }
+        }
+        Self(path)
+    }
+    fn posed(&self) {
+        use hollow_steps::{definition_editor::serialize, enemy::EnemyDefinition};
+        let mut entity: EnemyDefinition =
+            ron::from_str(include_str!("fixtures/entities/chase.ron")).unwrap();
+        entity.body = Some(body().visual);
+        std::fs::write(
+            self.0.join("entities").join("chase.ron"),
+            serialize(&entity).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            self.0.join("bodies").join("small.ron"),
+            serialize(body().template.as_ref()).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            self.0.join("behaviors").join("chase.ron"),
+            include_str!("fixtures/attacks/posed.ron"),
+        )
+        .unwrap();
+    }
+}
+impl Drop for Assets {
+    fn drop(&mut self) {
+        std::fs::remove_dir_all(&self.0).unwrap();
+    }
+}
+
+#[test]
+fn staged_saves_validate_pose_catalog_and_leave_files_untouched_on_errors() {
+    use hollow_steps::{
+        behavior::BehaviorDefinition,
+        definition_editor::{write_files, DefinitionDraft},
+    };
+    let assets = Assets::new();
+    assets.posed();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let path = assets.0.join("behaviors").join("chase.ron");
+    let before = std::fs::read(&path).unwrap();
+    let original = draft.behaviors["chase"].clone();
+    draft.behaviors.insert(
+        "chase".into(),
+        BehaviorDefinition::from_ron(
+            &include_str!("fixtures/attacks/posed.ron").replace("windup", "missing"),
+        )
+        .unwrap(),
+    );
+    let error = draft.plan(&[]).unwrap_err();
+    let (reported, _) = error.split_once(": ").unwrap();
+    assert_eq!(Path::new(reported), path);
+    assert!(error.contains("unknown pose"));
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    draft.behaviors.insert("chase".into(), original);
+    let entity_path = draft.entity_path("chase").unwrap();
+    draft.entities.get_mut(&entity_path).unwrap().body = None;
+    assert!(draft
+        .plan(&[])
+        .unwrap_err()
+        .contains("requires a body template"));
+    draft.entities.get_mut(&entity_path).unwrap().body = Some(body().visual);
+    Arc::make_mut(draft.bodies.get_mut("small").unwrap())
+        .pose_map
+        .insert("elbow".into(), "root".into());
+    assert!(draft
+        .plan(&[])
+        .unwrap_err()
+        .contains("unknown semantic point"));
+    draft.bodies.insert("small".into(), body().template);
+    Arc::make_mut(draft.poses.get_mut("windup").unwrap())
+        .offsets
+        .get_mut("head")
+        .unwrap()
+        .0 = -0.3;
+    let plan = draft.plan(&[]).unwrap();
+    assert!(plan
+        .iter()
+        .any(|(p, _)| p == &assets.0.join("poses").join("windup.ron")));
+    write_files(&plan).unwrap();
+    let saved = DefinitionDraft::load(&assets.0).unwrap();
+    assert_eq!(saved.poses["windup"].offsets["head"].0, -0.3);
+}
+
+#[test]
+fn hot_reload_reads_new_poses_atomically_and_keeps_point_positions() {
+    use hollow_steps::{definition_editor::serialize, game::GameState, player::PlayerInput};
+    let assets = Assets::new();
+    assets.posed();
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    game.update(PlayerInput::default(), 0.1);
+    let old = game.room().enemies[0].body().unwrap().points.clone();
+    let path = assets.0.join("poses").join("windup.ron");
+    let mut pose: Pose = ron::from_str(include_str!("fixtures/poses/windup.ron")).unwrap();
+    pose.offsets.insert("head".into(), (-0.4, 0.0));
+    std::fs::write(&path, serialize(&pose).unwrap()).unwrap();
+    game.reload_rooms().unwrap();
+    assert_eq!(game.room().enemies[0].body().unwrap().points, old);
+    game.update(PlayerInput::default(), 0.01);
+    let body = game.room().enemies[0].body().unwrap();
+    assert_eq!(
+        body.targets["root"].x,
+        body.template.points["root"].rest.0 - 0.4
+    );
+    let before = body.points.clone();
+    std::fs::write(&path, "invalid pose").unwrap();
+    assert!(game.reload_rooms().unwrap_err().contains("windup.ron"));
+    assert_eq!(game.room().enemies[0].body().unwrap().points, before);
+}

@@ -62,3 +62,4 @@
 - Charger/Hopper/Shooter assignments use humanoid/animal/bird bodies with distinct palettes and visual scales: `assets/entities/`; `tests/shipped_rooms.rs`, `tests/bodies.rs`; manual visual check.
 - Compile-time hitbox/AttackBox/attack motion API guard against body-state parameters: `src/enemy_attack.rs`, `src/enemy.rs`; `tests/pose_geometry.rs`.
 - F3 legend shows the nearest body's current pose using the existing 18px HUD size: `src/body_debug.rs`, `src/body_draw.rs`; `tests/body_debug.rs`; manual F3 check.
+- Pose catalog/reference/semantic-map/body-binding validation shared by loading and transactional staged editor saves; F5 reload includes poses and discards stale pose overrides while preserving point motion: `src/pose.rs`, `src/body.rs`, `src/enemy.rs`, `src/definition_editor.rs`, `src/game.rs`; `tests/poses.rs`, `tests/bodies.rs`, `tests/reloading.rs`.
