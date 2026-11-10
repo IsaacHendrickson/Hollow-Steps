@@ -285,3 +285,29 @@ fn reload_picks_up_attack_edits_and_clears_old_projectiles_atomically() {
     );
     assert_eq!(format!("{game:?}"), before);
 }
+
+#[test]
+fn boss_modern_actions_reload_atomically_and_unchanged_runtime_survives() {
+    let assets = Assets::new();
+    assets.write(
+        "rooms/first.ron",
+        r#"(enemies: [], boss: Some((definition: "Ash Warden", position: (700.0, 436.0))))"#,
+    );
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    let before = format!("{:?}", game.room().boss_special);
+    game.reload_rooms().unwrap();
+    assert_eq!(format!("{:?}", game.room().boss_special), before);
+    let definition = include_str!("fixtures/bosses/ash_warden.ron")
+        .replace("health: 100", "health: 101")
+        .replace("glide_to_floor(speed: 1000.0)", "shoot_projectile(speed: 100.0, damage: 2, lifetime_secs: 2.0, size: (8.0, 8.0), aim: AtPlayer, count: 1, spread_degrees: 0.0, telegraph_secs: 0.0)");
+    assets.write("bosses/ash_warden.ron", &definition);
+    game.reload_rooms().unwrap();
+    assert_eq!(game.room().boss_special.as_ref().unwrap().max_health(), 101);
+    let committed = format!("{:?}", game.room().boss_special);
+    assets.write(
+        "bosses/ash_warden.ron",
+        &definition.replace("speed: 100.0", "speed: -1.0"),
+    );
+    assert!(game.reload_rooms().is_err());
+    assert_eq!(format!("{:?}", game.room().boss_special), committed);
+}

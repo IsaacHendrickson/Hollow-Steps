@@ -188,3 +188,40 @@ pub fn pose_legend(enemies: &[Enemy], player_position: Vec2) -> String {
         .unwrap_or("none");
     format!("F3: rest gray | current green | target yellow | hitbox red | pose: {pose}")
 }
+
+/// Shared action geometry for F3, independent of body templates and rendering.
+pub fn action_primitives(
+    origin: Vec2,
+    area: Option<crate::enemy_attack::AttackBox>,
+    projectiles: &[crate::enemy_attack::Projectile],
+) -> Vec<OverlayPrimitive> {
+    let mut primitives = Vec::new();
+    if let Some(area) = area {
+        let center = area.center(origin);
+        let size = Vec2::from(area.size);
+        primitives.push(match area.shape {
+            crate::enemy_attack::AttackShape::Circle => OverlayPrimitive::Circle {
+                position: center,
+                radius: size.x / 2.0,
+                color_slot: ColorSlot::Hitbox,
+            },
+            crate::enemy_attack::AttackShape::Rect => OverlayPrimitive::Rect {
+                rect: Rect::new(
+                    center.x - size.x / 2.0,
+                    center.y - size.y / 2.0,
+                    size.x,
+                    size.y,
+                ),
+                color_slot: ColorSlot::Hitbox,
+            },
+        });
+    }
+    for projectile in projectiles {
+        let top_left = projectile.position - projectile.size / 2.0;
+        primitives.push(OverlayPrimitive::Rect {
+            rect: Rect::new(top_left.x, top_left.y, projectile.size.x, projectile.size.y),
+            color_slot: ColorSlot::Hitbox,
+        });
+    }
+    primitives
+}

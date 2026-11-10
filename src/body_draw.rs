@@ -89,8 +89,31 @@ fn enemy_tint(enemy: &Enemy, color: Color) -> Color {
 }
 
 pub fn draw_enemy_attacks(enemy: &Enemy) {
-    if let Some(warning) = enemy.behavior().warning(enemy.size()) {
-        let center = warning.attack.center(enemy.position());
+    draw_attacks(
+        enemy.position(),
+        enemy.behavior().warning(enemy.size()),
+        enemy.behavior().projectiles(),
+        enemy.behavior().projectile_feedback().tint,
+    );
+}
+
+pub fn draw_boss_attacks(boss: &hollow_steps::boss_special::BossSpecials) {
+    draw_attacks(
+        boss.position(),
+        boss.warning(),
+        boss.projectiles(),
+        boss.projectile_feedback().tint,
+    );
+}
+
+fn draw_attacks(
+    origin: Vec2,
+    warning: Option<hollow_steps::enemy_attack::AttackWarning>,
+    projectiles: &[hollow_steps::enemy_attack::Projectile],
+    tint: (f32, f32, f32),
+) {
+    if let Some(warning) = warning {
+        let center = warning.attack.center(origin);
         let size = Vec2::from(warning.attack.size);
         let feedback = warning.feedback;
         let color = Color::new(
@@ -117,8 +140,7 @@ pub fn draw_enemy_attacks(enemy: &Enemy) {
             ),
         }
     }
-    let tint = enemy.behavior().projectile_feedback().tint;
-    for projectile in enemy.behavior().projectiles() {
+    for projectile in projectiles {
         let top_left = projectile.position - projectile.size / 2.0;
         draw_rectangle(
             top_left.x,
@@ -156,6 +178,7 @@ impl BodyDebugOverlay {
 pub fn draw_body_debug_overlay(
     overlay: &BodyDebugOverlay,
     enemies: &[Enemy],
+    boss: Option<&hollow_steps::boss_special::BossSpecials>,
     player_position: Vec2,
     to_screen: impl Fn(Vec2) -> Vec2,
     scale: f32,
@@ -166,7 +189,24 @@ pub fn draw_body_debug_overlay(
         Color::new(r, g, b, a)
     };
     let mut primitives = Vec::new();
+    if let Some(boss) = boss.filter(|boss| !boss.is_defeated()) {
+        let p = boss.position() - boss.size() / 2.0;
+        primitives.push(OverlayPrimitive::Rect {
+            rect: Rect::new(p.x, p.y, boss.size().x, boss.size().y),
+            color_slot: ColorSlot::Hitbox,
+        });
+        primitives.extend(hollow_steps::body_debug::action_primitives(
+            boss.position(),
+            boss.active_damage_area().or(boss.attack_warning()),
+            boss.projectiles(),
+        ));
+    }
     for (index, enemy) in enemies.iter().enumerate() {
+        primitives.extend(hollow_steps::body_debug::action_primitives(
+            enemy.position(),
+            enemy.behavior().active_damage_area(),
+            enemy.behavior().projectiles(),
+        ));
         let Some(body) = enemy.body() else {
             continue;
         };

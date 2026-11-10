@@ -126,3 +126,30 @@ fn shockwaves_are_shared_immediate_horizontal_checks_even_high_above_player() {
         assert_eq!(boss.update(0.01, player, BOUNDS), 0);
     }
 }
+
+#[test]
+fn f3_geometry_is_identical_for_shared_enemy_and_boss_damage() {
+    let action: Vec<Action> = ron::from_str(include_str!("fixtures/attacks/all.ron")).unwrap();
+    let player = Vec2::new(540.0, 444.0);
+    let mut enemy = behavior(vec![action[4].clone()]);
+    let mut position = Vec2::new(500.0, 300.0);
+    let mut boss = boss(vec![action[4].clone()], position);
+    boss.start_attack("Test", player, BOUNDS);
+    enemy.update(&mut position, context(player), 0.6);
+    boss.update(0.6, player, BOUNDS);
+    let enemy_geometry = hollow_steps::body_debug::action_primitives(
+        position,
+        enemy.active_damage_area(),
+        enemy.projectiles(),
+    );
+    let boss_geometry = hollow_steps::body_debug::action_primitives(
+        boss.position(),
+        boss.active_damage_area(),
+        boss.projectiles(),
+    );
+    assert_eq!(enemy_geometry, boss_geometry);
+    assert!(matches!(
+        enemy_geometry.as_slice(),
+        [hollow_steps::body_debug::OverlayPrimitive::Circle { radius: 50.0, .. }]
+    ));
+}

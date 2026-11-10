@@ -231,7 +231,8 @@ impl GameState {
     }
 
     /// Re-read every room and its enemy definitions before applying any changes.
-    /// Enemy gameplay restarts; matching body points, player, pickups, and boss progress stay intact.
+    /// Enemy gameplay restarts; matching body points, player, pickups, and unchanged bosses stay intact.
+    /// Changed boss definitions restart from their authored placement.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
         let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(&self.assets)?;
@@ -261,6 +262,14 @@ impl GameState {
                     }
                 }
                 current.enemies = std::mem::take(&mut reloaded.enemies);
+                let same_boss = match (&current.boss_special, &reloaded.boss_special) {
+                    (Some(current), Some(reloaded)) => current.same_definition(reloaded),
+                    (None, None) => true,
+                    _ => false,
+                };
+                if !same_boss {
+                    current.boss_special = reloaded.boss_special.take();
+                }
             } else {
                 self.rooms.push(reloaded);
             }

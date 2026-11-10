@@ -100,6 +100,28 @@ impl BossSpecials {
         })
     }
 
+    pub(crate) fn same_definition(&self, other: &Self) -> bool {
+        self.definition == other.definition
+    }
+
+    pub fn projectile_feedback(&self) -> crate::enemy_attack::AttackFeedback {
+        self.active
+            .and_then(|a| self.definition.attacks[a.index].actions.get(a.action))
+            .and_then(Action::feedback)
+            .unwrap_or_else(crate::enemy_attack::default_feedback)
+    }
+    pub fn warning(&self) -> Option<crate::enemy_attack::AttackWarning> {
+        let progress = self.runtime.attack_runtime.as_ref()?.windup_progress()?;
+        let attack = self.attack_warning()?;
+        let feedback = self.projectile_feedback();
+        Some(crate::enemy_attack::AttackWarning {
+            attack,
+            feedback,
+            strength: (1.0 + (std::f32::consts::TAU * feedback.flash_cycles * progress).cos())
+                / 2.0,
+        })
+    }
+
     pub fn name(&self) -> &str {
         &self.definition.name
     }
