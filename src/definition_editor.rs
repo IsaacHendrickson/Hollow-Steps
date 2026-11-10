@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::behavior::{read_ron, ron_files, BehaviorDefinition, State};
+use crate::body::{load_body_templates, BodyTemplates};
 use crate::boss_definition::{BossDefinition, BossDefinitions};
 use crate::enemy::{EnemyDefinition, EnemyDefinitions};
 use crate::room::RoomEnemies;
@@ -19,6 +20,7 @@ pub struct DefinitionDraft {
     /// Keys are stable filenames, independent of editable entity names.
     pub entities: BTreeMap<PathBuf, EnemyDefinition>,
     pub behaviors: BTreeMap<String, BehaviorDefinition>,
+    pub bodies: BodyTemplates,
     pub bosses: BTreeMap<PathBuf, BossDefinition>,
     original_boss_names: BTreeMap<PathBuf, String>,
     pub presets: Vec<crate::preset::BehaviorPreset>,
@@ -33,8 +35,8 @@ impl DefinitionDraft {
         let assets: PathBuf = assets.components().collect();
         let assets = assets.as_path();
         let mut originals = BTreeMap::new();
-        for directory in ["entities", "behaviors", "rooms", "bosses"] {
-            if directory == "bosses" && !assets.join(directory).exists() {
+        for directory in ["entities", "behaviors", "rooms", "bosses", "bodies"] {
+            if matches!(directory, "bosses" | "bodies") && !assets.join(directory).exists() {
                 continue;
             }
             for path in ron_files(&assets.join(directory))? {
@@ -75,6 +77,7 @@ impl DefinitionDraft {
             .map(|r| (r.id, crate::editor::RoomLayout::from_room(r)))
             .collect();
         let draft = Self {
+            bodies: load_body_templates(&assets.join("bodies"))?,
             presets: crate::preset::load_presets(&assets.join("presets"))?,
             originals,
             layouts,
@@ -150,6 +153,7 @@ impl DefinitionDraft {
                 .iter()
                 .map(|(n, b)| (n.clone(), Arc::new(b.clone())))
                 .collect(),
+            self.bodies.clone(),
         )
     }
 
@@ -171,6 +175,7 @@ impl DefinitionDraft {
                 .iter()
                 .map(|(n, b)| (n.clone(), Arc::new(b.clone())))
                 .collect(),
+            self.bodies.clone(),
         )
     }
 
@@ -302,6 +307,7 @@ impl DefinitionDraft {
             .keys()
             .filter(|path| {
                 path.parent() != Some(self.assets.join("rooms").as_path())
+                    && path.parent() != Some(self.assets.join("bodies").as_path())
                     && !candidates.iter().any(|(p, _)| p == *path)
             })
             .cloned()
@@ -429,6 +435,7 @@ impl DefinitionDraft {
             size: (32.0, 40.0),
             contact_damage: 1,
             behavior: behavior.clone(),
+            body: None,
         });
         if result.is_err() {
             self.behaviors.remove(&behavior);
@@ -688,8 +695,8 @@ fn check_snapshot(
     expected: &BTreeMap<PathBuf, Option<Vec<u8>>>,
 ) -> Result<(), String> {
     check_expected(expected)?;
-    for directory in ["entities", "behaviors", "rooms", "bosses"] {
-        if directory == "bosses" && !assets.join(directory).exists() {
+    for directory in ["entities", "behaviors", "rooms", "bosses", "bodies"] {
+        if matches!(directory, "bosses" | "bodies") && !assets.join(directory).exists() {
             continue;
         }
         for path in ron_files(&assets.join(directory))? {
@@ -732,7 +739,19 @@ pub fn entity_from_fields(fields: &[String; 6]) -> Result<EnemyDefinition, Strin
             .parse()
             .map_err(|_| "contact damage must be 0..255")?,
         behavior: fields[5].clone(),
+        body: None,
     };
+    entity.validate()?;
+    Ok(entity)
+}
+
+/// Apply entity fields and body settings together so ordinary edits retain the visual.
+pub fn entity_with_body(
+    fields: &[String; 6],
+    body: Option<crate::body::BodyVisual>,
+) -> Result<EnemyDefinition, String> {
+    let mut entity = entity_from_fields(fields)?;
+    entity.body = body;
     entity.validate()?;
     Ok(entity)
 }

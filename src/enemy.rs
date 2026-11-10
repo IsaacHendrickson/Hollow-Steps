@@ -9,6 +9,7 @@ use crate::behavior::{
     load_behaviors, read_ron, ron_files, Action, Behavior, BehaviorContext, BehaviorDefinition,
     Condition, State, Transition,
 };
+use crate::body::{load_body_templates, BodyInstance, BodyTemplates, BodyVisual};
 use crate::player::WorldBounds;
 
 pub const ENEMY_MAX_HEALTH: u8 = 3;
@@ -25,6 +26,8 @@ pub struct EnemyDefinition {
     pub size: (f32, f32),
     pub contact_damage: u8,
     pub behavior: String,
+    #[serde(default)]
+    pub body: Option<BodyVisual>,
 }
 
 impl EnemyDefinition {
@@ -48,6 +51,10 @@ impl EnemyDefinition {
         if self.behavior.trim().is_empty() {
             return Err(format!("entity {:?}: missing behavior name", self.name));
         }
+        if let Some(body) = &self.body {
+            body.validate()
+                .map_err(|e| format!("entity {:?}: {e}", self.name))?;
+        }
         Ok(())
     }
 }
@@ -57,11 +64,13 @@ impl EnemyDefinition {
 pub struct EnemyDefinitions {
     entities: BTreeMap<String, EnemyDefinition>,
     behaviors: BTreeMap<String, Arc<BehaviorDefinition>>,
+    bodies: BodyTemplates,
 }
 
 impl EnemyDefinitions {
     pub fn load(assets: &Path) -> Result<Self, String> {
         let behaviors = load_behaviors(&assets.join("behaviors"))?;
+        let bodies = load_body_templates(&assets.join("bodies"))?;
         let mut entities = BTreeMap::new();
         for path in ron_files(&assets.join("entities"))? {
             let entity: EnemyDefinition = read_ron(&path)?;
@@ -76,6 +85,10 @@ impl EnemyDefinitions {
                     entity.behavior
                 ));
             }
+            if let Some(body) = &entity.body {
+                body.validate_template(&bodies)
+                    .map_err(|e| format!("{}: entity {:?}: {e}", path.display(), entity.name))?;
+            }
             if entities.contains_key(&entity.name) {
                 return Err(format!(
                     "{}: duplicate entity name {:?}",
@@ -88,19 +101,30 @@ impl EnemyDefinitions {
         Ok(Self {
             entities,
             behaviors,
+            bodies,
         })
     }
 
     pub fn from_definitions(
         entities: impl IntoIterator<Item = EnemyDefinition>,
         behaviors: BTreeMap<String, Arc<BehaviorDefinition>>,
+        bodies: BodyTemplates,
     ) -> Result<Self, String> {
+        for (name, template) in &bodies {
+            template
+                .validate()
+                .map_err(|e| format!("body template {name:?}: {e}"))?;
+        }
         for behavior in behaviors.values() {
             behavior.validate()?;
         }
         let mut result = BTreeMap::new();
         for entity in entities {
             entity.validate()?;
+            if let Some(body) = &entity.body {
+                body.validate_template(&bodies)
+                    .map_err(|e| format!("entity {:?}: {e}", entity.name))?;
+            }
             if !behaviors.contains_key(&entity.behavior) {
                 return Err(format!("missing behavior {:?}", entity.behavior));
             }
@@ -111,6 +135,7 @@ impl EnemyDefinitions {
         Ok(Self {
             entities: result,
             behaviors,
+            bodies,
         })
     }
 
@@ -137,9 +162,10 @@ impl EnemyDefinitions {
             .entities
             .get(name)
             .ok_or_else(|| format!("missing enemy definition {name:?}"))?;
-        Enemy::from_definition(
+        Enemy::from_definition_with_templates(
             entity,
             self.behaviors[&entity.behavior].clone(),
+            &self.bodies,
             left,
             right,
             bounds,
@@ -155,6 +181,8 @@ pub struct Enemy {
     patrol_right: f32,
     name: String,
     size: Vec2,
+    body: Option<BodyInstance>,
+    facing_left: bool,
     max_health: u8,
     contact_damage: u8,
     behavior: Behavior,
@@ -213,6 +241,7 @@ impl Enemy {
                 size: (ENEMY_SIZE.x, ENEMY_SIZE.y),
                 contact_damage: 1,
                 behavior: "chase".into(),
+                body: None,
             },
             Arc::new(definition),
             left,
@@ -229,7 +258,30 @@ impl Enemy {
         right: f32,
         bounds: WorldBounds,
     ) -> Result<Self, String> {
+        Self::from_definition_with_templates(
+            definition,
+            behavior,
+            &BodyTemplates::new(),
+            left,
+            right,
+            bounds,
+        )
+    }
+
+    fn from_definition_with_templates(
+        definition: &EnemyDefinition,
+        behavior: Arc<BehaviorDefinition>,
+        templates: &BodyTemplates,
+        left: f32,
+        right: f32,
+        bounds: WorldBounds,
+    ) -> Result<Self, String> {
         definition.validate()?;
+        let body = definition
+            .body
+            .clone()
+            .map(|visual| BodyInstance::new(visual, templates))
+            .transpose()?;
         let size = Vec2::new(definition.size.0, definition.size.1);
         if !left.is_finite()
             || !right.is_finite()
@@ -248,6 +300,8 @@ impl Enemy {
             patrol_right: right,
             name: definition.name.clone(),
             size,
+            body,
+            facing_left: false,
             max_health: definition.health,
             contact_damage: definition.contact_damage,
             behavior: Behavior::new(behavior)?,
@@ -260,6 +314,14 @@ impl Enemy {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn body(&self) -> Option<&BodyInstance> {
+        self.body.as_ref()
+    }
+
+    pub fn facing_left(&self) -> bool {
+        self.facing_left
     }
 
     pub fn max_health(&self) -> u8 {
@@ -326,6 +388,7 @@ impl Enemy {
             self.knockback_remaining = (self.knockback_remaining - dt).max(0.0);
             return;
         }
+        let previous_x = self.position.x;
         self.behavior.update(
             &mut self.position,
             BehaviorContext {
@@ -338,6 +401,9 @@ impl Enemy {
             },
             dt,
         );
+        if self.position.x != previous_x {
+            self.facing_left = self.position.x < previous_x;
+        }
     }
 
     pub fn touches(&self, position: Vec2, size: Vec2) -> bool {

@@ -435,6 +435,7 @@ fn draw_entity_tools(
 pub(super) struct PropertyUi {
     pub(super) path: Option<std::path::PathBuf>,
     pub(super) fields: [String; 6],
+    pub(super) body: Option<hollow_steps::body::BodyVisual>,
     pub(super) behavior: String,
     pub(super) behavior_list: SearchList,
     pub(super) behavior_name: String,
@@ -479,6 +480,7 @@ impl PropertyUi {
             .as_ref()
             .and_then(|path| editor.content.entities.get(path))
         {
+            ui.body = entity.body.clone();
             ui.fields = [
                 entity.name.clone(),
                 entity.health.to_string(),
@@ -543,6 +545,55 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
             panel_label(ui, "Select an entity in Room tools or on the canvas");
         }
     });
+    if path.is_some() {
+        section(ui, "Body visual", |ui| {
+            egui::ComboBox::from_id_salt("body template")
+                .selected_text(p.body.as_ref().map_or("Box", |b| b.template.as_str()))
+                .show_ui(ui, |ui| {
+                    if ui.selectable_label(p.body.is_none(), "Box").clicked() {
+                        p.body = None;
+                    }
+                    for name in editor.content.bodies.keys() {
+                        if ui
+                            .selectable_label(
+                                p.body.as_ref().is_some_and(|b| b.template == *name),
+                                name,
+                            )
+                            .clicked()
+                        {
+                            if let Some(body) = &mut p.body {
+                                body.template = name.clone();
+                            } else {
+                                p.body = Some(hollow_steps::body::BodyVisual::for_template(name));
+                            }
+                        }
+                    }
+                });
+            if let Some(body) = &mut p.body {
+                ui.horizontal(|ui| {
+                    ui.label("Visual scale");
+                    ui.add(egui::DragValue::new(&mut body.scale));
+                });
+                for (label, color) in [
+                    ("Primary", &mut body.primary),
+                    ("Secondary", &mut body.secondary),
+                    ("Accent", &mut body.accent),
+                    ("Eye", &mut body.eye),
+                ] {
+                    ui.horizontal(|ui| {
+                        ui.label(label);
+                        let mut rgba = [color.0, color.1, color.2, color.3];
+                        if ui.color_edit_button_rgba_unmultiplied(&mut rgba).changed() {
+                            *color = (rgba[0], rgba[1], rgba[2], rgba[3]);
+                        }
+                    });
+                }
+                if let Err(e) = body.validate_template(&editor.content.bodies) {
+                    ui.colored_label(egui::Color32::LIGHT_RED, &e);
+                }
+            }
+        });
+    }
     draw_preset_picker(ui, editor, p, path.is_some());
     if draw_behavior_creation(ui, editor, p, path.as_deref()) {
         return;
@@ -599,7 +650,7 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
         };
     });
     if let Some(path) = &path {
-        if let Err(e) = hollow_steps::definition_editor::entity_from_fields(&p.fields)
+        if let Err(e) = hollow_steps::definition_editor::entity_with_body(&p.fields, p.body.clone())
             .and_then(|entity| editor.update_entity(path, entity))
         {
             error = Some(e);
@@ -867,12 +918,17 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
 }
 
 fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
-    use hollow_steps::definition_editor::{edit_state_lists, entity_from_fields};
+    use hollow_steps::definition_editor::{edit_state_lists, entity_with_body};
     if p.path
         .as_ref()
         .is_some_and(|path| editor.content.entities.contains_key(path))
     {
-        if let Err(error) = entity_from_fields(&p.fields) {
+        if let Err(error) = entity_with_body(&p.fields, p.body.clone()).and_then(|entity| {
+            if let Some(body) = &entity.body {
+                body.validate_template(&editor.content.bodies)?;
+            }
+            Ok(())
+        }) {
             return Some(error);
         }
     }
@@ -1412,6 +1468,48 @@ mod tests {
             hollow_steps::behavior::BehaviorDefinition::blank()
         );
         assert!(state.property.rows);
+    }
+
+    #[test]
+    fn body_settings_survive_entity_edits_and_invalid_collapsed_settings_block_save() {
+        let mut game = editor();
+        let editor = game.editor_mut().unwrap();
+        let path = editor.content.entity_path("chase").unwrap();
+        editor.content.entities.get_mut(&path).unwrap().body =
+            Some(hollow_steps::body::BodyVisual::for_template("small"));
+        let mut state = EditorUi {
+            properties: true,
+            property: PropertyUi::for_entity(editor, Some(path.clone())),
+            ..Default::default()
+        };
+        let original = state.property.body.clone();
+        state.property.fields[1] = "7".into();
+        let ctx = egui::Context::default();
+        let size = egui::vec2(960.0, 2400.0);
+        frame(&ctx, size, vec![], editor, &mut state);
+        assert_eq!(editor.content.entities[&path].body, original);
+        assert_eq!(editor.content.entities[&path].health, 7);
+        state.property.body.as_mut().unwrap().scale = 0.0;
+        let section_id: egui::Id = ctx.data(|d| {
+            d.get_temp(egui::Id::new(("section", "Body visual")))
+                .unwrap()
+        });
+        let mut collapse = egui::collapsing_header::CollapsingState::load_with_default_open(
+            &ctx, section_id, true,
+        );
+        collapse.set_open(false);
+        collapse.store(&ctx);
+        frame(&ctx, size, vec![], editor, &mut state);
+        assert!(pending_error(editor, &state.property)
+            .unwrap()
+            .contains("scale"));
+        assert_eq!(editor.content.entities[&path].body, original);
+        state.property.body = original;
+        state.property.body.as_mut().unwrap().template = "missing".into();
+        frame(&ctx, size, vec![], editor, &mut state);
+        assert!(pending_error(editor, &state.property)
+            .unwrap()
+            .contains("unknown body template"));
     }
 
     #[test]

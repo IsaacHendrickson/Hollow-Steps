@@ -1,5 +1,7 @@
 # Features
 
+- RON humanoid/bird/animal body templates, per-enemy palettes/scale and runtime point maps, ordered anchored shapes/point-connected limbs, horizontal mirroring, unchanged box fallback and hitboxes, editor body controls and staged-save validation, and atomic F5 body reload: `src/body.rs`, `src/body_draw.rs`, `src/enemy.rs`, `src/definition_editor.rs`, `src/editor_panel.rs`, `assets/bodies/`; `src/body.rs` unit tests, `tests/bodies.rs`, `tests/shipped_rooms.rs`, plus manual visual/editor check.
+
 - Boss entity picker and canvas placement/selection/drag/delete, egui boss properties and ordered attack/action editing with searchable action catalog, transactional validation and staged boss saves with rename propagation and runtime refresh: `src/boss_editor.rs`, `src/editor.rs`, `src/editor_panel/boss.rs`, `src/definition_editor.rs`, `src/game.rs`, `src/main.rs`; `tests/boss_editor.rs`, `tests/definition_editor.rs`, headless panel and canvas regression tests, plus manual editor check.
 
 - Validated RON boss definitions and room placements, cycle/seeded random attack selection, ordered shared actions, preserved Ash Warden Slam/Summon/Rings behavior, and a fixture-only ground pound: `src/boss_definition.rs`, `src/boss_special.rs`, `src/behavior.rs`, `src/room.rs`, `assets/bosses/`; `tests/boss_data.rs`, `tests/boss_special.rs`, `src/game.rs` boss tests.
