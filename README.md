@@ -675,3 +675,39 @@ Attack authoring notes:
 Manual attack check: run `cargo run`; observe Charger/Hopper/Shooter warnings and
 recovery, verify projectiles and slam hits, edit each action's nested fields in F2,
 save, then press F5 and confirm the edited attacks run with the new values.
+
+
+### Action poses
+
+`assets/poses/<name>.ron` stores `(offsets: {"head": (x, y), ...})` in local
+box fractions relative to rest. The seven semantic points are head, torso,
+hand_l, hand_r, foot_l, foot_r and tail. A template's `pose_map` translates
+these names to its own points; absent parts are skipped. Facing mirrors the
+existing body transform once. Pose state never enters damage or collision APIs.
+
+Attack actions have optional `telegraph_pose`, `active_pose`, `recovery_pose`,
+plus `pose_blend_ratio` (0.8) and `strike_stiffness_multiplier` (3.0). All shipped
+attack bindings are authored in behavior/preset data; generic editor actions
+start with empty bindings so they can be used by bodyless enemies. Separate
+`telegraph` actions use the following attack's binding and their own duration.
+Phase changes set/clear existing point targets. Pose targets use the exact
+critically damped spring solution with settling time derived from telegraph
+duration; unposed points retain their template follow/idle rules. Zero-duration
+strikes use the template's visual-only `instant_strike_secs` spring impulse.
+This does not extend attack timing or delay the next action.
+
+Each body's `hurt` fields select the damage pose, duration (0.15 seconds),
+blend time, flash duration, color and strength. Hurt overrides action poses,
+then resumes the current action target or idle. Warning outlines retain their
+30% alpha, with a separate `warning_tint_strength` (0.25).
+
+In the editor, phase and hurt poses have catalog dropdowns. **Pose assets**
+creates and edits pose offsets; **Body visual → Pose following** edits semantic
+mapping and spring tuning. Save validates the complete pose/body/action catalog
+before staging any files; F5 reloads it atomically and preserves point positions.
+F3's legend shows the nearest body's current pose using the existing HUD size.
+
+Manual check: watch Charger windup/strike, Hopper crouch/leap/stomp and Shooter
+windup/recoil facing both ways; damage each to check the white flash and hurt
+pose. Toggle F3 at different zoom levels. Edit a pose offset and binding, save,
+then press F5 and confirm the new motion with unchanged attack timing/hitboxes.

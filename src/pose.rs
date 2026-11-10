@@ -64,6 +64,7 @@ pub fn load_poses(directory: &Path) -> Result<Poses, String> {
             .file_stem()
             .and_then(|s| s.to_str())
             .ok_or("invalid pose filename")?;
+        validate_name(name).map_err(|e| format!("{}: {e}", path.display()))?;
         poses.insert(name.to_owned(), Arc::new(pose));
     }
     Ok(poses)
@@ -218,4 +219,15 @@ pub fn validate_entity(
 
 pub fn is_pose_parameter(field: &str) -> bool {
     matches!(field, "telegraph_pose" | "active_pose" | "recovery_pose")
+}
+
+pub fn validate_name(name: &str) -> Result<(), String> {
+    if name.is_empty()
+        || !name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
+    {
+        return Err("pose name must use lowercase letters, digits, underscores or hyphens".into());
+    }
+    Ok(())
 }

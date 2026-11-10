@@ -14,8 +14,9 @@ fn hitbox_and_attackbox_signatures_do_not_accept_body_state() {
     let _: fn(&Enemy, Vec2, Vec2) -> Option<DamageHit> = Enemy::attack_hit;
     let _: fn(Vec2, BehaviorContext, f32, f32, AttackBox, f32, f32) -> AttackRuntime =
         AttackRuntime::lunge;
-    let _: fn(Vec2, BehaviorContext, Vec2, f32, f32, Option<AttackBox>, f32, f32) -> AttackRuntime =
-        AttackRuntime::jump;
+    type JumpConstructor =
+        fn(Vec2, BehaviorContext, Vec2, f32, f32, Option<AttackBox>, f32, f32) -> AttackRuntime;
+    let _: JumpConstructor = AttackRuntime::jump;
     let _: fn(Vec2, BehaviorContext, f32, AttackBox, f32, f32) -> AttackRuntime =
         AttackRuntime::slam;
     let _: fn(&mut AttackRuntime, &mut Vec2, BehaviorContext, f64) -> (f64, bool) =

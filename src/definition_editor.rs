@@ -108,6 +108,24 @@ impl DefinitionDraft {
         Ok(draft)
     }
 
+    pub fn create_pose(&mut self, name: &str) -> Result<(), String> {
+        let name = name.trim();
+        crate::pose::validate_name(name)?;
+        if self.poses.contains_key(name) {
+            return Err(format!("pose {name:?} already exists"));
+        }
+        self.poses.insert(
+            name.into(),
+            Arc::new(crate::pose::Pose {
+                offsets: crate::pose::SEMANTIC_POINTS
+                    .iter()
+                    .map(|name| ((*name).into(), (0.0, 0.0)))
+                    .collect(),
+            }),
+        );
+        Ok(())
+    }
+
     pub fn entity_path(&self, original_name: &str) -> Option<PathBuf> {
         self.original_names
             .iter()

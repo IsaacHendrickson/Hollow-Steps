@@ -439,6 +439,7 @@ pub(super) struct PropertyUi {
     pub(super) behavior: String,
     pub(super) behavior_list: SearchList,
     pub(super) behavior_name: String,
+    pub(super) new_pose_name: String,
     pub(super) states: SearchList,
     pub(super) loaded_state: Option<(String, usize)>,
     pub(super) state_name: String,
@@ -570,6 +571,32 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
                     }
                 });
             if let Some(body) = &mut p.body {
+                section(ui, "Damage pose", |ui| {
+                    let names = editor.content.poses.keys().cloned().collect::<Vec<_>>();
+                    let mut pose = body.hurt.pose.clone().unwrap_or_default();
+                    pose_dropdown(
+                        ui,
+                        egui::Id::new("hurt pose"),
+                        "Hurt pose",
+                        &mut pose,
+                        &names,
+                    );
+                    body.hurt.pose = if pose.is_empty() { None } else { Some(pose) };
+                    for (label, value) in [
+                        ("Hurt duration (seconds)", &mut body.hurt.duration_secs),
+                        ("Hurt blend time (seconds)", &mut body.hurt.blend_secs),
+                        ("White flash duration (seconds)", &mut body.hurt.flash_secs),
+                        ("Flash tint strength (0..1)", &mut body.hurt.tint_strength),
+                        ("Flash red (0..1)", &mut body.hurt.tint.0),
+                        ("Flash green (0..1)", &mut body.hurt.tint.1),
+                        ("Flash blue (0..1)", &mut body.hurt.tint.2),
+                    ] {
+                        ui.horizontal(|ui| {
+                            ui.label(label);
+                            ui.add(egui::DragValue::new(value));
+                        });
+                    }
+                });
                 ui.horizontal(|ui| {
                     ui.label("Visual scale");
                     ui.add(egui::DragValue::new(&mut body.scale));
@@ -599,6 +626,54 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
             }
         });
     }
+    section(ui, "Pose assets", |ui| {
+        for (name, pose) in &mut editor.content.poses {
+            let before = pose.clone();
+            section(ui, name, |ui| {
+                let pose = std::sync::Arc::make_mut(pose);
+                for semantic in hollow_steps::pose::SEMANTIC_POINTS {
+                    ui.push_id((name, semantic), |ui| {
+                        let mut enabled = pose.offsets.contains_key(*semantic);
+                        if ui.checkbox(&mut enabled, *semantic).changed() {
+                            if enabled {
+                                pose.offsets.insert((*semantic).into(), (0.0, 0.0));
+                            } else {
+                                pose.offsets.remove(*semantic);
+                            }
+                        }
+                        if let Some(offset) = pose.offsets.get_mut(*semantic) {
+                            ui.horizontal(|ui| {
+                                ui.label("Offset X (box fraction)");
+                                ui.add(egui::DragValue::new(&mut offset.0));
+                                ui.label("Y");
+                                ui.add(egui::DragValue::new(&mut offset.1));
+                            });
+                        }
+                    });
+                }
+                if let Err(error) = pose.validate() {
+                    ui.colored_label(egui::Color32::LIGHT_RED, error);
+                }
+            });
+            editor.dirty |= before != *pose;
+        }
+        panel_input(
+            ui,
+            egui::Id::new("new pose name"),
+            "New pose name",
+            &mut p.new_pose_name,
+        );
+        if panel_button(ui, "Create pose") {
+            match editor.content.create_pose(&p.new_pose_name) {
+                Ok(()) => {
+                    editor.dirty = true;
+                    p.new_pose_name.clear();
+                    p.error = None;
+                }
+                Err(error) => p.error = Some(error),
+            }
+        }
+    });
     draw_preset_picker(ui, editor, p, path.is_some());
     if draw_behavior_creation(ui, editor, p, path.as_deref()) {
         return;
@@ -925,6 +1000,11 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
 
 fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
     use hollow_steps::definition_editor::{edit_state_lists, entity_with_body};
+    for (name, pose) in &editor.content.poses {
+        if let Err(error) = pose.validate() {
+            return Some(format!("pose {name:?}: {error}"));
+        }
+    }
     for (name, template) in &editor.content.bodies {
         if let Err(error) = template.validate() {
             return Some(format!("body template {name:?}: {error}"));
@@ -938,6 +1018,9 @@ fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
             if let Some(body) = &entity.body {
                 body.validate_template(&editor.content.bodies)?;
             }
+            if let Some(behavior) = editor.content.behaviors.get(&entity.behavior) {
+                hollow_steps::pose::validate_entity(&entity, behavior, &editor.content.poses)?;
+            }
             Ok(())
         }) {
             return Some(error);
@@ -945,7 +1028,10 @@ fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
     }
     if let Some((name, values)) = &p.key_values {
         if let Some(behavior) = editor.content.behaviors.get(name) {
-            if let Err(error) = values.apply(&mut behavior.clone()) {
+            let mut candidate = behavior.clone();
+            if let Err(error) = values.apply(&mut candidate).and_then(|_| {
+                hollow_steps::pose::validate_behavior(&candidate, &editor.content.poses)
+            }) {
                 return Some(error);
             }
         }
@@ -967,10 +1053,17 @@ fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
                 if let Err(error) = result {
                     return Some(error);
                 }
+                let mut behavior = behavior.clone();
+                behavior.states[*index] = candidate;
+                if let Err(error) =
+                    hollow_steps::pose::validate_behavior(&behavior, &editor.content.poses)
+                {
+                    return Some(error);
+                }
             }
         }
     }
-    None
+    editor.content.definitions().err()
 }
 
 fn draw_body_motion(ui: &mut egui::Ui, template: &mut hollow_steps::body::BodyTemplate) {
@@ -985,6 +1078,47 @@ fn draw_body_motion(ui: &mut egui::Ui, template: &mut hollow_steps::body::BodyTe
             ui.add(egui::DragValue::new(&mut follow.damping));
         });
     }
+    section(ui, "Pose following", |ui| {
+        for (label, value) in [
+            (
+                "Pose settling factor",
+                &mut template.pose_motion.settle_factor,
+            ),
+            (
+                "Minimum pose blend time (seconds)",
+                &mut template.pose_motion.min_blend_secs,
+            ),
+            (
+                "Instant strike impulse time (seconds)",
+                &mut template.pose_motion.instant_strike_secs,
+            ),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(label);
+                ui.add(egui::DragValue::new(value));
+            });
+        }
+        for semantic in hollow_steps::pose::SEMANTIC_POINTS {
+            let mut name = template
+                .pose_map
+                .get(*semantic)
+                .cloned()
+                .unwrap_or_default();
+            let names = template.points.keys().cloned().collect::<Vec<_>>();
+            pose_dropdown(
+                ui,
+                egui::Id::new(("pose map", semantic)),
+                semantic,
+                &mut name,
+                &names,
+            );
+            if name.is_empty() {
+                template.pose_map.remove(*semantic);
+            } else {
+                template.pose_map.insert((*semantic).into(), name);
+            }
+        }
+    });
     ui.label("Template motion (shared by all users)");
     follow_fields(ui, &mut template.follow);
     section(ui, "Point follow overrides", |ui| {
@@ -1533,6 +1667,29 @@ mod tests {
         frame(ctx, size, pointer(pos, true), editor, state);
         frame(ctx, size, pointer(pos, false), editor, state);
         frame(ctx, size, vec![], editor, state);
+    }
+
+    #[test]
+    fn collapsed_pose_authoring_values_still_block_invalid_saves() {
+        let mut game = editor();
+        let editor = game.editor_mut().unwrap();
+        let property = PropertyUi::default();
+        editor.content.create_pose("test_pose").unwrap();
+        std::sync::Arc::make_mut(editor.content.poses.get_mut("test_pose").unwrap())
+            .offsets
+            .insert("head".into(), (f32::NAN, 0.0));
+        assert!(pending_error(editor, &property)
+            .unwrap()
+            .contains("offsets must be finite"));
+        std::sync::Arc::make_mut(editor.content.poses.get_mut("test_pose").unwrap())
+            .offsets
+            .insert("head".into(), (0.2, 0.0));
+        std::sync::Arc::make_mut(editor.content.bodies.get_mut("small").unwrap())
+            .pose_motion
+            .settle_factor = 0.0;
+        assert!(pending_error(editor, &property)
+            .unwrap()
+            .contains("pose motion"));
     }
 
     #[test]

@@ -236,7 +236,7 @@ pub fn draw_body_debug_overlay(
         }
     }
     draw_text(
-        &hollow_steps::body_debug::pose_legend(enemies, player_position),
+        hollow_steps::body_debug::pose_legend(enemies, player_position),
         28.0,
         screen_height() - 48.0,
         f32::from(hollow_steps::body_debug::LEGEND_FONT_SIZE),

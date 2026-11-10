@@ -136,6 +136,7 @@ impl EnemyDefinitions {
         poses: crate::pose::Poses,
     ) -> Result<Self, String> {
         for (name, pose) in &poses {
+            crate::pose::validate_name(name).map_err(|e| format!("pose {name:?}: {e}"))?;
             pose.validate().map_err(|e| format!("pose {name:?}: {e}"))?;
         }
         for (name, template) in &bodies {

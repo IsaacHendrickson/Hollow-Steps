@@ -548,3 +548,95 @@ fn transition_interrupt_clears_targets_in_the_same_update() {
     assert_eq!(behavior.state_name(), "idle");
     assert!(body.pose_name.is_none());
 }
+
+#[test]
+fn all_pose_tuning_round_trips_through_staged_authoring() {
+    use hollow_steps::definition_editor::{write_files, DefinitionDraft};
+    let assets = Assets::new();
+    assets.posed();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    for invalid in ["", "../escape", "NaN", "bad name"] {
+        assert!(draft.create_pose(invalid).is_err());
+    }
+    draft.create_pose("custom_pose").unwrap();
+    assert!(draft.create_pose("custom_pose").is_err());
+    let pose = Arc::make_mut(draft.poses.get_mut("custom_pose").unwrap());
+    assert_eq!(pose.offsets.len(), 7);
+    pose.offsets.insert("head".into(), (0.31, -0.12));
+    let template = Arc::make_mut(draft.bodies.get_mut("small").unwrap());
+    template.pose_motion.settle_factor = 8.0;
+    template.pose_motion.min_blend_secs = 0.002;
+    template.pose_motion.instant_strike_secs = 0.05;
+    let entity_path = draft.entity_path("chase").unwrap();
+    let hurt = &mut draft
+        .entities
+        .get_mut(&entity_path)
+        .unwrap()
+        .body
+        .as_mut()
+        .unwrap()
+        .hurt;
+    hurt.pose = Some("custom_pose".into());
+    hurt.duration_secs = 0.2;
+    hurt.blend_secs = 0.04;
+    hurt.flash_secs = 0.12;
+    hurt.tint = (0.9, 1.0, 0.8);
+    hurt.tint_strength = 0.6;
+    let action = &mut draft.behaviors.get_mut("chase").unwrap().states[0].actions[0];
+    for (field, value) in [
+        ("telegraph_pose", "custom_pose"),
+        ("pose_blend_ratio", "0.7"),
+        ("strike_stiffness_multiplier", "4.0"),
+    ] {
+        let index = action
+            .parameters()
+            .iter()
+            .position(|(key, _)| *key == field)
+            .unwrap();
+        action.set_parameter(index, value).unwrap();
+    }
+    let expected_entity = draft.entities[&entity_path].clone();
+    let expected_template = draft.bodies["small"].clone();
+    let expected_action = draft.behaviors["chase"].states[0].actions[0].clone();
+    write_files(&draft.plan(&[]).unwrap()).unwrap();
+    let saved = DefinitionDraft::load(&assets.0).unwrap();
+    assert_eq!(saved.entities[&entity_path], expected_entity);
+    assert_eq!(saved.bodies["small"], expected_template);
+    assert_eq!(
+        saved.behaviors["chase"].states[0].actions[0],
+        expected_action
+    );
+    assert_eq!(saved.poses["custom_pose"].offsets["head"], (0.31, -0.12));
+}
+
+#[test]
+fn legacy_forms_reject_pose_fields_and_blend_values_validate() {
+    use hollow_steps::behavior::Action;
+    for text in [
+        "jump_to(dx: 0.0, dy: 0.0, speed: 100.0, active_pose: Some(\"windup\"))",
+        "slam_down(speed: 100.0, telegraph_pose: Some(\"windup\"))",
+        "area_blast(count: 3, radius: 50.0, fuse_time: 1.0, damage: 1, pose_blend_ratio: 0.8)",
+    ] {
+        assert!(ron::from_str::<Action>(text).is_err(), "{text}");
+    }
+    let mut action: Action =
+        ron::from_str::<Vec<Action>>(include_str!("fixtures/attacks/pose_actions.ron"))
+            .unwrap()
+            .remove(0);
+    let blend = action
+        .parameters()
+        .iter()
+        .position(|(key, _)| *key == "pose_blend_ratio")
+        .unwrap();
+    for invalid in ["0", "-1", "1.1", "NaN", "inf"] {
+        assert!(action.set_parameter(blend, invalid).is_err());
+    }
+    let strike = action
+        .parameters()
+        .iter()
+        .position(|(key, _)| *key == "strike_stiffness_multiplier")
+        .unwrap();
+    for invalid in ["0", "-1", "NaN", "inf"] {
+        assert!(action.set_parameter(strike, invalid).is_err());
+    }
+}

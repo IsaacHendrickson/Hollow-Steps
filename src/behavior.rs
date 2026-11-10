@@ -216,21 +216,21 @@ fn deserialize_jump<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
         active_pose: Option<String>,
         #[serde(default)]
         recovery_pose: Option<String>,
-        #[serde(default = "default_blend_ratio")]
-        pose_blend_ratio: f32,
-        #[serde(default = "default_strike_multiplier")]
-        strike_stiffness_multiplier: f32,
+        #[serde(default, deserialize_with = "present")]
+        pose_blend_ratio: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        strike_stiffness_multiplier: Option<f32>,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match (p.speed, p.air_time_secs) {
-        (Some(speed), None) if p.arc_height.is_none() && p.attack.0.is_none() && p.recovery_secs.is_none() && p.telegraph_secs.is_none() && p.feedback.is_none()
+        (Some(speed), None) if p.arc_height.is_none() && p.attack.0.is_none() && p.recovery_secs.is_none() && p.telegraph_secs.is_none() && p.feedback.is_none() && p.telegraph_pose.is_none() && p.active_pose.is_none() && p.recovery_pose.is_none() && p.pose_blend_ratio.is_none() && p.strike_stiffness_multiplier.is_none()
             => Ok(Action::JumpToPlayer { speed, dx: p.dx, dy: p.dy }),
         (None, Some(air_time_secs)) => Ok(Action::JumpTo { dx: p.dx, dy: p.dy, air_time_secs,
             arc_height: p.arc_height.unwrap_or_else(default_arc_height), attack: p.attack,
             recovery_secs: p.recovery_secs.ok_or_else(|| A::Error::custom("jump_to: missing recovery_secs"))?,
             telegraph_secs: p.telegraph_secs.ok_or_else(|| A::Error::custom("jump_to: missing telegraph_secs"))?,
             telegraph_pose: p.telegraph_pose, active_pose: p.active_pose, recovery_pose: p.recovery_pose,
-            pose_blend_ratio: p.pose_blend_ratio, strike_stiffness_multiplier: p.strike_stiffness_multiplier,
+            pose_blend_ratio: p.pose_blend_ratio.unwrap_or_else(default_blend_ratio), strike_stiffness_multiplier: p.strike_stiffness_multiplier.unwrap_or_else(default_strike_multiplier),
             feedback: p.feedback.unwrap_or_else(default_feedback) }),
         _ => Err(A::Error::custom("jump_to: provide air_time_secs and attack parameters, or legacy speed; do not mix forms")),
     }
@@ -255,10 +255,10 @@ fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
         active_pose: Option<String>,
         #[serde(default)]
         recovery_pose: Option<String>,
-        #[serde(default = "default_blend_ratio")]
-        pose_blend_ratio: f32,
-        #[serde(default = "default_strike_multiplier")]
-        strike_stiffness_multiplier: f32,
+        #[serde(default, deserialize_with = "present")]
+        pose_blend_ratio: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        strike_stiffness_multiplier: Option<f32>,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match p.attack {
@@ -274,11 +274,21 @@ fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result
             telegraph_pose: p.telegraph_pose,
             active_pose: p.active_pose,
             recovery_pose: p.recovery_pose,
-            pose_blend_ratio: p.pose_blend_ratio,
-            strike_stiffness_multiplier: p.strike_stiffness_multiplier,
+            pose_blend_ratio: p.pose_blend_ratio.unwrap_or_else(default_blend_ratio),
+            strike_stiffness_multiplier: p
+                .strike_stiffness_multiplier
+                .unwrap_or_else(default_strike_multiplier),
             feedback: p.feedback.unwrap_or_else(default_feedback),
         }),
-        None if p.recovery_secs.is_none() && p.telegraph_secs.is_none() && p.feedback.is_none() => {
+        None if p.recovery_secs.is_none()
+            && p.telegraph_secs.is_none()
+            && p.feedback.is_none()
+            && p.telegraph_pose.is_none()
+            && p.active_pose.is_none()
+            && p.recovery_pose.is_none()
+            && p.pose_blend_ratio.is_none()
+            && p.strike_stiffness_multiplier.is_none() =>
+        {
             Ok(Action::SlamDown { speed: p.speed })
         }
         None => Err(A::Error::custom(
@@ -315,21 +325,21 @@ fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
         active_pose: Option<String>,
         #[serde(default)]
         recovery_pose: Option<String>,
-        #[serde(default = "default_blend_ratio")]
-        pose_blend_ratio: f32,
-        #[serde(default = "default_strike_multiplier")]
-        strike_stiffness_multiplier: f32,
+        #[serde(default, deserialize_with = "present")]
+        pose_blend_ratio: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        strike_stiffness_multiplier: Option<f32>,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match (p.count, p.fuse_time, p.knockback, p.active_secs) {
-        (Some(count), Some(fuse_time), None, None) if p.telegraph_secs.is_none() && p.feedback.is_none() && p.knockback_secs.is_none() => Ok(Action::AreaBlast {
+        (Some(count), Some(fuse_time), None, None) if p.telegraph_secs.is_none() && p.feedback.is_none() && p.telegraph_pose.is_none() && p.active_pose.is_none() && p.recovery_pose.is_none() && p.pose_blend_ratio.is_none() && p.strike_stiffness_multiplier.is_none() && p.knockback_secs.is_none() => Ok(Action::AreaBlast {
             count, fuse_time, radius: p.radius, damage: u8::try_from(p.damage).map_err(|_| A::Error::custom("legacy blast damage must be 0..255"))? }),
         (None, None, Some(knockback), Some(active_secs)) => Ok(Action::RadialBlast {
             radius: p.radius, damage: p.damage, knockback, active_secs,
             knockback_secs: p.knockback_secs.unwrap_or_else(default_knockback_secs),
             telegraph_secs: p.telegraph_secs.ok_or_else(|| A::Error::custom("area_blast: missing telegraph_secs"))?,
             telegraph_pose: p.telegraph_pose, active_pose: p.active_pose, recovery_pose: p.recovery_pose,
-            pose_blend_ratio: p.pose_blend_ratio, strike_stiffness_multiplier: p.strike_stiffness_multiplier,
+            pose_blend_ratio: p.pose_blend_ratio.unwrap_or_else(default_blend_ratio), strike_stiffness_multiplier: p.strike_stiffness_multiplier.unwrap_or_else(default_strike_multiplier),
             feedback: p.feedback.unwrap_or_else(default_feedback) }),
         _ => Err(A::Error::custom("area_blast: requires knockback and active_secs, or legacy count and fuse_time; do not mix forms")),
     }
@@ -1480,16 +1490,12 @@ impl Action {
 }
 
 fn valid_pose_name(name: Option<String>) -> Result<(), String> {
-    if name.as_ref().is_some_and(|n| {
-        n.is_empty()
-            || !n
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
-    }) {
-        return Err("pose name must use lowercase letters, digits, underscores or hyphens".into());
+    if let Some(name) = name {
+        crate::pose::validate_name(&name)?;
     }
     Ok(())
 }
+
 impl Action {
     pub fn pose_bindings(&self) -> Option<[Option<String>; 3]> {
         match self {
