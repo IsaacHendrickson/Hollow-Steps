@@ -1,7 +1,7 @@
 //! Data-only body templates, validation, and window-free visual transforms.
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use macroquad::math::Vec2;
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,72 @@ pub type PointPositions = BTreeMap<String, Vec2>;
 #[serde(deny_unknown_fields)]
 pub struct BodyPoint {
     pub rest: (f32, f32),
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Follow {
+    pub stiffness: f32,
+    pub damping: f32,
+}
+
+impl Default for Follow {
+    fn default() -> Self {
+        motion_defaults().follow
+    }
+}
+
+impl Follow {
+    fn validate(self) -> Result<(), String> {
+        if !self.stiffness.is_finite() || self.stiffness <= 0.0 {
+            return Err("stiffness must be finite and positive".into());
+        }
+        if !self.damping.is_finite() || self.damping < 0.0 {
+            return Err("damping must be finite and nonnegative".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct IdleMotion {
+    pub point: String,
+    pub amplitude: (f32, f32),
+    pub period_secs: f32,
+    pub phase_offset_secs: f32,
+}
+
+impl IdleMotion {
+    pub fn for_point(point: &str) -> Self {
+        Self {
+            point: point.to_owned(),
+            ..motion_defaults().idle.clone()
+        }
+    }
+
+    pub fn offset_at(&self, game_time_secs: f64) -> Vec2 {
+        let cycle = (game_time_secs + f64::from(self.phase_offset_secs))
+            .rem_euclid(f64::from(self.period_secs))
+            / f64::from(self.period_secs);
+        Vec2::from(self.amplitude) * (std::f64::consts::TAU * cycle).sin() as f32
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MotionDefaults {
+    follow: Follow,
+    max_step_secs: f32,
+    idle: IdleMotion,
+}
+
+fn motion_defaults() -> &'static MotionDefaults {
+    static DEFAULTS: OnceLock<MotionDefaults> = OnceLock::new();
+    DEFAULTS.get_or_init(|| {
+        ron::from_str(include_str!("../data/body_motion_defaults.ron"))
+            .expect("valid body motion defaults")
+    })
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
@@ -53,10 +119,42 @@ pub struct BodyPart {
 pub struct BodyTemplate {
     pub points: BTreeMap<String, BodyPoint>,
     pub parts: Vec<BodyPart>,
+    #[serde(default)]
+    pub follow: Follow,
+    #[serde(default)]
+    pub follow_overrides: BTreeMap<String, Follow>,
+    #[serde(default)]
+    pub idle: Vec<IdleMotion>,
 }
 
 impl BodyTemplate {
     pub fn validate(&self) -> Result<(), String> {
+        self.follow.validate().map_err(|e| format!("follow: {e}"))?;
+        for (name, follow) in &self.follow_overrides {
+            if !self.points.contains_key(name) {
+                return Err(format!("follow override: unknown point {name:?}"));
+            }
+            follow
+                .validate()
+                .map_err(|e| format!("follow override {name:?}: {e}"))?;
+        }
+        for idle in &self.idle {
+            if !self.points.contains_key(&idle.point) {
+                return Err(format!("idle: unknown point {:?}", idle.point));
+            }
+            if !pair_finite(idle.amplitude) || !idle.phase_offset_secs.is_finite() {
+                return Err(format!(
+                    "idle {:?}: amplitude and phase must be finite",
+                    idle.point
+                ));
+            }
+            if !idle.period_secs.is_finite() || idle.period_secs <= 0.0 {
+                return Err(format!(
+                    "idle {:?}: period_secs must be finite and positive",
+                    idle.point
+                ));
+            }
+        }
         for (name, point) in &self.points {
             if name.trim().is_empty() || !pair_finite(point.rest) {
                 return Err(format!(
@@ -213,8 +311,12 @@ impl BodyVisual {
 pub struct BodyInstance {
     pub template: Arc<BodyTemplate>,
     pub visual: BodyVisual,
-    /// Entity-local box fractions. Each instance owns its current point positions.
+    /// Unmirrored entity-local box fractions; rendering alone applies facing.
     pub points: PointPositions,
+    pub velocities: PointPositions,
+    pub targets: PointPositions,
+    target_overrides: PointPositions,
+    game_time_secs: f64,
 }
 
 impl BodyInstance {
@@ -222,11 +324,109 @@ impl BodyInstance {
         visual.validate_template(templates)?;
         let template = templates[&visual.template].clone();
         template.validate()?;
-        Ok(Self {
+        let mut instance = Self {
             points: template.rest_positions(),
+            velocities: template
+                .points
+                .keys()
+                .map(|n| (n.clone(), Vec2::ZERO))
+                .collect(),
+            targets: template.rest_positions(),
+            target_overrides: PointPositions::new(),
+            game_time_secs: 0.0,
             template,
             visual,
-        })
+        };
+        instance.refresh_targets();
+        instance.snap_to_targets();
+        Ok(instance)
+    }
+
+    /// Override a point's target in unmirrored local box fractions.
+    pub fn set_target(&mut self, point_name: &str, position: Vec2) -> Result<(), String> {
+        if !self.template.points.contains_key(point_name) {
+            return Err(format!("unknown point {point_name:?}"));
+        }
+        if !position.is_finite() {
+            return Err(format!("target {point_name:?}: position must be finite"));
+        }
+        self.target_overrides
+            .insert(point_name.to_owned(), position);
+        self.targets.insert(point_name.to_owned(), position);
+        Ok(())
+    }
+
+    /// Resume rest + idle at the current game time, without snapping the point.
+    pub fn clear_target(&mut self, point_name: &str) -> Result<(), String> {
+        if !self.template.points.contains_key(point_name) {
+            return Err(format!("unknown point {point_name:?}"));
+        }
+        self.target_overrides.remove(point_name);
+        self.refresh_targets();
+        Ok(())
+    }
+
+    pub fn snap_to_targets(&mut self) {
+        self.points.clone_from(&self.targets);
+        self.velocities.values_mut().for_each(|v| *v = Vec2::ZERO);
+    }
+
+    fn refresh_targets(&mut self) {
+        self.targets = self.template.rest_positions();
+        for idle in &self.template.idle {
+            *self
+                .targets
+                .get_mut(&idle.point)
+                .expect("validated idle point") += idle.offset_at(self.game_time_secs);
+        }
+        for (name, target) in &self.target_overrides {
+            self.targets.insert(name.clone(), *target);
+        }
+    }
+
+    /// Explicit game delta only. Idle uses game time; only spring integration is capped.
+    pub fn step(&mut self, delta_seconds: f32) {
+        if !delta_seconds.is_finite() || delta_seconds <= 0.0 {
+            return;
+        }
+        self.game_time_secs += f64::from(delta_seconds);
+        self.refresh_targets();
+        let dt = delta_seconds.min(motion_defaults().max_step_secs);
+        for (name, position) in &mut self.points {
+            let follow = self
+                .template
+                .follow_overrides
+                .get(name)
+                .unwrap_or(&self.template.follow);
+            let velocity = self
+                .velocities
+                .get_mut(name)
+                .expect("runtime point velocity");
+            let acceleration =
+                follow.stiffness * (self.targets[name] - *position) - follow.damping * *velocity;
+            *velocity += acceleration * dt;
+            *position += *velocity * dt;
+        }
+    }
+
+    /// Apply a reloaded template while retaining motion for surviving point names.
+    pub fn preserve_motion_from(&mut self, previous: &Self) {
+        self.game_time_secs = previous.game_time_secs;
+        self.target_overrides = previous
+            .target_overrides
+            .iter()
+            .filter(|(name, _)| self.template.points.contains_key(*name))
+            .map(|(name, target)| (name.clone(), *target))
+            .collect();
+        self.refresh_targets();
+        self.snap_to_targets();
+        for (name, position) in &mut self.points {
+            if let Some(previous_position) = previous.points.get(name) {
+                *position = *previous_position;
+                self.velocities
+                    .insert(name.clone(), previous.velocities[name]);
+            }
+        }
     }
 
     pub fn part_transform(

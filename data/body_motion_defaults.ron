@@ -1,0 +1,6 @@
+(
+    follow: (stiffness: 120.0, damping: 18.0),
+    // Engine safety cap: 1/30 second, independent of gameplay/physics dt.
+    max_step_secs: 0.033333335,
+    idle: (point: "", amplitude: (0.0, 0.01), period_secs: 2.4, phase_offset_secs: 0.0),
+)

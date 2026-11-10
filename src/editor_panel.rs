@@ -591,6 +591,11 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
                 if let Err(e) = body.validate_template(&editor.content.bodies) {
                     ui.colored_label(egui::Color32::LIGHT_RED, &e);
                 }
+                if let Some(template) = editor.content.bodies.get_mut(&body.template) {
+                    let before = template.clone();
+                    draw_body_motion(ui, std::sync::Arc::make_mut(template));
+                    editor.dirty |= before != *template;
+                }
             }
         });
     }
@@ -919,6 +924,11 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
 
 fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
     use hollow_steps::definition_editor::{edit_state_lists, entity_with_body};
+    for (name, template) in &editor.content.bodies {
+        if let Err(error) = template.validate() {
+            return Some(format!("body template {name:?}: {error}"));
+        }
+    }
     if p.path
         .as_ref()
         .is_some_and(|path| editor.content.entities.contains_key(path))
@@ -960,6 +970,85 @@ fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
         }
     }
     None
+}
+
+fn draw_body_motion(ui: &mut egui::Ui, template: &mut hollow_steps::body::BodyTemplate) {
+    use hollow_steps::body::{Follow, IdleMotion};
+    fn follow_fields(ui: &mut egui::Ui, follow: &mut Follow) {
+        ui.horizontal(|ui| {
+            ui.label("Stiffness");
+            ui.add(egui::DragValue::new(&mut follow.stiffness));
+        });
+        ui.horizontal(|ui| {
+            ui.label("Damping");
+            ui.add(egui::DragValue::new(&mut follow.damping));
+        });
+    }
+    ui.label("Template motion (shared by all users)");
+    follow_fields(ui, &mut template.follow);
+    section(ui, "Point follow overrides", |ui| {
+        for point in template.points.keys() {
+            ui.push_id(point, |ui| {
+                let mut enabled = template.follow_overrides.contains_key(point);
+                let response = ui.checkbox(&mut enabled, point);
+                #[cfg(test)]
+                ui.data_mut(|data| {
+                    data.insert_temp(egui::Id::new(("follow override", point)), response.rect)
+                });
+                if response.changed() {
+                    if enabled {
+                        template
+                            .follow_overrides
+                            .insert(point.clone(), template.follow);
+                    } else {
+                        template.follow_overrides.remove(point);
+                    }
+                }
+                if let Some(follow) = template.follow_overrides.get_mut(point) {
+                    follow_fields(ui, follow);
+                }
+            });
+        }
+    });
+    section(ui, "Idle motion", |ui| {
+        let mut remove = None;
+        for (index, idle) in template.idle.iter_mut().enumerate() {
+            ui.push_id(index, |ui| {
+                egui::ComboBox::from_id_salt("idle point")
+                    .selected_text(&idle.point)
+                    .show_ui(ui, |ui| {
+                        for name in template.points.keys() {
+                            ui.selectable_value(&mut idle.point, name.clone(), name);
+                        }
+                    });
+                for (label, value) in [
+                    ("Amplitude X (box fraction)", &mut idle.amplitude.0),
+                    ("Amplitude Y (box fraction)", &mut idle.amplitude.1),
+                    ("Period (seconds)", &mut idle.period_secs),
+                    ("Phase offset (seconds)", &mut idle.phase_offset_secs),
+                ] {
+                    ui.horizontal(|ui| {
+                        ui.label(label);
+                        ui.add(egui::DragValue::new(value));
+                    });
+                }
+                if panel_button(ui, "Remove idle entry") {
+                    remove = Some(index);
+                }
+            });
+        }
+        if let Some(index) = remove {
+            template.idle.remove(index);
+        }
+        if let Some(point) = template.points.keys().next() {
+            if panel_button(ui, "Add idle entry") {
+                template.idle.push(IdleMotion::for_point(point));
+            }
+        }
+    });
+    if let Err(error) = template.validate() {
+        ui.colored_label(egui::Color32::LIGHT_RED, error);
+    }
 }
 
 fn draw_preset_picker(
@@ -1510,6 +1599,69 @@ mod tests {
         assert!(pending_error(editor, &state.property)
             .unwrap()
             .contains("unknown body template"));
+    }
+
+    #[test]
+    fn body_motion_controls_add_remove_overrides_and_idle_and_block_invalid_saves() {
+        let mut game = editor();
+        let editor = game.editor_mut().unwrap();
+        let path = editor.content.entity_path("chase").unwrap();
+        editor.content.entities.get_mut(&path).unwrap().body =
+            Some(hollow_steps::body::BodyVisual::for_template("small"));
+        let mut state = EditorUi {
+            properties: true,
+            property: PropertyUi::for_entity(editor, Some(path)),
+            ..Default::default()
+        };
+        let ctx = egui::Context::default();
+        let size = egui::vec2(960.0, 3000.0);
+        frame(&ctx, size, vec![], editor, &mut state);
+        let checkbox: egui::Rect = ctx.data(|data| {
+            data.get_temp(egui::Id::new(("follow override", "root")))
+                .unwrap()
+        });
+        click(&ctx, size, checkbox.center(), editor, &mut state);
+        assert_eq!(
+            editor.content.bodies["small"].follow_overrides["root"],
+            editor.content.bodies["small"].follow
+        );
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Add idle entry").center(),
+            editor,
+            &mut state,
+        );
+        assert_eq!(editor.content.bodies["small"].idle.len(), 1);
+        assert_eq!(editor.content.bodies["small"].idle[0].point, "root");
+        assert!(editor.dirty);
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Remove idle entry").center(),
+            editor,
+            &mut state,
+        );
+        assert!(editor.content.bodies["small"].idle.is_empty());
+        std::sync::Arc::make_mut(editor.content.bodies.get_mut("small").unwrap())
+            .follow_overrides
+            .get_mut("root")
+            .unwrap()
+            .damping = -1.0;
+        let id: egui::Id = ctx.data(|data| {
+            data.get_temp(egui::Id::new(("section", "Body visual")))
+                .unwrap()
+        });
+        let mut collapsed =
+            egui::collapsing_header::CollapsingState::load_with_default_open(&ctx, id, true);
+        collapsed.set_open(false);
+        collapsed.store(&ctx);
+        frame(&ctx, size, vec![], editor, &mut state);
+        let error = pending_error(editor, &state.property).unwrap();
+        assert!(
+            error.contains("small") && error.contains("root") && error.contains("damping"),
+            "{error}"
+        );
     }
 
     #[test]

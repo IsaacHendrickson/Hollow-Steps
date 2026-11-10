@@ -320,6 +320,20 @@ impl Enemy {
         self.body.as_ref()
     }
 
+    pub fn body_mut(&mut self) -> Option<&mut BodyInstance> {
+        self.body.as_mut()
+    }
+
+    pub(crate) fn placement_key(&self) -> (&str, f32, f32) {
+        (&self.name, self.patrol_left, self.patrol_right)
+    }
+
+    pub(crate) fn preserve_body_motion_from(&mut self, previous: &Self) {
+        if let (Some(body), Some(old_body)) = (&mut self.body, &previous.body) {
+            body.preserve_motion_from(old_body);
+        }
+    }
+
     pub fn facing_left(&self) -> bool {
         self.facing_left
     }
@@ -376,6 +390,9 @@ impl Enemy {
         };
         if self.is_dead() {
             return;
+        }
+        if let Some(body) = &mut self.body {
+            body.step(dt);
         }
         if self.knockback_remaining > 0.0 {
             let knockback_dt = dt.min(self.knockback_remaining);

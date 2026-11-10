@@ -1,0 +1,16 @@
+(
+    points: {
+        "root": (rest: (0.1, -0.2)),
+        "tip": (rest: (0.4, 0.3)),
+    },
+    follow: (stiffness: 120.0, damping: 18.0),
+    follow_overrides: {"tip": (stiffness: 80.0, damping: 8.0)},
+    idle: [
+        (point: "root", amplitude: (0.01, 0.02), period_secs: 4.0, phase_offset_secs: 1.0),
+        (point: "tip", amplitude: (0.03, 0.0), period_secs: 4.0, phase_offset_secs: 3.0),
+    ],
+    parts: [
+        (name: "limb", shape: Line, from: Some("root"), to: Some("tip"), size: (0.04, 0.08), rotation: 0.0, color_slot: secondary),
+        (name: "core", shape: Rect, anchor: Some("root"), offset: Some((0.05, 0.1)), size: (0.2, 0.4), rotation: 90.0, color_slot: primary),
+    ],
+)

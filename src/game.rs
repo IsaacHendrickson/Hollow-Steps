@@ -231,7 +231,7 @@ impl GameState {
     }
 
     /// Re-read every room and its enemy definitions before applying any changes.
-    /// Enemy lists restart; player, pickups, and boss progress stay intact.
+    /// Enemy gameplay restarts; matching body points, player, pickups, and boss progress stay intact.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
         let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(&self.assets)?;
@@ -239,6 +239,27 @@ impl GameState {
         Self::validate_destinations(&rooms, &definitions)?;
         for mut reloaded in rooms {
             if let Some(current) = self.rooms.iter_mut().find(|room| room.id == reloaded.id) {
+                // Prefer exact placements before matching moved placements by name/occurrence.
+                let mut available = current.enemies.iter().map(Some).collect::<Vec<_>>();
+                let mut matched = vec![false; reloaded.enemies.len()];
+                for (index, enemy) in reloaded.enemies.iter_mut().enumerate() {
+                    if let Some(previous) = available.iter_mut().find(|old| {
+                        old.is_some_and(|old| old.placement_key() == enemy.placement_key())
+                    }) {
+                        enemy.preserve_body_motion_from(previous.take().unwrap());
+                        matched[index] = true;
+                    }
+                }
+                for (index, enemy) in reloaded.enemies.iter_mut().enumerate() {
+                    if !matched[index] {
+                        if let Some(previous) = available
+                            .iter_mut()
+                            .find(|old| old.is_some_and(|old| old.name() == enemy.name()))
+                        {
+                            enemy.preserve_body_motion_from(previous.take().unwrap());
+                        }
+                    }
+                }
                 current.enemies = std::mem::take(&mut reloaded.enemies);
             } else {
                 self.rooms.push(reloaded);

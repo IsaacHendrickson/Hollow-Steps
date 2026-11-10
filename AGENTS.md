@@ -65,7 +65,7 @@ Gameplay modules (pure rules, no rendering):
   collision resolution, and player-focused tests.
 - `src/health.rs`: player health, damage, and invincibility.
 - `src/enemy.rs`: enemy behavior, health, knockback, death, and body instances.
-- `src/body.rs`: validated RON body templates, instance point maps, palettes, and pure transforms.
+- `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/behavior.rs`: data-driven action sequences, state transitions, and RON validation.
 - `src/preset.rs`: validated RON behavior preset catalog.
 - `src/behavior_values.rs`: numeric behavior controls and transactional validated edits.
