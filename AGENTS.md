@@ -66,6 +66,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/health.rs`: player health, damage, and invincibility.
 - `src/enemy.rs`: enemy behavior, health, knockback, death, and body instances.
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
+- `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
 - `src/behavior.rs`: data-driven action sequences, state transitions, and RON validation.
 - `src/preset.rs`: validated RON behavior preset catalog.
 - `src/behavior_values.rs`: numeric behavior controls and transactional validated edits.
@@ -83,7 +84,7 @@ Gameplay modules (pure rules, no rendering):
 
 Composition and front end:
 
-- `src/body_draw.rs`: Macroquad adapter for ordered body parts and legacy enemy boxes.
+- `src/body_draw.rs`: Macroquad adapter for ordered body parts, legacy enemy boxes, and debug overlays.
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.

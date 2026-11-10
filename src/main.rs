@@ -29,9 +29,13 @@ async fn main() {
     let mut reload_result = None;
     let mut reload_scroll = 0;
     let mut editor_ui = EditorUi::default();
+    let mut body_debug = false;
 
     loop {
         let delta_seconds = get_frame_time().min(1.0 / 15.0);
+        if is_key_pressed(KeyCode::F3) {
+            body_debug = !body_debug;
+        }
         if is_key_pressed(KeyCode::F2) {
             if let Err(error) = game.toggle_editor() {
                 reload_result = Some(Err(error));
@@ -39,7 +43,7 @@ async fn main() {
             editor_ui = EditorUi::default();
         }
         if game.editor().is_some() {
-            draw_editor(&mut game, &mut editor_ui);
+            draw_editor(&mut game, &mut editor_ui, body_debug);
             next_frame().await;
             continue;
         }
@@ -65,6 +69,14 @@ async fn main() {
         // cannot replay earlier gameplay clicks or keys into its controls.
         egui_macroquad::ui(|_| {});
         egui_macroquad::draw();
+        if body_debug {
+            body_draw::draw_body_debug_overlay(
+                &game.room().enemies,
+                game.player().position(),
+                |position| position,
+                1.0,
+            );
+        }
         next_frame().await;
     }
 }
@@ -612,8 +624,9 @@ fn editor_markers(
     markers
 }
 
-fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
+fn draw_editor(game: &mut GameState, state: &mut EditorUi, body_debug: bool) {
     clear_background(Color::from_rgba(16, 18, 31, 255));
+    let player_position = game.player().position();
     let editor = game.editor_mut().expect("editor open");
     if let Ok(definitions) = editor.content.placement_definitions() {
         editor.definitions = definitions;
@@ -833,6 +846,31 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
         save = false;
     }
     egui_macroquad::draw();
+    if body_debug && state.destination.is_none() {
+        // Preview authored placements and unsaved definitions without touching runtime bodies.
+        let enemies = editor
+            .draft
+            .enemies
+            .iter()
+            .filter_map(|placement| {
+                editor
+                    .definitions
+                    .spawn(
+                        &placement.definition,
+                        placement.patrol_left,
+                        placement.patrol_right,
+                        editor.draft.layout.world_bounds(),
+                    )
+                    .ok()
+            })
+            .collect::<Vec<_>>();
+        body_draw::draw_body_debug_overlay(
+            &enemies,
+            player_position,
+            |position| canvas.screen(position),
+            canvas.scale,
+        );
+    }
     if save {
         state.dragging = None;
         if let Err(error) = game.save_editor() {

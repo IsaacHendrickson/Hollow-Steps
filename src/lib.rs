@@ -6,6 +6,7 @@
 pub mod behavior;
 pub mod behavior_values;
 pub mod body;
+pub mod body_debug;
 pub mod boss;
 pub mod boss_definition;
 pub mod boss_editor;

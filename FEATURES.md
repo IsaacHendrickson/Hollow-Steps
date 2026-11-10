@@ -1,5 +1,7 @@
 # Features
 
+- Session-only F3 body debug overlay in gameplay and the room editor, mirrored rest/current/target dots, target lines, gameplay hitboxes, and nearest-body point labels: `src/body_debug.rs`, `src/body_draw.rs`, `src/main.rs`; `tests/body_debug.rs`, plus manual F3/facing/editor check.
+
 - Data-driven damped point following with 120/22 defaults and subtle humanoid/bird/animal idle motion, game-time pause, local-space target/snap API, per-point spring overrides, validation, F5 motion preservation, and shared-template editor controls/save round trips: `src/body.rs`, `src/enemy.rs`, `src/game.rs`, `src/definition_editor.rs`, `src/editor_panel.rs`, `data/body_motion_defaults.ron`, `assets/bodies/`; `tests/body_motion.rs`, `tests/bodies.rs`, `src/editor_panel.rs` headless tests, plus README manual check.
 
 - RON humanoid/bird/animal body templates, per-enemy palettes/scale and runtime point maps, ordered anchored shapes/point-connected limbs, horizontal mirroring, unchanged box fallback and hitboxes, editor body controls and staged-save validation, and atomic F5 body reload: `src/body.rs`, `src/body_draw.rs`, `src/enemy.rs`, `src/definition_editor.rs`, `src/editor_panel.rs`, `assets/bodies/`; `src/body.rs` unit tests, `tests/bodies.rs`, `tests/shipped_rooms.rs`, plus manual visual/editor check.
