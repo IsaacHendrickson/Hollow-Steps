@@ -81,3 +81,98 @@ impl AttackBox {
 pub fn active_window(elapsed: f64, start: f64, duration: f32) -> bool {
     elapsed >= start && elapsed < start + f64::from(duration)
 }
+
+impl std::fmt::Display for AttackBox {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&ron::to_string(self).map_err(|_| std::fmt::Error)?)
+    }
+}
+impl std::str::FromStr for AttackBox {
+    type Err = String;
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let attack: Self = ron::from_str(text).map_err(|e| e.to_string())?;
+        attack.validate()?;
+        Ok(attack)
+    }
+}
+pub(crate) fn valid_attack(attack: AttackBox) -> Result<(), String> {
+    attack.validate()
+}
+
+use crate::behavior::BehaviorContext;
+
+#[derive(Clone, Debug)]
+enum Motion {
+    Lunge { velocity: Vec2, duration: f64 },
+}
+
+#[derive(Clone, Debug)]
+pub struct AttackRuntime {
+    motion: Motion,
+    attack: Option<AttackBox>,
+    telegraph: f64,
+    recovery: f64,
+    elapsed: f64,
+    start: Vec2,
+    pub active: Option<AttackBox>,
+}
+
+impl AttackRuntime {
+    pub fn lunge(
+        position: Vec2,
+        context: BehaviorContext,
+        speed: f32,
+        duration: f32,
+        attack: AttackBox,
+        recovery: f32,
+        telegraph: f32,
+    ) -> Self {
+        let direction = (context.player_position - position).normalize_or_zero();
+        Self {
+            motion: Motion::Lunge {
+                velocity: direction * speed,
+                duration: f64::from(duration),
+            },
+            attack: Some(attack),
+            telegraph: f64::from(telegraph),
+            recovery: f64::from(recovery),
+            elapsed: 0.0,
+            start: position,
+            active: None,
+        }
+    }
+
+    pub fn warning(&self) -> Option<AttackBox> {
+        (self.elapsed < self.telegraph)
+            .then_some(self.attack)
+            .flatten()
+    }
+
+    pub fn step(&mut self, position: &mut Vec2, context: BehaviorContext, dt: f64) -> (f64, bool) {
+        let Motion::Lunge { velocity, duration } = self.motion;
+        let end = self.telegraph + duration + self.recovery;
+        let used = dt.min((end - self.elapsed).max(0.0));
+        self.elapsed += used;
+        let travel_time = (self.elapsed - self.telegraph).clamp(0.0, duration);
+        *position = (self.start.as_dvec2() + velocity.as_dvec2() * travel_time).as_vec2();
+        clamp_to_room(position, context);
+        self.active = if self.elapsed >= self.telegraph && self.elapsed < self.telegraph + duration
+        {
+            self.attack
+        } else {
+            None
+        };
+        (used, self.elapsed >= end)
+    }
+}
+
+fn clamp_to_room(position: &mut Vec2, context: BehaviorContext) {
+    position.x = position.x.clamp(
+        context.bounds.left + context.size.x / 2.0,
+        context.bounds.right - context.size.x / 2.0,
+    );
+    position.y = position.y.clamp(
+        (context.size.y / 2.0).min(context.bounds.floor_y - context.size.y / 2.0),
+        context.bounds.floor_y - context.size.y / 2.0,
+    );
+}

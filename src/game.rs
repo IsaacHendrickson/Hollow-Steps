@@ -358,6 +358,11 @@ impl GameState {
                 .max(special_damage.min(255) as u8)
                 .max(contact_damage),
         );
+        for enemy in &mut room.enemies {
+            if let Some(hit) = enemy.attack_hit(self.player.position(), self.player.size()) {
+                self.player.take_attack_damage(hit);
+            }
+        }
         if self.player.health().current() == 0 {
             self.player.respawn(room.spawn, bounds);
             return;

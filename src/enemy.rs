@@ -429,6 +429,14 @@ impl Enemy {
         !self.is_dead() && separation.x <= reach.x && separation.y <= reach.y
     }
 
+    pub fn attack_hit(&self, position: Vec2, size: Vec2) -> Option<crate::enemy_attack::DamageHit> {
+        if self.is_dead() {
+            None
+        } else {
+            self.behavior.attack_hit(self.position, position, size)
+        }
+    }
+
     pub fn action_damage(&self, position: Vec2, size: Vec2) -> u8 {
         if self.is_dead() {
             0

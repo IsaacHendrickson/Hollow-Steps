@@ -7,6 +7,7 @@ use std::sync::{Arc, OnceLock};
 use macroquad::math::Vec2;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+use crate::enemy_attack::{valid_attack, AttackBox, AttackRuntime, DamageHit};
 use crate::player::WorldBounds;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -97,6 +98,13 @@ macro_rules! actions {
     }
 }
 actions! {
+    Lunge => "lunge" {
+        speed: f32 => ("lunge speed (pixels/second)", nonnegative),
+        duration_secs: f32 => ("lunge duration (seconds)", nonnegative),
+        attack: AttackBox => ("attack box", valid_attack),
+        recovery_secs: f32 => ("recovery duration (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative)
+    },
     MoveTowardPlayer => "move_toward_player" { speed: f32 => ("speed toward player (pixels/second)", nonnegative) },
     MoveAwayFromPlayer => "move_away_from_player" { speed: f32 => ("speed away from player (pixels/second)", nonnegative) },
     Patrol => "patrol" { speed: f32 => ("patrol speed (pixels/second)", nonnegative) },
@@ -379,6 +387,7 @@ pub struct Behavior {
     airborne: bool,
     blasts: Vec<Blast>,
     random_state: Option<u32>,
+    attack_runtime: Option<AttackRuntime>,
 }
 
 /// A stationary warning circle; `exploded` is a damage event for one update.
@@ -410,6 +419,7 @@ impl Behavior {
             airborne: false,
             blasts: Vec::new(),
             random_state: None,
+            attack_runtime: None,
         })
     }
 
@@ -449,6 +459,18 @@ impl Behavior {
         self.blasts.retain(|blast| !blast.exploded);
     }
 
+    pub fn attack_hit(&self, origin: Vec2, position: Vec2, size: Vec2) -> Option<DamageHit> {
+        self.attack_runtime
+            .as_ref()?
+            .active
+            .filter(|attack| attack.overlaps(origin, position, size))
+            .map(AttackBox::hit)
+    }
+
+    pub fn attack_warning(&self) -> Option<AttackBox> {
+        self.attack_runtime.as_ref()?.warning()
+    }
+
     pub fn is_telegraphing(&self) -> bool {
         matches!(
             self.definition.states[self.state].actions.get(self.action),
@@ -483,6 +505,7 @@ impl Behavior {
         self.state_elapsed = 0.0;
         self.action_started = false;
         self.jump_target = None;
+        self.attack_runtime = None;
         // Interrupting a fuse cancels its pending attack; keep hits already emitted.
         self.blasts.retain(|blast| blast.exploded);
         true
@@ -519,6 +542,28 @@ impl Behavior {
                 position.y = context.bounds.floor_y - context.size.y / 2.0;
             }
             let (used, finished) = match action {
+                Action::Lunge {
+                    speed,
+                    duration_secs,
+                    attack,
+                    recovery_secs,
+                    telegraph_secs,
+                } => {
+                    self.airborne = true;
+                    self.attack_runtime
+                        .get_or_insert_with(|| {
+                            AttackRuntime::lunge(
+                                *position,
+                                context,
+                                speed,
+                                duration_secs,
+                                attack,
+                                recovery_secs,
+                                telegraph_secs,
+                            )
+                        })
+                        .step(position, context, remaining)
+                }
                 Action::Wait { seconds }
                 | Action::Telegraph { seconds }
                 | Action::Hover { seconds } => {
@@ -614,6 +659,7 @@ impl Behavior {
             if !finished {
                 break;
             }
+            self.attack_runtime = None;
             self.action += 1;
             self.action_elapsed = 0.0;
             self.action_started = false;
