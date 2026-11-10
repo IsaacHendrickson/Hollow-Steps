@@ -292,11 +292,12 @@ impl GameState {
             room.coins.extend_from_slice(boss.new_coins());
         }
         for enemy in &mut room.enemies {
-            enemy.update_with_player_size(
+            enemy.update_with_terrain(
                 self.player.position(),
                 self.player.size(),
                 delta_seconds,
                 bounds,
+                &room.terrain,
             );
         }
         if let Some(boss) = &mut room.boss {

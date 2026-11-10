@@ -229,3 +229,92 @@ fn items_and_exits_cannot_be_inside_terrain() {
     });
     assert!(with_exit.validate_geometry().is_err());
 }
+
+fn lunger(bounds: hollow_steps::player::WorldBounds, x: f32) -> hollow_steps::enemy::Enemy {
+    use hollow_steps::behavior::BehaviorDefinition;
+    use hollow_steps::enemy::{Enemy, EnemyDefinition};
+    let behavior =
+        BehaviorDefinition::from_ron(include_str!("fixtures/attacks/reload_lunge.ron")).unwrap();
+    Enemy::from_definition(
+        &EnemyDefinition {
+            name: "lunger".into(),
+            health: 3,
+            size: (36.0, 36.0),
+            contact_damage: 1,
+            behavior: "lunge".into(),
+            body: None,
+        },
+        std::sync::Arc::new(behavior),
+        x,
+        x,
+        bounds,
+    )
+    .unwrap()
+}
+
+#[test]
+fn lunge_cannot_pass_through_a_wall() {
+    let (layout, _) = terrain_room();
+    let bounds = layout.world_bounds();
+    // Wall x 600..620 spans the floor; lunger aims right at a player beyond it.
+    let terrain = Terrain::from_tuples(&[(600.0, 300.0, 20.0, 160.0)]);
+    let target = Vec2::new(800.0, 442.0);
+    let mut free = lunger(bounds, 560.0);
+    let mut blocked = lunger(bounds, 560.0);
+    for _ in 0..90 {
+        free.update_with_terrain(
+            target,
+            Vec2::new(32.0, 48.0),
+            DT,
+            bounds,
+            &Terrain::default(),
+        );
+        blocked.update_with_terrain(target, Vec2::new(32.0, 48.0), DT, bounds, &terrain);
+    }
+    assert!(
+        free.position().x + 18.0 > 600.0,
+        "control lunge must reach the wall"
+    );
+    assert!(blocked.position().x + 18.0 <= 600.0 + 0.01);
+}
+
+#[test]
+fn lunge_aimed_upward_cannot_pass_through_a_platform() {
+    let (layout, _) = terrain_room();
+    let bounds = layout.world_bounds();
+    // Thin platform just above the lunger, player standing on it.
+    let terrain = Terrain::from_tuples(&[(400.0, 380.0, 200.0, 8.0)]);
+    let target = Vec2::new(500.0, 350.0);
+    let mut enemy = lunger(bounds, 500.0);
+    let mut free = lunger(bounds, 500.0);
+    let mut lowest_top = f32::MAX;
+    let mut free_top = f32::MAX;
+    for _ in 0..90 {
+        enemy.update_with_terrain(target, Vec2::new(32.0, 48.0), DT, bounds, &terrain);
+        free.update_with_terrain(
+            target,
+            Vec2::new(32.0, 48.0),
+            DT,
+            bounds,
+            &Terrain::default(),
+        );
+        lowest_top = lowest_top.min(enemy.position().y - 18.0);
+        free_top = free_top.min(free.position().y - 18.0);
+    }
+    assert!(free_top < 388.0, "control lunge must reach the platform");
+    assert!(
+        lowest_top >= 388.0 - 0.01,
+        "enemy passed through the platform"
+    );
+}
+
+#[test]
+fn enemy_inside_a_solid_is_not_moved_by_the_constraint() {
+    let (layout, _) = terrain_room();
+    let bounds = layout.world_bounds();
+    let terrain = Terrain::from_tuples(&[(400.0, 400.0, 100.0, 60.0)]);
+    let mut enemy = lunger(bounds, 450.0);
+    let before = enemy.position();
+    enemy.update_with_terrain(Vec2::new(450.0, 442.0), Vec2::ZERO, 0.0, bounds, &terrain);
+    assert_eq!(enemy.position(), before);
+}
