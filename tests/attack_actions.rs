@@ -334,6 +334,10 @@ fn invalid_damage_durations_radius_count_and_aim_report_labeled_errors() {
     use hollow_steps::definition_editor::ActionInput;
     for (name, field, value) in [
         ("lunge", "duration", "-1"),
+        ("lunge", "speed", "0"),
+        ("lunge", "speed", "-1"),
+        ("slam_down", "speed", "0"),
+        ("shoot_projectile", "speed", "0"),
         ("lunge", "damage", "-1"),
         ("lunge", "recovery", "-1"),
         ("lunge", "wind-up", "-1"),

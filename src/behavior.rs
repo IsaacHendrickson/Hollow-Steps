@@ -318,7 +318,7 @@ actions! {
         damage: u8 => ("blast damage (integer 0..255)", valid_damage)
     },
     Lunge => "lunge" {
-        speed: f32 => ("lunge speed (pixels/second)", nonnegative),
+        speed: f32 => ("lunge speed (pixels/second)", positive),
         duration_secs: f32 => ("lunge duration (seconds)", nonnegative),
         attack: AttackBox => ("attack box", valid_attack),
         recovery_secs: f32 => ("recovery duration (seconds)", nonnegative),
