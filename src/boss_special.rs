@@ -333,13 +333,12 @@ impl BossSpecials {
     }
 
     fn glide(&mut self, dt: f64) {
-        let offset = self.target_position.as_dvec2() - self.position.as_dvec2();
-        let distance = offset.length();
-        if distance > 0.0 {
-            self.position = (self.position.as_dvec2()
-                + offset * (f64::from(self.move_speed) * dt / distance).min(1.0))
-            .as_vec2();
-        }
+        ActionRuntime::advance_glide(
+            &mut self.position,
+            self.target_position,
+            self.move_speed,
+            dt,
+        );
     }
 
     fn run_actions(&mut self, mut remaining: f64, player: Vec2, bounds: WorldBounds) -> u32 {

@@ -34,7 +34,7 @@ pub struct State {
     pub transitions: Vec<Transition>,
 }
 
-/// Shared action library. Boss-only actions are excluded from the enemy editor catalog.
+/// One action registry supplies loading, validation and both entity editors.
 macro_rules! actions {
     ($( $(#[$meta:meta])* $variant:ident => $name:literal { $( $(#[$fm:meta])* $field:ident : $ty:ty => ($label:literal, $validate:ident) ),+ } ),+ $(,)?;
      $( $boss:ident => $boss_name:literal { $( $param:ident : $param_ty:ty => ($param_label:literal, $param_validate:ident) ),+ } ),+ $(,)?) => {
@@ -76,7 +76,7 @@ macro_rules! actions {
             }
         }
         impl Action {
-            pub const TYPES: &'static [&'static str] = &[$($name),+];
+            pub const TYPES: &'static [&'static str] = Self::ALL_TYPES;
             pub const ALL_TYPES: &'static [&'static str] = &[$($name),+, $($boss_name),+];
             pub fn all_kind(&self) -> usize {
                 let name = match self { $(Self::$variant { .. } => $name,)+ $(Self::$boss { .. } => $boss_name),+ };
@@ -90,16 +90,8 @@ macro_rules! actions {
                     actions
                 }).iter().find(|action| action.all_kind() == kind).cloned()
             }
-            pub fn defaults(kind: usize) -> Option<Self> {
-                static DEFAULTS: OnceLock<Vec<Action>> = OnceLock::new();
-                DEFAULTS.get_or_init(|| ron::from_str(include_str!("../data/action_defaults.ron"))
-                    .expect("valid action catalog defaults"))
-                    .iter().find(|action| action.kind() == kind).cloned()
-            }
-            pub fn kind(&self) -> usize {
-                let name = match self { $(Self::$variant { .. } => $name,)+ _ => return usize::MAX };
-                Self::TYPES.iter().position(|n| *n == name).expect("generated catalog")
-            }
+            pub fn defaults(kind: usize) -> Option<Self> { Self::all_defaults(kind) }
+            pub fn kind(&self) -> usize { self.all_kind() }
             pub fn parameters(&self) -> Vec<(&'static str, String)> {
                 let mut values = Vec::new();
                 match self {
@@ -376,7 +368,7 @@ actions! {
         #[serde(default)] active_pose: Option<String> => ("active_pose", valid_pose_name),
         #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
         #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
-        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier", positive)
+        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier (positive)", positive)
     },
     JumpTo => "jump_to" {
         air_time_secs: f32 => ("air time (seconds)", positive),
@@ -394,7 +386,7 @@ actions! {
         #[serde(default)] active_pose: Option<String> => ("active_pose", valid_pose_name),
         #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
         #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
-        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier", positive)
+        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier (positive)", positive)
     },
     #[serde(rename = "slam_down")]
     ImpactSlam => "slam_down" {
@@ -408,7 +400,7 @@ actions! {
         #[serde(default)] active_pose: Option<String> => ("active_pose", valid_pose_name),
         #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
         #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
-        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier", positive)
+        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier (positive)", positive)
     },
     ShootProjectile => "shoot_projectile" {
         speed: f32 => ("projectile speed (pixels/second)", positive),
@@ -425,7 +417,7 @@ actions! {
         #[serde(default)] active_pose: Option<String> => ("active_pose", valid_pose_name),
         #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
         #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
-        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier", positive)
+        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier (positive)", positive)
     },
     #[serde(rename = "area_blast")]
     RadialBlast => "area_blast" {
@@ -442,7 +434,7 @@ actions! {
         #[serde(default)] active_pose: Option<String> => ("active_pose", valid_pose_name),
         #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
         #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
-        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier", positive)
+        #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier (positive)", positive)
     };
     GlideToPlayer => "glide_to_player" {
         speed: f32 => ("Glide speed (px/s)", positive), above_floor: f32 => ("Height above floor (px)", nonnegative)
@@ -579,12 +571,6 @@ impl BehaviorDefinition {
         }
         for state in &self.states {
             for (index, action) in state.actions.iter().enumerate() {
-                if action.kind() == usize::MAX && !matches!(action, Action::SpawnShockwave { .. }) {
-                    return Err(format!(
-                        "state {:?}, action {index}: boss-only action",
-                        state.name
-                    ));
-                }
                 action
                     .validate()
                     .map_err(|error| format!("state {:?}, action {index}: {error}", state.name))?;
@@ -702,6 +688,7 @@ pub struct Behavior {
     state_elapsed: f64,
     runtime: crate::action_runtime::ActionRuntime,
     random_state: Option<u32>,
+    glide: Option<(Vec2, f32)>,
     outputs: Vec<crate::action_runtime::ActionOutput>,
 }
 
@@ -741,6 +728,7 @@ impl Behavior {
             state_elapsed: 0.0,
             runtime: crate::action_runtime::ActionRuntime::default(),
             random_state: None,
+            glide: None,
             outputs: Vec::new(),
         })
     }
@@ -763,6 +751,23 @@ impl Behavior {
 
     pub fn action_finished(&self) -> bool {
         self.action == self.definition.states[self.state].actions.len()
+    }
+
+    pub fn rings(&self) -> &[Blast] {
+        &self.runtime.rings
+    }
+
+    pub(crate) fn take_spawn_positions(&mut self) -> Vec<Vec2> {
+        let mut positions = Vec::new();
+        self.outputs.retain(|output| {
+            if let crate::action_runtime::ActionOutput::Spawn(position) = output {
+                positions.push(*position);
+                false
+            } else {
+                true
+            }
+        });
+        positions
     }
 
     pub fn blasts(&self) -> &[Blast] {
@@ -942,6 +947,25 @@ impl Behavior {
             delta_seconds,
         );
         let transitioned = self.transition(*position, context);
+        let blocking = self.definition.states[self.state]
+            .actions
+            .get(self.action)
+            .is_some_and(|action| {
+                matches!(
+                    action,
+                    Action::JumpToPlayer { .. } | Action::SlamDown { .. } | Action::Hover { .. }
+                ) || action.uses_ground_motion()
+            });
+        if !blocking {
+            if let Some((target, speed)) = self.glide {
+                crate::action_runtime::ActionRuntime::advance_glide(
+                    position,
+                    target,
+                    speed,
+                    f64::from(delta_seconds),
+                );
+            }
+        }
         let dt = f64::from(delta_seconds);
         self.state_elapsed += dt;
         let mut remaining = dt;
@@ -950,7 +974,12 @@ impl Behavior {
             .get(self.action)
             .cloned()
         {
-            let preview = if matches!(action, Action::Telegraph { .. }) {
+            let preview = if matches!(action, Action::SpawnRings { .. }) {
+                self.definition.states[self.state].actions[self.action + 1..]
+                    .iter()
+                    .find(|a| matches!(a, Action::ExplodeRings { .. }))
+                    .unwrap_or(&action)
+            } else if matches!(action, Action::Telegraph { .. }) {
                 self.definition.states[self.state]
                     .actions
                     .get(self.action + 1)
@@ -959,6 +988,7 @@ impl Behavior {
                 &action
             };
             let preview = preview.clone();
+            let output_start = self.outputs.len();
             let mut actor = EnemyActionActor {
                 position,
                 context,
@@ -968,15 +998,21 @@ impl Behavior {
                 outputs: &mut self.outputs,
             };
             let (used, finished) = self.runtime.step(&action, &preview, &mut actor, remaining);
+            for output in &self.outputs[output_start..] {
+                match output {
+                    crate::action_runtime::ActionOutput::Glide { target, speed } => {
+                        self.glide = Some((*target, *speed))
+                    }
+                    crate::action_runtime::ActionOutput::Hold(_) => self.glide = None,
+                    _ => {}
+                }
+            }
             remaining = (remaining - used).max(0.0);
             if !finished {
                 break;
             }
-            self.runtime.attack_runtime = None;
+            self.runtime.finish_action();
             self.action += 1;
-            self.runtime.action_elapsed = 0.0;
-            self.runtime.action_started = false;
-            self.runtime.jump_target = None;
         }
         self.runtime
             .pose_steps

@@ -295,6 +295,7 @@ impl GameState {
             room.enemies.extend_from_slice(boss.new_enemies());
             room.coins.extend_from_slice(boss.new_coins());
         }
+        let mut spawned_positions = Vec::new();
         for enemy in &mut room.enemies {
             enemy.update_with_player_size(
                 self.player.position(),
@@ -302,7 +303,13 @@ impl GameState {
                 delta_seconds,
                 bounds,
             );
+            spawned_positions.extend(enemy.take_spawn_positions());
         }
+        room.enemies.extend(
+            spawned_positions
+                .into_iter()
+                .map(|position| crate::enemy::Enemy::new(position.x, position.x, 0.0, 0.0, bounds)),
+        );
         if let Some(boss) = &mut room.boss {
             boss.update(delta_seconds);
         }

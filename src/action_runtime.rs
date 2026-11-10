@@ -78,6 +78,16 @@ impl Default for ActionRuntime {
 }
 
 impl ActionRuntime {
+    pub fn advance_glide(position: &mut Vec2, target: Vec2, speed: f32, dt: f64) {
+        let offset = target.as_dvec2() - position.as_dvec2();
+        let distance = offset.length();
+        if distance > 0.0 {
+            *position = (position.as_dvec2()
+                + offset * (f64::from(speed) * dt / distance).min(1.0))
+            .as_vec2();
+        }
+    }
+
     pub fn advance_projectiles(
         &mut self,
         player: Vec2,
@@ -397,9 +407,7 @@ impl ActionRuntime {
             | Action::Hover { seconds } => {
                 if matches!(action, Action::Hover { .. }) {
                     self.airborne = true;
-                    if actor.legacy_target().is_some() {
-                        actor.emit(ActionOutput::Hold(*position));
-                    }
+                    actor.emit(ActionOutput::Hold(*position));
                 }
                 let duration = f64::from(seconds);
                 let used = remaining.min((duration - self.action_elapsed).max(0.0));
