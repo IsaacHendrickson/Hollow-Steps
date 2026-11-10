@@ -68,6 +68,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/pose.rs`: semantic pose assets, presentation playback, and validation.
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
+- `src/action_runtime.rs`: shared action execution state, motion, attack output, and actor adapters.
 - `src/behavior.rs`: data-driven action sequences, state transitions, and RON validation.
 - `src/enemy_attack.rs`: shared attack geometry, timed enemy attacks, and projectiles.
 - `src/preset.rs`: validated RON behavior preset catalog.

@@ -10,9 +10,9 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use crate::action_parameters::EditorParameter;
 use crate::enemy_attack::default_knockback_secs;
 use crate::enemy_attack::{
-    attack_damage, default_arc_height, projectile_count, spread_angles, valid_aim, valid_attack,
-    valid_optional_attack, valid_size, Aim, AttackBox, AttackRuntime, AttackSize, DamageHit,
-    OptionalAttack, Projectile,
+    attack_damage, default_arc_height, projectile_count, valid_aim, valid_attack,
+    valid_optional_attack, valid_size, Aim, AttackBox, AttackSize, DamageHit, OptionalAttack,
+    Projectile,
 };
 use crate::enemy_attack::{blast_radius, valid_vector, AttackVector};
 use crate::enemy_attack::{default_feedback, valid_feedback, AttackFeedback, AttackWarning};
@@ -700,18 +700,7 @@ pub struct Behavior {
     state: usize,
     action: usize,
     state_elapsed: f64,
-    action_elapsed: f64,
-    direction: f32,
-    action_started: bool,
-    jump_target: Option<Vec2>,
-    airborne: bool,
-    vertical_velocity: f64,
-    blasts: Vec<Blast>,
-    random_state: Option<u32>,
-    attack_runtime: Option<AttackRuntime>,
-    projectiles: Vec<Projectile>,
-    projectile_hits: Vec<DamageHit>,
-    pose_steps: Vec<crate::pose::PoseStep>,
+    runtime: crate::action_runtime::ActionRuntime,
 }
 
 /// A stationary warning circle; `exploded` is a damage event for one update.
@@ -736,27 +725,16 @@ impl Behavior {
             state,
             action: 0,
             state_elapsed: 0.0,
-            action_elapsed: 0.0,
-            direction: 1.0,
-            action_started: false,
-            jump_target: None,
-            airborne: false,
-            vertical_velocity: 0.0,
-            blasts: Vec::new(),
-            random_state: None,
-            attack_runtime: None,
-            projectiles: Vec::new(),
-            projectile_hits: Vec::new(),
-            pose_steps: Vec::new(),
+            runtime: crate::action_runtime::ActionRuntime::default(),
         })
     }
 
     pub fn take_pose_steps(&mut self) -> Vec<crate::pose::PoseStep> {
-        std::mem::take(&mut self.pose_steps)
+        std::mem::take(&mut self.runtime.pose_steps)
     }
 
     pub fn set_random_seed(&mut self, seed: u32) {
-        self.random_state = Some(seed);
+        self.runtime.random_state = Some(seed);
     }
 
     pub fn state_name(&self) -> &str {
@@ -772,11 +750,12 @@ impl Behavior {
     }
 
     pub fn blasts(&self) -> &[Blast] {
-        &self.blasts
+        &self.runtime.blasts
     }
 
     pub fn blast_damage(&self, position: Vec2, size: Vec2) -> u8 {
-        self.blasts
+        self.runtime
+            .blasts
             .iter()
             .filter(|blast| {
                 let nearest = blast
@@ -792,24 +771,26 @@ impl Behavior {
     }
 
     pub(crate) fn clear_blast_hits(&mut self) {
-        self.blasts.retain(|blast| !blast.exploded);
+        self.runtime.blasts.retain(|blast| !blast.exploded);
     }
 
     /// Current damage geometry, independent of collision targets.
     pub fn active_damage_area(&self) -> Option<AttackBox> {
-        self.attack_runtime
+        self.runtime
+            .attack_runtime
             .as_ref()
             .and_then(|runtime| runtime.active)
     }
 
     pub fn attack_hit(&self, origin: Vec2, position: Vec2, size: Vec2) -> Option<DamageHit> {
-        self.attack_runtime
+        self.runtime
+            .attack_runtime
             .as_ref()
             .and_then(|r| r.active)
             .filter(|attack| attack.overlaps(origin, position, size))
             .map(AttackBox::hit)
             .into_iter()
-            .chain(self.projectile_hits.iter().copied())
+            .chain(self.runtime.projectile_hits.iter().copied())
             .max_by_key(|hit| hit.damage)
     }
 
@@ -820,26 +801,26 @@ impl Behavior {
         bounds: WorldBounds,
         dt: f32,
     ) {
-        self.projectile_hits.clear();
-        self.projectiles.retain_mut(|projectile| {
+        self.runtime.projectile_hits.clear();
+        self.runtime.projectiles.retain_mut(|projectile| {
             let (alive, hit) = projectile.step(f64::from(dt), bounds, player, player_size);
-            self.projectile_hits.extend(hit);
+            self.runtime.projectile_hits.extend(hit);
             alive
         });
     }
 
     pub(crate) fn pause_attack(&mut self) {
-        if let Some(runtime) = &mut self.attack_runtime {
+        if let Some(runtime) = &mut self.runtime.attack_runtime {
             runtime.active = None;
         }
     }
 
     pub fn projectiles(&self) -> &[Projectile] {
-        &self.projectiles
+        &self.runtime.projectiles
     }
 
     pub fn attack_warning(&self) -> Option<AttackBox> {
-        self.attack_runtime.as_ref()?.warning()
+        self.runtime.attack_runtime.as_ref()?.warning()
     }
 
     pub fn projectile_feedback(&self) -> AttackFeedback {
@@ -859,10 +840,10 @@ impl Behavior {
             }
             (
                 actions.get(self.action + 1).unwrap_or(current),
-                (self.action_elapsed / f64::from(*seconds)) as f32,
+                (self.runtime.action_elapsed / f64::from(*seconds)) as f32,
             )
         } else {
-            let progress = match &self.attack_runtime {
+            let progress = match &self.runtime.attack_runtime {
                 Some(runtime) => runtime.windup_progress()?,
                 None if current.windup_seconds()? > 0.0 => 0.0,
                 None => return None,
@@ -910,7 +891,7 @@ impl Behavior {
         let Some(target) = target else {
             return false;
         };
-        self.pose_steps.push(crate::pose::PoseStep::Clear);
+        self.runtime.pose_steps.push(crate::pose::PoseStep::Clear);
         self.state = self
             .definition
             .states
@@ -918,13 +899,13 @@ impl Behavior {
             .position(|state| state.name == target)
             .expect("validated transition");
         self.action = 0;
-        self.action_elapsed = 0.0;
+        self.runtime.action_elapsed = 0.0;
         self.state_elapsed = 0.0;
-        self.action_started = false;
-        self.jump_target = None;
-        self.attack_runtime = None;
+        self.runtime.action_started = false;
+        self.runtime.jump_target = None;
+        self.runtime.attack_runtime = None;
         // Interrupting a fuse cancels its pending attack; keep hits already emitted.
-        self.blasts.retain(|blast| blast.exploded);
+        self.runtime.blasts.retain(|blast| blast.exploded);
         true
     }
 
@@ -941,9 +922,9 @@ impl Behavior {
         delta_seconds: f32,
         player_size: Vec2,
     ) {
-        self.pose_steps.clear();
+        self.runtime.pose_steps.clear();
         self.clear_blast_hits();
-        self.projectile_hits.clear();
+        self.runtime.projectile_hits.clear();
         if !delta_seconds.is_finite()
             || delta_seconds <= 0.0
             || !context.player_position.is_finite()
@@ -965,16 +946,6 @@ impl Behavior {
             .get(self.action)
             .cloned()
         {
-            if matches!(
-                action,
-                Action::MoveTowardPlayer { .. }
-                    | Action::MoveAwayFromPlayer { .. }
-                    | Action::Patrol { .. }
-                    | Action::Wait { .. }
-                    | Action::Telegraph { .. }
-            ) {
-                self.airborne = false;
-            }
             let preview = if matches!(action, Action::Telegraph { .. }) {
                 self.definition.states[self.state]
                     .actions
@@ -984,463 +955,27 @@ impl Behavior {
                 &action
             };
             let preview = preview.clone();
-            let pose_bindings = preview.pose_bindings();
-            let (mut blend_secs, strike_multiplier) = preview.pose_timing();
-            if let Action::Telegraph { seconds } = action {
-                blend_secs = preview.pose_blend_seconds(seconds);
-            }
-            if !self.action_started && pose_bindings.is_some() {
-                self.pose_steps.push(crate::pose::PoseStep::Face(
-                    context.player_position.x < position.x,
-                ));
-            }
-            let mut lunge_gravity_seconds = None;
-            let (used, finished) = match action {
-                Action::RadialBlast {
-                    radius,
-                    damage,
-                    knockback,
-                    knockback_secs,
-                    active_secs,
-                    telegraph_secs,
-                    ..
-                } => {
-                    self.airborne = true;
-                    let attack = AttackBox {
-                        shape: crate::enemy_attack::AttackShape::Circle,
-                        offset: (0.0, 0.0),
-                        size: (radius * 2.0, radius * 2.0),
-                        damage,
-                        knockback: knockback.0,
-                        knockback_secs,
-                        active_secs,
-                    };
-                    self.attack_runtime
-                        .get_or_insert_with(|| {
-                            AttackRuntime::lunge(
-                                *position,
-                                context,
-                                0.0,
-                                active_secs,
-                                attack,
-                                0.0,
-                                telegraph_secs,
-                            )
-                        })
-                        .step(position, context, remaining)
-                }
-                Action::ShootProjectile {
-                    speed,
-                    damage,
-                    lifetime_secs,
-                    size,
-                    aim,
-                    count,
-                    spread_degrees,
-                    telegraph_secs,
-                    ..
-                } => {
-                    self.airborne = true;
-                    let target = *self.jump_target.get_or_insert(context.player_position);
-                    let warning = AttackBox {
-                        shape: crate::enemy_attack::AttackShape::Rect,
-                        offset: (0.0, 0.0),
-                        size: size.0,
-                        damage: 0,
-                        knockback: (0.0, 0.0),
-                        knockback_secs: 0.0,
-                        active_secs: 0.0,
-                    };
-                    let (used, finished) = self
-                        .attack_runtime
-                        .get_or_insert_with(|| {
-                            AttackRuntime::lunge(
-                                *position,
-                                context,
-                                0.0,
-                                0.0,
-                                warning,
-                                0.0,
-                                telegraph_secs,
-                            )
-                        })
-                        .step(position, context, remaining);
-                    if finished {
-                        let horizontal = if target.x < position.x {
-                            -Vec2::X
-                        } else {
-                            Vec2::X
-                        };
-                        let direction = match aim {
-                            Aim::Horizontal => horizontal,
-                            Aim::AtPlayer => {
-                                (target - *position).try_normalize().unwrap_or(horizontal)
-                            }
-                        };
-                        for angle in spread_angles(count, spread_degrees) {
-                            let radians = angle.to_radians();
-                            let mut projectile = Projectile {
-                                position: *position,
-                                velocity: Vec2::new(
-                                    direction.x * radians.cos() - direction.y * radians.sin(),
-                                    direction.x * radians.sin() + direction.y * radians.cos(),
-                                ) * speed,
-                                size: Vec2::from(size.0),
-                                damage,
-                                remaining_secs: f64::from(lifetime_secs),
-                            };
-                            let (alive, hit) = projectile.step(
-                                (remaining - used).max(0.0),
-                                context.bounds,
-                                context.player_position,
-                                player_size,
-                            );
-                            self.projectile_hits.extend(hit);
-                            if alive {
-                                self.projectiles.push(projectile);
-                            }
-                        }
-                    }
-                    (used, finished)
-                }
-                Action::ImpactSlam {
-                    speed,
-                    attack,
-                    recovery_secs,
-                    telegraph_secs,
-                    ..
-                } => {
-                    self.airborne = true;
-                    self.attack_runtime
-                        .get_or_insert_with(|| {
-                            AttackRuntime::slam(
-                                *position,
-                                context,
-                                speed,
-                                attack,
-                                recovery_secs,
-                                telegraph_secs,
-                            )
-                        })
-                        .step(position, context, remaining)
-                }
-                Action::JumpTo {
-                    dx,
-                    dy,
-                    air_time_secs,
-                    arc_height,
-                    attack,
-                    recovery_secs,
-                    telegraph_secs,
-                    ..
-                } => {
-                    self.airborne = true;
-                    self.attack_runtime
-                        .get_or_insert_with(|| {
-                            AttackRuntime::jump(
-                                *position,
-                                context,
-                                Vec2::new(dx, dy),
-                                air_time_secs,
-                                arc_height,
-                                attack.0,
-                                recovery_secs,
-                                telegraph_secs,
-                            )
-                        })
-                        .step(position, context, remaining)
-                }
-                Action::Lunge {
-                    speed,
-                    duration_secs,
-                    attack,
-                    recovery_secs,
-                    telegraph_secs,
-                    ..
-                } => {
-                    self.airborne = false;
-                    if self.attack_runtime.is_none() {
-                        self.vertical_velocity = 0.0;
-                    }
-                    let runtime = self.attack_runtime.get_or_insert_with(|| {
-                        AttackRuntime::lunge(
-                            *position,
-                            context,
-                            speed,
-                            duration_secs,
-                            attack,
-                            recovery_secs,
-                            telegraph_secs,
-                        )
-                    });
-                    let result = runtime.step(position, context, remaining);
-                    lunge_gravity_seconds = Some(runtime.lunge_gravity_seconds(result.0));
-                    result
-                }
-                Action::Wait { seconds }
-                | Action::Telegraph { seconds }
-                | Action::Hover { seconds } => {
-                    if matches!(action, Action::Hover { .. }) {
-                        self.airborne = true;
-                    }
-                    let duration = f64::from(seconds);
-                    let used = remaining.min((duration - self.action_elapsed).max(0.0));
-                    self.action_elapsed += used;
-                    (used, self.action_elapsed >= duration)
-                }
-                Action::MoveTowardPlayer { speed } => {
-                    let target = context.player_position.x.clamp(
-                        context.bounds.left + context.size.x / 2.0,
-                        context.bounds.right - context.size.x / 2.0,
-                    );
-                    self.move_to(position, target, speed, remaining)
-                }
-                Action::MoveAwayFromPlayer { speed } => {
-                    let difference = position.x - context.player_position.x;
-                    if difference != 0.0 {
-                        self.direction = difference.signum();
-                    }
-                    let target = if self.direction > 0.0 {
-                        context.bounds.right - context.size.x / 2.0
-                    } else {
-                        context.bounds.left + context.size.x / 2.0
-                    };
-                    self.move_to(position, target, speed, remaining)
-                }
-                Action::Patrol { speed } => {
-                    self.patrol(position, context, f64::from(speed) * remaining);
-                    (remaining, false)
-                }
-                Action::JumpToPlayer { dx, dy, speed } => {
-                    self.airborne = true;
-                    let target = *self.jump_target.get_or_insert_with(|| {
-                        Self::clamped_jump_target(
-                            context.player_position,
-                            context.size,
-                            context.bounds,
-                            dx,
-                            dy,
-                        )
-                    });
-                    Self::move_in_plane(position, target, speed, remaining)
-                }
-                Action::SlamDown { speed } => {
-                    self.airborne = true;
-                    Self::move_in_plane(
-                        position,
-                        Vec2::new(position.x, context.bounds.floor_y - context.size.y / 2.0),
-                        speed,
-                        remaining,
-                    )
-                }
-                Action::AreaBlast {
-                    count,
-                    radius,
-                    fuse_time,
-                    damage,
-                } => {
-                    if !self.action_started {
-                        for _ in 0..count {
-                            let x = f64::from(context.bounds.left)
-                                + self.next_random(*position)
-                                    * (f64::from(context.bounds.right)
-                                        - f64::from(context.bounds.left));
-                            let y = self.next_random(*position) * f64::from(context.bounds.floor_y);
-                            self.blasts.push(Blast {
-                                position: Vec2::new(x as f32, y as f32),
-                                radius,
-                                damage,
-                                exploded: false,
-                            });
-                        }
-                    }
-                    let duration = f64::from(fuse_time);
-                    let used = remaining.min((duration - self.action_elapsed).max(0.0));
-                    self.action_elapsed += used;
-                    let finished = self.action_elapsed >= duration;
-                    if finished {
-                        for blast in &mut self.blasts {
-                            blast.exploded = true;
-                        }
-                    }
-                    (used, finished)
-                }
-                _ => unreachable!("validated enemy action"),
-            };
-            if let (Some(bindings), Some(runtime)) = (pose_bindings, &self.attack_runtime) {
-                for (phase, seconds) in runtime.pose_spans(used) {
-                    self.pose_steps.push(crate::pose::PoseStep::Apply {
-                        name: bindings[phase].clone(),
-                        seconds,
-                        blend_secs,
-                        stiffness_multiplier: if phase == 1 { strike_multiplier } else { 1.0 },
-                        instant: phase == 1 && seconds == 0.0 && finished,
-                    });
-                }
-                if finished {
-                    self.pose_steps.push(crate::pose::PoseStep::Clear);
-                }
-            } else if let (Action::Telegraph { .. }, Some(bindings)) =
-                (&action, preview.pose_bindings())
-            {
-                self.pose_steps.push(crate::pose::PoseStep::Apply {
-                    name: bindings[0].clone(),
-                    seconds: used as f32,
-                    blend_secs,
-                    stiffness_multiplier: 1.0,
-                    instant: false,
-                });
-            } else {
-                self.pose_steps
-                    .push(crate::pose::PoseStep::Idle(used as f32));
-            }
-            if self.airborne {
-                // Authored jump/slam arcs and explicit hover retain their trajectories.
-                self.vertical_velocity = 0.0;
-            } else {
-                let gravity_seconds = lunge_gravity_seconds.unwrap_or(used);
-                self.apply_gravity(position, context, gravity_seconds);
-            }
-            self.action_started = true;
+            let (used, finished) =
+                self.runtime
+                    .execute(&action, &preview, position, context, player_size, remaining);
             remaining = (remaining - used).max(0.0);
             if !finished {
                 break;
             }
-            self.attack_runtime = None;
+            self.runtime.attack_runtime = None;
             self.action += 1;
-            self.action_elapsed = 0.0;
-            self.action_started = false;
-            self.jump_target = None;
+            self.runtime.action_elapsed = 0.0;
+            self.runtime.action_started = false;
+            self.runtime.jump_target = None;
         }
-        self.pose_steps
+        self.runtime
+            .pose_steps
             .push(crate::pose::PoseStep::Idle(remaining as f32));
-        if !self.airborne {
-            self.apply_gravity(position, context, remaining);
+        if !self.runtime.airborne {
+            self.runtime.apply_gravity(position, context, remaining);
         }
         if !transitioned {
             self.transition(*position, context);
-        }
-    }
-
-    /// Shared vertical integration for ground movement, lunges, and idle time.
-    fn apply_gravity(&mut self, position: &mut Vec2, context: BehaviorContext, dt: f64) {
-        const GRAVITY: f64 = 1_400.0;
-        if dt <= 0.0 {
-            return;
-        }
-        self.vertical_velocity += GRAVITY * dt;
-        let floor = f64::from(context.bounds.floor_y - context.size.y / 2.0);
-        let y = f64::from(position.y) + self.vertical_velocity * dt;
-        if y >= floor {
-            position.y = floor as f32;
-            self.vertical_velocity = 0.0;
-        } else {
-            position.y = y as f32;
-        }
-    }
-
-    pub(crate) fn clamped_jump_target(
-        player: Vec2,
-        size: Vec2,
-        bounds: WorldBounds,
-        dx: f32,
-        dy: f32,
-    ) -> Vec2 {
-        let half = size.as_dvec2() / 2.0;
-        let target = player.as_dvec2() + macroquad::math::DVec2::new(f64::from(dx), f64::from(dy));
-        Vec2::new(
-            target.x.clamp(
-                f64::from(bounds.left) + half.x,
-                f64::from(bounds.right) - half.x,
-            ) as f32,
-            target.y.clamp(
-                half.y.min(f64::from(bounds.floor_y) - half.y),
-                f64::from(bounds.floor_y) - half.y,
-            ) as f32,
-        )
-    }
-
-    pub(crate) fn move_in_plane(
-        position: &mut Vec2,
-        target: Vec2,
-        speed: f32,
-        dt: f64,
-    ) -> (f64, bool) {
-        let difference = target.as_dvec2() - position.as_dvec2();
-        let distance = difference.length();
-        if distance == 0.0 {
-            return (0.0, true);
-        }
-        if speed == 0.0 {
-            return (dt, false);
-        }
-        let duration = distance / f64::from(speed);
-        if dt >= duration {
-            *position = target;
-            (duration, true)
-        } else {
-            *position = (position.as_dvec2() + difference * (dt / duration)).as_vec2();
-            (dt, false)
-        }
-    }
-
-    fn next_random(&mut self, position: Vec2) -> f64 {
-        // Per-instance deterministic PRNG; coefficients are algorithm constants.
-        let state = self
-            .random_state
-            .get_or_insert(position.x.to_bits().rotate_left(16) ^ position.y.to_bits());
-        *state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-        f64::from(*state) / f64::from(u32::MAX)
-    }
-
-    fn move_to(&mut self, position: &mut Vec2, target: f32, speed: f32, dt: f64) -> (f64, bool) {
-        let difference = f64::from(target) - f64::from(position.x);
-        if difference == 0.0 {
-            return (0.0, true);
-        }
-        self.direction = difference.signum() as f32;
-        if speed == 0.0 {
-            return (dt, false);
-        }
-        let duration = difference.abs() / f64::from(speed);
-        if dt >= duration {
-            position.x = target;
-            (duration, true)
-        } else {
-            position.x =
-                (f64::from(position.x) + difference.signum() * f64::from(speed) * dt) as f32;
-            (dt, false)
-        }
-    }
-
-    fn patrol(&mut self, position: &mut Vec2, context: BehaviorContext, mut travel: f64) {
-        // Return from a chase or knockback without teleporting onto the interval.
-        let nearest = position.x.clamp(context.patrol_left, context.patrol_right);
-        let difference = f64::from(nearest) - f64::from(position.x);
-        if difference != 0.0 {
-            self.direction = difference.signum() as f32;
-            let step = travel.min(difference.abs());
-            position.x = (f64::from(position.x) + difference.signum() * step) as f32;
-            travel -= step;
-        }
-        if position.x >= context.patrol_left && position.x <= context.patrol_right {
-            let width = f64::from(context.patrol_right) - f64::from(context.patrol_left);
-            if width > 0.0 {
-                let offset = f64::from(position.x) - f64::from(context.patrol_left);
-                let phase = if self.direction > 0.0 {
-                    offset
-                } else {
-                    2.0 * width - offset
-                };
-                let phase = (phase + travel) % (2.0 * width);
-                self.direction = if phase < width { 1.0 } else { -1.0 };
-                position.x = (f64::from(context.patrol_left)
-                    + if phase < width {
-                        phase
-                    } else {
-                        2.0 * width - phase
-                    }) as f32;
-            }
         }
     }
 }

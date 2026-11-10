@@ -66,3 +66,5 @@
 - Catalog-backed None/pose dropdowns for all attack phase fields in structured rows and Key values: `src/editor_panel.rs`, `src/behavior_values.rs`, `src/pose.rs`; `src/editor_panel.rs` headless dropdown test, `tests/poses.rs`.
 - Fixture-only pose regression tests cover semantic resolution/missing parts, phase target lifecycle, telegraph tolerance, facing, hurt/flash/duplicate damage timing, interruption, all five attacks with identical gameplay, staged validation and atomic hot reload: `tests/poses.rs`, `tests/fixtures/attacks/`, `tests/fixtures/poses/`.
 - Every new pose offset, semantic mapping, spring/impulse setting, hurt/flash value and attack blend/tint value has data, validation and editor controls; pose asset creation and complete staged save/reload: `src/pose.rs`, `src/body.rs`, `src/editor_panel.rs`, `src/definition_editor.rs`, `data/`, `assets/poses/`; `tests/poses.rs`, `src/editor_panel.rs` headless checks; README manual checks.
+
+- Characterized boss/enemy per-frame action output and extracted action runtime: `src/action_runtime.rs`, `src/behavior.rs`; `tests/action_timelines.rs`, `tests/fixtures/timelines/`.

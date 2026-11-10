@@ -4,6 +4,7 @@
 //! gameplay state so it can be tested without opening a window.
 
 mod action_parameters;
+pub mod action_runtime;
 pub mod behavior;
 pub mod behavior_values;
 pub mod body;

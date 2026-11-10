@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use macroquad::math::Vec2;
 
-use crate::behavior::{Action, Behavior};
+use crate::action_runtime::ActionRuntime;
+use crate::behavior::Action;
 use crate::boss_definition::{AttackSelection, BossDefinition};
 use crate::coin::Coin;
 use crate::enemy::Enemy;
@@ -360,18 +361,20 @@ impl BossSpecials {
                 Action::JumpToPlayer { speed, .. } | Action::SlamDown { speed } => {
                     if entering {
                         self.target_position = match action {
-                            Action::JumpToPlayer { dx, dy, .. } => Behavior::clamped_jump_target(
-                                active.target,
-                                self.size(),
-                                bounds,
-                                dx,
-                                dy,
-                            ),
+                            Action::JumpToPlayer { dx, dy, .. } => {
+                                ActionRuntime::clamped_jump_target(
+                                    active.target,
+                                    self.size(),
+                                    bounds,
+                                    dx,
+                                    dy,
+                                )
+                            }
                             _ => Vec2::new(self.position.x, bounds.floor_y - self.size().y / 2.0),
                         };
                         self.move_speed = speed;
                     }
-                    (used, finished) = Behavior::move_in_plane(
+                    (used, finished) = ActionRuntime::move_in_plane(
                         &mut self.position,
                         self.target_position,
                         speed,

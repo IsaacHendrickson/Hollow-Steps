@@ -711,3 +711,11 @@ Manual check: watch Charger windup/strike, Hopper crouch/leap/stomp and Shooter
 windup/recoil facing both ways; damage each to check the white flash and hurt
 pose. Toggle F3 at different zoom levels. Edit a pose offset and binding, save,
 then press F5 and confirm the new motion with unchanged attack timing/hitboxes.
+
+### Shared action execution
+
+`action_runtime` owns per-action timers, motion and attack effects. Entity adapters
+supply geometry, player input, deterministic randomness and an output sink.
+Behavior transitions and boss encounter scheduling keep their own sequence cursors.
+Legacy boss targeting, nonblocking glides and arena RNG sampling remain adapter
+policies so extracting the executor does not change existing frame timelines.
