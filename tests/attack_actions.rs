@@ -260,3 +260,69 @@ fn warning_preview_exists_before_first_tick_and_ends_when_attack_fires() {
     let explicit = machine("telegraph(seconds: 0.5), area_blast(radius: 70.0, damage: 2, knockback: (0.0, 0.0), active_secs: 0.5, telegraph_secs: 0.0)");
     assert_eq!(explicit.warning(size).unwrap().attack.size, (140.0, 140.0));
 }
+
+#[test]
+fn registry_exposes_every_nested_value_as_a_labeled_editor_field() {
+    use hollow_steps::behavior::Action;
+    use hollow_steps::definition_editor::ActionInput;
+    for name in [
+        "lunge",
+        "jump_to",
+        "slam_down",
+        "shoot_projectile",
+        "area_blast",
+    ] {
+        let kind = Action::TYPES
+            .iter()
+            .position(|entry| *entry == name)
+            .unwrap();
+        let action = Action::defaults(kind).unwrap();
+        let input = ActionInput::from_action(&action);
+        assert_eq!(input.build().unwrap(), action, "{name}");
+        let labels = action.parameter_labels();
+        assert_eq!(labels.len(), input.values.len());
+        assert!(labels.iter().all(|label| !label.is_empty()));
+        assert!(
+            input.values.iter().all(|value| !value.contains('(')),
+            "raw RON field in {name}"
+        );
+        assert!(labels.iter().any(|label| label.contains("outline alpha")));
+        assert!(labels
+            .iter()
+            .any(|label| label.contains("wind-up duration")));
+        for (field, _) in input.values.iter().enumerate() {
+            let mut invalid = input.clone();
+            invalid.values[field] = "NaN".into();
+            assert!(invalid.build().is_err(), "{name}: {}", labels[field]);
+        }
+        let encoded = ron::to_string(&action).unwrap();
+        assert_eq!(ron::from_str::<Action>(&encoded).unwrap(), action);
+    }
+}
+
+#[test]
+fn optional_landing_attack_can_be_enabled_and_edited_without_raw_ron() {
+    use hollow_steps::behavior::Action;
+    use hollow_steps::definition_editor::ActionInput;
+    let kind = Action::TYPES
+        .iter()
+        .position(|entry| *entry == "jump_to")
+        .unwrap();
+    let mut input = ActionInput::new(kind).unwrap();
+    let action = input.build().unwrap();
+    let labels = action.parameter_labels();
+    let enabled = labels
+        .iter()
+        .position(|label| label.contains("enabled"))
+        .unwrap();
+    let damage = labels
+        .iter()
+        .position(|label| label.contains("damage"))
+        .unwrap();
+    input.values[enabled] = "true".into();
+    input.values[damage] = "4".into();
+    match input.build().unwrap() {
+        Action::JumpTo { attack, .. } => assert_eq!(attack.0.unwrap().damage, 4),
+        _ => unreachable!(),
+    }
+}

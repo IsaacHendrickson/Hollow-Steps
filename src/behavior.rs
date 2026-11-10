@@ -7,6 +7,7 @@ use std::sync::{Arc, OnceLock};
 use macroquad::math::Vec2;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+use crate::action_parameters::EditorParameter;
 use crate::enemy_attack::{
     attack_damage, default_arc_height, projectile_count, spread_angles, valid_aim, valid_attack,
     valid_optional_attack, valid_size, Aim, AttackBox, AttackRuntime, AttackSize, DamageHit,
@@ -98,10 +99,20 @@ macro_rules! actions {
                 Self::TYPES.iter().position(|n| *n == name).expect("generated catalog")
             }
             pub fn parameters(&self) -> Vec<(&'static str, String)> {
-                match self { $(Self::$variant { $($field),+ } => vec![$((stringify!($field), $field.to_string())),+],)+ $(Self::$boss { $($param),+ } => vec![$((stringify!($param), $param.to_string())),+]),+ }
+                let mut values = Vec::new();
+                match self {
+                    $(Self::$variant { $($field),+ } => { $(values.extend($field.editor_values().into_iter().map(|v| (stringify!($field), v)));)+ },)+
+                    $(Self::$boss { $($param),+ } => { $(values.extend($param.editor_values().into_iter().map(|v| (stringify!($param), v)));)+ }),+
+                }
+                values
             }
-            pub fn parameter_labels(&self) -> &'static [&'static str] {
-                match self { $(Self::$variant { .. } => &[$($label),+],)+ $(Self::$boss { .. } => &[$($param_label),+]),+ }
+            pub fn parameter_labels(&self) -> Vec<String> {
+                let mut labels = Vec::new();
+                match self {
+                    $(Self::$variant { .. } => { $(labels.extend(<$ty as EditorParameter>::editor_labels($label));)+ },)+
+                    $(Self::$boss { .. } => { $(labels.extend(<$param_ty as EditorParameter>::editor_labels($param_label));)+ }),+
+                }
+                labels
             }
             pub fn validate(&self) -> Result<(), String> {
                 match self { $(Self::$variant { $($field),+ } => { $(
@@ -112,27 +123,33 @@ macro_rules! actions {
                 Ok(())
             }
             pub fn set_parameter(&mut self, index: usize, text: &str) -> Result<(), String> {
-                match self { $(Self::$variant { $($field),+ } => {
-                    let mut fields = [$(stringify!($field)),+].into_iter();
-                    let name = fields.nth(index).ok_or("missing parameter")?;
-                    match name { $(stringify!($field) => {
-                        let value = text.trim().parse::<$ty>()
-                            .map_err(|_| format!("{}: expected {} value", $label, stringify!($ty)))?;
-                        $validate(value).map_err(|error| format!("{}: {error}", $label))?;
-                        *$field = value;
-                        Ok(())
-                    },)+ _ => unreachable!("generated parameter") }
-                },)+ $(Self::$boss { $($param),+ } => {
-                    let mut fields = [$(stringify!($param)),+].into_iter();
-                    let name = fields.nth(index).ok_or("missing parameter")?;
-                    match name { $(stringify!($param) => {
-                        let value = text.trim().parse::<$param_ty>()
-                            .map_err(|_| format!("{}: expected {} value", $param_label, stringify!($param_ty)))?;
-                        $param_validate(value).map_err(|error| format!("{}: {error}", $param_label))?;
-                        *$param = value;
-                        Ok(())
-                    },)+ _ => unreachable!("generated parameter") }
-                }),+ }
+                let mut offset = 0;
+                match self {
+                    $(Self::$variant { $($field),+ } => { $(
+                        let count = <$ty as EditorParameter>::LABELS.len();
+                        if (offset..offset + count).contains(&index) {
+                            let mut value = *$field;
+                            value.edit(index - offset, text).map_err(|e| format!("{}: {e}", $label))?;
+                            $validate(value).map_err(|e| format!("{}: {e}", $label))?;
+                            *$field = value;
+                            return Ok(());
+                        }
+                        offset += count;
+                    )+ },)+
+                    $(Self::$boss { $($param),+ } => { $(
+                        let count = <$param_ty as EditorParameter>::LABELS.len();
+                        if (offset..offset + count).contains(&index) {
+                            let mut value = *$param;
+                            value.edit(index - offset, text).map_err(|e| format!("{}: {e}", $param_label))?;
+                            $param_validate(value).map_err(|e| format!("{}: {e}", $param_label))?;
+                            *$param = value;
+                            return Ok(());
+                        }
+                        offset += count;
+                    )+ }),+
+                }
+                let _ = offset;
+                Err("missing action parameter".into())
             }
         }
     }
@@ -281,6 +298,55 @@ fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
 }
 
 actions! {
+    MoveTowardPlayer => "move_toward_player" { speed: f32 => ("speed toward player (pixels/second)", nonnegative) },
+    MoveAwayFromPlayer => "move_away_from_player" { speed: f32 => ("speed away from player (pixels/second)", nonnegative) },
+    Patrol => "patrol" { speed: f32 => ("patrol speed (pixels/second)", nonnegative) },
+    Wait => "wait" { seconds: f32 => ("wait duration (seconds)", nonnegative) },
+    Telegraph => "telegraph" { seconds: f32 => ("telegraph duration (seconds)", nonnegative) },
+    JumpToPlayer => "jump_to_player" {
+        speed: f32 => ("jump speed (pixels/second)", nonnegative),
+        dx: f32 => ("target horizontal offset from player (pixels, positive right)", finite),
+        dy: f32 => ("target vertical offset from player (pixels, negative above)", finite)
+    },
+    Hover => "hover" { seconds: f32 => ("hover duration (seconds)", nonnegative) },
+    SlamDown => "legacy_slam_down" { speed: f32 => ("downward slam speed (pixels/second)", nonnegative) },
+    AreaBlast => "legacy_area_blast" {
+        count: u16 => ("blast count (integer 0..65535)", valid_count),
+        radius: f32 => ("blast radius (pixels)", nonnegative),
+        fuse_time: f32 => ("blast fuse time (seconds)", nonnegative),
+        damage: u8 => ("blast damage (integer 0..255)", valid_damage)
+    },
+    Lunge => "lunge" {
+        speed: f32 => ("lunge speed (pixels/second)", nonnegative),
+        duration_secs: f32 => ("lunge duration (seconds)", nonnegative),
+        attack: AttackBox => ("attack box", valid_attack),
+        recovery_secs: f32 => ("recovery duration (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
+    },
+    JumpTo => "jump_to" {
+        air_time_secs: f32 => ("air time (seconds)", positive),
+        dx: f32 => ("target offset x (pixels)", finite),
+        dy: f32 => ("target offset y (pixels)", finite),
+        #[serde(default = "default_arc_height")]
+        arc_height: f32 => ("arc height (pixels)", nonnegative),
+        #[serde(default)]
+        attack: OptionalAttack => ("optional landing attack box", valid_optional_attack),
+        recovery_secs: f32 => ("landing recovery (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
+    },
+    #[serde(rename = "slam_down")]
+    ImpactSlam => "slam_down" {
+        speed: f32 => ("downward slam speed (pixels/second)", positive),
+        attack: AttackBox => ("impact attack box", valid_attack),
+        recovery_secs: f32 => ("impact recovery (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
+    },
     ShootProjectile => "shoot_projectile" {
         speed: f32 => ("projectile speed (pixels/second)", positive),
         damage: i32 => ("projectile damage (integer)", attack_damage),
@@ -293,49 +359,6 @@ actions! {
         #[serde(default = "default_feedback")]
         feedback: AttackFeedback => ("warning feedback", valid_feedback)
     },
-    Lunge => "lunge" {
-        speed: f32 => ("lunge speed (pixels/second)", nonnegative),
-        duration_secs: f32 => ("lunge duration (seconds)", nonnegative),
-        attack: AttackBox => ("attack box", valid_attack),
-        recovery_secs: f32 => ("recovery duration (seconds)", nonnegative),
-        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
-        #[serde(default = "default_feedback")]
-        feedback: AttackFeedback => ("warning feedback", valid_feedback)
-    },
-    MoveTowardPlayer => "move_toward_player" { speed: f32 => ("speed toward player (pixels/second)", nonnegative) },
-    MoveAwayFromPlayer => "move_away_from_player" { speed: f32 => ("speed away from player (pixels/second)", nonnegative) },
-    Patrol => "patrol" { speed: f32 => ("patrol speed (pixels/second)", nonnegative) },
-    Wait => "wait" { seconds: f32 => ("wait duration (seconds)", nonnegative) },
-    Telegraph => "telegraph" { seconds: f32 => ("telegraph duration (seconds)", nonnegative) },
-    JumpTo => "jump_to" {
-        dx: f32 => ("target offset x (pixels)", finite),
-        dy: f32 => ("target offset y (pixels)", finite),
-        air_time_secs: f32 => ("air time (seconds)", positive),
-        #[serde(default = "default_arc_height")]
-        arc_height: f32 => ("arc height (pixels)", nonnegative),
-        #[serde(default)]
-        attack: OptionalAttack => ("optional landing attack box", valid_optional_attack),
-        recovery_secs: f32 => ("landing recovery (seconds)", nonnegative),
-        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
-        #[serde(default = "default_feedback")]
-        feedback: AttackFeedback => ("warning feedback", valid_feedback)
-    },
-    JumpToPlayer => "jump_to_player" {
-        speed: f32 => ("jump speed (pixels/second)", nonnegative),
-        dx: f32 => ("target horizontal offset from player (pixels, positive right)", finite),
-        dy: f32 => ("target vertical offset from player (pixels, negative above)", finite)
-    },
-    Hover => "hover" { seconds: f32 => ("hover duration (seconds)", nonnegative) },
-    #[serde(rename = "slam_down")]
-    ImpactSlam => "slam_down" {
-        speed: f32 => ("downward slam speed (pixels/second)", positive),
-        attack: AttackBox => ("impact attack box", valid_attack),
-        recovery_secs: f32 => ("impact recovery (seconds)", nonnegative),
-        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
-        #[serde(default = "default_feedback")]
-        feedback: AttackFeedback => ("warning feedback", valid_feedback)
-    },
-    SlamDown => "legacy_slam_down" { speed: f32 => ("downward slam speed (pixels/second)", nonnegative) },
     #[serde(rename = "area_blast")]
     RadialBlast => "area_blast" {
         radius: f32 => ("blast radius (pixels)", blast_radius),
@@ -345,12 +368,6 @@ actions! {
         telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
         #[serde(default = "default_feedback")]
         feedback: AttackFeedback => ("warning feedback", valid_feedback)
-    },
-    AreaBlast => "legacy_area_blast" {
-        count: u16 => ("blast count (integer 0..65535)", valid_count),
-        radius: f32 => ("blast radius (pixels)", nonnegative),
-        fuse_time: f32 => ("blast fuse time (seconds)", nonnegative),
-        damage: u8 => ("blast damage (integer 0..255)", valid_damage)
     };
     GlideToPlayer => "glide_to_player" {
         speed: f32 => ("Glide speed (px/s)", positive), above_floor: f32 => ("Height above floor (px)", nonnegative)

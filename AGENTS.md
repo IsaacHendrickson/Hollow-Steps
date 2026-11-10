@@ -70,6 +70,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/behavior.rs`: data-driven action sequences, state transitions, and RON validation.
 - `src/enemy_attack.rs`: shared attack geometry, timed enemy attacks, and projectiles.
 - `src/preset.rs`: validated RON behavior preset catalog.
+- `src/action_parameters.rs`: labeled scalar editor fields for the shared action registry.
 - `src/behavior_values.rs`: numeric behavior controls and transactional validated edits.
 - `src/boss.rs`: boss health, reusable timed attacks, state machine, and death.
 - `src/boss_definition.rs`: validated RON boss definitions and attack selection settings.

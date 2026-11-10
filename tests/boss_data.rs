@@ -432,20 +432,20 @@ fn boss_only_actions_do_not_become_enemy_behaviors_or_editor_actions() {
     assert_eq!(
         Action::TYPES,
         [
-            "shoot_projectile",
-            "lunge",
             "move_toward_player",
             "move_away_from_player",
             "patrol",
             "wait",
             "telegraph",
-            "jump_to",
             "jump_to_player",
             "hover",
-            "slam_down",
             "legacy_slam_down",
-            "area_blast",
-            "legacy_area_blast"
+            "legacy_area_blast",
+            "lunge",
+            "jump_to",
+            "slam_down",
+            "shoot_projectile",
+            "area_blast"
         ]
     );
 }

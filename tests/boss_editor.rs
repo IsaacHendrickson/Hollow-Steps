@@ -48,7 +48,20 @@ fn attack_and_action_operations_are_pure_ordered_and_bounds_checked() {
 #[test]
 fn every_boss_action_has_valid_data_defaults_and_labeled_editable_parameters() {
     let catalog = BossActionInput::catalog();
-    assert_eq!(catalog.len(), Action::ALL_TYPES.len() - 3);
+    assert_eq!(catalog.len(), Action::ALL_TYPES.len() - 8);
+    for name in [
+        "lunge",
+        "jump_to",
+        "slam_down",
+        "shoot_projectile",
+        "area_blast",
+    ] {
+        let kind = Action::ALL_TYPES
+            .iter()
+            .position(|entry| *entry == name)
+            .unwrap();
+        assert!(BossActionInput::new(kind).is_err(), "enemy action {name}");
+    }
     for (kind, name) in catalog {
         let input = BossActionInput::new(kind).unwrap();
         let action = input.build().unwrap();

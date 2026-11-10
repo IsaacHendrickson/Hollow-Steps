@@ -13,7 +13,7 @@ pub enum AttackShape {
 pub struct AttackBox {
     pub shape: AttackShape,
     pub offset: (f32, f32),
-    /// Full width/height; circles use size.x as their diameter and require equal axes.
+    /// Full width/height; circles use size.x as their diameter (height is retained for switching shapes).
     pub size: (f32, f32),
     pub damage: i32,
     pub knockback: (f32, f32),
@@ -40,9 +40,6 @@ impl AttackBox {
         }
         crate::behavior::positive(self.size.0).map_err(|e| format!("attack width: {e}"))?;
         crate::behavior::positive(self.size.1).map_err(|e| format!("attack height: {e}"))?;
-        if self.shape == AttackShape::Circle && self.size.0 != self.size.1 {
-            return Err("attack circle width and height must match".into());
-        }
         if self.damage < 0 {
             return Err("attack damage must be nonnegative".into());
         }
