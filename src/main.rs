@@ -125,6 +125,23 @@ fn draw_scene(game: &GameState) {
         4.0,
         Color::from_rgba(111, 122, 164, 255),
     );
+    for solid in room.terrain.solids() {
+        draw_rectangle(
+            solid.x,
+            solid.y,
+            solid.w,
+            solid.h,
+            Color::from_rgba(34, 37, 58, 255),
+        );
+        draw_rectangle_lines(
+            solid.x,
+            solid.y,
+            solid.w,
+            solid.h,
+            3.0,
+            Color::from_rgba(111, 122, 164, 255),
+        );
+    }
     draw_rectangle_lines(
         room.bounds.x,
         room.bounds.y,

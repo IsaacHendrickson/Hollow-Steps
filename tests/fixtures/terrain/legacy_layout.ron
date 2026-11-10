@@ -1,0 +1,8 @@
+// Room layout written before terrain existed (no `terrain` field).
+(
+    bounds: (0.0, 0.0, 960.0, 460.0),
+    floor_y: 460.0,
+    spawn: (50.0, 436.0),
+    items: [],
+    exits: [],
+)

@@ -11,6 +11,7 @@ use crate::behavior::{
 };
 use crate::body::{load_body_templates, BodyInstance, BodyTemplates, BodyVisual};
 use crate::player::WorldBounds;
+use crate::terrain::Terrain;
 
 pub const ENEMY_MAX_HEALTH: u8 = 3;
 pub const KNOCKBACK_SPEED: f32 = 260.0;
@@ -425,6 +426,57 @@ impl Enemy {
     }
 
     pub fn update_with_player_size(
+        &mut self,
+        player_position: Vec2,
+        player_size: Vec2,
+        delta_seconds: f32,
+        bounds: WorldBounds,
+    ) {
+        self.update_with_terrain(
+            player_position,
+            player_size,
+            delta_seconds,
+            bounds,
+            &Terrain::default(),
+        );
+    }
+
+    /// Like `update_with_player_size`, but whatever movement the behavior
+    /// produced (patrol, chase, lunge, jump, knockback, gravity) is swept
+    /// against `terrain`, so enemies cannot pass through platforms or walls.
+    pub fn update_with_terrain(
+        &mut self,
+        player_position: Vec2,
+        player_size: Vec2,
+        delta_seconds: f32,
+        bounds: WorldBounds,
+        terrain: &Terrain,
+    ) {
+        let previous = self.position;
+        self.step_behavior(player_position, player_size, delta_seconds, bounds);
+        // An enemy already inside a solid (authored overlap) is left alone
+        // rather than being pushed out unpredictably.
+        if terrain.is_empty()
+            || self.position == previous
+            || terrain.overlaps_body(previous, self.size)
+        {
+            return;
+        }
+        let mut position = previous;
+        terrain.move_body(
+            &mut position,
+            self.size,
+            self.position - previous,
+            crate::terrain::Limits {
+                left: bounds.left,
+                right: bounds.right,
+                floor_y: bounds.floor_y,
+            },
+        );
+        self.position = position;
+    }
+
+    fn step_behavior(
         &mut self,
         player_position: Vec2,
         player_size: Vec2,

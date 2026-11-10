@@ -3,6 +3,7 @@ use macroquad::math::Vec2;
 use crate::combat::Attack;
 use crate::health::Health;
 use crate::item::Item;
+use crate::terrain::Terrain;
 
 pub const DASH_SPEED: f32 = 800.0;
 pub const DASH_DURATION: f32 = 0.2;
@@ -208,11 +209,23 @@ impl Player {
         self.dash_cooldown = 0.0;
         self.air_dash_used = false;
         self.resolve_horizontal_bounds(bounds);
-        self.resolve_floor(bounds);
+        self.resolve_floor(bounds, &Terrain::default());
     }
 
-    /// Advances the player by one simulation step.
+    /// Advances the player by one simulation step with no solids in the room.
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32, bounds: WorldBounds) {
+        self.update_with_terrain(input, delta_seconds, bounds, &Terrain::default());
+    }
+
+    /// Advances the player by one simulation step, colliding with `terrain`
+    /// in addition to the world bounds and floor.
+    pub fn update_with_terrain(
+        &mut self,
+        input: PlayerInput,
+        delta_seconds: f32,
+        bounds: WorldBounds,
+        terrain: &Terrain,
+    ) {
         let delta_seconds = if delta_seconds.is_finite() {
             delta_seconds.max(0.0)
         } else {
@@ -242,7 +255,7 @@ impl Player {
             (self.jump_buffer_remaining - delta_seconds).max(0.0)
         };
         // Recheck support so stepping off a ledge uses the grace timer.
-        self.resolve_floor(bounds);
+        self.resolve_floor(bounds, terrain);
         if self.dash_remaining == 0.0
             && self.jump_buffer_remaining > 0.0
             && (self.grounded || self.coyote_remaining > 0.0)
@@ -270,7 +283,10 @@ impl Player {
         let dash_seconds = delta_seconds.min(self.dash_remaining);
         if self.dash_remaining > 0.0 {
             self.velocity = Vec2::new(self.facing * DASH_SPEED, 0.0);
-            self.position += self.velocity * dash_seconds;
+            let contacts = self.displace(self.velocity * dash_seconds, terrain, bounds);
+            if contacts.wall {
+                self.dash_remaining = 0.0;
+            }
             self.dash_remaining = (self.dash_remaining - dash_seconds).max(0.0);
             if self.dash_remaining < f32::EPSILON {
                 self.dash_remaining = 0.0;
@@ -287,7 +303,7 @@ impl Player {
             self.velocity.y = (self.velocity.y
                 + self.config.gravity * gravity_multiplier * normal_seconds)
                 .min(self.config.max_fall_speed);
-            self.position += self.velocity * normal_seconds;
+            self.displace(self.velocity * normal_seconds, terrain, bounds);
         }
         self.dash_cooldown = (self.dash_cooldown - delta_seconds).max(0.0);
         if self.dash_cooldown < f32::EPSILON {
@@ -296,13 +312,22 @@ impl Player {
 
         // Attack displacement is additive; walking, jumping, and dash rules retain their normal path.
         let knockback_dt = delta_seconds.min(self.attack_knockback_remaining);
-        self.position.x = (f64::from(self.position.x)
+        let knockback_x = (f64::from(self.position.x)
             + f64::from(self.attack_knockback_x) * f64::from(knockback_dt))
             as f32;
+        if terrain.is_empty() {
+            self.position.x = knockback_x;
+        } else {
+            self.displace(
+                Vec2::new(knockback_x - self.position.x, 0.0),
+                terrain,
+                bounds,
+            );
+        }
         self.attack_knockback_remaining =
             (self.attack_knockback_remaining - delta_seconds).max(0.0);
         self.resolve_horizontal_bounds(bounds);
-        self.resolve_floor(bounds);
+        self.resolve_floor(bounds, terrain);
         if self.dash_remaining == 0.0 && self.grounded && self.jump_buffer_remaining > 0.0 {
             self.start_jump();
         }
@@ -327,10 +352,47 @@ impl Player {
         }
     }
 
-    fn resolve_floor(&mut self, bounds: WorldBounds) {
-        let floor_position = bounds.floor_y - self.config.size.y / 2.0;
+    /// Moves by `displacement`. Without solids this is plain addition; with
+    /// solids each axis is resolved separately in substeps.
+    fn displace(
+        &mut self,
+        displacement: Vec2,
+        terrain: &Terrain,
+        bounds: WorldBounds,
+    ) -> crate::terrain::Contacts {
+        if terrain.is_empty() {
+            self.position += displacement;
+            return Default::default();
+        }
+        let contacts = terrain.move_body(
+            &mut self.position,
+            self.config.size,
+            displacement,
+            crate::terrain::Limits {
+                left: bounds.left,
+                right: bounds.right,
+                floor_y: bounds.floor_y,
+            },
+        );
+        if contacts.wall {
+            self.velocity.x = 0.0;
+        }
+        if (contacts.floor && self.velocity.y > 0.0) || (contacts.ceiling && self.velocity.y < 0.0)
+        {
+            self.velocity.y = 0.0;
+        }
+        contacts
+    }
 
-        if self.position.y >= floor_position && self.velocity.y >= 0.0 {
+    fn resolve_floor(&mut self, bounds: WorldBounds, terrain: &Terrain) {
+        let mut floor_position = bounds.floor_y - self.config.size.y / 2.0;
+        let mut on_solid = false;
+        if let Some(top) = terrain.support_top(self.position, self.config.size) {
+            floor_position = floor_position.min(top - self.config.size.y / 2.0);
+            on_solid = true;
+        }
+
+        if (on_solid || self.position.y >= floor_position) && self.velocity.y >= 0.0 {
             self.position.y = floor_position;
             self.velocity.y = 0.0;
             self.grounded = true;
