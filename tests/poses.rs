@@ -42,3 +42,58 @@ fn semantic_resolution_ignores_missing_points() {
         1
     );
 }
+
+fn machine(action: &str) -> hollow_steps::behavior::Behavior {
+    let definition = hollow_steps::behavior::BehaviorDefinition::from_ron(&format!(
+        "(initial_state: \"run\", states: [(name: \"run\", actions: [{action}], transitions: [])])"
+    ))
+    .unwrap();
+    hollow_steps::behavior::Behavior::new(Arc::new(definition)).unwrap()
+}
+fn context() -> hollow_steps::behavior::BehaviorContext {
+    hollow_steps::behavior::BehaviorContext {
+        player_position: macroquad::math::Vec2::new(400.0, 442.0),
+        health: 3,
+        size: macroquad::math::Vec2::splat(36.0),
+        bounds: hollow_steps::player::WorldBounds::new(0.0, 960.0, 460.0),
+        patrol_left: 100.0,
+        patrol_right: 200.0,
+    }
+}
+#[test]
+fn action_start_sets_targets_and_end_clears_them() {
+    use hollow_steps::pose::PoseStep;
+    let mut behavior = machine("lunge(speed: 0.0, duration_secs: 0.2, attack: (shape: Rect, offset: (0.0, 0.0), size: (20.0, 20.0), damage: 1, knockback: (0.0, 0.0), active_secs: 0.2), recovery_secs: 0.1, telegraph_secs: 0.5, telegraph_pose: Some(\"windup\"))");
+    let mut body = body();
+    let poses = [(
+        "windup".into(),
+        Arc::new(ron::from_str(include_str!("fixtures/poses/windup.ron")).unwrap()),
+    )]
+    .into();
+    let mut position = macroquad::math::Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(), 0.1);
+    for step in behavior.take_pose_steps() {
+        if let PoseStep::Apply { name, .. } = step {
+            body.set_pose(name.as_deref(), &poses);
+        }
+    }
+    assert_eq!(body.pose_name.as_deref(), Some("windup"));
+    assert_eq!(
+        body.targets["root"].x,
+        body.template.points["root"].rest.0 - 0.2
+    );
+    behavior.update(&mut position, context(), 1.0);
+    for step in behavior.take_pose_steps() {
+        match step {
+            PoseStep::Apply { name, .. } => body.set_pose(name.as_deref(), &poses),
+            PoseStep::Clear => body.clear_pose(),
+            _ => {}
+        }
+    }
+    assert!(behavior.action_finished());
+    assert!(body.pose_name.is_none());
+    assert_ne!(
+        body.targets["root"].x,
+        body.template.points["root"].rest.0 - 0.2
+    );
+}

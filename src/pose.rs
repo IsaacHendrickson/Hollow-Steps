@@ -68,3 +68,11 @@ pub fn load_poses(directory: &Path) -> Result<Poses, String> {
     }
     Ok(poses)
 }
+
+#[derive(Clone, Debug)]
+pub enum PoseStep {
+    Apply { name: Option<String>, seconds: f32 },
+    Idle(f32),
+    Clear,
+    Face(bool),
+}

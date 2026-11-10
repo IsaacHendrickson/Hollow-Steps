@@ -319,6 +319,8 @@ pub struct BodyInstance {
     pub targets: PointPositions,
     target_overrides: PointPositions,
     game_time_secs: f64,
+    pub pose_name: Option<String>,
+    pose_points: BTreeSet<String>,
 }
 
 impl BodyInstance {
@@ -336,6 +338,8 @@ impl BodyInstance {
             targets: template.rest_positions(),
             target_overrides: PointPositions::new(),
             game_time_secs: 0.0,
+            pose_name: None,
+            pose_points: BTreeSet::new(),
             template,
             visual,
         };
@@ -366,6 +370,25 @@ impl BodyInstance {
         self.target_overrides.remove(point_name);
         self.refresh_targets();
         Ok(())
+    }
+
+    pub fn set_pose(&mut self, name: Option<&str>, poses: &crate::pose::Poses) {
+        if self.pose_name.as_deref() == name {
+            return;
+        }
+        self.clear_pose();
+        if let Some((name, pose)) = name.and_then(|n| poses.get(n).map(|p| (n, p))) {
+            self.pose_points = pose.resolve(&self.template).into_keys().collect();
+            pose.apply(self);
+            self.pose_name = Some(name.to_owned());
+        }
+    }
+
+    pub fn clear_pose(&mut self) {
+        for name in std::mem::take(&mut self.pose_points) {
+            self.clear_target(&name).expect("resolved pose point");
+        }
+        self.pose_name = None;
     }
 
     pub fn snap_to_targets(&mut self) {

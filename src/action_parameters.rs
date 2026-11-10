@@ -3,7 +3,7 @@ use crate::enemy_attack::{
     Aim, AttackBox, AttackFeedback, AttackShape, AttackSize, AttackVector, OptionalAttack,
 };
 
-pub(crate) trait EditorParameter: Copy {
+pub(crate) trait EditorParameter: Clone {
     const LABELS: &'static [&'static str];
     fn editor_values(self) -> Vec<String>;
     fn edit(&mut self, index: usize, text: &str) -> Result<(), String>;
@@ -190,6 +190,24 @@ impl EditorParameter for AttackFeedback {
             5 => self.tint.2 = parse(text)?,
             _ => return Err("missing feedback parameter".into()),
         }
+        Ok(())
+    }
+}
+
+impl EditorParameter for Option<String> {
+    const LABELS: &'static [&'static str] = &[""];
+    fn editor_values(self) -> Vec<String> {
+        vec![self.unwrap_or_default()]
+    }
+    fn edit(&mut self, index: usize, text: &str) -> Result<(), String> {
+        if index != 0 {
+            return Err("missing pose parameter".into());
+        }
+        *self = if text.trim().is_empty() || text.trim() == "None" {
+            None
+        } else {
+            Some(text.trim().to_owned())
+        };
         Ok(())
     }
 }

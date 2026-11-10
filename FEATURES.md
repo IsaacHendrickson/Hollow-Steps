@@ -55,3 +55,4 @@
 - egui editor panel with pinned Save, collapsing sections, filtered dropdowns with eight-row scroll viewports, counts/no-match rows, tooltip truncation, draggable solid scrollbars, and canvas input capture: `src/editor_panel.rs`, `src/main.rs`; `src/editor_panel.rs` headless tests, preserved `src/search.rs` tests, plus README manual checklist.
 
 - Semantic pose assets and per-template point mapping: `src/pose.rs`, `src/body.rs`, `assets/poses/`; `tests/poses.rs`.
+- Data-bound attack phase pose commands and spring target cleanup on completion/interruption: `src/behavior.rs`, `src/enemy_attack.rs`, `src/enemy.rs`, `src/body.rs`; `tests/poses.rs`, `tests/attack_actions.rs`.

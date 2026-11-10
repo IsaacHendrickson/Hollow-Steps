@@ -205,6 +205,37 @@ impl AttackRuntime {
         }
     }
 
+    /// Presentation spans of the last simulation step, including exact phase boundaries.
+    pub fn pose_spans(&self, used: f64) -> Vec<(usize, f32)> {
+        let duration = match self.motion {
+            Motion::Lunge { duration, .. } | Motion::Jump { duration, .. } => duration,
+        };
+        let landing = matches!(self.motion, Motion::Jump { .. });
+        let active_end = self.telegraph
+            + duration
+            + if landing {
+                self.attack.map_or(0.0, |a| f64::from(a.active_secs))
+            } else {
+                0.0
+            };
+        let before = self.elapsed - used;
+        let mut spans = Vec::new();
+        for (phase, start, end) in [
+            (0, 0.0, self.telegraph),
+            (1, self.telegraph, active_end),
+            (2, active_end, active_end + self.recovery),
+        ] {
+            let seconds = self.elapsed.min(end) - before.max(start);
+            if seconds > 0.0
+                || (self.elapsed == start && end > start)
+                || (phase == 1 && start == end && self.elapsed >= start && before <= start)
+            {
+                spans.push((phase, seconds.max(0.0) as f32));
+            }
+        }
+        spans
+    }
+
     pub fn warning(&self) -> Option<AttackBox> {
         (self.elapsed < self.telegraph)
             .then_some(self.attack)

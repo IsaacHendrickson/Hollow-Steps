@@ -65,12 +65,14 @@ pub struct EnemyDefinitions {
     entities: BTreeMap<String, EnemyDefinition>,
     behaviors: BTreeMap<String, Arc<BehaviorDefinition>>,
     bodies: BodyTemplates,
+    poses: Arc<crate::pose::Poses>,
 }
 
 impl EnemyDefinitions {
     pub fn load(assets: &Path) -> Result<Self, String> {
         let behaviors = load_behaviors(&assets.join("behaviors"))?;
         let bodies = load_body_templates(&assets.join("bodies"))?;
+        let poses = Arc::new(crate::pose::load_poses(&assets.join("poses"))?);
         let mut entities = BTreeMap::new();
         for path in ron_files(&assets.join("entities"))? {
             let entity: EnemyDefinition = read_ron(&path)?;
@@ -102,6 +104,7 @@ impl EnemyDefinitions {
             entities,
             behaviors,
             bodies,
+            poses,
         })
     }
 
@@ -136,6 +139,7 @@ impl EnemyDefinitions {
             entities: result,
             behaviors,
             bodies,
+            poses: Arc::default(),
         })
     }
 
@@ -162,14 +166,16 @@ impl EnemyDefinitions {
             .entities
             .get(name)
             .ok_or_else(|| format!("missing enemy definition {name:?}"))?;
-        Enemy::from_definition_with_templates(
+        let mut enemy = Enemy::from_definition_with_templates(
             entity,
             self.behaviors[&entity.behavior].clone(),
             &self.bodies,
             left,
             right,
             bounds,
-        )
+        )?;
+        enemy.poses = self.poses.clone();
+        Ok(enemy)
     }
 }
 
@@ -182,6 +188,7 @@ pub struct Enemy {
     name: String,
     size: Vec2,
     body: Option<BodyInstance>,
+    poses: Arc<crate::pose::Poses>,
     facing_left: bool,
     max_health: u8,
     contact_damage: u8,
@@ -301,6 +308,7 @@ impl Enemy {
             name: definition.name.clone(),
             size,
             body,
+            poses: Arc::default(),
             facing_left: false,
             max_health: definition.health,
             contact_damage: definition.contact_damage,
@@ -401,10 +409,10 @@ impl Enemy {
         if self.is_dead() {
             return;
         }
-        if let Some(body) = &mut self.body {
-            body.step(dt);
-        }
         if self.knockback_remaining > 0.0 {
+            if let Some(body) = &mut self.body {
+                body.step(dt);
+            }
             self.behavior.pause_attack();
             self.behavior
                 .advance_projectiles(player_position, player_size, bounds, dt);
@@ -432,6 +440,27 @@ impl Enemy {
             dt,
             player_size,
         );
+        for step in self.behavior.take_pose_steps() {
+            match step {
+                crate::pose::PoseStep::Face(left) => self.facing_left = left,
+                crate::pose::PoseStep::Apply { name, seconds } => {
+                    if let Some(body) = &mut self.body {
+                        body.set_pose(name.as_deref(), &self.poses);
+                        body.step(seconds);
+                    }
+                }
+                crate::pose::PoseStep::Clear => {
+                    if let Some(body) = &mut self.body {
+                        body.clear_pose();
+                    }
+                }
+                crate::pose::PoseStep::Idle(seconds) => {
+                    if let Some(body) = &mut self.body {
+                        body.step(seconds);
+                    }
+                }
+            }
+        }
         if self.position.x != previous_x {
             self.facing_left = self.position.x < previous_x;
         }
