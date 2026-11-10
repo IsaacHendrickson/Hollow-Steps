@@ -410,6 +410,8 @@ impl BossSpecials {
                 damage: 0,
             };
             let (used, finished) = runtime.step(action, preview, &mut actor, remaining);
+            // Bosses have no pose consumer; retain only the shared gameplay output.
+            runtime.pose_steps.clear();
             damage = damage.saturating_add(actor.damage);
             self.runtime = runtime;
             remaining = (remaining - used).max(0.0);

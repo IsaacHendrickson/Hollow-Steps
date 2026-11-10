@@ -141,21 +141,11 @@ impl ActionRuntime {
             return (0.0, false);
         }
         let mut position = actor.position();
-        let context = actor.context();
-        let player_size = actor.player_size();
         let motion = actor.motion();
         self.direction = motion.facing;
         self.vertical_velocity = motion.velocity.1;
         self.airborne = motion.airborne;
-        let result = self.execute(
-            action,
-            preview,
-            &mut position,
-            context,
-            player_size,
-            remaining,
-            actor,
-        );
+        let result = self.execute(action, preview, &mut position, remaining, actor);
         actor.set_position(position);
         if action.uses_ground_motion() {
             actor.emit(ActionOutput::Hold(position));
@@ -194,11 +184,11 @@ impl ActionRuntime {
         action: &Action,
         preview: &Action,
         position: &mut Vec2,
-        context: BehaviorContext,
-        player_size: Vec2,
         remaining: f64,
         actor: &mut impl ActionActor,
     ) -> (f64, bool) {
+        let context = actor.context();
+        let player_size = actor.player_size();
         let action = action.clone();
         if matches!(
             action,
