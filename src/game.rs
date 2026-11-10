@@ -291,7 +291,12 @@ impl GameState {
             room.coins.extend_from_slice(boss.new_coins());
         }
         for enemy in &mut room.enemies {
-            enemy.update(self.player.position(), delta_seconds, bounds);
+            enemy.update_with_player_size(
+                self.player.position(),
+                self.player.size(),
+                delta_seconds,
+                bounds,
+            );
         }
         if let Some(boss) = &mut room.boss {
             boss.update(delta_seconds);
@@ -352,12 +357,22 @@ impl GameState {
                 separation.x <= reach.x && separation.y <= reach.y
             })
             .map_or(0, |boss| boss.contact_damage());
-        self.player.take_damage_amount(
-            enemy_damage
-                .max(boss_damage)
-                .max(special_damage.min(255) as u8)
-                .max(contact_damage),
-        );
+        let base_damage = enemy_damage
+            .max(boss_damage)
+            .max(special_damage.min(255) as u8)
+            .max(contact_damage);
+        let hit = room
+            .enemies
+            .iter()
+            .filter_map(|enemy| enemy.attack_hit(self.player.position(), self.player.size()))
+            .filter(|hit| hit.damage >= i32::from(base_damage))
+            .max_by_key(|hit| hit.damage)
+            .unwrap_or(crate::enemy_attack::DamageHit {
+                damage: i32::from(base_damage),
+                knockback: Vec2::ZERO,
+                knockback_secs: 0.0,
+            });
+        self.player.take_attack_damage(hit);
         if self.player.health().current() == 0 {
             self.player.respawn(room.spawn, bounds);
             return;
@@ -449,6 +464,25 @@ mod tests {
         assert_eq!(game.player.health().current(), 1);
         game.update(PlayerInput::default(), 2.0);
         assert_eq!(game.player.health().current(), 1);
+    }
+
+    #[test]
+    fn attack_damage_wins_over_contact_and_immunity_blocks_knockback() {
+        use crate::behavior::BehaviorDefinition;
+        use crate::enemy::{Enemy, EnemyDefinition};
+        use std::sync::Arc;
+        let mut game = test_game();
+        let bounds = game.world_bounds();
+        let x = game.player.position().x;
+        game.rooms[0].enemies = vec![Enemy::from_definition(
+            &EnemyDefinition { name: "attacker".into(), health: 3, size: (36.0, 36.0), contact_damage: 1, behavior: "blast".into(), body: None },
+            Arc::new(BehaviorDefinition::from_ron(r#"(initial_state: "fire", states: [(name: "fire", actions: [area_blast(radius: 200.0, damage: 2, knockback: (100.0, -100.0), active_secs: 2.0, telegraph_secs: 0.0)], transitions: [])])"#).unwrap()),
+            x, x, bounds).unwrap()];
+        game.update(PlayerInput::default(), 0.1);
+        assert_eq!(game.player.health().current(), 3);
+        assert!(game.player.velocity().y < 0.0);
+        game.update(PlayerInput::default(), 0.1);
+        assert_eq!(game.player.health().current(), 3);
     }
 
     fn warden_game() -> GameState {

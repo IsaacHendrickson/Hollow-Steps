@@ -1125,3 +1125,39 @@ fn unrelated_editor_saves_preserve_damaged_boss_progress() {
     game.edit_room(RoomId::First).unwrap();
     assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 9);
 }
+
+#[test]
+fn attack_validation_blocks_staged_saves_without_any_disk_changes() {
+    let assets = Assets::new();
+    let snapshot = assets.snapshot();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    for (name, field) in [
+        ("lunge", "duration"),
+        ("jump_to", "air time"),
+        ("slam_down", "damage"),
+        ("shoot_projectile", "count"),
+        ("area_blast", "radius"),
+    ] {
+        let kind = Action::TYPES
+            .iter()
+            .position(|entry| *entry == name)
+            .unwrap();
+        let mut action = Action::defaults(kind).unwrap();
+        match &mut action {
+            Action::Lunge { duration_secs, .. } => *duration_secs = -1.0,
+            Action::JumpTo { air_time_secs, .. } => *air_time_secs = -1.0,
+            Action::ImpactSlam { attack, .. } => attack.damage = -1,
+            Action::ShootProjectile { count, .. } => *count = 0,
+            Action::RadialBlast { radius, .. } => *radius = 0.0,
+            _ => unreachable!(),
+        }
+        draft.behaviors.get_mut("patrol").unwrap().states[0].actions = vec![action];
+        let error = draft.plan(&[]).unwrap_err();
+        assert_error_file(&error, &assets.0.join("behaviors").join("patrol.ron"));
+        assert!(
+            error.contains("action 0") && error.contains(field),
+            "{error}"
+        );
+        assert_eq!(assets.snapshot(), snapshot);
+    }
+}

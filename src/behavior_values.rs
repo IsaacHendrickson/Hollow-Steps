@@ -31,8 +31,9 @@ impl KeyValues {
         let mut values = Vec::new();
         for (state, definition) in behavior.states.iter().enumerate() {
             for (row, action) in definition.actions.iter().enumerate() {
+                let labels = action.parameter_labels();
                 for (field, (_, value)) in action.parameters().into_iter().enumerate() {
-                    let description = action.parameter_labels()[field];
+                    let description = &labels[field];
                     values.push(KeyValue {
                         label: format!("{}: {description} [action {}]", definition.name, row + 1),
                         value,

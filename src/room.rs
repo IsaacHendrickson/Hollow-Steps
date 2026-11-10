@@ -91,7 +91,7 @@ pub struct Room {
 
 impl Room {
     pub fn world_bounds(&self) -> WorldBounds {
-        WorldBounds::new(self.bounds.x, self.bounds.right(), self.floor_y)
+        WorldBounds::new(self.bounds.x, self.bounds.right(), self.floor_y).with_top(self.bounds.y)
     }
 
     pub fn exit_at(&self, position: Vec2, size: Vec2) -> Option<&Exit> {

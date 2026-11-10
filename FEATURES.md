@@ -1,5 +1,9 @@
 # Features
 
+- Shared lunge, parabolic jump, impact slam, projectile fan, radial blast, warning feedback and recovery actions; Charger/Hopper/Shooter assignments preserve legacy behavior and boss rules: `src/enemy_attack.rs`, `src/behavior.rs`, `src/game.rs`, `src/body_draw.rs`, `data/action_defaults.ron`, `assets/behaviors/`; `tests/attack_actions.rs`, `tests/arena_actions.rs`, `tests/boss_data.rs`, `tests/definition_editor.rs`, `tests/reloading.rs`, `src/game.rs` immunity regression; manual warning/projectile/editor check.
+
+- Shared rectangular/circular enemy attack boxes, independent body geometry and immunity-gated damage/knockback: `src/enemy_attack.rs`, `src/player.rs`; `tests/attack_actions.rs`.
+
 - Session-only F3 body debug overlay in gameplay and the room editor, mirrored rest/current/target dots, target lines, gameplay hitboxes, and nearest-body point labels with fixed integer font sizes, zoom-independent generation, and a private font atlas using egui's bundled monospace font so overlay glyphs never resize/corrupt the HUD atlas; camera/filter state stays unchanged: `src/body_debug.rs`, `src/body_draw.rs`, `src/main.rs`; `tests/body_debug.rs`, `src/body_draw.rs` headless font test, plus manual F3/facing/editor/HUD check.
 
 - Data-driven damped point following with 120/22 defaults and subtle humanoid/bird/animal idle motion, game-time pause, local-space target/snap API, per-point spring overrides, validation, F5 motion preservation, and shared-template editor controls/save round trips: `src/body.rs`, `src/enemy.rs`, `src/game.rs`, `src/definition_editor.rs`, `src/editor_panel.rs`, `data/body_motion_defaults.ron`, `assets/bodies/`; `tests/body_motion.rs`, `tests/bodies.rs`, `src/editor_panel.rs` headless tests, plus README manual check.

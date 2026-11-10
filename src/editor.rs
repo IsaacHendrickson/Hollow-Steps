@@ -83,6 +83,7 @@ impl RoomLayout {
 
     pub fn world_bounds(&self) -> WorldBounds {
         WorldBounds::new(self.bounds.0, self.bounds.0 + self.bounds.2, self.floor_y)
+            .with_top(self.bounds.1)
     }
 
     fn contains_body(&self, center: (f32, f32), size: Vec2) -> bool {

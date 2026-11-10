@@ -147,6 +147,14 @@ impl DefinitionDraft {
     }
 
     pub fn definitions(&self) -> Result<EnemyDefinitions, String> {
+        for (name, behavior) in &self.behaviors {
+            behavior.validate().map_err(|error| {
+                file_error(
+                    &self.assets.join("behaviors").join(format!("{name}.ron")),
+                    error,
+                )
+            })?;
+        }
         EnemyDefinitions::from_definitions(
             self.entities.values().cloned(),
             self.behaviors
@@ -945,6 +953,7 @@ impl ActionInput {
         for (i, value) in self.values.iter().enumerate() {
             action.set_parameter(i, value.trim())?;
         }
+        action.validate()?;
         Ok(action)
     }
 }

@@ -1,0 +1,16 @@
+(
+    initial_state: "patrol",
+    states: [
+        (name: "patrol", actions: [patrol(speed: 55.0)], transitions: [
+            (target: "hop", condition: timer_elapsed(1.4)),
+        ]),
+        (name: "hop", actions: [
+            jump_to(dx: 0.0, dy: 0.0, air_time_secs: 0.8, arc_height: 120.0,
+                attack: None, recovery_secs: 0.0, telegraph_secs: 0.3),
+            slam_down(speed: 500.0,
+                attack: (shape: Rect, offset: (0.0, 10.0), size: (100.0, 36.0), damage: 2,
+                    knockback: (0.0, -240.0), active_secs: 0.25),
+                recovery_secs: 0.7, telegraph_secs: 0.2),
+        ], transitions: [(target: "patrol", condition: action_finished)]),
+    ],
+)

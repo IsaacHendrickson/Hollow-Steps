@@ -7,6 +7,15 @@ use std::sync::{Arc, OnceLock};
 use macroquad::math::Vec2;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+use crate::action_parameters::EditorParameter;
+use crate::enemy_attack::default_knockback_secs;
+use crate::enemy_attack::{
+    attack_damage, default_arc_height, projectile_count, spread_angles, valid_aim, valid_attack,
+    valid_optional_attack, valid_size, Aim, AttackBox, AttackRuntime, AttackSize, DamageHit,
+    OptionalAttack, Projectile,
+};
+use crate::enemy_attack::{blast_radius, valid_vector, AttackVector};
+use crate::enemy_attack::{default_feedback, valid_feedback, AttackFeedback, AttackWarning};
 use crate::player::WorldBounds;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -26,11 +35,45 @@ pub struct State {
 
 /// Shared action library. Boss-only actions are excluded from the enemy editor catalog.
 macro_rules! actions {
-    ($( $(#[$meta:meta])* $variant:ident => $name:literal { $( $field:ident : $ty:ty => ($label:literal, $validate:ident) ),+ } ),+ $(,)?;
+    ($( $(#[$meta:meta])* $variant:ident => $name:literal { $( $(#[$fm:meta])* $field:ident : $ty:ty => ($label:literal, $validate:ident) ),+ } ),+ $(,)?;
      $( $boss:ident => $boss_name:literal { $( $param:ident : $param_ty:ty => ($param_label:literal, $param_validate:ident) ),+ } ),+ $(,)?) => {
-        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+        #[derive(Clone, Debug, Serialize, PartialEq)]
         #[serde(rename_all = "snake_case", deny_unknown_fields)]
-        pub enum Action { $( $(#[$meta])* $variant { $( $field: $ty ),+ } ),+, $( $boss { $( $param: $param_ty ),+ } ),+ }
+        pub enum Action { $( $(#[$meta])* $variant { $( $(#[$fm])* $field: $ty ),+ } ),+, $( $boss { $( $param: $param_ty ),+ } ),+ }
+        impl<'de> Deserialize<'de> for Action {
+            fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                struct ActionVisitor;
+                impl<'de> serde::de::Visitor<'de> for ActionVisitor {
+                    type Value = Action;
+                    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str("a registered action") }
+                    fn visit_enum<A: serde::de::EnumAccess<'de>>(self, data: A) -> Result<Action, A::Error> {
+                        use serde::de::{Error, VariantAccess};
+                        let (name, variant) = data.variant::<ActionIdentifier>()?;
+                        if name.0 == "jump_to" { return deserialize_jump(variant); }
+                        if name.0 == "slam_down" { return deserialize_slam(variant); }
+                        if name.0 == "area_blast" { return deserialize_blast(variant); }
+                        match name.0.as_str() {
+                            $($name => {
+                                #[derive(Deserialize)]
+                                #[serde(deny_unknown_fields)]
+                                struct Fields { $( $(#[$fm])* $field: $ty ),+ }
+                                let fields: Fields = variant.struct_variant(&[$(stringify!($field)),+], FieldsVisitor(std::marker::PhantomData))?;
+                                Ok(Action::$variant { $($field: fields.$field),+ })
+                            },)+
+                            $($boss_name => {
+                                #[derive(Deserialize)]
+                                #[serde(deny_unknown_fields)]
+                                struct Fields { $( $param: $param_ty ),+ }
+                                let fields: Fields = variant.struct_variant(&[$(stringify!($param)),+], FieldsVisitor(std::marker::PhantomData))?;
+                                Ok(Action::$boss { $($param: fields.$param),+ })
+                            },)+
+                            _ => Err(A::Error::custom(format!("unknown action {:?}", name.0)))
+                        }
+                    }
+                }
+                deserializer.deserialize_enum("Action", Action::ALL_TYPES, ActionVisitor)
+            }
+        }
         impl Action {
             pub const TYPES: &'static [&'static str] = &[$($name),+];
             pub const ALL_TYPES: &'static [&'static str] = &[$($name),+, $($boss_name),+];
@@ -57,10 +100,20 @@ macro_rules! actions {
                 Self::TYPES.iter().position(|n| *n == name).expect("generated catalog")
             }
             pub fn parameters(&self) -> Vec<(&'static str, String)> {
-                match self { $(Self::$variant { $($field),+ } => vec![$((stringify!($field), $field.to_string())),+],)+ $(Self::$boss { $($param),+ } => vec![$((stringify!($param), $param.to_string())),+]),+ }
+                let mut values = Vec::new();
+                match self {
+                    $(Self::$variant { $($field),+ } => { $(values.extend($field.editor_values().into_iter().map(|v| (stringify!($field), v)));)+ },)+
+                    $(Self::$boss { $($param),+ } => { $(values.extend($param.editor_values().into_iter().map(|v| (stringify!($param), v)));)+ }),+
+                }
+                values
             }
-            pub fn parameter_labels(&self) -> &'static [&'static str] {
-                match self { $(Self::$variant { .. } => &[$($label),+],)+ $(Self::$boss { .. } => &[$($param_label),+]),+ }
+            pub fn parameter_labels(&self) -> Vec<String> {
+                let mut labels = Vec::new();
+                match self {
+                    $(Self::$variant { .. } => { $(labels.extend(<$ty as EditorParameter>::editor_labels($label));)+ },)+
+                    $(Self::$boss { .. } => { $(labels.extend(<$param_ty as EditorParameter>::editor_labels($param_label));)+ }),+
+                }
+                labels
             }
             pub fn validate(&self) -> Result<(), String> {
                 match self { $(Self::$variant { $($field),+ } => { $(
@@ -71,50 +124,250 @@ macro_rules! actions {
                 Ok(())
             }
             pub fn set_parameter(&mut self, index: usize, text: &str) -> Result<(), String> {
-                match self { $(Self::$variant { $($field),+ } => {
-                    let mut fields = [$(stringify!($field)),+].into_iter();
-                    let name = fields.nth(index).ok_or("missing parameter")?;
-                    match name { $(stringify!($field) => {
-                        let value = text.trim().parse::<$ty>()
-                            .map_err(|_| format!("{}: expected {} value", $label, stringify!($ty)))?;
-                        $validate(value).map_err(|error| format!("{}: {error}", $label))?;
-                        *$field = value;
-                        Ok(())
-                    },)+ _ => unreachable!("generated parameter") }
-                },)+ $(Self::$boss { $($param),+ } => {
-                    let mut fields = [$(stringify!($param)),+].into_iter();
-                    let name = fields.nth(index).ok_or("missing parameter")?;
-                    match name { $(stringify!($param) => {
-                        let value = text.trim().parse::<$param_ty>()
-                            .map_err(|_| format!("{}: expected {} value", $param_label, stringify!($param_ty)))?;
-                        $param_validate(value).map_err(|error| format!("{}: {error}", $param_label))?;
-                        *$param = value;
-                        Ok(())
-                    },)+ _ => unreachable!("generated parameter") }
-                }),+ }
+                let mut offset = 0;
+                match self {
+                    $(Self::$variant { $($field),+ } => { $(
+                        let count = <$ty as EditorParameter>::LABELS.len();
+                        if (offset..offset + count).contains(&index) {
+                            let mut value = *$field;
+                            value.edit(index - offset, text).map_err(|e| format!("{}: {e}", $label))?;
+                            $validate(value).map_err(|e| format!("{}: {e}", $label))?;
+                            *$field = value;
+                            return Ok(());
+                        }
+                        offset += count;
+                    )+ },)+
+                    $(Self::$boss { $($param),+ } => { $(
+                        let count = <$param_ty as EditorParameter>::LABELS.len();
+                        if (offset..offset + count).contains(&index) {
+                            let mut value = *$param;
+                            value.edit(index - offset, text).map_err(|e| format!("{}: {e}", $param_label))?;
+                            $param_validate(value).map_err(|e| format!("{}: {e}", $param_label))?;
+                            *$param = value;
+                            return Ok(());
+                        }
+                        offset += count;
+                    )+ }),+
+                }
+                let _ = offset;
+                Err("missing action parameter".into())
             }
         }
     }
 }
+// RON uses struct variants. This adapter keeps one registry while allowing old
+// jump_to(speed: ...) documents alongside the time-based parabolic action.
+struct FieldsVisitor<T>(std::marker::PhantomData<T>);
+impl<'de, T: Deserialize<'de>> serde::de::Visitor<'de> for FieldsVisitor<T> {
+    type Value = T;
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("labeled action parameters")
+    }
+    fn visit_map<A: serde::de::MapAccess<'de>>(self, map: A) -> Result<T, A::Error> {
+        T::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+    }
+}
+struct ActionIdentifier(String);
+impl<'de> Deserialize<'de> for ActionIdentifier {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct IdentifierVisitor;
+        impl serde::de::Visitor<'_> for IdentifierVisitor {
+            type Value = ActionIdentifier;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("action name")
+            }
+            fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                Ok(ActionIdentifier(value.into()))
+            }
+        }
+        d.deserialize_identifier(IdentifierVisitor)
+    }
+}
+fn present<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
+    T::deserialize(d).map(Some)
+}
+fn deserialize_jump<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result<Action, A::Error> {
+    use serde::de::Error;
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Fields {
+        dx: f32,
+        dy: f32,
+        #[serde(default, deserialize_with = "present")]
+        speed: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        air_time_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        arc_height: Option<f32>,
+        #[serde(default)]
+        attack: OptionalAttack,
+        #[serde(default, deserialize_with = "present")]
+        recovery_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        telegraph_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        feedback: Option<AttackFeedback>,
+    }
+    let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
+    match (p.speed, p.air_time_secs) {
+        (Some(speed), None) if p.arc_height.is_none() && p.attack.0.is_none() && p.recovery_secs.is_none() && p.telegraph_secs.is_none() && p.feedback.is_none()
+            => Ok(Action::JumpToPlayer { speed, dx: p.dx, dy: p.dy }),
+        (None, Some(air_time_secs)) => Ok(Action::JumpTo { dx: p.dx, dy: p.dy, air_time_secs,
+            arc_height: p.arc_height.unwrap_or_else(default_arc_height), attack: p.attack,
+            recovery_secs: p.recovery_secs.ok_or_else(|| A::Error::custom("jump_to: missing recovery_secs"))?,
+            telegraph_secs: p.telegraph_secs.ok_or_else(|| A::Error::custom("jump_to: missing telegraph_secs"))?,
+            feedback: p.feedback.unwrap_or_else(default_feedback) }),
+        _ => Err(A::Error::custom("jump_to: provide air_time_secs and attack parameters, or legacy speed; do not mix forms")),
+    }
+}
+fn deserialize_slam<'de, A: serde::de::VariantAccess<'de>>(variant: A) -> Result<Action, A::Error> {
+    use serde::de::Error;
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Fields {
+        speed: f32,
+        #[serde(default, deserialize_with = "present")]
+        attack: Option<AttackBox>,
+        #[serde(default, deserialize_with = "present")]
+        recovery_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        telegraph_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        feedback: Option<AttackFeedback>,
+    }
+    let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
+    match p.attack {
+        Some(attack) => Ok(Action::ImpactSlam {
+            speed: p.speed,
+            attack,
+            recovery_secs: p
+                .recovery_secs
+                .ok_or_else(|| A::Error::custom("slam_down: missing recovery_secs"))?,
+            telegraph_secs: p
+                .telegraph_secs
+                .ok_or_else(|| A::Error::custom("slam_down: missing telegraph_secs"))?,
+            feedback: p.feedback.unwrap_or_else(default_feedback),
+        }),
+        None if p.recovery_secs.is_none() && p.telegraph_secs.is_none() && p.feedback.is_none() => {
+            Ok(Action::SlamDown { speed: p.speed })
+        }
+        None => Err(A::Error::custom(
+            "slam_down: impact/recovery parameters require an attack box",
+        )),
+    }
+}
+fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
+    variant: A,
+) -> Result<Action, A::Error> {
+    use serde::de::Error;
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Fields {
+        radius: f32,
+        damage: i32,
+        #[serde(default, deserialize_with = "present")]
+        count: Option<u16>,
+        #[serde(default, deserialize_with = "present")]
+        fuse_time: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        knockback: Option<AttackVector>,
+        #[serde(default, deserialize_with = "present")]
+        knockback_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        active_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        telegraph_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
+        feedback: Option<AttackFeedback>,
+    }
+    let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
+    match (p.count, p.fuse_time, p.knockback, p.active_secs) {
+        (Some(count), Some(fuse_time), None, None) if p.telegraph_secs.is_none() && p.feedback.is_none() && p.knockback_secs.is_none() => Ok(Action::AreaBlast {
+            count, fuse_time, radius: p.radius, damage: u8::try_from(p.damage).map_err(|_| A::Error::custom("legacy blast damage must be 0..255"))? }),
+        (None, None, Some(knockback), Some(active_secs)) => Ok(Action::RadialBlast {
+            radius: p.radius, damage: p.damage, knockback, active_secs,
+            knockback_secs: p.knockback_secs.unwrap_or_else(default_knockback_secs),
+            telegraph_secs: p.telegraph_secs.ok_or_else(|| A::Error::custom("area_blast: missing telegraph_secs"))?,
+            feedback: p.feedback.unwrap_or_else(default_feedback) }),
+        _ => Err(A::Error::custom("area_blast: requires knockback and active_secs, or legacy count and fuse_time; do not mix forms")),
+    }
+}
+
 actions! {
     MoveTowardPlayer => "move_toward_player" { speed: f32 => ("speed toward player (pixels/second)", nonnegative) },
     MoveAwayFromPlayer => "move_away_from_player" { speed: f32 => ("speed away from player (pixels/second)", nonnegative) },
     Patrol => "patrol" { speed: f32 => ("patrol speed (pixels/second)", nonnegative) },
     Wait => "wait" { seconds: f32 => ("wait duration (seconds)", nonnegative) },
     Telegraph => "telegraph" { seconds: f32 => ("telegraph duration (seconds)", nonnegative) },
-    #[serde(alias = "jump_to")]
     JumpToPlayer => "jump_to_player" {
         speed: f32 => ("jump speed (pixels/second)", nonnegative),
         dx: f32 => ("target horizontal offset from player (pixels, positive right)", finite),
         dy: f32 => ("target vertical offset from player (pixels, negative above)", finite)
     },
     Hover => "hover" { seconds: f32 => ("hover duration (seconds)", nonnegative) },
-    SlamDown => "slam_down" { speed: f32 => ("downward slam speed (pixels/second)", nonnegative) },
-    AreaBlast => "area_blast" {
+    SlamDown => "legacy_slam_down" { speed: f32 => ("downward slam speed (pixels/second)", nonnegative) },
+    AreaBlast => "legacy_area_blast" {
         count: u16 => ("blast count (integer 0..65535)", valid_count),
         radius: f32 => ("blast radius (pixels)", nonnegative),
         fuse_time: f32 => ("blast fuse time (seconds)", nonnegative),
         damage: u8 => ("blast damage (integer 0..255)", valid_damage)
+    },
+    Lunge => "lunge" {
+        speed: f32 => ("lunge speed (pixels/second)", nonnegative),
+        duration_secs: f32 => ("lunge duration (seconds)", nonnegative),
+        attack: AttackBox => ("attack box", valid_attack),
+        recovery_secs: f32 => ("recovery duration (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
+    },
+    JumpTo => "jump_to" {
+        air_time_secs: f32 => ("air time (seconds)", positive),
+        dx: f32 => ("target offset x (pixels)", finite),
+        dy: f32 => ("target offset y (pixels)", finite),
+        #[serde(default = "default_arc_height")]
+        arc_height: f32 => ("arc height (pixels)", nonnegative),
+        #[serde(default)]
+        attack: OptionalAttack => ("optional landing attack box", valid_optional_attack),
+        recovery_secs: f32 => ("landing recovery (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
+    },
+    #[serde(rename = "slam_down")]
+    ImpactSlam => "slam_down" {
+        speed: f32 => ("downward slam speed (pixels/second)", positive),
+        attack: AttackBox => ("impact attack box", valid_attack),
+        recovery_secs: f32 => ("impact recovery (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
+    },
+    ShootProjectile => "shoot_projectile" {
+        speed: f32 => ("projectile speed (pixels/second)", positive),
+        damage: i32 => ("projectile damage (integer)", attack_damage),
+        lifetime_secs: f32 => ("projectile lifetime (seconds)", nonnegative),
+        size: AttackSize => ("projectile size (pixels)", valid_size),
+        aim: Aim => ("aim mode (AtPlayer or Horizontal)", valid_aim),
+        count: u16 => ("projectile count (integer, at least 1)", projectile_count),
+        spread_degrees: f32 => ("total fan spread (degrees)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
+    },
+    #[serde(rename = "area_blast")]
+    RadialBlast => "area_blast" {
+        radius: f32 => ("blast radius (pixels)", blast_radius),
+        damage: i32 => ("blast damage (integer)", attack_damage),
+        knockback: AttackVector => ("blast knockback (pixels/second)", valid_vector),
+        #[serde(default = "default_knockback_secs")]
+        knockback_secs: f32 => ("horizontal knockback duration (seconds)", nonnegative),
+        active_secs: f32 => ("blast active duration (seconds)", nonnegative),
+        telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
+        #[serde(default = "default_feedback")]
+        feedback: AttackFeedback => ("warning feedback", valid_feedback)
     };
     GlideToPlayer => "glide_to_player" {
         speed: f32 => ("Glide speed (px/s)", positive), above_floor: f32 => ("Height above floor (px)", nonnegative)
@@ -379,6 +632,9 @@ pub struct Behavior {
     airborne: bool,
     blasts: Vec<Blast>,
     random_state: Option<u32>,
+    attack_runtime: Option<AttackRuntime>,
+    projectiles: Vec<Projectile>,
+    projectile_hits: Vec<DamageHit>,
 }
 
 /// A stationary warning circle; `exploded` is a damage event for one update.
@@ -410,6 +666,9 @@ impl Behavior {
             airborne: false,
             blasts: Vec::new(),
             random_state: None,
+            attack_runtime: None,
+            projectiles: Vec::new(),
+            projectile_hits: Vec::new(),
         })
     }
 
@@ -449,11 +708,96 @@ impl Behavior {
         self.blasts.retain(|blast| !blast.exploded);
     }
 
+    pub fn attack_hit(&self, origin: Vec2, position: Vec2, size: Vec2) -> Option<DamageHit> {
+        self.attack_runtime
+            .as_ref()
+            .and_then(|r| r.active)
+            .filter(|attack| attack.overlaps(origin, position, size))
+            .map(AttackBox::hit)
+            .into_iter()
+            .chain(self.projectile_hits.iter().copied())
+            .max_by_key(|hit| hit.damage)
+    }
+
+    pub(crate) fn advance_projectiles(
+        &mut self,
+        player: Vec2,
+        player_size: Vec2,
+        bounds: WorldBounds,
+        dt: f32,
+    ) {
+        self.projectile_hits.clear();
+        self.projectiles.retain_mut(|projectile| {
+            let (alive, hit) = projectile.step(f64::from(dt), bounds, player, player_size);
+            self.projectile_hits.extend(hit);
+            alive
+        });
+    }
+
+    pub(crate) fn pause_attack(&mut self) {
+        if let Some(runtime) = &mut self.attack_runtime {
+            runtime.active = None;
+        }
+    }
+
+    pub fn projectiles(&self) -> &[Projectile] {
+        &self.projectiles
+    }
+
+    pub fn attack_warning(&self) -> Option<AttackBox> {
+        self.attack_runtime.as_ref()?.warning()
+    }
+
+    pub fn projectile_feedback(&self) -> AttackFeedback {
+        self.definition.states[self.state]
+            .actions
+            .get(self.action)
+            .and_then(Action::feedback)
+            .unwrap_or_else(default_feedback)
+    }
+
+    pub fn warning(&self, size: Vec2) -> Option<AttackWarning> {
+        let actions = &self.definition.states[self.state].actions;
+        let current = actions.get(self.action)?;
+        let (preview, progress) = if let Action::Telegraph { seconds } = current {
+            if *seconds <= 0.0 {
+                return None;
+            }
+            (
+                actions.get(self.action + 1).unwrap_or(current),
+                (self.action_elapsed / f64::from(*seconds)) as f32,
+            )
+        } else {
+            let progress = match &self.attack_runtime {
+                Some(runtime) => runtime.windup_progress()?,
+                None if current.windup_seconds()? > 0.0 => 0.0,
+                None => return None,
+            };
+            (current, progress)
+        };
+        let feedback = preview.feedback().unwrap_or_else(default_feedback);
+        let attack = preview.preview_attack().unwrap_or(AttackBox {
+            shape: crate::enemy_attack::AttackShape::Rect,
+            offset: (0.0, 0.0),
+            size: size.into(),
+            damage: 0,
+            knockback: (0.0, 0.0),
+            knockback_secs: 0.0,
+            active_secs: 0.0,
+        });
+        Some(AttackWarning {
+            attack,
+            feedback,
+            strength: (1.0 + (std::f32::consts::TAU * feedback.flash_cycles * progress).cos())
+                / 2.0,
+        })
+    }
+
     pub fn is_telegraphing(&self) -> bool {
         matches!(
             self.definition.states[self.state].actions.get(self.action),
             Some(Action::Telegraph { .. })
-        )
+        ) || self.warning(Vec2::ONE).is_some()
     }
 
     fn transition(&mut self, position: Vec2, context: BehaviorContext) -> bool {
@@ -483,6 +827,7 @@ impl Behavior {
         self.state_elapsed = 0.0;
         self.action_started = false;
         self.jump_target = None;
+        self.attack_runtime = None;
         // Interrupting a fuse cancels its pending attack; keep hits already emitted.
         self.blasts.retain(|blast| blast.exploded);
         true
@@ -491,13 +836,30 @@ impl Behavior {
     /// Transitions are checked before and after the action sequence, with at
     /// most one transition per update (including self-transitions).
     pub fn update(&mut self, position: &mut Vec2, context: BehaviorContext, delta_seconds: f32) {
+        self.update_with_player_size(position, context, delta_seconds, Vec2::ZERO);
+    }
+
+    pub fn update_with_player_size(
+        &mut self,
+        position: &mut Vec2,
+        context: BehaviorContext,
+        delta_seconds: f32,
+        player_size: Vec2,
+    ) {
         self.clear_blast_hits();
+        self.projectile_hits.clear();
         if !delta_seconds.is_finite()
             || delta_seconds <= 0.0
             || !context.player_position.is_finite()
         {
             return;
         }
+        self.advance_projectiles(
+            context.player_position,
+            player_size,
+            context.bounds,
+            delta_seconds,
+        );
         let transitioned = self.transition(*position, context);
         let dt = f64::from(delta_seconds);
         self.state_elapsed += dt;
@@ -519,6 +881,183 @@ impl Behavior {
                 position.y = context.bounds.floor_y - context.size.y / 2.0;
             }
             let (used, finished) = match action {
+                Action::RadialBlast {
+                    radius,
+                    damage,
+                    knockback,
+                    knockback_secs,
+                    active_secs,
+                    telegraph_secs,
+                    ..
+                } => {
+                    self.airborne = true;
+                    let attack = AttackBox {
+                        shape: crate::enemy_attack::AttackShape::Circle,
+                        offset: (0.0, 0.0),
+                        size: (radius * 2.0, radius * 2.0),
+                        damage,
+                        knockback: knockback.0,
+                        knockback_secs,
+                        active_secs,
+                    };
+                    self.attack_runtime
+                        .get_or_insert_with(|| {
+                            AttackRuntime::lunge(
+                                *position,
+                                context,
+                                0.0,
+                                active_secs,
+                                attack,
+                                0.0,
+                                telegraph_secs,
+                            )
+                        })
+                        .step(position, context, remaining)
+                }
+                Action::ShootProjectile {
+                    speed,
+                    damage,
+                    lifetime_secs,
+                    size,
+                    aim,
+                    count,
+                    spread_degrees,
+                    telegraph_secs,
+                    ..
+                } => {
+                    self.airborne = true;
+                    let target = *self.jump_target.get_or_insert(context.player_position);
+                    let warning = AttackBox {
+                        shape: crate::enemy_attack::AttackShape::Rect,
+                        offset: (0.0, 0.0),
+                        size: size.0,
+                        damage: 0,
+                        knockback: (0.0, 0.0),
+                        knockback_secs: 0.0,
+                        active_secs: 0.0,
+                    };
+                    let (used, finished) = self
+                        .attack_runtime
+                        .get_or_insert_with(|| {
+                            AttackRuntime::lunge(
+                                *position,
+                                context,
+                                0.0,
+                                0.0,
+                                warning,
+                                0.0,
+                                telegraph_secs,
+                            )
+                        })
+                        .step(position, context, remaining);
+                    if finished {
+                        let horizontal = if target.x < position.x {
+                            -Vec2::X
+                        } else {
+                            Vec2::X
+                        };
+                        let direction = match aim {
+                            Aim::Horizontal => horizontal,
+                            Aim::AtPlayer => {
+                                (target - *position).try_normalize().unwrap_or(horizontal)
+                            }
+                        };
+                        for angle in spread_angles(count, spread_degrees) {
+                            let radians = angle.to_radians();
+                            let mut projectile = Projectile {
+                                position: *position,
+                                velocity: Vec2::new(
+                                    direction.x * radians.cos() - direction.y * radians.sin(),
+                                    direction.x * radians.sin() + direction.y * radians.cos(),
+                                ) * speed,
+                                size: Vec2::from(size.0),
+                                damage,
+                                remaining_secs: f64::from(lifetime_secs),
+                            };
+                            let (alive, hit) = projectile.step(
+                                (remaining - used).max(0.0),
+                                context.bounds,
+                                context.player_position,
+                                player_size,
+                            );
+                            self.projectile_hits.extend(hit);
+                            if alive {
+                                self.projectiles.push(projectile);
+                            }
+                        }
+                    }
+                    (used, finished)
+                }
+                Action::ImpactSlam {
+                    speed,
+                    attack,
+                    recovery_secs,
+                    telegraph_secs,
+                    ..
+                } => {
+                    self.airborne = true;
+                    self.attack_runtime
+                        .get_or_insert_with(|| {
+                            AttackRuntime::slam(
+                                *position,
+                                context,
+                                speed,
+                                attack,
+                                recovery_secs,
+                                telegraph_secs,
+                            )
+                        })
+                        .step(position, context, remaining)
+                }
+                Action::JumpTo {
+                    dx,
+                    dy,
+                    air_time_secs,
+                    arc_height,
+                    attack,
+                    recovery_secs,
+                    telegraph_secs,
+                    ..
+                } => {
+                    self.airborne = true;
+                    self.attack_runtime
+                        .get_or_insert_with(|| {
+                            AttackRuntime::jump(
+                                *position,
+                                context,
+                                Vec2::new(dx, dy),
+                                air_time_secs,
+                                arc_height,
+                                attack.0,
+                                recovery_secs,
+                                telegraph_secs,
+                            )
+                        })
+                        .step(position, context, remaining)
+                }
+                Action::Lunge {
+                    speed,
+                    duration_secs,
+                    attack,
+                    recovery_secs,
+                    telegraph_secs,
+                    ..
+                } => {
+                    self.airborne = true;
+                    self.attack_runtime
+                        .get_or_insert_with(|| {
+                            AttackRuntime::lunge(
+                                *position,
+                                context,
+                                speed,
+                                duration_secs,
+                                attack,
+                                recovery_secs,
+                                telegraph_secs,
+                            )
+                        })
+                        .step(position, context, remaining)
+                }
                 Action::Wait { seconds }
                 | Action::Telegraph { seconds }
                 | Action::Hover { seconds } => {
@@ -614,6 +1153,7 @@ impl Behavior {
             if !finished {
                 break;
             }
+            self.attack_runtime = None;
             self.action += 1;
             self.action_elapsed = 0.0;
             self.action_started = false;
@@ -729,6 +1269,61 @@ impl Behavior {
                         2.0 * width - phase
                     }) as f32;
             }
+        }
+    }
+}
+
+impl Action {
+    pub fn windup_seconds(&self) -> Option<f32> {
+        match self {
+            Self::Lunge { telegraph_secs, .. }
+            | Self::JumpTo { telegraph_secs, .. }
+            | Self::ImpactSlam { telegraph_secs, .. }
+            | Self::ShootProjectile { telegraph_secs, .. }
+            | Self::RadialBlast { telegraph_secs, .. } => Some(*telegraph_secs),
+            _ => None,
+        }
+    }
+    pub fn feedback(&self) -> Option<AttackFeedback> {
+        match self {
+            Self::Lunge { feedback, .. }
+            | Self::JumpTo { feedback, .. }
+            | Self::ImpactSlam { feedback, .. }
+            | Self::ShootProjectile { feedback, .. }
+            | Self::RadialBlast { feedback, .. } => Some(*feedback),
+            _ => None,
+        }
+    }
+    pub fn preview_attack(&self) -> Option<AttackBox> {
+        match self {
+            Self::Lunge { attack, .. } | Self::ImpactSlam { attack, .. } => Some(*attack),
+            Self::JumpTo { attack, .. } => attack.0,
+            Self::RadialBlast {
+                radius,
+                damage,
+                knockback,
+                knockback_secs,
+                active_secs,
+                ..
+            } => Some(AttackBox {
+                shape: crate::enemy_attack::AttackShape::Circle,
+                offset: (0.0, 0.0),
+                size: (*radius * 2.0, *radius * 2.0),
+                damage: *damage,
+                knockback: knockback.0,
+                knockback_secs: *knockback_secs,
+                active_secs: *active_secs,
+            }),
+            Self::ShootProjectile { size, damage, .. } => Some(AttackBox {
+                shape: crate::enemy_attack::AttackShape::Rect,
+                offset: (0.0, 0.0),
+                size: size.0,
+                damage: *damage,
+                knockback: (0.0, 0.0),
+                knockback_secs: 0.0,
+                active_secs: 0.0,
+            }),
+            _ => None,
         }
     }
 }

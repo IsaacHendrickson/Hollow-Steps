@@ -215,3 +215,73 @@ fn reload_in_boss_arena_preserves_encounter_and_spawn_tracking() {
     }
     assert!(!game.room().enemies.is_empty());
 }
+
+#[test]
+fn reload_picks_up_attack_edits_and_clears_old_projectiles_atomically() {
+    let assets = Assets::new();
+    assets.place_enemy("first", 300.0);
+    assets.write(
+        "entities/chase.ron",
+        r#"(name: "chase", health: 3, size: (36.0, 36.0), contact_damage: 0, behavior: "chase")"#,
+    );
+    assets.write("behaviors/chase.ron", r#"(initial_state: "fire", states: [(name: "fire", actions: [shoot_projectile(speed: 100.0, damage: 1, lifetime_secs: 3.0, size: (10.0, 10.0), aim: Horizontal, count: 3, spread_degrees: 15.0, telegraph_secs: 0.25)], transitions: [])])"#);
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    game.update(PlayerInput::default(), 0.25);
+    assert_eq!(game.room().enemies[0].behavior().projectiles().len(), 3);
+
+    let lunge = include_str!("fixtures/attacks/reload_lunge.ron");
+    assets.write("behaviors/chase.ron", lunge);
+    game.reload_rooms().unwrap();
+    let enemy = &game.room().enemies[0];
+    assert!(enemy.behavior().projectiles().is_empty());
+    assert_eq!(
+        enemy
+            .behavior()
+            .warning(enemy.size())
+            .unwrap()
+            .attack
+            .damage,
+        2
+    );
+    let mut enemy = enemy.clone();
+    enemy.update(
+        macroquad::math::Vec2::new(400.0, 442.0),
+        0.5,
+        game.world_bounds(),
+    );
+    assert_eq!(enemy.position().x, 325.0);
+
+    assets.write(
+        "behaviors/chase.ron",
+        &lunge
+            .replace("speed: 100.0", "speed: 200.0")
+            .replace("damage: 2", "damage: 4"),
+    );
+    game.reload_rooms().unwrap();
+    let mut enemy = game.room().enemies[0].clone();
+    enemy.update(
+        macroquad::math::Vec2::new(400.0, 442.0),
+        0.5,
+        game.world_bounds(),
+    );
+    assert_eq!(enemy.position().x, 350.0);
+    assert_eq!(
+        enemy
+            .attack_hit(enemy.position(), macroquad::math::Vec2::ONE)
+            .unwrap()
+            .damage,
+        4
+    );
+
+    let before = format!("{game:?}");
+    assets.write(
+        "behaviors/chase.ron",
+        &lunge.replace("damage: 2", "damage: -1"),
+    );
+    let error = game.reload_rooms().unwrap_err();
+    assert!(
+        error.contains("chase.ron") && error.contains("damage"),
+        "{error}"
+    );
+    assert_eq!(format!("{game:?}"), before);
+}

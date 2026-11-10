@@ -382,6 +382,16 @@ impl Enemy {
     }
 
     pub fn update(&mut self, player_position: Vec2, delta_seconds: f32, bounds: WorldBounds) {
+        self.update_with_player_size(player_position, Vec2::ZERO, delta_seconds, bounds);
+    }
+
+    pub fn update_with_player_size(
+        &mut self,
+        player_position: Vec2,
+        player_size: Vec2,
+        delta_seconds: f32,
+        bounds: WorldBounds,
+    ) {
         self.behavior.clear_blast_hits();
         let dt = if delta_seconds.is_finite() {
             delta_seconds.max(0.0)
@@ -395,6 +405,9 @@ impl Enemy {
             body.step(dt);
         }
         if self.knockback_remaining > 0.0 {
+            self.behavior.pause_attack();
+            self.behavior
+                .advance_projectiles(player_position, player_size, bounds, dt);
             let knockback_dt = dt.min(self.knockback_remaining);
             self.position.x = (self.position.x
                 + self.knockback_direction * KNOCKBACK_SPEED * knockback_dt)
@@ -406,7 +419,7 @@ impl Enemy {
             return;
         }
         let previous_x = self.position.x;
-        self.behavior.update(
+        self.behavior.update_with_player_size(
             &mut self.position,
             BehaviorContext {
                 player_position,
@@ -417,6 +430,7 @@ impl Enemy {
                 patrol_right: self.patrol_right,
             },
             dt,
+            player_size,
         );
         if self.position.x != previous_x {
             self.facing_left = self.position.x < previous_x;
@@ -429,11 +443,22 @@ impl Enemy {
         !self.is_dead() && separation.x <= reach.x && separation.y <= reach.y
     }
 
+    pub fn attack_hit(&self, position: Vec2, size: Vec2) -> Option<crate::enemy_attack::DamageHit> {
+        if self.is_dead() {
+            None
+        } else {
+            self.behavior.attack_hit(self.position, position, size)
+        }
+    }
+
     pub fn action_damage(&self, position: Vec2, size: Vec2) -> u8 {
         if self.is_dead() {
             0
         } else {
-            self.behavior.blast_damage(position, size)
+            self.behavior.blast_damage(position, size).max(
+                self.attack_hit(position, size)
+                    .map_or(0, |hit| hit.damage.clamp(0, i32::from(u8::MAX)) as u8),
+            )
         }
     }
 }
