@@ -62,9 +62,31 @@ pub fn draw_enemy_body(enemy: &Enemy) {
     }
 }
 
+fn debug_font_data() -> std::borrow::Cow<'static, [u8]> {
+    use egui_macroquad::egui::{FontDefinitions, FontFamily};
+    let fonts = FontDefinitions::default();
+    let name = &fonts.families[&FontFamily::Monospace][0];
+    fonts.font_data[name].font.clone()
+}
+
+/// Own a separate font atlas: cloning the default Font would still share the
+/// HUD atlas. Reuse egui's bundled monospace font bytes, not its GPU texture.
+pub struct BodyDebugOverlay {
+    font: Font,
+}
+
+impl BodyDebugOverlay {
+    pub fn new() -> Self {
+        Self {
+            font: load_ttf_font_from_bytes(&debug_font_data()).expect("bundled debug font"),
+        }
+    }
+}
+
 /// Called after scene/UI drawing. Projection is CPU-only: camera, viewport,
-/// material and texture filters are left untouched.
+/// material and shared texture filters are left untouched.
 pub fn draw_body_debug_overlay(
+    overlay: &BodyDebugOverlay,
     enemies: &[Enemy],
     player_position: Vec2,
     to_screen: impl Fn(Vec2) -> Vec2,
@@ -88,13 +110,15 @@ pub fn draw_body_debug_overlay(
             nearest == Some(index),
         ));
     }
-    // Labels share the HUD's default font atlas. Lazy glyph insertion during
-    // drawing can grow/repack it, invalidating queued text UVs and textures.
+
+    // F3 used to grow the shared HUD atlas. Miniquad can reuse its deleted GL
+    // texture ID while retaining the old cached binding, leaving the replacement
+    // texture empty. This font owns its atlas and never mutates the HUD font.
     // Finish earlier batches, cache the entire pass (including DPI handling),
     // then submit text only after the atlas layout has settled.
     unsafe { get_internal_gl().flush() };
     for (text, font_size) in label_requests(&primitives) {
-        measure_text(text, None, font_size, 1.0);
+        measure_text(text, Some(&overlay.font), font_size, 1.0);
     }
     for primitive in primitives {
         let primitive = primitive.project(&to_screen, scale);
@@ -134,6 +158,7 @@ pub fn draw_body_debug_overlay(
                     position.x,
                     position.y,
                     TextParams {
+                        font: Some(&overlay.font),
                         font_size,
                         color: color(color_slot),
                         ..Default::default()
@@ -144,4 +169,42 @@ pub fn draw_body_debug_overlay(
     }
     // Later callers may cache new glyphs too; don't leave overlay text queued.
     unsafe { get_internal_gl().flush() };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::debug_font_data;
+    use egui_macroquad::egui::{Color32, Context, FontData, FontDefinitions, FontFamily, FontId};
+    use hollow_steps::body_debug::FONT_SIZES;
+
+    #[test]
+    fn bundled_overlay_font_rasterizes_labels_without_a_window_or_font_file() {
+        let mut fonts = FontDefinitions::empty();
+        fonts.font_data.insert(
+            "debug".into(),
+            std::sync::Arc::new(FontData::from_owned(debug_font_data().into_owned())),
+        );
+        fonts
+            .families
+            .insert(FontFamily::Monospace, vec!["debug".into()]);
+        let context = Context::default();
+        context.set_fonts(fonts);
+        let _ = context.run(Default::default(), |ctx| {
+            for font_size in FONT_SIZES {
+                let text = "root_head_hand_l_foot_r";
+                let galley = ctx.fonts(|fonts| {
+                    fonts.layout_no_wrap(
+                        text.into(),
+                        FontId::monospace(font_size.into()),
+                        Color32::GREEN,
+                    )
+                });
+                assert_eq!(galley.rows.len(), 1);
+                assert_eq!(galley.rows[0].glyphs.len(), text.len());
+                assert!(galley.rows[0].glyphs.iter().all(|glyph| {
+                    glyph.advance_width > 0.0 && glyph.uv_rect.max != glyph.uv_rect.min
+                }));
+            }
+        });
+    }
 }
