@@ -2,7 +2,12 @@ use hollow_steps::boss::{Boss, BossState};
 use hollow_steps::boss_special::BossSpecials;
 use hollow_steps::camera::{Camera, CameraConfig, Letterbox};
 use hollow_steps::coin::COIN_RADIUS;
-use hollow_steps::editor::{EditorSession, RoomLayout, Selection};
+use hollow_steps::editor::{EditorSession, Selection};
+use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
+use hollow_steps::editor_history::{shortcut, tracked, History};
+use hollow_steps::editor_view::{
+    grid_lines, wrap_words, CanvasRegions, CanvasView, Grid, PanDrag, CANVAS_MARGIN,
+};
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
@@ -50,15 +55,32 @@ async fn main() {
             body_debug = !body_debug;
         }
         if is_key_pressed(KeyCode::F2) {
-            if let Err(error) = game.toggle_editor() {
-                reload_result = Some(Err(error));
+            // Opening the editor never asks anything; closing it with unsaved changes
+            // opens the Save / Discard / Cancel dialog instead.
+            let toggle = match game.editor() {
+                Some(session) => {
+                    editor_ui.guard.request(GuardedAction::Close, session.dirty)
+                        == GuardStep::Perform(GuardedAction::Close)
+                }
+                None => true,
+            };
+            if toggle {
+                if let Err(error) = game.toggle_editor() {
+                    reload_result = Some(Err(error));
+                }
+                editor_ui = editor_ui.for_new_session();
+                fixed_step.reset();
+                input_latch.clear();
             }
-            editor_ui = EditorUi::default();
-            fixed_step.reset();
-            input_latch.clear();
         }
         if game.editor().is_some() {
             draw_editor(&mut game, &mut editor_ui, body_debug, &body_debug_overlay);
+            if game.editor().is_none() {
+                // The dialog (Save or Discard) closed the editor.
+                editor_ui = editor_ui.for_new_session();
+                fixed_step.reset();
+                input_latch.clear();
+            }
             next_frame().await;
             continue;
         }
@@ -411,44 +433,39 @@ struct EditorUi {
     properties: bool,
     property: PropertyUi,
     boss_property: Option<BossPropertyUi>,
+    /// Canvas transform after the user zooms or pans; `None` fits the room to the window.
+    view: Option<CanvasView>,
+    /// The destination view `view` belongs to; switching rooms refits.
+    view_destination: Option<usize>,
+    pan: PanDrag,
+    grid: Grid,
+    /// Asks before closing or replacing a session with unsaved changes.
+    guard: UnsavedGuard,
+    /// A room switch asked for by the panel this frame (New room); `draw_editor` runs it
+    /// through `guard`.
+    requested: Option<GuardedAction>,
+    /// Undo and redo for the draft; reset with the rest of this state when a room is opened
+    /// or created.
+    history: History,
 }
 
 impl EditorUi {
+    /// State for a newly opened or created room, or a reopened editor: everything resets
+    /// (selection, view, undo history, dialogs) except the grid and snap settings, which
+    /// belong to the editor rather than to a room.
+    fn for_new_session(&self) -> Self {
+        Self {
+            grid: self.grid,
+            ..Self::default()
+        }
+    }
+
     fn clear_hidden_property_error(&mut self, enemy_count: usize) {
         if !self.properties
             || !matches!(self.selected, Some(Selection::Enemy(i)) if i < enemy_count)
         {
             self.property.error = None;
         }
-    }
-}
-
-// All canvas transforms, hit testing, mouse translation, and drawing are front-end only.
-struct EditorCanvas {
-    origin: Vec2,
-    scale: f32,
-    bounds: Rect,
-}
-impl EditorCanvas {
-    fn new(layout: &RoomLayout, panel_left: f32) -> Self {
-        let bounds = layout.rect();
-        let scale = ((panel_left - 40.0).max(1.0) / bounds.w)
-            .min((screen_height() - 180.0).max(1.0) / bounds.h);
-        Self {
-            origin: vec2(20.0, 90.0),
-            scale,
-            bounds,
-        }
-    }
-    fn screen(&self, point: Vec2) -> Vec2 {
-        self.origin + (point - self.bounds.point()) * self.scale
-    }
-    fn world(&self, point: Vec2) -> Vec2 {
-        (point - self.origin) / self.scale + self.bounds.point()
-    }
-    fn rect(&self, rect: Rect) -> Rect {
-        let p = self.screen(rect.point());
-        Rect::new(p.x, p.y, rect.w * self.scale, rect.h * self.scale)
     }
 }
 
@@ -546,13 +563,15 @@ fn draw_editor(
     body_debug: bool,
     body_debug_overlay: &body_draw::BodyDebugOverlay,
 ) {
-    clear_background(Color::from_rgba(16, 18, 31, 255));
+    let background = Color::from_rgba(16, 18, 31, 255);
+    clear_background(background);
     let player_position = game.player().position();
     let editor = game.editor_mut().expect("editor open");
     if let Ok(definitions) = editor.content.placement_definitions() {
         editor.definitions = definitions;
     }
     let mut panel = None;
+    let mut dialog = None;
     egui_macroquad::ui(|ctx| {
         // The integration divides native wheel events by 90. Normalize once to 28 points per
         // wheel step; egui then routes/consumes the delta for the hovered scroll area.
@@ -564,8 +583,12 @@ fn draw_editor(
             input.smooth_scroll_delta = delta;
         });
         panel = Some(editor_panel::draw_panel(ctx, editor, state));
+        dialog = editor_panel::draw_unsaved_dialog(ctx, &state.guard);
     });
     let panel = panel.expect("egui panel");
+    // While the dialog is open nothing behind it may take input.
+    let pointer_blocked = panel.blocks_pointer || state.guard.is_open();
+    let keys_blocked = panel.keyboard || state.guard.is_open();
     let mut save = panel.save;
     let open = panel.open;
 
@@ -580,9 +603,78 @@ fn draw_editor(
                 .map(|(_, layout)| layout)
         })
         .unwrap_or_else(|| editor.draft.layout.clone());
-    let canvas = EditorCanvas::new(&layout, panel.left);
+    // The status message is wrapped first: its line count sets the footer height, which
+    // sets the canvas viewport. The wrap width depends only on the window and panel width.
+    let window = vec2(screen_width(), screen_height());
+    let wrap_width = CanvasRegions::new(window, panel.left, 0).footer_wrap_width();
+    let footer_lines = wrap_words(&editor.message, wrap_width, |text| {
+        measure_text(text, None, 17, 1.0).width
+    });
+    let regions = CanvasRegions::new(window, panel.left, footer_lines.len());
+    let mouse = Vec2::from(mouse_position());
+    let over_viewport = regions.viewport.contains(mouse) && !pointer_blocked;
+    if state.view_destination != state.destination {
+        state.view = None;
+        state.view_destination = state.destination;
+    }
+    if is_key_pressed(KeyCode::Home) && !keys_blocked {
+        state.view = None;
+    }
+    let mut canvas = state
+        .view
+        .unwrap_or_else(|| CanvasView::fit(layout.rect(), regions.fit_area()));
+    // Over the canvas the wheel zooms about the cursor. Over the panel it only scrolls the
+    // panel: egui gets the wheel delta above, and only the hovered scroll area uses it.
+    let pan_held = is_mouse_button_down(MouseButton::Middle)
+        || (is_key_down(KeyCode::Space)
+            && !keys_blocked
+            && is_mouse_button_down(MouseButton::Left));
+    let pan_delta = state
+        .pan
+        .update(pan_held && (state.pan.is_panning() || over_viewport), mouse);
+    let wheel = if over_viewport { mouse_wheel().1 } else { 0.0 };
+    let mut moved = false;
+    if wheel != 0.0 {
+        canvas.zoom_at(mouse, wheel);
+        moved = true;
+    }
+    if pan_delta != Vec2::ZERO {
+        canvas.pan_by(pan_delta);
+        moved = true;
+    }
+    if moved {
+        canvas.keep_visible(layout.rect(), regions.viewport);
+        state.view = Some(canvas);
+    }
+    // While a pan is in progress the left button belongs to it, not to the markers.
+    let panning = state.pan.is_panning();
     let area = canvas.rect(layout.rect());
     draw_rectangle_lines(area.x, area.y, area.w, area.h, 2.0, LIGHTGRAY);
+    // Grid lines start at the room's corner so they line up with its edges, and snapping
+    // uses the same origin.
+    let origin = layout.rect().point();
+    if let Some(step) = state.grid.line_step(canvas.scale) {
+        let top_left = canvas.world(regions.viewport.point());
+        let seen = Rect::new(
+            top_left.x,
+            top_left.y,
+            regions.viewport.w / canvas.scale,
+            regions.viewport.h / canvas.scale,
+        );
+        if let Some(visible) = layout.rect().intersect(seen) {
+            let from = canvas.screen(visible.point());
+            let to = canvas.screen(vec2(visible.right(), visible.bottom()));
+            let color = Color::new(1.0, 1.0, 1.0, 0.12);
+            for x in grid_lines(visible.x, visible.right(), origin.x, step) {
+                let x = canvas.screen(vec2(x, 0.0)).x;
+                draw_line(x, from.y, x, to.y, 1.0, color);
+            }
+            for y in grid_lines(visible.y, visible.bottom(), origin.y, step) {
+                let y = canvas.screen(vec2(0.0, y)).y;
+                draw_line(from.x, y, to.x, y, 1.0, color);
+            }
+        }
+    }
     if state.destination.is_some() {
         for exit in &layout.exits {
             let r = canvas.rect(exit.exit().zone(layout.rect()));
@@ -591,43 +683,21 @@ fn draw_editor(
     }
     let floor = canvas.screen(vec2(layout.bounds.0, layout.floor_y));
     draw_line(floor.x, floor.y, area.right(), floor.y, 3.0, GRAY);
-    draw_text(
-        format!(
-            "{:?} - {}",
-            editor.id,
-            if state.destination.is_some() {
-                "destination room view"
-            } else {
-                "authored room"
-            }
-        ),
-        20.0,
-        30.0,
-        24.0,
-        WHITE,
-    );
-    draw_text(
-        "F2: close (discard unsaved) | Drag: move | Right click / Del: delete",
-        20.0,
-        58.0,
-        17.0,
-        LIGHTGRAY,
-    );
     let markers = editor_markers(editor, state.destination, state.selected);
-    let mouse = Vec2::from(mouse_position());
     let world = canvas.world(mouse);
-    let over_canvas = area.contains(mouse) && mouse.x < panel.left && !panel.blocks_pointer;
+    let over_canvas = area.contains(mouse) && over_viewport;
     if is_mouse_button_pressed(MouseButton::Left) {
         state.canvas_focused = over_canvas;
     }
-    if is_mouse_button_pressed(MouseButton::Left) && over_canvas {
+    if is_mouse_button_pressed(MouseButton::Left) && over_canvas && !panning {
         if state.placing && state.destination.is_none() {
             if let Some((_, placement)) = state
                 .definition
                 .selected
                 .and_then(|i| editor.content.placement_catalog().get(i).cloned())
             {
-                match editor.place(placement, world) {
+                let at = state.grid.snap(world, origin);
+                match tracked(&mut state.history, editor, |e| e.place(placement, at)) {
                     Ok(selection) => {
                         state.selected = Some(selection);
                         editor.dirty = true;
@@ -646,6 +716,10 @@ fn draw_editor(
                 other => other,
             });
             state.dragging = hit.map(|(selection, rect, _)| (*selection, world - rect.center()));
+            if state.dragging.is_some() {
+                // The whole drag, press to release, becomes one undo step.
+                state.history.begin_gesture(&editor.draft);
+            }
             if state.selected == Some(Selection::Boss) {
                 if let Some(path) = editor
                     .draft
@@ -670,9 +744,10 @@ fn draw_editor(
             }
         }
     }
-    if is_mouse_button_down(MouseButton::Left) && over_canvas {
+    if is_mouse_button_down(MouseButton::Left) && over_canvas && !panning {
         if let Some((selection, offset)) = state.dragging {
-            match editor.move_selection(selection, world - offset) {
+            let target = state.grid.snap(world - offset, origin);
+            match editor.move_selection(selection, target) {
                 Ok(()) => {
                     editor.dirty = true;
                     editor.message.clear();
@@ -681,14 +756,17 @@ fn draw_editor(
             }
         }
     }
-    if is_mouse_button_released(MouseButton::Left) {
+    // Also covers a release that was missed (focus lost mid-drag), so a drag cannot stay
+    // open and block undo.
+    if !is_mouse_button_down(MouseButton::Left) {
         state.dragging = None;
+        state.history.end_gesture(&editor.draft);
     }
     if (is_mouse_button_pressed(MouseButton::Right) && over_canvas)
         || (is_key_pressed(KeyCode::Delete)
             && state.canvas_focused
-            && !panel.keyboard
-            && !panel.blocks_pointer)
+            && !keys_blocked
+            && !pointer_blocked)
     {
         let selection = if is_mouse_button_pressed(MouseButton::Right) {
             markers
@@ -700,7 +778,7 @@ fn draw_editor(
             state.selected
         };
         if let Some(selection) = selection {
-            match editor.draft.delete(selection) {
+            match tracked(&mut state.history, editor, |e| e.draft.delete(selection)) {
                 Ok(()) => {
                     state.selected = None;
                     state.dragging = None;
@@ -709,6 +787,17 @@ fn draw_editor(
                 }
                 Err(error) => editor.message = error,
             }
+        }
+    }
+    if state.canvas_focused && !keys_blocked {
+        let down = |left, right| is_key_down(left) || is_key_down(right);
+        if let Some(key) = shortcut(
+            down(KeyCode::LeftControl, KeyCode::RightControl),
+            down(KeyCode::LeftShift, KeyCode::RightShift),
+            is_key_pressed(KeyCode::Z),
+            is_key_pressed(KeyCode::Y),
+        ) {
+            editor_panel::apply_history(editor, state, key);
         }
     }
     for (selection, rect, color) in editor_markers(editor, state.destination, state.selected) {
@@ -737,36 +826,6 @@ fn draw_editor(
             },
         );
     }
-    // Wrap status text in the canvas footer so long filesystem/validation errors stay readable.
-    let mut line = String::new();
-    let mut y = 475.0;
-    for word in editor.message.split_whitespace() {
-        if measure_text(format!("{line} {word}"), None, 17, 1.0).width > 675.0 {
-            draw_text(&line, 20.0, y, 17.0, ORANGE);
-            y += 19.0;
-            line.clear();
-        }
-        line.push_str(word);
-        line.push(' ');
-    }
-    draw_text(&line, 20.0, y, 17.0, ORANGE);
-    let pending_error = if let Some(p) = &mut state.boss_property {
-        p.sync(editor);
-        p.error.clone()
-    } else if state.properties {
-        state.property.error.clone()
-    } else {
-        None
-    };
-    state.clear_hidden_property_error(editor.draft.enemies.len());
-    if save && pending_error.is_some() {
-        editor.message = format!(
-            "Save failed: {}",
-            pending_error.as_deref().unwrap_or_default()
-        );
-        save = false;
-    }
-    egui_macroquad::draw();
     if body_debug && state.destination.is_none() {
         // Preview authored placements and unsaved definitions without touching runtime bodies.
         let enemies = editor
@@ -808,23 +867,143 @@ fn draw_editor(
             canvas.scale,
         );
     }
+    // Zoomed content can reach past the viewport, so the header and footer are drawn over
+    // it on an opaque strip. The egui panel covers the right side.
+    for r in [regions.header, regions.footer] {
+        draw_rectangle(r.x, r.y, r.w, r.h, background);
+    }
+    draw_text(
+        format!(
+            "{:?} - {}",
+            editor.id,
+            if state.destination.is_some() {
+                "destination room view"
+            } else {
+                "authored room"
+            }
+        ),
+        CANVAS_MARGIN,
+        30.0,
+        24.0,
+        WHITE,
+    );
+    draw_text(
+        "F2: close (asks to save) | Drag: move | Right click / Del: delete",
+        CANVAS_MARGIN,
+        52.0,
+        17.0,
+        LIGHTGRAY,
+    );
+    draw_text(
+        "Wheel: zoom | Middle/Space-drag: pan | Home: reset | Ctrl+Z / Ctrl+Y: undo / redo",
+        CANVAS_MARGIN,
+        70.0,
+        17.0,
+        LIGHTGRAY,
+    );
+    // Status text sits in the footer so long filesystem/validation errors stay readable.
+    for (i, line) in footer_lines.iter().enumerate() {
+        draw_text(
+            line,
+            CANVAS_MARGIN,
+            regions.footer_baseline(i),
+            17.0,
+            ORANGE,
+        );
+    }
+    let pending_error = if let Some(p) = &mut state.boss_property {
+        p.sync(editor);
+        p.error.clone()
+    } else if state.properties {
+        state.property.error.clone()
+    } else {
+        None
+    };
+    state.clear_hidden_property_error(editor.draft.enemies.len());
+    if save && pending_error.is_some() {
+        editor.message = format!(
+            "Save failed: {}",
+            pending_error.as_deref().unwrap_or_default()
+        );
+        save = false;
+    }
+    egui_macroquad::draw();
     if save {
         state.dragging = None;
         if let Err(error) = game.save_editor() {
             game.editor_mut().expect("open").message = format!("Save failed: {error}");
         }
     }
-    if let Some(id) = open {
-        if let Err(error) = game.edit_room(id) {
-            game.editor_mut().expect("open").message = error;
+    // Closing, opening a room and New room all go through the unsaved-changes guard.
+    let dirty = game.editor().is_some_and(|session| session.dirty);
+    let mut step = GuardStep::Wait;
+    if let Some(action) = state.requested.take().or(open.map(GuardedAction::OpenRoom)) {
+        step = state.guard.request(action, dirty);
+    }
+    if let Some(choice) = dialog {
+        step = state.guard.choose(choice);
+    }
+    if step == GuardStep::Save {
+        // Same rule as the panel's Save: unapplied invalid text blocks it.
+        let result = match &pending_error {
+            Some(error) => Err(format!("Save failed: {error}")),
+            None => game
+                .save_editor()
+                .map_err(|error| format!("Save failed: {error}")),
+        };
+        if let Err(error) = &result {
+            game.editor_mut().expect("open").message = error.clone();
         }
-        *state = EditorUi::default();
+        step = state.guard.save_finished(result);
+    }
+    if let GuardStep::Perform(action) = step {
+        let result = perform(game, &action);
+        if action != GuardedAction::Close {
+            *state = state.for_new_session();
+        }
+        if let (Err(error), Some(editor)) = (result, game.editor_mut()) {
+            editor.message = error;
+        }
     }
 }
 
 #[cfg(test)]
 mod editor_ui_tests {
     use super::*;
+
+    #[test]
+    fn a_new_session_forgets_history_and_selection_but_keeps_grid_settings() {
+        let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures");
+        let mut game = GameState::try_new(&assets).unwrap();
+        game.toggle_editor().unwrap();
+        let mut state = EditorUi::default();
+        state.grid.enabled = true;
+        state.grid.size = 16.0;
+        state.selected = Some(Selection::Item(0));
+        state.view = Some(CanvasView {
+            offset: Vec2::ZERO,
+            scale: 2.0,
+        });
+        let editor = game.editor_mut().unwrap();
+        let before = editor.draft.clone();
+        tracked(&mut state.history, editor, |e| {
+            e.draft.delete(Selection::Item(0))
+        })
+        .unwrap();
+        assert!(state.history.can_undo());
+
+        let next = state.for_new_session();
+        assert!(!next.history.can_undo() && !next.history.can_redo());
+        assert_eq!(next.selected, None);
+        assert!(next.view.is_none());
+        assert!(next.grid.enabled);
+        assert_eq!(next.grid.size, 16.0);
+        // The old state is untouched, so the draft it recorded can still be restored.
+        assert!(state.history.can_undo());
+        assert_ne!(game.editor().unwrap().draft, before);
+    }
 
     #[test]
     fn authored_boss_has_a_canvas_marker() {
