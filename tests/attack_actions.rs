@@ -347,6 +347,7 @@ fn invalid_damage_durations_radius_count_and_aim_report_labeled_errors() {
         ("area_blast", "radius", "0"),
         ("area_blast", "radius", "-1"),
         ("area_blast", "damage", "-1"),
+        ("area_blast", "recovery", "-1"),
         ("area_blast", "active duration", "-1"),
     ] {
         let kind = Action::TYPES
@@ -595,4 +596,21 @@ fn projectile_recovery_does_not_delay_shots_in_large_or_zero_warning_steps() {
         assert_eq!(behavior.projectiles().len(), 3);
         assert_eq!(behavior.projectiles()[1].position.x, 150.0);
     }
+}
+
+#[test]
+fn blast_recovery_is_stationary_and_harmless_after_active_window() {
+    let definition =
+        BehaviorDefinition::from_ron(include_str!("fixtures/attacks/blast_recovery.ron")).unwrap();
+    let mut behavior = Behavior::new(Arc::new(definition)).unwrap();
+    let mut position = Vec2::new(100.0, 442.0);
+    behavior.update(&mut position, context(), 0.5);
+    assert!(behavior.attack_hit(position, position, Vec2::ONE).is_some());
+    behavior.update(&mut position, context(), 0.5);
+    assert!(!behavior.action_finished());
+    assert!(behavior.attack_hit(position, position, Vec2::ONE).is_none());
+    assert!(behavior.warning(Vec2::ONE).is_none());
+    behavior.update(&mut position, context(), 0.5);
+    assert!(behavior.action_finished());
+    assert_eq!(position, Vec2::new(100.0, 442.0));
 }

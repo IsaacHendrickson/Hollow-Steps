@@ -278,16 +278,19 @@ fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
         #[serde(default, deserialize_with = "present")]
         active_secs: Option<f32>,
         #[serde(default, deserialize_with = "present")]
+        recovery_secs: Option<f32>,
+        #[serde(default, deserialize_with = "present")]
         telegraph_secs: Option<f32>,
         #[serde(default, deserialize_with = "present")]
         feedback: Option<AttackFeedback>,
     }
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match (p.count, p.fuse_time, p.knockback, p.active_secs) {
-        (Some(count), Some(fuse_time), None, None) if p.telegraph_secs.is_none() && p.feedback.is_none() && p.knockback_secs.is_none() => Ok(Action::AreaBlast {
+        (Some(count), Some(fuse_time), None, None) if p.recovery_secs.is_none() && p.telegraph_secs.is_none() && p.feedback.is_none() && p.knockback_secs.is_none() => Ok(Action::AreaBlast {
             count, fuse_time, radius: p.radius, damage: u8::try_from(p.damage).map_err(|_| A::Error::custom("legacy blast damage must be 0..255"))? }),
         (None, None, Some(knockback), Some(active_secs)) => Ok(Action::RadialBlast {
             radius: p.radius, damage: p.damage, knockback, active_secs,
+            recovery_secs: p.recovery_secs.unwrap_or_else(default_recovery_secs),
             knockback_secs: p.knockback_secs.unwrap_or_else(default_knockback_secs),
             telegraph_secs: p.telegraph_secs.ok_or_else(|| A::Error::custom("area_blast: missing telegraph_secs"))?,
             feedback: p.feedback.unwrap_or_else(default_feedback) }),
@@ -366,6 +369,8 @@ actions! {
         knockback: AttackVector => ("blast knockback (pixels/second)", valid_vector),
         #[serde(default = "default_knockback_secs")]
         knockback_secs: f32 => ("horizontal knockback duration (seconds)", nonnegative),
+        #[serde(default = "default_recovery_secs")]
+        recovery_secs: f32 => ("blast recovery duration (seconds)", nonnegative),
         active_secs: f32 => ("blast active duration (seconds)", nonnegative),
         telegraph_secs: f32 => ("wind-up duration (seconds)", nonnegative),
         #[serde(default = "default_feedback")]
@@ -889,6 +894,7 @@ impl Behavior {
                     knockback,
                     knockback_secs,
                     active_secs,
+                    recovery_secs,
                     telegraph_secs,
                     ..
                 } => {
@@ -910,7 +916,7 @@ impl Behavior {
                                 0.0,
                                 active_secs,
                                 attack,
-                                0.0,
+                                recovery_secs,
                                 telegraph_secs,
                             )
                         })
