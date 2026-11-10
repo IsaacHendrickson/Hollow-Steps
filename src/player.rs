@@ -126,6 +126,19 @@ impl Player {
         self.health.take_damage_amount(amount)
     }
 
+    /// Attack damage shares contact damage's immunity gate; rejected hits never move the player.
+    pub fn take_attack_damage(&mut self, hit: crate::enemy_attack::DamageHit) -> bool {
+        if self.take_damage_amount(hit.damage.clamp(0, i32::from(u8::MAX)) as u8) {
+            self.velocity += hit.knockback;
+            if hit.knockback.y < 0.0 {
+                self.grounded = false;
+            }
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn respawn(&mut self, spawn: Vec2, bounds: WorldBounds) {
         self.place_at(spawn, bounds);
         self.health.respawn();

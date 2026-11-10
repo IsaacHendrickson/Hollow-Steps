@@ -68,6 +68,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
 - `src/behavior.rs`: data-driven action sequences, state transitions, and RON validation.
+- `src/enemy_attack.rs`: shared attack geometry, timed enemy attacks, and projectiles.
 - `src/preset.rs`: validated RON behavior preset catalog.
 - `src/behavior_values.rs`: numeric behavior controls and transactional validated edits.
 - `src/boss.rs`: boss health, reusable timed attacks, state machine, and death.
@@ -112,6 +113,8 @@ When you add, rename, or remove a module, update this list in the same change.
   magic numbers through the rendering loop.
 
 ## Tunable values
+
+Every tunable value must be a named parameter in data files and editable in the editor.
 
 Every number that affects how an entity, boss, attack, or action behaves
 (distances, speeds, durations, damage, health, counts, radii, etc.) must be a

@@ -16,6 +16,7 @@ pub mod combat;
 pub mod definition_editor;
 pub mod editor;
 pub mod enemy;
+pub mod enemy_attack;
 pub mod game;
 pub mod health;
 pub mod item;
