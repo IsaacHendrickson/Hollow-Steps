@@ -369,12 +369,11 @@ restore files already replaced and reports any rollback error.
 New room creates an empty draft with the current room's geometry and a unique
 `room_N.ron` filename. Save registers it as `Custom(N)` in the room list and game;
 these files are loaded at startup. Exits can target any saved room. Room IDs are
-stable numeric IDs, independent of list order. Coins and bosses remain existing
-gameplay content and are outside this editor's scope.
+stable numeric IDs, independent of list order. Coins remain outside this editor's scope.
 
 Choose an entity in the **Entity** list, click **Place**, then click the room.
 Choose **Select / drag** to move entities, the blue respawn marker, or a green
-exit span. Right-click an enemy/item or select it and press Delete to remove it.
+exit span. Right-click an enemy/item/boss or select it and press Delete to remove it.
 Select an exit, choose a **Target**, and click **Set exit target**; use
 **Arrival spawn** to drag its purple arrival marker in the target
 room's coordinate space. **Back to room** restores the current-room view.
@@ -384,17 +383,37 @@ the footer and preserve the draft, running room, and previous file.
 Closing with F2, opening another room, or choosing New room discards unsaved
 changes. A star next to the room ID marks unsaved changes. Saving resets that
 room's editable enemies/items and places the player at its spawn, while keeping
-inventory, coins, and boss progress. F5 retains its existing enemy-only reload
+inventory, coins, and unchanged boss progress. Editing a boss definition or placement
+restarts affected encounters with the saved content. F5 retains its existing enemy-only reload
 behavior for already loaded rooms; restart or use editor Save to apply layouts.
 
 
-Select an enemy, then choose **Enemy properties** in the right panel. Edit its
+Select an enemy, then choose **Entity properties** in the right panel. Edit its
 shared name, health, width/height, and contact damage. Choose a behavior in the
 **Behavior** dropdown and click **Use selected behavior** to assign it. These
 edits affect every instance using that definition. Renaming an
 entity updates references in all saved rooms while retaining its entity filename.
 Use **Room tools** to return to placement controls. Scroll the panel for controls
 below the visible area.
+
+Boss definitions appear as **Boss: name** in the same searchable entity list.
+Place one boss per room, drag its purple body freely within the room, or delete it.
+Selecting a boss on the canvas opens its shared properties: name, health, size,
+contact damage, attack selection mode, and pause between attacks. **Add attack**
+prompts for a unique name. Select an attack to rename it or edit its ordered
+actions; use **Up**, **Down**, and **Delete** on attack and action rows.
+The searchable **Action type** list includes every action supported by bosses.
+**Add action** inserts editable data defaults; each parameter has a labeled,
+validated field. Empty attacks/lists and invalid fields block Save, including
+fields in collapsed sections or other attacks. Boss files use the same staged,
+conflict-checked saves as entities; renames update all room references.
+Boss-only insertion defaults live in `data/boss_action_defaults.ron`.
+
+Manual boss editor check: open F2, choose the Boss room, confirm the purple boss
+appears, then select and drag it. Edit properties, add/rename/reorder an attack,
+search for and add an action, and change its parameters. Save, reopen the editor,
+and confirm the edits remain. Try an invalid value and confirm Save reports the
+error without changing files; delete the boss, save, and confirm it disappears.
 
 To create an enemy from scratch, press F2, open **Room tools**, enter a unique
 **New / duplicate entity name**, and click **New entity**. It opens Enemy
@@ -472,7 +491,7 @@ and are tested without a window, including save/reload and invalid-save checks.
 
 ### Behavior presets
 
-In **Enemy properties**, search **New behavior from preset** by name or description.
+In **Entity properties**, search **New behavior from preset** by name or description.
 Choosing a preset asks for a unique behavior name (a portable filename stem without
 `.ron`) and offers **Assign to selected entity** when an entity is selected.
 **Create behavior** adds an independent draft; the pinned **Save** writes it to

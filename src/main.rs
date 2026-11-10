@@ -1,17 +1,16 @@
 use hollow_steps::boss::{Boss, BossState};
 use hollow_steps::boss_special::{BossSpecials, SpecialAttack};
 use hollow_steps::coin::COIN_RADIUS;
-use hollow_steps::editor::{EditorSession, Placement, RoomLayout, Selection};
+use hollow_steps::editor::{EditorSession, RoomLayout, Selection};
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::health::MAX_HEALTH;
-use hollow_steps::item::Item;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
 use hollow_steps::room::RoomEdge;
 use hollow_steps::search::SearchList;
 use macroquad::prelude::*;
 mod editor_panel;
-use editor_panel::PropertyUi;
+use editor_panel::{BossPropertyUi, PropertyUi};
 
 fn window_conf() -> Conf {
     Conf {
@@ -482,6 +481,7 @@ struct EditorUi {
     destination: Option<usize>,
     properties: bool,
     property: PropertyUi,
+    boss_property: Option<BossPropertyUi>,
 }
 
 impl EditorUi {
@@ -561,6 +561,19 @@ fn editor_markers(
             ));
         }
     }
+    if let Some(boss) = &editor.draft.boss {
+        if let Some(definition) = editor
+            .content
+            .boss_path(&boss.definition)
+            .and_then(|p| editor.content.bosses.get(&p))
+        {
+            markers.push((
+                Selection::Boss,
+                body(boss.position.into(), definition.size.into()),
+                PURPLE,
+            ));
+        }
+    }
     for (i, item) in editor.draft.layout.items.iter().enumerate() {
         markers.push((
             Selection::Item(i),
@@ -604,12 +617,6 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     if let Ok(definitions) = editor.content.placement_definitions() {
         editor.definitions = definitions;
     }
-    let entity_names = editor
-        .content
-        .entities
-        .values()
-        .map(|entity| entity.name.clone())
-        .collect::<Vec<_>>();
     let mut panel = None;
     egui_macroquad::ui(|ctx| {
         // The integration divides native wheel events by 90. Normalize once to 28 points per
@@ -680,13 +687,12 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     }
     if is_mouse_button_pressed(MouseButton::Left) && over_canvas {
         if state.placing && state.destination.is_none() {
-            if let Some(index) = state.definition.selected {
-                let placement = if index < entity_names.len() {
-                    Placement::Enemy(entity_names[index].clone())
-                } else {
-                    Placement::Item(Item::ALL[index - entity_names.len()])
-                };
-                match editor.draft.place(placement, world, &editor.definitions) {
+            if let Some((_, placement)) = state
+                .definition
+                .selected
+                .and_then(|i| editor.content.placement_catalog().get(i).cloned())
+            {
+                match editor.place(placement, world) {
                     Ok(selection) => {
                         state.selected = Some(selection);
                         editor.dirty = true;
@@ -705,7 +711,21 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
                 other => other,
             });
             state.dragging = hit.map(|(selection, rect, _)| (*selection, world - rect.center()));
-            if state.properties {
+            if state.selected == Some(Selection::Boss) {
+                if let Some(path) = editor
+                    .draft
+                    .boss
+                    .as_ref()
+                    .and_then(|b| editor.content.boss_path(&b.definition))
+                {
+                    if !state.boss_property.as_ref().is_some_and(|p| p.path == path) {
+                        state.boss_property = Some(BossPropertyUi::new(editor, path));
+                    }
+                    state.properties = true;
+                    state.property.error = None;
+                }
+            } else if state.properties {
+                state.boss_property = None;
                 if let Some(Selection::Enemy(index)) = state.selected {
                     let path = editor
                         .content
@@ -717,10 +737,7 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     }
     if is_mouse_button_down(MouseButton::Left) && over_canvas {
         if let Some((selection, offset)) = state.dragging {
-            match editor
-                .draft
-                .move_to(selection, world - offset, &editor.definitions)
-            {
+            match editor.move_selection(selection, world - offset) {
                 Ok(()) => {
                     editor.dirty = true;
                     editor.message.clear();
@@ -734,7 +751,6 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
     }
     if (is_mouse_button_pressed(MouseButton::Right) && over_canvas)
         || (is_key_pressed(KeyCode::Delete)
-            && !state.properties
             && state.canvas_focused
             && !panel.keyboard
             && !panel.blocks_pointer)
@@ -799,7 +815,10 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
         line.push(' ');
     }
     draw_text(&line, 20.0, y, 17.0, ORANGE);
-    let pending_error = if state.properties {
+    let pending_error = if let Some(p) = &mut state.boss_property {
+        p.sync(editor);
+        p.error.clone()
+    } else if state.properties {
         state.property.error.clone()
     } else {
         None
@@ -830,6 +849,24 @@ fn draw_editor(game: &mut GameState, state: &mut EditorUi) {
 #[cfg(test)]
 mod editor_ui_tests {
     use super::*;
+
+    #[test]
+    fn authored_boss_has_a_canvas_marker() {
+        let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures");
+        let mut game = GameState::try_new(&assets).unwrap();
+        game.edit_room(hollow_steps::room::RoomId::Boss).unwrap();
+        let editor = game.editor().unwrap();
+        let placement = editor.draft.boss.as_ref().unwrap();
+        assert!(editor_markers(editor, None, None)
+            .iter()
+            .any(|(selection, rect, _)| {
+                *selection == Selection::Boss
+                    && rect.center() == Vec2::from(placement.position)
+                    && rect.size() == vec2(48.0, 48.0)
+            }));
+    }
 
     #[test]
     fn property_error_only_survives_a_visible_selected_enemy() {

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::behavior::{read_ron, ron_files, BehaviorDefinition, State};
+use crate::boss_definition::{BossDefinition, BossDefinitions};
 use crate::enemy::{EnemyDefinition, EnemyDefinitions};
 use crate::room::RoomEnemies;
 
@@ -18,6 +19,8 @@ pub struct DefinitionDraft {
     /// Keys are stable filenames, independent of editable entity names.
     pub entities: BTreeMap<PathBuf, EnemyDefinition>,
     pub behaviors: BTreeMap<String, BehaviorDefinition>,
+    pub bosses: BTreeMap<PathBuf, BossDefinition>,
+    original_boss_names: BTreeMap<PathBuf, String>,
     pub presets: Vec<crate::preset::BehaviorPreset>,
     original_names: BTreeMap<PathBuf, String>,
     assets: PathBuf,
@@ -30,7 +33,10 @@ impl DefinitionDraft {
         let assets: PathBuf = assets.components().collect();
         let assets = assets.as_path();
         let mut originals = BTreeMap::new();
-        for directory in ["entities", "behaviors", "rooms"] {
+        for directory in ["entities", "behaviors", "rooms", "bosses"] {
+            if directory == "bosses" && !assets.join(directory).exists() {
+                continue;
+            }
             for path in ron_files(&assets.join(directory))? {
                 originals.insert(
                     path.clone(),
@@ -40,11 +46,16 @@ impl DefinitionDraft {
         }
         let mut entities = BTreeMap::new();
         let mut behaviors = BTreeMap::new();
+        let mut bosses = BTreeMap::new();
         for (path, bytes) in &originals {
             if path.parent() == Some(assets.join("entities").as_path()) {
                 let entity = ron::de::from_bytes::<EnemyDefinition>(bytes)
                     .map_err(|e| file_error(path, e))?;
                 entities.insert(path.clone(), entity);
+            } else if path.parent() == Some(assets.join("bosses").as_path()) {
+                let boss = ron::de::from_bytes::<BossDefinition>(bytes)
+                    .map_err(|e| file_error(path, e))?;
+                bosses.insert(path.clone(), boss);
             } else if path.parent() == Some(assets.join("behaviors").as_path()) {
                 let behavior = ron::de::from_bytes::<BehaviorDefinition>(bytes)
                     .map_err(|e| file_error(path, e))?;
@@ -70,9 +81,15 @@ impl DefinitionDraft {
             entities,
             behaviors,
             original_names,
+            original_boss_names: bosses
+                .iter()
+                .map(|(p, b)| (p.clone(), b.name.clone()))
+                .collect(),
+            bosses,
             assets: assets.to_owned(),
         };
         draft.definitions()?;
+        draft.boss_definitions()?;
         draft.check_disk()?;
         Ok(draft)
     }
@@ -88,6 +105,42 @@ impl DefinitionDraft {
                     .find(|(_, e)| e.name == original_name)
                     .map(|(p, _)| p.clone())
             })
+    }
+
+    pub fn boss_path(&self, name: &str) -> Option<PathBuf> {
+        self.original_boss_names
+            .iter()
+            .find(|(p, n)| n.as_str() == name && self.bosses.contains_key(*p))
+            .map(|(p, _)| p.clone())
+            .or_else(|| {
+                self.bosses
+                    .iter()
+                    .find(|(_, b)| b.name == name)
+                    .map(|(p, _)| p.clone())
+            })
+    }
+
+    pub fn boss_definitions(&self) -> Result<BossDefinitions, String> {
+        BossDefinitions::from_definitions(self.bosses.values().cloned())
+    }
+
+    /// One catalog shared by the picker and canvas placement, with explicit entity types.
+    pub fn placement_catalog(&self) -> Vec<(String, crate::editor::Placement)> {
+        use crate::editor::Placement;
+        self.entities
+            .values()
+            .map(|e| (e.name.clone(), Placement::Enemy(e.name.clone())))
+            .chain(
+                self.bosses
+                    .values()
+                    .map(|b| (format!("Boss: {}", b.name), Placement::Boss(b.name.clone()))),
+            )
+            .chain(
+                crate::item::Item::ALL
+                    .iter()
+                    .map(|i| (format!("Item: {}", i.name()), Placement::Item(*i))),
+            )
+            .collect()
     }
 
     pub fn definitions(&self) -> Result<EnemyDefinitions, String> {
@@ -122,6 +175,14 @@ impl DefinitionDraft {
     }
 
     pub fn rename_placements(&self, document: &mut RoomEnemies) {
+        if let Some(placement) = &mut document.boss {
+            if let Some(boss) = self
+                .boss_path(&placement.definition)
+                .and_then(|p| self.bosses.get(&p))
+            {
+                placement.definition = boss.name.clone();
+            }
+        }
         for enemy in &mut document.enemies {
             if let Some(path) = self.entity_path(&enemy.definition) {
                 if let Some(entity) = self.entities.get(&path) {
@@ -131,10 +192,44 @@ impl DefinitionDraft {
         }
     }
 
+    /// Compare authored boss content against the load snapshot, preserving untouched encounters.
+    pub fn boss_changed(
+        &self,
+        id: crate::room::RoomId,
+        edited: Option<&RoomEnemies>,
+    ) -> Result<bool, String> {
+        let path = self
+            .assets
+            .join("rooms")
+            .join(crate::editor::room_filename(id));
+        let before: RoomEnemies = match self.originals.get(&path) {
+            Some(bytes) => ron::de::from_bytes(bytes).map_err(|e| file_error(&path, e))?,
+            None => return Ok(true),
+        };
+        let mut after = edited.unwrap_or(&before).clone();
+        self.rename_placements(&mut after);
+        if before.boss != after.boss {
+            return Ok(true);
+        }
+        let Some(placement) = after.boss else {
+            return Ok(false);
+        };
+        let path = self
+            .boss_path(&placement.definition)
+            .ok_or("missing boss definition")?;
+        let Some(bytes) = self.originals.get(&path) else {
+            return Ok(true);
+        };
+        let original: BossDefinition =
+            ron::de::from_bytes(bytes).map_err(|e| file_error(&path, e))?;
+        Ok(self.bosses[&path] != original)
+    }
+
     /// Read every room; caller documents are immutable overrides for unsaved room edits.
     pub fn plan(&self, rooms: &[(PathBuf, RoomEnemies)]) -> Result<SavePlan, String> {
         self.check_disk()?;
         let definitions = self.definitions()?;
+        let bosses = self.boss_definitions()?;
         let mut documents = self.room_documents()?;
         for (path, document) in rooms {
             if path.parent() != Some(self.assets.join("rooms").as_path()) {
@@ -165,6 +260,14 @@ impl DefinitionDraft {
             }
             candidates.push((path.clone(), serialize(entity)?));
         }
+        for (path, boss) in &self.bosses {
+            if path.parent() != Some(self.assets.join("bosses").as_path())
+                || path.extension().is_none_or(|e| e != "ron")
+            {
+                return Err(file_error(path, "invalid boss path"));
+            }
+            candidates.push((path.clone(), serialize(boss)?));
+        }
         for (name, behavior) in &self.behaviors {
             valid_filename(name)?;
             candidates.push((
@@ -181,13 +284,17 @@ impl DefinitionDraft {
                 .ok_or_else(|| file_error(&path, "room needs layout"))?
                 .1
                 .clone();
-            crate::editor::RoomDraft {
+            let draft = crate::editor::RoomDraft {
                 enemies: document.enemies.clone(),
                 boss: document.boss.clone(),
                 layout,
-            }
-            .validate(&definitions, &catalog)
-            .map_err(|e| file_error(&path, e))?;
+            };
+            draft
+                .validate(&definitions, &catalog)
+                .map_err(|e| file_error(&path, e))?;
+            draft
+                .validate_boss(&bosses)
+                .map_err(|e| file_error(&path, e))?;
             candidates.push((path, serialize(&document)?));
         }
         let deletes = self
@@ -257,9 +364,14 @@ impl DefinitionDraft {
             .iter()
             .map(|(p, e)| (p.clone(), e.name.clone()))
             .collect();
+        next.original_boss_names = next
+            .bosses
+            .iter()
+            .map(|(p, b)| (p.clone(), b.name.clone()))
+            .collect();
         let definitions = next.definitions()?;
         let mut rooms = Vec::new();
-        let bosses = crate::boss_definition::BossDefinitions::load(&self.assets)?;
+        let bosses = next.boss_definitions()?;
         for (path, bytes) in &next.originals {
             if path.parent() != Some(next.assets.join("rooms").as_path()) {
                 continue;
@@ -552,6 +664,7 @@ fn same_content(path: &Path, before: &[u8], after: &[u8]) -> Result<bool, String
     {
         Some("entities") => compare::<EnemyDefinition>(before, after),
         Some("behaviors") => compare::<BehaviorDefinition>(before, after),
+        Some("bosses") => compare::<BossDefinition>(before, after),
         _ => compare::<RoomEnemies>(before, after),
     }
 }
@@ -575,7 +688,10 @@ fn check_snapshot(
     expected: &BTreeMap<PathBuf, Option<Vec<u8>>>,
 ) -> Result<(), String> {
     check_expected(expected)?;
-    for directory in ["entities", "behaviors", "rooms"] {
+    for directory in ["entities", "behaviors", "rooms", "bosses"] {
+        if directory == "bosses" && !assets.join(directory).exists() {
+            continue;
+        }
         for path in ron_files(&assets.join(directory))? {
             if !expected.contains_key(&path) {
                 return Err(file_error(&path, "changed on disk; reload before saving"));

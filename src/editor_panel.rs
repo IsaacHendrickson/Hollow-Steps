@@ -1,7 +1,9 @@
 //! egui presentation only; authored content and filter rules stay in the library.
 use super::{EditorSession, EditorUi, RoomEdge, SearchList, Selection};
 use egui_macroquad::egui;
-use hollow_steps::item::Item;
+
+mod boss;
+pub(super) use boss::{draw_boss_panel, BossPropertyUi};
 
 pub(super) struct PanelResponse {
     pub save: bool,
@@ -19,14 +21,9 @@ pub(super) fn draw_panel(
     let entity_paths = editor.content.entities.keys().cloned().collect::<Vec<_>>();
     let definitions = editor
         .content
-        .entities
-        .values()
-        .map(|e| e.name.clone())
-        .chain(
-            Item::ALL
-                .iter()
-                .map(|item| format!("Item: {}", item.name())),
-        )
+        .placement_catalog()
+        .into_iter()
+        .map(|(name, _)| name)
         .collect::<Vec<_>>();
     let room_labels = editor
         .rooms
@@ -70,7 +67,7 @@ pub(super) fn draw_panel(
                                 if state.properties {
                                     "Room tools"
                                 } else {
-                                    "Enemy properties"
+                                    "Entity properties"
                                 },
                             ) {
                                 state.properties = !state.properties;
@@ -78,6 +75,38 @@ pub(super) fn draw_panel(
                                     state.placing = false;
                                     state.destination = None;
                                     state.dragging = None;
+                                    let boss_path = match state.selected {
+                                        Some(Selection::Boss) => {
+                                            editor.draft.boss.as_ref().and_then(|b| {
+                                                editor.content.boss_path(&b.definition)
+                                            })
+                                        }
+                                        Some(Selection::Enemy(_)) => None,
+                                        _ => state
+                                            .definition
+                                            .selected
+                                            .and_then(|i| {
+                                                editor
+                                                    .content
+                                                    .bosses
+                                                    .keys()
+                                                    .nth(i.checked_sub(entity_paths.len())?)
+                                            })
+                                            .cloned(),
+                                    };
+                                    match boss_path {
+                                        Some(path)
+                                            if !state
+                                                .boss_property
+                                                .as_ref()
+                                                .is_some_and(|p| p.path == path) =>
+                                        {
+                                            state.boss_property =
+                                                Some(BossPropertyUi::new(editor, path));
+                                        }
+                                        None => state.boss_property = None,
+                                        _ => {}
+                                    }
                                     let path = match state.selected {
                                         Some(Selection::Enemy(index)) => {
                                             editor.draft.enemies.get(index).and_then(|enemy| {
@@ -94,10 +123,14 @@ pub(super) fn draw_panel(
                                 }
                             }
                             if state.properties {
-                                draw_definition_panel(ui, editor, state);
-                                // Validate pending text even when a collapsed/filtered view returns early.
-                                if let Some(error) = pending_error(editor, &state.property) {
-                                    state.property.error = Some(error);
+                                if let Some(p) = &mut state.boss_property {
+                                    draw_boss_panel(ui, editor, p);
+                                } else {
+                                    draw_definition_panel(ui, editor, state);
+                                    // Validate pending text even when a collapsed/filtered view returns early.
+                                    if let Some(error) = pending_error(editor, &state.property) {
+                                        state.property.error = Some(error);
+                                    }
                                 }
                             } else {
                                 draw_room_tools(
@@ -389,6 +422,7 @@ fn draw_entity_tools(
                 .and_then(|p| editor.content.entities.keys().position(|key| key == p));
             state.placing = false;
             if path.is_some() {
+                state.boss_property = None;
                 state.property = PropertyUi::for_entity(editor, path);
                 state.properties = true;
             }
@@ -1756,6 +1790,124 @@ mod tests {
         assert!(ctx
             .data(|d| d.get_temp::<egui::Rect>(egui::Id::new(("choice", "No matches"))))
             .is_some());
+    }
+
+    #[test]
+    fn boss_picker_properties_attack_prompt_and_collapsed_validation_work_headlessly() {
+        let mut game = editor();
+        game.edit_room(hollow_steps::room::RoomId::Boss).unwrap();
+        let editor = game.editor_mut().unwrap();
+        let path = editor.content.boss_path("Ash Warden").unwrap();
+        let ctx = egui::Context::default();
+        let size = egui::vec2(960.0, 4000.0);
+        let mut state = EditorUi {
+            definition: SearchList {
+                selected: Some(editor.content.entities.len()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        for _ in 0..3 {
+            frame(&ctx, size, vec![], editor, &mut state);
+        }
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Entity properties").center(),
+            editor,
+            &mut state,
+        );
+        assert_eq!(state.boss_property.as_ref().unwrap().path, path);
+        assert_eq!(
+            state.boss_property.as_ref().unwrap().inputs.fields[0],
+            "Ash Warden"
+        );
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Add attack").center(),
+            editor,
+            &mut state,
+        );
+        ctx.memory_mut(|m| m.request_focus(egui::Id::new("new boss attack")));
+        frame(
+            &ctx,
+            size,
+            vec![egui::Event::Text("New boss attack".into())],
+            editor,
+            &mut state,
+        );
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Create attack").center(),
+            editor,
+            &mut state,
+        );
+        let p = state.boss_property.as_ref().unwrap();
+        assert_eq!(p.inputs.attacks.last().unwrap().name, "New boss attack");
+        assert!(p
+            .error
+            .as_ref()
+            .unwrap()
+            .contains("actions must not be empty"));
+        assert_eq!(editor.content.bosses[&path].attacks.len(), 3);
+        // Filter the shared searchable widget to a boss-only action and add it through the UI.
+        let filter = egui::Id::new("boss action catalog").with("search");
+        ctx.memory_mut(|m| m.request_focus(filter));
+        frame(
+            &ctx,
+            size,
+            vec![egui::Event::Text("shockwave".into())],
+            editor,
+            &mut state,
+        );
+        let (rect, _): (egui::Rect, egui::Id) = ctx.data(|d| {
+            d.get_temp(egui::Id::new("boss action catalog").with("dropdown"))
+                .unwrap()
+        });
+        click(&ctx, size, rect.center(), editor, &mut state);
+        let row: egui::Rect = ctx.data(|d| {
+            d.get_temp(egui::Id::new(("choice", "spawn_shockwave")))
+                .unwrap()
+        });
+        click(&ctx, size, row.center(), editor, &mut state);
+        click(
+            &ctx,
+            size,
+            button(&ctx, "Add action").center(),
+            editor,
+            &mut state,
+        );
+        assert!(state.boss_property.as_ref().unwrap().error.is_none());
+        assert_eq!(editor.content.bosses[&path].attacks.len(), 4);
+        assert!(matches!(
+            editor.content.bosses[&path].attacks[3].actions[0],
+            hollow_steps::behavior::Action::SpawnShockwave { .. }
+        ));
+        let before = editor.content.bosses[&path].clone();
+        state.boss_property.as_mut().unwrap().inputs.attacks[3].actions[0].values[0] = "-1".into();
+        // Changing attack selection and collapsing the editor must not hide invalid text from Save.
+        state.boss_property.as_mut().unwrap().attack = Some(0);
+        let header = ctx.data(|d| {
+            d.get_temp::<egui::Id>(egui::Id::new(("section", "Attack editor")))
+                .unwrap()
+        });
+        let mut collapsed =
+            egui::collapsing_header::CollapsingState::load_with_default_open(&ctx, header, true);
+        collapsed.set_open(false);
+        collapsed.store(&ctx);
+        frame(&ctx, size, vec![], editor, &mut state);
+        assert!(state
+            .boss_property
+            .as_ref()
+            .unwrap()
+            .error
+            .as_ref()
+            .unwrap()
+            .contains("Shockwave radius"));
+        assert_eq!(editor.content.bosses[&path], before);
+        assert!(button(&ctx, "Save").bottom() <= size.y);
     }
 
     #[test]

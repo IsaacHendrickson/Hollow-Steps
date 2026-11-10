@@ -70,6 +70,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/behavior_values.rs`: numeric behavior controls and transactional validated edits.
 - `src/boss.rs`: boss health, reusable timed attacks, state machine, and death.
 - `src/boss_definition.rs`: validated RON boss definitions and attack selection settings.
+- `src/boss_editor.rs`: pure boss property buffers and ordered attack/action edits.
 - `src/boss_special.rs`: ordered shared boss actions, selection, summons, rings, and coin drops.
 - `src/combat.rs`: melee swing hitboxes, duration, and cooldown.
 - `src/item.rs`: world items and pickup.

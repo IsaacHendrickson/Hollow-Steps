@@ -1,0 +1,9 @@
+[
+    glide_to_player(speed: 1000.0, above_floor: 180.0),
+    glide_to_floor(speed: 1000.0),
+    damage_target(radius: 56.0, damage: 1),
+    summon(inset: 120.0),
+    spawn_rings(count: 3),
+    explode_rings(radius: 48.0, damage: 1),
+    spawn_shockwave(radius: 80.0, damage: 2),
+]

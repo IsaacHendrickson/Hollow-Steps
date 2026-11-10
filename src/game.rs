@@ -170,20 +170,44 @@ impl GameState {
         };
         session.content.rename_placements(&mut document);
         draft.enemies = document.enemies;
+        draft.boss = document.boss;
         let catalog = rooms
             .iter()
             .map(|r| (r.id, editor::RoomLayout::from_room(r)))
             .collect();
+        let edited = crate::room::RoomEnemies {
+            enemies: draft.enemies.clone(),
+            boss: draft.boss.clone(),
+            layout: Some(draft.layout.clone()),
+        };
+        let changed_boss_rooms = rooms
+            .iter()
+            .map(|room| {
+                session
+                    .content
+                    .boss_changed(room.id, (room.id == session.id).then_some(&edited))
+                    .map(|changed| (room.id, changed))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         crate::definition_editor::write_files(&plan)?;
         // Everything below is an infallible in-memory commit.
         let session = self.editor.as_mut().expect("editor open");
         for room in &mut rooms {
             if let Some(existing) = self.rooms.iter_mut().find(|r| r.id == room.id) {
+                let boss_changed = changed_boss_rooms
+                    .iter()
+                    .any(|(id, changed)| *id == room.id && *changed);
                 if room.id == session.id {
                     room.coins = std::mem::take(&mut existing.coins);
-                    room.boss = existing.boss.take();
-                    room.boss_special = existing.boss_special.take();
+                    if !boss_changed {
+                        room.boss = existing.boss.take();
+                        room.boss_special = existing.boss_special.take();
+                    }
                 } else {
+                    if boss_changed {
+                        existing.boss = room.boss.take();
+                        existing.boss_special = room.boss_special.take();
+                    }
                     std::mem::swap(&mut room.enemies, &mut existing.enemies);
                     std::mem::swap(room, existing);
                 }

@@ -1,5 +1,7 @@
 # Features
 
+- Boss entity picker and canvas placement/selection/drag/delete, egui boss properties and ordered attack/action editing with searchable action catalog, transactional validation and staged boss saves with rename propagation and runtime refresh: `src/boss_editor.rs`, `src/editor.rs`, `src/editor_panel/boss.rs`, `src/definition_editor.rs`, `src/game.rs`, `src/main.rs`; `tests/boss_editor.rs`, `tests/definition_editor.rs`, headless panel and canvas regression tests, plus manual editor check.
+
 - Validated RON boss definitions and room placements, cycle/seeded random attack selection, ordered shared actions, preserved Ash Warden Slam/Summon/Rings behavior, and a fixture-only ground pound: `src/boss_definition.rs`, `src/boss_special.rs`, `src/behavior.rs`, `src/room.rs`, `assets/bosses/`; `tests/boss_data.rs`, `tests/boss_special.rs`, `src/game.rs` boss tests.
 
 - Data-driven jump-to-player, hover, downward slam, and fused random area blasts for every enemy, arena/body clamping, blast damage through player immunity, generated labeled/validated editor parameters and data-backed insertion defaults: `src/behavior.rs`, `src/enemy.rs`, `src/game.rs`, `src/behavior_values.rs`, `src/editor_panel.rs`, `src/main.rs`, `data/action_defaults.ron`; `tests/arena_actions.rs`, `src/game.rs` blast test, existing catalog/save round-trip tests in `tests/definition_editor.rs`, plus README manual playtest.

@@ -33,6 +33,19 @@ macro_rules! actions {
         pub enum Action { $( $(#[$meta])* $variant { $( $field: $ty ),+ } ),+, $( $boss { $( $param: $param_ty ),+ } ),+ }
         impl Action {
             pub const TYPES: &'static [&'static str] = &[$($name),+];
+            pub const ALL_TYPES: &'static [&'static str] = &[$($name),+, $($boss_name),+];
+            pub fn all_kind(&self) -> usize {
+                let name = match self { $(Self::$variant { .. } => $name,)+ $(Self::$boss { .. } => $boss_name),+ };
+                Self::ALL_TYPES.iter().position(|n| *n == name).expect("generated catalog")
+            }
+            pub fn all_defaults(kind: usize) -> Option<Self> {
+                static DEFAULTS: OnceLock<Vec<Action>> = OnceLock::new();
+                DEFAULTS.get_or_init(|| {
+                    let mut actions: Vec<Action> = ron::from_str(include_str!("../data/action_defaults.ron")).expect("valid action defaults");
+                    actions.extend(ron::from_str::<Vec<Action>>(include_str!("../data/boss_action_defaults.ron")).expect("valid boss action defaults"));
+                    actions
+                }).iter().find(|action| action.all_kind() == kind).cloned()
+            }
             pub fn defaults(kind: usize) -> Option<Self> {
                 static DEFAULTS: OnceLock<Vec<Action>> = OnceLock::new();
                 DEFAULTS.get_or_init(|| ron::from_str(include_str!("../data/action_defaults.ron"))
@@ -53,7 +66,7 @@ macro_rules! actions {
                 match self { $(Self::$variant { $($field),+ } => { $(
                     $validate(*$field).map_err(|error| format!("{}: {error}", $label))?;
                 )+ },)+ $(Self::$boss { $($param),+ } => { $(
-                    $param_validate(*$param).map_err(|error| format!("{}: {error}", $param_label))?;
+                    $param_validate(*$param).map_err(|error| format!("{} ({}): {error}", stringify!($param), $param_label))?;
                 )+ }),+ }
                 Ok(())
             }
@@ -104,19 +117,19 @@ actions! {
         damage: u8 => ("blast damage (integer 0..255)", valid_damage)
     };
     GlideToPlayer => "glide_to_player" {
-        speed: f32 => ("speed", positive), above_floor: f32 => ("above_floor", nonnegative)
+        speed: f32 => ("Glide speed (px/s)", positive), above_floor: f32 => ("Height above floor (px)", nonnegative)
     },
-    GlideToFloor => "glide_to_floor" { speed: f32 => ("speed", positive) },
+    GlideToFloor => "glide_to_floor" { speed: f32 => ("Glide speed (px/s)", positive) },
     DamageTarget => "damage_target" {
-        radius: f32 => ("radius", nonnegative), damage: u8 => ("damage", valid_damage)
+        radius: f32 => ("Hit radius (px)", nonnegative), damage: u8 => ("Hit damage (0..255)", valid_damage)
     },
-    Summon => "summon" { inset: f32 => ("inset", nonnegative) },
-    SpawnRings => "spawn_rings" { count: u16 => ("count", boss_count) },
+    Summon => "summon" { inset: f32 => ("Distance from arena edges (px)", nonnegative) },
+    SpawnRings => "spawn_rings" { count: u16 => ("Ring count (1..256)", boss_count) },
     ExplodeRings => "explode_rings" {
-        radius: f32 => ("radius", nonnegative), damage: u8 => ("damage", valid_damage)
+        radius: f32 => ("Explosion radius (px)", nonnegative), damage: u8 => ("Explosion damage (0..255)", valid_damage)
     },
     SpawnShockwave => "spawn_shockwave" {
-        radius: f32 => ("radius", nonnegative), damage: u8 => ("damage", valid_damage)
+        radius: f32 => ("Shockwave radius (px)", nonnegative), damage: u8 => ("Shockwave damage (0..255)", valid_damage)
     },
 }
 

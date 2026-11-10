@@ -904,3 +904,224 @@ fn unsaved_entity_size_and_behavior_changes_apply_to_original_placement_names() 
     assert_eq!(definitions.size("renamed").unwrap().x, 60.0);
     assert_eq!(draft.entity_path("renamed"), Some(path));
 }
+
+#[test]
+fn boss_save_reload_round_trip_updates_properties_actions_names_and_runtime() {
+    use hollow_steps::boss_definition::AttackSelection;
+    use hollow_steps::boss_editor::BossInputs;
+    let assets = Assets::new();
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    game.edit_room(RoomId::Boss).unwrap();
+    let editor = game.editor_mut().unwrap();
+    assert!(editor
+        .content
+        .placement_catalog()
+        .iter()
+        .any(|(label, p)| label == "Boss: Ash Warden"
+            && matches!(p, hollow_steps::editor::Placement::Boss(_))));
+    let path = editor.content.boss_path("Ash Warden").unwrap();
+    let mut input = BossInputs::from_definition(&editor.content.bosses[&path]);
+    input.fields = [
+        "Edited Warden".into(),
+        "47".into(),
+        "40".into(),
+        "42".into(),
+        "3".into(),
+        "0.25".into(),
+    ];
+    input.selection = AttackSelection::Random;
+    input.rename_attack(0, "Edited Slam").unwrap();
+    input.move_attack(2, true).unwrap();
+    let added = input.add_attack("New attack").unwrap();
+    let shockwave = Action::ALL_TYPES
+        .iter()
+        .position(|n| *n == "spawn_shockwave")
+        .unwrap();
+    input.add_action(added, shockwave).unwrap();
+    input.attacks[added].actions[0].values = vec!["123".into(), "5".into()];
+    let expected = input.build().unwrap();
+    editor.update_boss(&path, expected.clone()).unwrap();
+    editor
+        .move_selection(
+            hollow_steps::editor::Selection::Boss,
+            macroquad::math::vec2(600.0, 400.0),
+        )
+        .unwrap();
+    game.save_editor().unwrap();
+    let runtime = game.room().boss_special.as_ref().unwrap();
+    assert_eq!(runtime.max_health(), 47);
+    assert_eq!(runtime.contact_damage(), 3);
+    assert_eq!(runtime.size(), macroquad::math::vec2(40.0, 42.0));
+    assert_eq!(runtime.position(), macroquad::math::vec2(600.0, 400.0));
+    let mut reloaded = GameState::try_new(&assets.0).unwrap();
+    reloaded.edit_room(RoomId::Boss).unwrap();
+    let editor = reloaded.editor().unwrap();
+    assert_eq!(editor.content.bosses[&path], expected);
+    assert_eq!(
+        editor.draft.boss.as_ref().unwrap().definition,
+        "Edited Warden"
+    );
+    assert_eq!(editor.draft.boss.as_ref().unwrap().position, (600.0, 400.0));
+    // Snapshot refresh permits another rename and a content-only no-op save.
+    let editor = game.editor_mut().unwrap();
+    let mut boss = editor.content.bosses[&path].clone();
+    boss.name = "Twice renamed".into();
+    editor.update_boss(&path, boss).unwrap();
+    game.save_editor().unwrap();
+    let before = assets.snapshot();
+    assert!(game.editor().unwrap().content.plan(&[]).unwrap().is_empty());
+    game.save_editor().unwrap();
+    assert_eq!(assets.snapshot(), before);
+}
+
+#[test]
+fn invalid_boss_definitions_placements_and_disk_conflicts_block_all_writes() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let path = draft.boss_path("Ash Warden").unwrap();
+    draft.entities.values_mut().next().unwrap().health = 17;
+    let before = assets.snapshot();
+    let original = draft.bosses[&path].clone();
+    draft.bosses.get_mut(&path).unwrap().health = 0;
+    assert!(draft.commit(&[]).is_err());
+    assert_eq!(assets.snapshot(), before);
+    draft.bosses.insert(path.clone(), original);
+    draft.bosses.get_mut(&path).unwrap().size.1 = 5000.0;
+    let error = draft.commit(&[]).unwrap_err();
+    assert_error_file(&error, &assets.0.join("rooms").join("boss.ron"));
+    assert_eq!(assets.snapshot(), before);
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    draft.bosses.get_mut(&path).unwrap().health = 77;
+    let plan = draft.plan(&[]).unwrap();
+    std::fs::write(&path, serialize(&draft.bosses[&path]).unwrap()).unwrap();
+    let changed = assets.snapshot();
+    assert_error_file(
+        &hollow_steps::definition_editor::write_files(&plan).unwrap_err(),
+        &path,
+    );
+    assert_eq!(assets.snapshot(), changed);
+}
+
+#[test]
+fn boss_edits_from_another_room_apply_and_deletion_and_replacement_survive_reload() {
+    use hollow_steps::editor::{Placement, Selection};
+    let assets = Assets::new();
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    game.toggle_editor().unwrap();
+    let editor = game.editor_mut().unwrap();
+    let path = editor.content.boss_path("Ash Warden").unwrap();
+    let mut boss = editor.content.bosses[&path].clone();
+    boss.health = 62;
+    boss.name = "Shared rename".into();
+    editor.update_boss(&path, boss).unwrap();
+    game.save_editor().unwrap();
+    game.edit_room(RoomId::Boss).unwrap();
+    assert_eq!(game.room().boss_special.as_ref().unwrap().max_health(), 62);
+    assert_eq!(
+        game.editor()
+            .unwrap()
+            .draft
+            .boss
+            .as_ref()
+            .unwrap()
+            .definition,
+        "Shared rename"
+    );
+    game.editor_mut()
+        .unwrap()
+        .draft
+        .delete(Selection::Boss)
+        .unwrap();
+    game.save_editor().unwrap();
+    assert!(game.room().boss_special.is_none());
+    let mut reloaded = GameState::try_new(&assets.0).unwrap();
+    reloaded.edit_room(RoomId::Boss).unwrap();
+    assert!(reloaded.editor().unwrap().draft.boss.is_none());
+    reloaded
+        .editor_mut()
+        .unwrap()
+        .place(
+            Placement::Boss("Ground Pound Example".into()),
+            macroquad::math::vec2(500.0, 400.0),
+        )
+        .unwrap();
+    reloaded.save_editor().unwrap();
+    assert_eq!(
+        reloaded.room().boss_special.as_ref().unwrap().max_health(),
+        10
+    );
+    let mut final_game = GameState::try_new(&assets.0).unwrap();
+    final_game.edit_room(RoomId::Boss).unwrap();
+    assert_eq!(
+        final_game
+            .editor()
+            .unwrap()
+            .draft
+            .boss
+            .as_ref()
+            .unwrap()
+            .definition,
+        "Ground Pound Example"
+    );
+}
+
+#[test]
+fn boss_staging_failures_and_new_external_boss_files_preserve_the_transaction() {
+    let assets = Assets::new();
+    let mut draft = DefinitionDraft::load(&assets.0).unwrap();
+    let path = draft.boss_path("Ash Warden").unwrap();
+    draft.bosses.get_mut(&path).unwrap().health = 81;
+    draft.entities.values_mut().next().unwrap().health = 19;
+    let blocked = path.with_extension("ron.tmp");
+    std::fs::create_dir(&blocked).unwrap();
+    // Snapshot only authored RON files, excluding the deliberately blocked staging path.
+    let before = std::fs::read(&path).unwrap();
+    assert!(draft.commit(&[]).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    assert!(draft
+        .entities
+        .keys()
+        .all(|p| !p.with_extension("ron.tmp").exists()));
+    std::fs::remove_dir(&blocked).unwrap();
+    draft.commit(&[]).unwrap();
+    let plan = draft.plan(&[]).unwrap();
+    let mut external = draft.bosses[&path].clone();
+    external.name = "External boss".into();
+    let external_path = assets.0.join("bosses").join("external.ron");
+    std::fs::write(&external_path, serialize(&external).unwrap()).unwrap();
+    assert_error_file(
+        &hollow_steps::definition_editor::write_files(&plan).unwrap_err(),
+        &external_path,
+    );
+}
+
+#[test]
+fn unrelated_editor_saves_preserve_damaged_boss_progress() {
+    let assets = Assets::new();
+    let game = GameState::try_new(&assets.0).unwrap();
+    let spawn = game.room().spawn;
+    let room_path = assets.0.join("rooms").join("first.ron");
+    let mut document: RoomEnemies =
+        ron::from_str(&std::fs::read_to_string(&room_path).unwrap()).unwrap();
+    document.boss = Some(hollow_steps::room::BossPlacement {
+        definition: "Ground Pound Example".into(),
+        position: (spawn.x + 40.0, spawn.y),
+    });
+    std::fs::write(room_path, serialize(&document).unwrap()).unwrap();
+    let mut game = GameState::try_new(&assets.0).unwrap();
+    game.update(
+        hollow_steps::player::PlayerInput {
+            attack_pressed: true,
+            ..Default::default()
+        },
+        0.0,
+    );
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 9);
+    game.toggle_editor().unwrap();
+    game.save_editor().unwrap();
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 9);
+    game.edit_room(RoomId::Second).unwrap();
+    game.save_editor().unwrap();
+    game.edit_room(RoomId::First).unwrap();
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 9);
+}
