@@ -139,7 +139,7 @@ checkbox, and the same ordering controls. Invalid numbers show errors beside the
 fields and block saving using the same validation as Key values and the loader.
 
 The loader enums and editor type catalogs come from the same `actions!` and
-`conditions!` declarations in `behavior.rs`. Add a supported variant there with
+`conditions!` declarations in `src/behavior/action.rs` and `src/behavior/condition.rs`. Add a supported variant there with
 its typed parameters, descriptive labels, and validation to include it in the
 dropdown and Key values automatically. Editor insertion defaults live in
 `data/action_defaults.ron`; existing defaults are unchanged. Inserted values are
