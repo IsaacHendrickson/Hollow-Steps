@@ -83,6 +83,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/combat.rs`: melee swings (forward, up, down), per-direction hitboxes from `StrikeConfig`, knockback direction, once-per-swing pogo, duration, and cooldown.
 - `src/damage.rs`: `DamageResolver` combines enemy contact/blast/attack and boss action/contact damage into the single hit applied to the player.
 - `src/events.rs`: `GameEvent` (jump, landing, dash, swing, enemy hit/death, player damage, coin, item, room, boss) and the `EventQueue` drained by `GameState::take_events`, or by `take_located_events` with the world position each event happened at (`LocatedEvent`).
+- `src/sound.rs`: validated event-to-sound cues (`data/audio.ron`, an `assets/audio.ron` replaces it whole), sound-name and volume checks, sound-file lookup in `assets/audio/` (wav, then ogg), the WAV/Ogg header check, and the per-frame play plan; sub-module `tests.rs`.
 - `src/particles.rs`: validated burst presets (`data/particles.ron`, an `assets/particles.ron` replaces it whole), a seeded deterministic generator, the capped live-particle list, and the event-to-burst rules; sub-module `tests.rs`.
 - `src/feel.rs`: hit-stop and screen shake driven by `GameEvent`s (sine shake, no randomness); tunables in `data/feel.ron` (an `assets/feel.ron` replaces it whole).
 - `src/item.rs`: world items and pickup.
@@ -113,7 +114,7 @@ Composition and front end:
 - `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `death_field.rs` (the Death time drag box), `history_panel.rs` (Undo/Redo), `tool_panel.rs` (tool selector, Delete selected), `unsaved_dialog.rs` (Save / Discard / Cancel window).
 - `src/terrain_canvas.rs`: Macroquad drawing of solids, handles and the drawing preview, and mouse-to-`TerrainTool` glue for the editor canvas.
 - `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field (typed out-of-range values are refused with a message), unsaved note, Save, and headless layout/input checks.
-- `src/effects.rs`: Macroquad front end for event-driven effects: feeds the frame's located events to the particles, steps them with the fixed tick and draws them in world space.
+- `src/effects.rs`: Macroquad front end for event-driven effects: feeds the frame's located events to the particles and the sound bank, steps the particles with the fixed tick and draws them in world space. Its sub-module `sound_bank.rs` loads and plays sound files; real playback needs the opt-in `audio` cargo feature (`docs/audio.md`).
 - `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
 - `src/startup.rs`: Macroquad startup: loads the game and shows load errors on the virtual-resolution screen (F5 retries); shared letterboxed frame presentation.
 - `src/main.rs`: Macroquad window setup, keyboard translation, drawing, and

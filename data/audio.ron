@@ -1,0 +1,24 @@
+(
+    // Loudness of every sound, from 0.0 (silent) to 1.0. Each cue's volume is multiplied by it.
+    master_volume: 0.8,
+
+    // Which sound each GameEvent plays. An event with no cue stays silent.
+    //   on      the GameEvent name
+    //   sound   a name of lowercase letters, digits and underscores; the game plays
+    //           assets/audio/<sound>.wav (or .ogg) if that file exists and quietly plays
+    //           nothing if it does not
+    //   volume  0.0 to 1.0
+    cues: [
+        (on: PlayerJumped, sound: "jump", volume: 0.6),
+        (on: PlayerLanded, sound: "land", volume: 0.5),
+        (on: PlayerDashed, sound: "dash", volume: 0.6),
+        (on: PlayerAttacked, sound: "swing", volume: 0.7),
+        (on: EnemyHit, sound: "hit", volume: 0.8),
+        (on: EnemyDied, sound: "enemy_die", volume: 0.9),
+        (on: PlayerDamaged, sound: "hurt", volume: 1.0),
+        (on: CoinCollected, sound: "coin", volume: 0.6),
+        (on: ItemPickedUp, sound: "pickup", volume: 0.7),
+        (on: RoomEntered, sound: "room_enter", volume: 0.5),
+        (on: BossDefeated, sound: "boss_defeated", volume: 1.0),
+    ],
+)

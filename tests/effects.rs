@@ -71,3 +71,56 @@ fn the_whole_pipeline_is_deterministic() {
     let (second, _) = jump_and_land();
     assert_eq!(first, second);
 }
+
+// ---- sound ----------------------------------------------------------------------------
+
+use hollow_steps::events::LocatedEvent;
+use hollow_steps::sound::{find_sound_file, SoundConfig, SOUND_DIR};
+
+/// Every located event of a scripted jump, in order.
+fn jump_and_land_events() -> Vec<LocatedEvent> {
+    let mut game = GameState::try_new(&support::fixture_assets()).expect("fixtures load");
+    let mut events = Vec::new();
+    for tick in 0..300 {
+        game.update(
+            PlayerInput {
+                jump_pressed: tick == 0,
+                ..PlayerInput::default()
+            },
+            DT,
+        );
+        events.extend(game.take_located_events());
+    }
+    events
+}
+
+#[test]
+fn a_played_jump_plans_exactly_the_sounds_its_events_are_mapped_to_in_order() {
+    let events = jump_and_land_events();
+    let names: Vec<GameEvent> = events.iter().map(|located| located.event).collect();
+    assert_eq!(names, [GameEvent::PlayerJumped, GameEvent::PlayerLanded]);
+
+    let config = SoundConfig::default();
+    let plan = config.plan(names.iter().copied());
+    let expected: Vec<&str> = names
+        .iter()
+        .filter_map(|event| config.cue_for(*event))
+        .map(|cue| cue.sound.as_str())
+        .collect();
+    assert_eq!(
+        plan.iter().map(|play| play.sound).collect::<Vec<_>>(),
+        expected
+    );
+    assert!(plan.iter().all(|play| (0.0..=1.0).contains(&play.volume)));
+}
+
+#[test]
+fn with_no_sound_files_every_planned_sound_is_simply_not_found() {
+    // The fixtures folder has no audio folder: the game must run, every sound is silent.
+    let dir = support::fixture_assets().join(SOUND_DIR);
+    let config = SoundConfig::default();
+    assert!(!config.sound_names().is_empty());
+    for name in config.sound_names() {
+        assert_eq!(find_sound_file(&dir, name), None, "{name}");
+    }
+}

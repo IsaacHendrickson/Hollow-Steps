@@ -5,6 +5,12 @@ edition = "2021"
 description = "A small, modular 2D action-platformer prototype"
 license = "MIT"
 
+[features]
+# Plays the sounds that data/audio.ron maps to game events. Off by default because on Linux it
+# links the system ALSA library (package libasound2-dev), which the default build, the tests and
+# CI do not otherwise need. Run with `cargo run --features audio`. See docs/audio.md.
+audio = ["macroquad/audio"]
+
 [dependencies]
 macroquad = "0.4"
 egui-macroquad = { version = "0.17.3", default-features = false }

@@ -38,6 +38,7 @@ pub mod preset;
 pub mod room;
 pub mod room_size;
 pub mod search;
+pub mod sound;
 pub mod terrain;
 pub mod timestep;
 pub mod tuning;
