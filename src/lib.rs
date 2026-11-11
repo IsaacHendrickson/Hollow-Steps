@@ -36,6 +36,7 @@ pub mod particles;
 pub mod player;
 pub mod player_body;
 pub mod pose;
+pub mod postfx;
 pub mod preset;
 pub mod room;
 pub mod room_size;

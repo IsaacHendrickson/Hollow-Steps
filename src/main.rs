@@ -21,6 +21,7 @@ mod body_draw;
 mod editor_panel;
 mod effects;
 mod hud;
+mod postfx_pass;
 mod startup;
 mod terrain_canvas;
 mod tuning_panel;
@@ -48,6 +49,11 @@ async fn main() {
     // Invalid effect settings are shown like a failed reload.
     let (mut effects, effects_error) = effects::Effects::load(&assets::assets_root());
     let mut reload_result = effects_error.map(Err);
+    // Vignette and glow over the world picture; a settings or shader error is shown the same way.
+    let (mut post_pass, post_error) = postfx_pass::PostPass::load(&assets::assets_root(), view);
+    if let Some(error) = post_error {
+        reload_result = Some(Err(error));
+    }
     // The player's body; a load error is shown like a failed reload and keeps the plain box.
     let mut player_body = match PlayerBody::load(&assets::assets_root()) {
         Ok(body) => body,
@@ -133,6 +139,7 @@ async fn main() {
             reload_result = Some(
                 game.reload_rooms()
                     .and_then(|()| effects.reload())
+                    .and_then(|()| post_pass.reload(&assets::assets_root()))
                     .and_then(|()| {
                         player_body = PlayerBody::load(&assets::assets_root())?;
                         Ok(())
@@ -188,9 +195,11 @@ async fn main() {
         set_camera(&screen_camera(world_view, Some(screen.clone())));
         draw_scene(&game, player_body.as_ref());
         effects.draw();
+        // The HUD is drawn after the post-process pass so the vignette never dims it.
+        let frame = post_pass.process(&screen, view);
         set_camera(&screen_camera(
             Rect::new(0.0, 0.0, view.x, view.y),
-            Some(screen.clone()),
+            Some(frame.clone()),
         ));
         hud::draw_hud(&game, view);
         if game.testing_room() {
@@ -207,7 +216,7 @@ async fn main() {
                 view,
             );
         }
-        let letterbox = present(&screen, view);
+        let letterbox = present(&frame, view);
         // Drain the integration's event subscription while the editor is closed, so reopening
         // cannot replay earlier gameplay clicks or keys into its controls.
         egui_macroquad::ui(|ctx| {
