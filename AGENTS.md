@@ -92,6 +92,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/editor_guard.rs`: unsaved-changes state machine (Save / Discard / Cancel) and the approved-action runner.
 - `src/editor_history.rs`: snapshot undo/redo for the room draft (limit 100; a drag is one step) and the Ctrl+Z / Ctrl+Y key mapping.
+- `src/editor_terrain.rs`: pure terrain edits on the room draft (add, move, resize, delete, hit tests, handles), validated as a whole.
+- `src/editor_tools.rs`: the editor tool enum (Select, Place, Terrain, Erase), its key map, and the terrain tool's selection and drag state.
 - `src/editor_view.rs`: pure editor canvas math: zoom/pan transform, grid snapping, window regions, footer wrapping.
 - `src/room_size.rs`: validated room bounds/floor edits for the editor.
 - `src/definition_editor.rs`: pure entity/behavior edits, save planning, and staged file writes.
@@ -100,10 +102,12 @@ Gameplay modules (pure rules, no rendering):
 Composition and front end:
 
 - `src/body_draw.rs`: Macroquad adapter for ordered body parts, legacy enemy boxes, and debug overlays.
+- `src/game/test_room.rs`: Test room: swaps the editor's draft in as the playable room, parks the editor session and player, and restores them.
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
-- `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `history_panel.rs` (Undo/Redo), `unsaved_dialog.rs` (Save / Discard / Cancel window).
+- `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `history_panel.rs` (Undo/Redo), `tool_panel.rs` (tool selector, Delete selected), `unsaved_dialog.rs` (Save / Discard / Cancel window).
+- `src/terrain_canvas.rs`: Macroquad drawing of solids, handles and the drawing preview, and mouse-to-`TerrainTool` glue for the editor canvas.
 - `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field (typed out-of-range values are refused with a message), unsaved note, Save, and headless layout/input checks.
 - `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
 - `src/startup.rs`: Macroquad startup: loads the game and shows load errors on the virtual-resolution screen (F5 retries); shared letterboxed frame presentation.

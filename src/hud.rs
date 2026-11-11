@@ -112,6 +112,20 @@ fn draw_boss_cue(cue: &str, view: Vec2) {
     draw_text(cue, bar.x, bar.y + 40.0, 22.0, WHITE);
 }
 
+/// Shown while a room is being tested from the editor.
+pub fn draw_test_banner(view: Vec2) {
+    let text = "TEST ROOM - F2: back to the editor (nothing is saved)";
+    let size = 22.0;
+    let width = measure_text(text, None, size as u16, 1.0).width;
+    let at = anchored(
+        view,
+        Anchor::BottomCenter,
+        vec2(width, 0.0),
+        vec2(0.0, 18.0),
+    );
+    draw_text(text, at.x, at.y, size, Color::from_rgba(255, 214, 120, 255));
+}
+
 pub fn draw_inventory(game: &GameState, view: Vec2) {
     draw_rectangle(0.0, 0.0, view.x, view.y, Color::from_rgba(0, 0, 0, 180));
     let size = vec2(560.0, 310.0);

@@ -1,6 +1,7 @@
 //! Helpers shared by the editor panel's headless tests.
 use super::canvas_tools::{draw_room_size_section, draw_view_section};
 use super::history_panel::draw_history_section;
+use super::tool_panel::draw_tool_section;
 use super::{EditorSession, EditorUi};
 use egui_macroquad::egui;
 use hollow_steps::game::GameState;
@@ -50,7 +51,7 @@ pub(super) fn editing_game() -> GameState {
     game
 }
 
-/// One egui pass over the History, Room size and View sections in a narrow window.
+/// One egui pass over the Tools, History, Room size and View sections in a narrow window.
 pub(super) fn frame(
     ctx: &egui::Context,
     events: Vec<egui::Event>,
@@ -68,6 +69,7 @@ pub(super) fn frame(
         },
         |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
+                draw_tool_section(ui, editor, state);
                 draw_history_section(ui, editor, state);
                 draw_room_size_section(ui, editor, &mut state.history);
                 draw_view_section(ui, state);

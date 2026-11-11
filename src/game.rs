@@ -13,6 +13,8 @@ use crate::player::{Player, PlayerInput, WorldBounds};
 use crate::room::{load_rooms, Room, RoomId};
 use crate::tuning::TuningConfig;
 
+mod test_room;
+
 pub use crate::room::FLOOR_Y;
 
 pub const VIEW_WIDTH: f32 = 960.0;
@@ -35,6 +37,8 @@ pub struct GameState {
     inventory_open: bool,
     special_attack_timer: f32,
     last_special_hit: Option<u64>,
+    /// The room being tried out from the editor, if any.
+    test_run: Option<test_room::TestRun>,
     /// Player and enemy tunables in effect (the F4 window edits these).
     tuning: TuningConfig,
     /// The tunables as last loaded from or saved to `player.ron`.
@@ -69,6 +73,7 @@ impl GameState {
             inventory_open: false,
             special_attack_timer: 0.0,
             last_special_hit: None,
+            test_run: None,
             tuning,
             saved_tuning: tuning,
         })
@@ -157,6 +162,10 @@ impl GameState {
     }
 
     pub fn toggle_editor(&mut self) -> Result<(), String> {
+        if self.test_run.is_some() {
+            // Closing a test room returns to the session it came from.
+            return self.end_test_room();
+        }
         if self.editor.take().is_none() {
             self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
         }
@@ -164,6 +173,9 @@ impl GameState {
     }
 
     pub fn edit_room(&mut self, id: RoomId) -> Result<(), String> {
+        if self.test_run.is_some() {
+            return Err("leave the test room (F2) before opening another room".into());
+        }
         let index = self
             .rooms
             .iter()
@@ -270,6 +282,9 @@ impl GameState {
     /// The player and enemy tunables in `player.ron` are re-read too; the player keeps its
     /// state. Nothing changes if any file fails to load.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
+        if self.test_run.is_some() {
+            return Err("leave the test room (F2) before reloading".into());
+        }
         let tuning = TuningConfig::load(&self.assets)?;
         let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(&self.assets)?;
@@ -431,6 +446,8 @@ impl GameState {
             .room()
             .exit_at(self.player.position(), self.player.size())
             .copied()
+            // A test room is a sandbox: its exits would lead into saved rooms.
+            .filter(|_| self.test_run.is_none())
         {
             if let Some(target) = self
                 .rooms
