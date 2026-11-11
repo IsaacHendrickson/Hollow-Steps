@@ -60,3 +60,32 @@ camera and `terrain_draw.rs` skips shapes outside the view. The list is drawn di
 frame; it is not baked into a texture, because a texture would have to cover the whole room
 (rooms may be larger than the screen) and could blur or seam under the follow camera. The
 room editor keeps drawing solids as plain rectangles.
+
+### Manual playtest checklist
+
+Nothing here can be checked without a window. Run `cargo run`:
+
+1. **Platform tops** (first room, warm palette): each platform has a tan lit top with a gently
+   jagged lip, green moss tufts, a dark outline down the sides and under the bottom, short
+   stalactites hanging below, and speckles and cracks inside. Walk along the tops and jump
+   on and off: feet rest on the flat top line, the lip and moss poke up behind the player, and
+   nothing looks sunk or floating.
+2. **Wall sides**: walk and dash into a wall. The player stops at the wall's drawn edge (the
+   outline is inside the collision rectangle), and the outline runs down both sides.
+3. **Stacked and touching solids**: in the editor (F2, Terrain tool) draw two solids stacked,
+   two side by side touching, and two overlapping; press Test room (F6). No outline or lit
+   strip shows between them, the gradient reads as one block, and no edge is drawn twice. A
+   solid standing on the floor has no bottom outline or stalactites at the floor line.
+4. **Room load**: leave and re-enter a room, and press F5. The look is identical every time,
+   with no reshuffling or flicker. Move one solid in the editor and save: only that solid's
+   speckles and moss change.
+5. **Window resize**: resize and maximize. The world letterboxes as before, the terrain scales
+   with it, and no seams or shimmering lines show between bands or shapes. In a room larger
+   than the screen, walk to each edge: nothing pops in or out at the screen border.
+6. **Collision feels identical**: jump height, landing, dash distance and stopping at walls and
+   ceilings are the same as on `main` (collision code is untouched).
+7. **Editor view**: with F2 open, solids are still plain rectangles with their handles.
+8. **Palette**: in `assets/rooms/first.ron` set `moss: false` or change `seed_offset`, press
+   F5 and see the look change; set a color to `1.5` and F5 shows a load error naming the file
+   and the color. A room with solids and no palette shows the default dark blue-grey look.
+9. **Speed**: no visible slowdown with several large solids on screen.
