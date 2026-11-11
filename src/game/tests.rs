@@ -23,6 +23,7 @@ fn enemy_blasts_apply_configured_damage_once_and_respect_player_immunity() {
             behavior: "blast".into(),
             body: None,
             death_secs: 0.0,
+            movement: Default::default(),
         },
         Arc::new(
             BehaviorDefinition::from_ron(

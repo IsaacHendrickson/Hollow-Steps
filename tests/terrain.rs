@@ -245,6 +245,7 @@ fn lunger(bounds: hollow_steps::player::WorldBounds, x: f32) -> hollow_steps::en
             behavior: "lunge".into(),
             body: None,
             death_secs: 0.0,
+            movement: Default::default(),
         },
         std::sync::Arc::new(behavior),
         x,

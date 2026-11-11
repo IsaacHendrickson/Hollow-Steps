@@ -23,6 +23,8 @@ mod event_tests;
 #[cfg(test)]
 mod feel_tests;
 #[cfg(test)]
+mod flier_tests;
+#[cfg(test)]
 mod hud_loss_tests;
 #[cfg(test)]
 mod located_event_tests;

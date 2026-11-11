@@ -33,3 +33,122 @@ fn shipped_boss_body_loads_and_validates() {
     assert!(boss.body().is_some(), "the Ash Warden has a body");
     assert!(boss.size().min_element() > 0.0);
 }
+
+#[test]
+fn shipped_bird_body_and_wing_poses_load_and_fit_together() {
+    use macroquad::math::Vec2;
+
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+    // Loading validates every template and pose; the bird must be among them.
+    let bodies = hollow_steps::body::load_body_templates(&assets.join("bodies"))
+        .expect("shipped body templates must load and validate");
+    let poses = hollow_steps::pose::load_poses(&assets.join("poses"))
+        .expect("shipped poses must load and validate");
+    let bird = bodies
+        .get("bird")
+        .expect("the bird body template is shipped");
+
+    // The bird flies: no leg points, and both wing tips plus the tail are posable.
+    for legs in ["foot_l", "foot_r"] {
+        assert!(!bird.pose_map.contains_key(legs), "a flier has no {legs}");
+    }
+    for posable in ["hand_l", "hand_r", "tail"] {
+        assert!(
+            bird.pose_map.contains_key(posable),
+            "the bird maps {posable}"
+        );
+    }
+
+    // Both wing poses exist, only move points the bird has, and really differ: the wing tips
+    // sit higher in the up pose than in the down pose.
+    let up = poses.get("fly_up").expect("fly_up pose is shipped");
+    let down = poses.get("fly_down").expect("fly_down pose is shipped");
+    for pose in [up, down] {
+        for point in pose.offsets.keys() {
+            assert!(
+                bird.pose_map.contains_key(point),
+                "wing pose moves {point}, which the bird does not map"
+            );
+        }
+    }
+    let wing_y = |pose: &hollow_steps::pose::Pose, wing: &str| {
+        let point = &bird.pose_map[wing];
+        pose.resolve(bird)[point].y
+    };
+    for wing in ["hand_l", "hand_r"] {
+        assert!(
+            wing_y(up, wing) < wing_y(down, wing) - 0.5,
+            "{wing}: wings-up must sit clearly above wings-down"
+        );
+    }
+
+    // The hurt pose the bird uses still exists, so the hurt flash and pose keep working.
+    assert!(poses.contains_key("hurt"));
+
+    // Facing mirrors the whole body: the beak flips to the other side of the bird's centre.
+    let size = Vec2::new(32.0, 40.0);
+    let beak_x = |facing_left: bool| {
+        let body = hollow_steps::body::BodyInstance::new(
+            hollow_steps::body::BodyVisual::for_template("bird"),
+            &bodies,
+        )
+        .expect("the bird body instantiates");
+        let beak = body
+            .template
+            .parts
+            .iter()
+            .find(|part| part.name == "beak")
+            .expect("the bird has a beak");
+        body.part_transform(beak, Vec2::ZERO, size, facing_left)
+            .expect("the beak is drawable")
+            .center
+            .x
+    };
+    let (right, left) = (beak_x(false), beak_x(true));
+    assert!(right > 0.0 && left < 0.0, "beak right {right}, left {left}");
+    assert!((right + left).abs() < 1e-3, "facing mirrors exactly");
+}
+
+#[test]
+fn shipped_bird_flies_flaps_and_patrols_in_the_air() {
+    use hollow_steps::enemy::{EnemyDefinitions, Movement};
+    use hollow_steps::player::WorldBounds;
+    use macroquad::math::Vec2;
+
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+    let catalog = EnemyDefinitions::load(&assets).expect("shipped enemies must load and validate");
+    let bounds = WorldBounds::new(0.0, 960.0, 460.0);
+    // The patrol interval is a loose, made-up one: this checks the kind of enemy the shipped
+    // bird is, not where it is placed or how it is tuned.
+    let mut bird = catalog
+        .spawn("scittish", 700.0, 800.0, bounds)
+        .expect("the shipped bird spawns");
+    let Movement::Flying { flap, .. } = bird.movement().clone() else {
+        panic!("the shipped bird flies");
+    };
+    assert!(flap.is_some(), "and beats its wings");
+    assert!(bird.body().is_some(), "with a body to flap");
+
+    // Far from the player it patrols along its interval, always off the floor.
+    let floor_rest_y = bounds.floor_y - bird.size().y / 2.0;
+    let player = Vec2::new(0.0, bounds.floor_y - 24.0);
+    let start = bird.position().x;
+    let mut travelled = 0.0_f32;
+    for _ in 0..1200 {
+        let before = bird.position().x;
+        bird.update(player, 1.0 / 120.0, bounds);
+        travelled += (bird.position().x - before).abs();
+        assert!(
+            bird.position().y < floor_rest_y - 20.0,
+            "it hovers well off the floor"
+        );
+    }
+    assert!(
+        travelled > 20.0,
+        "it patrols (moved {travelled} px from {start})"
+    );
+    assert!(
+        (700.0..=800.0).contains(&bird.position().x),
+        "inside its interval"
+    );
+}

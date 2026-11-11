@@ -315,6 +315,7 @@ fn real_enemy_and_boss_entities_share_modern_outputs() {
                 behavior: "fixture".into(),
                 body: None,
                 death_secs: 0.0,
+                movement: Default::default(),
             },
             Arc::new(definition),
             500.0,

@@ -39,6 +39,7 @@ fn enemy(
             behavior: "walk".into(),
             body: None,
             death_secs,
+            movement: Default::default(),
         },
         Arc::new(BehaviorDefinition::from_ron(behavior).unwrap()),
         x,

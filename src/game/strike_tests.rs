@@ -30,6 +30,7 @@ fn dummy(x: f32, size: (f32, f32), bounds: WorldBounds) -> Enemy {
             behavior: "idle".into(),
             body: None,
             death_secs: 0.0,
+            movement: Default::default(),
         },
         Arc::new(behavior),
         x,

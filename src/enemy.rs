@@ -21,6 +21,8 @@ pub const ENEMY_SIZE: Vec2 = Vec2::new(36.0, 36.0);
 mod catalog;
 mod death;
 mod definition;
+mod flap;
+mod movement;
 
 pub use catalog::EnemyDefinitions;
 pub use death::DeathTimer;
@@ -50,6 +52,17 @@ pub struct Enemy {
     tuning: EnemyTuning,
     /// Runs only once the enemy's health has run out.
     death: DeathTimer,
+    /// Ground (floor-pinned) or flying at a hover height; set by the definition.
+    movement: Movement,
+    /// Seconds this enemy has been flying, which drives the bob. Stands still while it is dead.
+    flight_secs: f64,
+    /// Where the wings are in their beat (a flier with a `flap` only).
+    flap_clock: FlapClock,
+    /// Which flap pose the body was last given (`true` = up), `None` when none is in place.
+    wing_pose: Option<bool>,
+    /// A pose from the behavior (a wind-up, a recoil) is playing, so the wings leave the body
+    /// alone until the behavior clears it.
+    behavior_pose_held: bool,
 }
 
 impl Enemy {
@@ -105,6 +118,7 @@ impl Enemy {
                 body: None,
                 // Code-made enemies (summons, spawns) have no body to fade: gone at once.
                 death_secs: 0.0,
+                movement: Default::default(),
             },
             Arc::new(definition),
             left,
@@ -157,8 +171,15 @@ impl Enemy {
         {
             return Err(format!("entity {:?}: invalid patrol interval [{left}, {right}] for room bounds and entity size", definition.name));
         }
+        // A flier starts on its hover line; everything else on the floor.
+        let start_y = definition
+            .movement
+            .altitude(size, bounds, 0.0)
+            .unwrap_or(bounds.floor_y - size.y / 2.0);
+        let mut behavior = Behavior::new(behavior)?;
+        behavior.set_flying(definition.movement.is_flying());
         Ok(Self {
-            position: Vec2::new(left, bounds.floor_y - size.y / 2.0),
+            position: Vec2::new(left, start_y),
             patrol_left: left,
             patrol_right: right,
             name: definition.name.clone(),
@@ -169,14 +190,59 @@ impl Enemy {
             facing_left: false,
             max_health: definition.health,
             contact_damage: definition.contact_damage,
-            behavior: Behavior::new(behavior)?,
+            behavior,
             health: definition.health,
             last_attack_id: None,
             knockback_direction: 0.0,
             knockback_remaining: 0.0,
             tuning: EnemyTuning::default(),
             death: DeathTimer::new(definition.death_secs),
+            movement: definition.movement.clone(),
+            flight_secs: 0.0,
+            flap_clock: FlapClock::default(),
+            wing_pose: None,
+            behavior_pose_held: false,
         })
+    }
+
+    pub fn movement(&self) -> &Movement {
+        &self.movement
+    }
+
+    /// For a flier with a `flap`: beats the wings at the rate its horizontal speed asks for and
+    /// puts the matching pose on the body when the stroke changes. A pose the behavior is
+    /// playing (wind-up, recoil) is never overridden, and the hurt pose still wins while it
+    /// lasts because the body remembers this one for afterwards.
+    fn beat_wings(&mut self, horizontal_speed: f32, dt: f32) {
+        let Movement::Flying {
+            flap: Some(flap), ..
+        } = &self.movement
+        else {
+            return;
+        };
+        self.flap_clock.advance(flap, horizontal_speed, dt);
+        let up = self.flap_clock.wings_up();
+        if self.behavior_pose_held || self.wing_pose == Some(up) {
+            return;
+        }
+        if let Some(body) = &mut self.body {
+            let name = if up { &flap.up_pose } else { &flap.down_pose };
+            body.set_pose(Some(name), &self.poses);
+            self.wing_pose = Some(up);
+        }
+    }
+
+    /// For a flier: advance its flight clock and put it back on its hover line, inside the room.
+    /// Ground enemies are left exactly as the behavior and terrain left them.
+    fn hold_altitude(&mut self, dt: f32, bounds: WorldBounds) {
+        if !self.movement.is_flying() {
+            return;
+        }
+        self.flight_secs += f64::from(dt);
+        self.position.x = Movement::clamp_x(self.position.x, self.size, bounds);
+        if let Some(y) = self.movement.altitude(self.size, bounds, self.flight_secs) {
+            self.position.y = y;
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -346,6 +412,7 @@ impl Enemy {
         // An enemy already inside a solid (authored overlap) is left alone
         // rather than being pushed out unpredictably.
         if terrain.is_empty()
+            || self.movement.is_flying()
             || self.position == previous
             || terrain.overlaps_body(previous, self.size)
         {
@@ -402,6 +469,7 @@ impl Enemy {
                     bounds.right - self.size.x / 2.0,
                 );
             self.knockback_remaining = (self.knockback_remaining - dt).max(0.0);
+            self.hold_altitude(dt, bounds);
             return;
         }
         let previous_x = self.position.x;
@@ -428,6 +496,8 @@ impl Enemy {
                     stiffness_multiplier,
                     instant,
                 } => {
+                    self.behavior_pose_held = name.is_some();
+                    self.wing_pose = None;
                     if let Some(body) = &mut self.body {
                         body.set_pose(name.as_deref(), &self.poses);
                         body.configure_pose_spring(blend_secs, stiffness_multiplier);
@@ -438,6 +508,8 @@ impl Enemy {
                     }
                 }
                 crate::pose::PoseStep::Clear => {
+                    self.behavior_pose_held = false;
+                    self.wing_pose = None;
                     if let Some(body) = &mut self.body {
                         body.clear_pose();
                     }
@@ -448,6 +520,10 @@ impl Enemy {
                     }
                 }
             }
+        }
+        self.hold_altitude(dt, bounds);
+        if dt > 0.0 {
+            self.beat_wings((self.position.x - previous_x).abs() / dt, dt);
         }
         if self.position.x != previous_x {
             self.facing_left = self.position.x < previous_x;

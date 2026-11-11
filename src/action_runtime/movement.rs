@@ -147,7 +147,7 @@ impl ActionRuntime {
     /// Shared vertical integration for ground movement, lunges, and idle time.
     pub(crate) fn apply_gravity(&mut self, position: &mut Vec2, context: BehaviorContext, dt: f64) {
         const GRAVITY: f64 = 1_400.0;
-        if dt <= 0.0 {
+        if dt <= 0.0 || self.flying {
             return;
         }
         self.vertical_velocity += GRAVITY * dt;
