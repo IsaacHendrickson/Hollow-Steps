@@ -735,3 +735,43 @@ fn a_bad_override_file_is_an_error_naming_it_never_a_fallback() {
         .unwrap_err()
         .contains(FILE_NAME));
 }
+
+#[test]
+fn save_writes_a_file_that_loads_back_and_leaves_no_temporary_file() {
+    let dir = TempDir::new();
+    let changed = with(VitalsField::ManaPerKill, 25.0);
+    let path = save(&dir.0, &changed).unwrap();
+    assert_eq!(path, dir.0.join(FILE_NAME));
+    assert_eq!(VitalsConfig::load(&dir.0).unwrap(), changed);
+    assert!(!dir.0.join("vitals.ron.tmp").exists());
+    // Saving again replaces the file.
+    save(&dir.0, &config()).unwrap();
+    assert_eq!(VitalsConfig::load(&dir.0).unwrap(), config());
+}
+
+#[test]
+fn save_refuses_invalid_values_and_writes_nothing() {
+    let dir = TempDir::new();
+    let bad = VitalsConfig {
+        regain_fraction: 2.0,
+        ..config()
+    };
+    let error = save(&dir.0, &bad).unwrap_err();
+    assert!(error.contains("vitals.regain_fraction"), "{error}");
+    assert!(!dir.0.join(FILE_NAME).exists());
+}
+
+#[test]
+fn a_failed_save_keeps_the_previous_file() {
+    let dir = TempDir::new();
+    save(&dir.0, &config()).unwrap();
+    let before = std::fs::read_to_string(dir.0.join(FILE_NAME)).unwrap();
+    // A folder where the temporary file goes makes the staged write fail.
+    std::fs::create_dir(dir.0.join("vitals.ron.tmp")).unwrap();
+    let error = save(&dir.0, &with(VitalsField::TrailDrain, 10.0)).unwrap_err();
+    assert!(error.contains(FILE_NAME), "{error}");
+    assert_eq!(
+        std::fs::read_to_string(dir.0.join(FILE_NAME)).unwrap(),
+        before
+    );
+}

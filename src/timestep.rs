@@ -99,6 +99,7 @@ impl InputLatch {
             jump_held: input.jump_held,
             up_held: input.up_held,
             down_held: input.down_held,
+            heal_held: input.heal_held,
             ..PlayerInput::default()
         };
         self.jump |= input.jump_pressed;
@@ -258,5 +259,25 @@ mod tests {
         let input = latch.take_tick();
         assert_eq!(input.move_axis, -1.0);
         assert!(!input.jump_held);
+    }
+
+    #[test]
+    fn the_heal_button_is_a_held_value_not_an_edge() {
+        let mut latch = InputLatch::default();
+        latch.record(PlayerInput {
+            heal_held: true,
+            ..PlayerInput::default()
+        });
+        for _ in 0..3 {
+            assert!(latch.take_tick().heal_held, "held on every tick");
+        }
+        latch.record(PlayerInput::default());
+        assert!(!latch.take_tick().heal_held, "follows the latest frame");
+        latch.record(PlayerInput {
+            heal_held: true,
+            ..PlayerInput::default()
+        });
+        latch.clear();
+        assert!(!latch.take_tick().heal_held);
     }
 }

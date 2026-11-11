@@ -8,12 +8,14 @@ use super::GameState;
 use crate::editor::EditorSession;
 use crate::player::Player;
 use crate::room::{place_boss, Room};
+use crate::vitals::VitalsState;
 
 /// What a run parks while it is going: the editor session and everything play can change.
 #[derive(Debug)]
 pub(super) struct TestRun {
     session: EditorSession,
     player: Player,
+    vitals: VitalsState,
     coin_count: u32,
     inventory_open: bool,
     special_attack_timer: f32,
@@ -69,6 +71,7 @@ impl GameState {
         let run = TestRun {
             session,
             player: self.player.clone(),
+            vitals: self.vitals.clone(),
             coin_count: self.coin_count,
             inventory_open: self.inventory_open,
             special_attack_timer: self.special_attack_timer,
@@ -82,6 +85,7 @@ impl GameState {
         self.last_special_hit = None;
         let (spawn, bounds) = (self.room().spawn, self.world_bounds());
         self.player.respawn(spawn, bounds);
+        self.vitals = super::vitals_link::fresh_vitals(*self.vitals.config());
         self.test_run = Some(run);
         Ok(())
     }
@@ -102,6 +106,10 @@ impl GameState {
             None => self.rooms.retain(|room| room.id != id),
         }
         self.player = run.player;
+        // Vitals values edited during the run stay; the run's health, mana and heal do not.
+        let config = *self.vitals.config();
+        self.vitals = run.vitals;
+        self.vitals.set_config(config);
         self.coin_count = run.coin_count;
         self.inventory_open = run.inventory_open;
         self.special_attack_timer = run.special_attack_timer;

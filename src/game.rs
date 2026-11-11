@@ -14,6 +14,7 @@ use crate::item::WorldItem;
 use crate::player::{Player, PlayerInput, WorldBounds};
 use crate::room::{load_rooms, Room, RoomId};
 use crate::tuning::TuningConfig;
+use crate::vitals::{VitalsConfig, VitalsState};
 
 #[cfg(test)]
 mod death_tests;
@@ -28,6 +29,9 @@ mod strike_tests;
 mod test_room;
 #[cfg(test)]
 mod tests;
+mod vitals_link;
+#[cfg(test)]
+mod vitals_tests;
 
 pub use crate::room::FLOOR_Y;
 
@@ -61,6 +65,10 @@ pub struct GameState {
     events: EventQueue,
     /// Hit-stop and screen shake, fed by the events each tick raises.
     feel: Feel,
+    /// Health trail, mana and healing; see `vitals_link`.
+    vitals: VitalsState,
+    /// The vitals tunables as last loaded from or saved to `vitals.ron`.
+    saved_vitals: VitalsConfig,
 }
 
 impl GameState {
@@ -74,6 +82,7 @@ impl GameState {
     pub fn try_new(assets: &Path) -> Result<Self, String> {
         let tuning = TuningConfig::load(assets)?;
         let feel = FeelConfig::load(assets)?;
+        let vitals = VitalsConfig::load(assets)?;
         let mut rooms = load_rooms(assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(assets)?;
         rooms.extend(editor::load_extra_rooms(assets, &definitions)?);
@@ -97,6 +106,8 @@ impl GameState {
             saved_tuning: tuning,
             events: EventQueue::default(),
             feel: Feel::new(feel),
+            vitals: vitals_link::fresh_vitals(vitals),
+            saved_vitals: vitals,
         })
     }
 
@@ -326,15 +337,17 @@ impl GameState {
     /// Enemy gameplay restarts; matching body points, player, pickups, and unchanged bosses stay intact.
     /// Changed boss definitions restart from their authored placement.
     ///
-    /// The player and enemy tunables in `player.ron` and the hit-stop and shake values in
-    /// `feel.ron` are re-read too; the player keeps its state. Nothing changes if any file
-    /// fails to load.
+    /// The player and enemy tunables in `player.ron`, the hit-stop and shake values in
+    /// `feel.ron` and the vitals values in `vitals.ron` are re-read too; the player keeps its
+    /// state (health, mana and a heal in progress included). Nothing changes if any file fails
+    /// to load.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
         if self.test_run.is_some() {
             return Err("leave the test room (F2) before reloading".into());
         }
         let tuning = TuningConfig::load(&self.assets)?;
         let feel = FeelConfig::load(&self.assets)?;
+        let vitals = VitalsConfig::load(&self.assets)?;
         let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(&self.assets)?;
         rooms.extend(editor::load_extra_rooms(&self.assets, &definitions)?);
@@ -380,6 +393,8 @@ impl GameState {
         self.set_tuning(tuning)?;
         self.saved_tuning = tuning;
         self.feel.set_config(feel);
+        self.vitals.set_config(vitals);
+        self.saved_vitals = vitals;
         Ok(())
     }
 
@@ -410,8 +425,14 @@ impl GameState {
         let index = self.current;
         let enemy_tuning = self.tuning.enemy;
         let bounds = self.rooms[index].world_bounds();
-        self.player
-            .update_with_terrain(input, delta_seconds, bounds, &self.rooms[index].terrain);
+        let player_input = self.input_for_player(input);
+        self.player.update_with_terrain(
+            player_input,
+            delta_seconds,
+            bounds,
+            &self.rooms[index].terrain,
+        );
+        self.update_vitals(input, delta_seconds);
         let feet = self.player.position() + Vec2::new(0.0, self.player.size().y / 2.0);
         self.events.extend_at(self.player.take_events(), feet);
         let room = &mut self.rooms[index];
@@ -467,8 +488,10 @@ impl GameState {
                         .knockback_direction(self.player.position().x, enemy.position().x);
                     if enemy.hit(self.player.attack().id(), direction) {
                         struck = true;
+                        vitals_link::regain(&mut self.player, &mut self.vitals);
                         self.events.push_at(GameEvent::EnemyHit, enemy.position());
                         if enemy.is_dead() {
+                            self.vitals.gain_kill_mana();
                             self.events.push_at(GameEvent::EnemyDied, enemy.position());
                         }
                     }
@@ -485,6 +508,7 @@ impl GameState {
                     boss.damage_boss(u32::from(crate::combat::SWORD_DAMAGE));
                     self.last_special_hit = Some(swing_id);
                     if !was_defeated {
+                        vitals_link::regain(&mut self.player, &mut self.vitals);
                         self.events.push_at(GameEvent::EnemyHit, boss.position());
                         if boss.is_defeated() {
                             self.events
@@ -509,11 +533,13 @@ impl GameState {
         )
         .resolve();
         if self.player.take_attack_damage(hit) {
+            self.vitals.damage(vitals_link::applied_damage(hit));
             self.events
                 .push_at(GameEvent::PlayerDamaged, self.player.position());
         }
         if self.player.health().current() == 0 {
             self.player.respawn(room.spawn, bounds);
+            self.vitals.respawn();
             return;
         }
         // Up with X is an upward strike, not a pickup.

@@ -1,0 +1,14 @@
+// Fixed vitals values for the tests, so they do not move when data/vitals.ron is tuned.
+(
+    max_mana: 100.0,
+    mana_start: 0.0,
+    mana_per_kill: 10.0,
+    regain_fraction: 0.5,
+    trail_hold: 0.5,
+    trail_drain: 40.0,
+    heal_start_delay: 0.25,
+    heal_stop_delay: 0.2,
+    heal_mana_per_second: 30.0,
+    health_per_mana: 1.0,
+    heal_move_scale: 0.5,
+)

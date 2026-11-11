@@ -32,6 +32,9 @@ pub struct PlayerInput {
     pub up_held: bool,
     /// Down is held: a swing started now in the air strikes downward.
     pub down_held: bool,
+    /// The heal button is held. `GameState` feeds it to the vitals and, while a heal runs,
+    /// strips jump, dash and attack from the input it passes on; `Player` ignores it.
+    pub heal_held: bool,
 }
 
 /// Tunable values that define how the player feels.
@@ -175,6 +178,11 @@ impl Player {
 
     pub fn health(&self) -> &Health {
         &self.health
+    }
+
+    /// Raises or sets current health outside the damage path (healing, sword regain).
+    pub(crate) fn set_health_current(&mut self, current: u16) {
+        self.health.set_current(current);
     }
 
     pub fn take_damage(&mut self) -> bool {

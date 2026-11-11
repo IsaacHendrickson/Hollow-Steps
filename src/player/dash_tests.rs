@@ -10,6 +10,7 @@ const DASH: PlayerInput = PlayerInput {
     attack_pressed: false,
     up_held: false,
     down_held: false,
+    heal_held: false,
 };
 
 fn equipped_player() -> Player {

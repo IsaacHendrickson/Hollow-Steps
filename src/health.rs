@@ -54,6 +54,12 @@ impl Health {
         true
     }
 
+    /// Sets the current health, at most `MAX_HEALTH`, and leaves the invincibility timer alone.
+    /// Healing and sword regain raise health through this; damage never does.
+    pub fn set_current(&mut self, current: u16) {
+        self.current = current.min(MAX_HEALTH);
+    }
+
     pub fn respawn(&mut self) {
         self.current = MAX_HEALTH;
         self.invincibility_remaining = INVINCIBILITY_SECONDS;

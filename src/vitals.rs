@@ -9,9 +9,9 @@
 //! mana turns into pending health (`Channeling`), letting go waits a moment (`Stopping`) and
 //! then the pending health is added. Damage cancels it and loses the pending health.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::assets::read_override;
 use crate::tuning::FieldSpec;
@@ -42,7 +42,7 @@ pub struct HealInput {
 }
 
 /// The numbers in `data/vitals.ron`.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct VitalsConfig {
     pub max_mana: f32,
@@ -82,6 +82,12 @@ impl VitalsConfig {
         }
     }
 
+    /// The file text, in the pretty format the editors use. Invalid values are refused.
+    pub fn to_ron(&self) -> Result<String, String> {
+        self.validate()?;
+        crate::definition_editor::serialize(self)
+    }
+
     /// Every number inside its range, and the starting mana within the mana cap.
     pub fn validate(&self) -> Result<(), String> {
         for field in VitalsField::ALL {
@@ -102,6 +108,15 @@ impl VitalsConfig {
         next.validate()?;
         Ok(next)
     }
+}
+
+/// Writes `config` to `assets/vitals.ron`, staged in a temporary file so a failed write leaves
+/// the previous file untouched. Invalid values are refused before anything is written.
+pub fn save(assets: &Path, config: &VitalsConfig) -> Result<PathBuf, String> {
+    let text = config.to_ron()?;
+    let path = assets.join(FILE_NAME);
+    crate::tuning::write_staged(&path, &text)?;
+    Ok(path)
 }
 
 /// Every number in `vitals.ron`, in the order the tuning window shows them.

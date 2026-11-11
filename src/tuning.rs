@@ -225,9 +225,16 @@ impl TuningConfig {
 /// into place, as `definition_editor::write_files` does, so a failed write leaves the
 /// previous file untouched. Invalid values are refused before anything is written.
 pub fn save(assets: &Path, config: &TuningConfig) -> Result<PathBuf, String> {
-    use std::io::Write;
     let text = config.to_ron()?;
     let path = assets.join(FILE_NAME);
+    write_staged(&path, &text)?;
+    Ok(path)
+}
+
+/// Writes `text` to `path` through a temporary `.ron.tmp` file moved into place, so a failed
+/// write leaves the previous file untouched and no temporary file behind.
+pub(crate) fn write_staged(path: &Path, text: &str) -> Result<(), String> {
+    use std::io::Write;
     let temp = path.with_extension("ron.tmp");
     let error = |path: &Path, error: std::io::Error| format!("{}: {error}", path_text(path));
     let result = (|| {
@@ -242,14 +249,14 @@ pub fn save(assets: &Path, config: &TuningConfig) -> Result<PathBuf, String> {
             .open(&temp)
             .map_err(|e| error(&temp, e))?;
         file.write_all(text.as_bytes())
-            .map_err(|e| error(&path, e))?;
-        file.sync_all().map_err(|e| error(&path, e))?;
-        std::fs::rename(&temp, &path).map_err(|e| error(&path, e))
+            .map_err(|e| error(path, e))?;
+        file.sync_all().map_err(|e| error(path, e))?;
+        std::fs::rename(&temp, path).map_err(|e| error(path, e))
     })();
     if result.is_err() {
         let _ = std::fs::remove_file(&temp);
     }
-    result.map(|()| path)
+    result
 }
 
 fn path_text(path: &Path) -> String {

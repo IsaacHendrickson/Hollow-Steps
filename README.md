@@ -62,13 +62,24 @@ above; Windows needs no extra system libraries.
 - `Shift`: after collecting Dash, dash horizontally in the facing direction at
   800 units/second for 0.2 seconds. Dash starts have a 0.5 second cooldown;
   only one air dash is available until landing.
+- `C`: hold on the ground to heal. After a short delay mana turns into health (30 mana a
+  second, one health each); let go and the health is added a moment later. Letting go during
+  the delay costs nothing. While healing you walk at half speed and cannot jump, dash or
+  attack. Damage cancels the heal (the health not yet added is lost, the mana spent is not
+  refunded) and you must let go and press again; walking off a ledge ends it at once with the
+  health already bought. Mana (up to 100) comes from sword kills of regular enemies, 10 each,
+  never bosses. A sword hit on an enemy or boss gives back half of the health you lost
+  recently, the part the trailing bar still remembers (the bar itself comes in a later task).
+  All the numbers are in `data/vitals.ron` (F4 window).
 - `I`: open/close the inventory screen to see coins and collected items.
   Gameplay pauses while it is open; `Esc` also closes it.
 - `F2`: open/close the room editor (gameplay pauses).
 - `F4`: open/close the player tuning window (gameplay keeps running). Drag or type values for
-  move, jump, dash, size, strike boxes, pogo and enemy knockback; they apply at once. `Save` writes `player.ron` in the
-  assets folder, which replaces the shipped `data/player.ron` defaults (delete it to go back).
-- `F5`: validate `player.ron`, room files and their enemy, body template, behavior, and boss definitions, including
+  move, jump, dash, size, strike boxes, pogo and enemy knockback, then the vitals (mana, health
+  trail, healing); they apply at once. `Save` writes `player.ron` in the
+  assets folder, which replaces the shipped `data/player.ron` defaults (delete it to go back),
+  and `vitals.ron` too when a vitals value changed (same for `data/vitals.ron`).
+- `F5`: validate `player.ron`, `vitals.ron` (your health, mana and any heal in progress are kept), room files and their enemy, body template, behavior, and boss definitions, including
   while the inventory is open. Errors appear on screen; fix the files and
   press `F5` again to retry. Use the mouse wheel to scroll long errors.
 - Touch a gold coin to collect it automatically, including while airborne.
