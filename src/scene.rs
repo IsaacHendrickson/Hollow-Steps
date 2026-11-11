@@ -8,13 +8,20 @@ use hollow_steps::game::GameState;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player_body::PlayerBody;
 use hollow_steps::room::Room;
+use hollow_steps::terrain_style::{self, TerrainLook, TerrainStyle};
 use macroquad::prelude::*;
 
-use crate::body_draw;
+use crate::{body_draw, terrain_draw};
 
-/// Draws the world. `camera_view` is the rectangle the camera shows before screen shake, which
-/// the background layers use to work out their parallax.
-pub fn draw_scene(game: &GameState, player_body: Option<&PlayerBody>, camera_view: Rect) {
+/// Draws the world. `terrain_look` keeps the solids' draw list between frames. `camera_view` is
+/// the rectangle the camera shows before screen shake, which the background layers use to work
+/// out their parallax.
+pub fn draw_scene(
+    game: &GameState,
+    player_body: Option<&PlayerBody>,
+    terrain_look: &mut TerrainLook,
+    camera_view: Rect,
+) {
     let room = game.room();
     let bounds = game.world_bounds();
     let player = game.player();
@@ -38,23 +45,15 @@ pub fn draw_scene(game: &GameState, player_body: Option<&PlayerBody>, camera_vie
         4.0,
         Color::from_rgba(111, 122, 164, 255),
     );
-    for solid in room.terrain.solids() {
-        draw_rectangle(
-            solid.x,
-            solid.y,
-            solid.w,
-            solid.h,
-            Color::from_rgba(34, 37, 58, 255),
-        );
-        draw_rectangle_lines(
-            solid.x,
-            solid.y,
-            solid.w,
-            solid.h,
-            3.0,
-            Color::from_rgba(111, 122, 164, 255),
-        );
-    }
+    // The solids' look is rebuilt only when the room, its solids or its palette change.
+    let ground = terrain_style::ground_cover(room.bounds, bounds.floor_y);
+    let look = terrain_look.shapes(
+        room.id,
+        room.terrain.solids(),
+        Some(ground),
+        &TerrainStyle::default(),
+    );
+    terrain_draw::draw_shapes(look, camera_view);
     draw_rectangle_lines(
         room.bounds.x,
         room.bounds.y,

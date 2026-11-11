@@ -6,6 +6,7 @@ use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::player::PlayerInput;
 use hollow_steps::player_body::PlayerBody;
 use hollow_steps::search::SearchList;
+use hollow_steps::terrain_style::TerrainLook;
 use hollow_steps::timestep::{FixedStep, InputLatch};
 use macroquad::prelude::*;
 mod body_draw;
@@ -18,6 +19,7 @@ mod postfx_pass;
 mod scene;
 mod startup;
 mod terrain_canvas;
+mod terrain_draw;
 mod tuning_panel;
 use editor_ui::{draw_editor, EditorUi};
 use startup::{present, screen_camera};
@@ -53,6 +55,8 @@ async fn main() {
     if let Some(error) = post_error {
         reload_result = Some(Err(error));
     }
+    // The solids' draw list, rebuilt only when the room, its solids or its palette change.
+    let mut terrain_look = TerrainLook::default();
     // The player's body; a load error is shown like a failed reload and keeps the plain box.
     let mut player_body = match PlayerBody::load(&assets::assets_root()) {
         Ok(body) => body,
@@ -197,7 +201,12 @@ async fn main() {
         // Screen shake moves only the picture, not the camera that follows the player.
         let world_view = camera.view_rect_shaken(view, game.shake_offset());
         set_camera(&screen_camera(world_view, Some(screen.clone())));
-        scene::draw_scene(&game, player_body.as_ref(), camera.view_rect(view));
+        scene::draw_scene(
+            &game,
+            player_body.as_ref(),
+            &mut terrain_look,
+            camera.view_rect(view),
+        );
         effects.draw();
         // The HUD is drawn after the post-process pass so the vignette never dims it.
         let frame = post_pass.process(&screen, view);
