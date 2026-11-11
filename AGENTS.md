@@ -66,7 +66,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/player.rs`: player input, movement rules (including dash),
   collision resolution, and player-focused tests.
 - `src/health.rs`: player health, damage, and invincibility.
-- `src/enemy.rs`: enemy behavior, health, knockback, the dying state, and body instances. Its sub-modules: `definition.rs` (`EnemyDefinition`, including `death_secs`, its default and range) and `death.rs` (`DeathTimer`, the fade clock of a defeated enemy).
+- `src/enemy.rs`: enemy behavior, health, knockback, the dying state, and body instances. Its sub-modules: `catalog.rs` (`EnemyDefinitions`, the validated catalog enemies are spawned from), `definition.rs` (`EnemyDefinition`, including `death_secs`, its default and range) and `death.rs` (`DeathTimer`, the fade clock of a defeated enemy).
 - `src/pose.rs`: semantic pose assets, presentation playback, and validation.
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
