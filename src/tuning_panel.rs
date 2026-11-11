@@ -238,6 +238,9 @@ mod tests {
     const GAME_HEIGHT: f32 = 540.0;
     /// Tall enough that every row is drawn and clickable without scrolling.
     const TALL: f32 = 1_400.0;
+    /// Frames egui needs to size the scrolling list before every row is drawn; a longer list
+    /// needs more (three were enough for 15 fields, 22 need five).
+    const SETTLE_FRAMES: usize = 5;
 
     /// One egui pass over the window in a 960-wide screen of the given height.
     fn frame_in(
@@ -274,7 +277,7 @@ mod tests {
         let ctx = egui::Context::default();
         let mut panel = TuningPanel::default();
         panel.toggle();
-        for _ in 0..3 {
+        for _ in 0..SETTLE_FRAMES {
             frame(&ctx, vec![], &mut panel, game);
         }
         (ctx, panel)
@@ -358,7 +361,7 @@ mod tests {
         let mut panel = TuningPanel::default();
         panel.toggle();
         let mut text = String::new();
-        for _ in 0..3 {
+        for _ in 0..SETTLE_FRAMES {
             text = frame(&ctx, vec![], &mut panel, &mut game);
         }
         for field in Field::ALL {

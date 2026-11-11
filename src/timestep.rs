@@ -97,6 +97,8 @@ impl InputLatch {
         self.held = PlayerInput {
             move_axis: input.move_axis,
             jump_held: input.jump_held,
+            up_held: input.up_held,
+            down_held: input.down_held,
             ..PlayerInput::default()
         };
         self.jump |= input.jump_pressed;
@@ -198,6 +200,7 @@ mod tests {
             attack_pressed: true,
             pickup_pressed: true,
             dash_pressed: true,
+            ..PlayerInput::default()
         });
         let first = latch.take_tick();
         assert!(

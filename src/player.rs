@@ -1,6 +1,6 @@
 use macroquad::math::Vec2;
 
-use crate::combat::Attack;
+use crate::combat::{Attack, StrikeConfig, StrikeDirection};
 use crate::health::Health;
 use crate::item::Item;
 use crate::terrain::Terrain;
@@ -27,6 +27,10 @@ pub struct PlayerInput {
     pub pickup_pressed: bool,
     /// Edge-triggered dash intent (Shift).
     pub dash_pressed: bool,
+    /// Up is held: a swing started now strikes upward.
+    pub up_held: bool,
+    /// Down is held: a swing started now in the air strikes downward.
+    pub down_held: bool,
 }
 
 /// Tunable values that define how the player feels.
@@ -44,6 +48,8 @@ pub struct PlayerConfig {
     pub dash_duration: f32,
     /// Minimum time between dash starts.
     pub dash_cooldown: f32,
+    /// Melee hitbox sizes per direction and the pogo bounce.
+    pub strike: StrikeConfig,
 }
 
 /// The shipped values from `data/player.ron`.
@@ -133,6 +139,24 @@ impl Player {
 
     pub fn attack(&self) -> &Attack {
         &self.attack
+    }
+
+    /// The active melee hitbox for the current swing direction, sized by this player's config.
+    pub fn strike_hitbox(&self) -> Option<macroquad::math::Rect> {
+        self.attack
+            .hitbox_with(self.position, self.config.size, &self.config.strike)
+    }
+
+    /// Bounces the player upward after a downward strike hit something, and restores the air
+    /// dash. Once per swing, and never on the floor. Returns whether it bounced.
+    pub fn pogo(&mut self) -> bool {
+        if self.grounded || !self.attack.take_pogo() {
+            return false;
+        }
+        self.velocity.y = -self.config.strike.pogo_speed;
+        self.coyote_remaining = 0.0;
+        self.air_dash_used = false;
+        true
     }
 
     pub fn health(&self) -> &Health {
@@ -254,8 +278,9 @@ impl Player {
         if self.dash_remaining == 0.0 && move_axis != 0.0 {
             self.facing = move_axis.signum();
         }
+        let strike = StrikeDirection::from_aim(input.up_held, input.down_held, !self.grounded);
         self.attack
-            .update(input.attack_pressed, self.facing, delta_seconds);
+            .update_directed(input.attack_pressed, self.facing, strike, delta_seconds);
         self.velocity.x = move_axis * self.config.move_speed;
 
         self.coyote_remaining = if self.grounded {
@@ -548,6 +573,9 @@ mod tests {
 }
 
 #[cfg(test)]
+mod strike_tests;
+
+#[cfg(test)]
 mod dash_tests {
     use super::*;
 
@@ -559,6 +587,8 @@ mod dash_tests {
         pickup_pressed: false,
         jump_held: false,
         attack_pressed: false,
+        up_held: false,
+        down_held: false,
     };
 
     fn equipped_player() -> Player {

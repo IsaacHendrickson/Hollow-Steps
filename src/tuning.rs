@@ -11,6 +11,7 @@ use std::sync::OnceLock;
 use macroquad::math::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::combat::StrikeConfig;
 use crate::player::PlayerConfig;
 pub use crate::tuning_fields::{Field, FieldSpec};
 
@@ -62,6 +63,7 @@ fn embedded() -> &'static TuningConfig {
 #[serde(deny_unknown_fields)]
 struct TuningFile {
     player: PlayerFile,
+    strike: StrikeFile,
     enemy: EnemyFile,
 }
 
@@ -84,6 +86,18 @@ struct PlayerFile {
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct StrikeFile {
+    forward_width: f32,
+    forward_height: f32,
+    up_width: f32,
+    up_height: f32,
+    down_width: f32,
+    down_height: f32,
+    pogo_speed: f32,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct EnemyFile {
     default_health: u8,
     knockback_speed: f32,
@@ -92,7 +106,7 @@ struct EnemyFile {
 
 impl From<TuningFile> for TuningConfig {
     fn from(file: TuningFile) -> Self {
-        let (player, enemy) = (file.player, file.enemy);
+        let (player, strike, enemy) = (file.player, file.strike, file.enemy);
         Self {
             player: PlayerConfig {
                 move_speed: player.move_speed,
@@ -106,6 +120,15 @@ impl From<TuningFile> for TuningConfig {
                 dash_speed: player.dash_speed,
                 dash_duration: player.dash_duration,
                 dash_cooldown: player.dash_cooldown,
+                strike: StrikeConfig {
+                    forward_width: strike.forward_width,
+                    forward_height: strike.forward_height,
+                    up_width: strike.up_width,
+                    up_height: strike.up_height,
+                    down_width: strike.down_width,
+                    down_height: strike.down_height,
+                    pogo_speed: strike.pogo_speed,
+                },
             },
             enemy: EnemyTuning {
                 default_health: enemy.default_health,
@@ -119,6 +142,7 @@ impl From<TuningFile> for TuningConfig {
 impl From<&TuningConfig> for TuningFile {
     fn from(config: &TuningConfig) -> Self {
         let (player, enemy) = (&config.player, &config.enemy);
+        let strike = &player.strike;
         Self {
             player: PlayerFile {
                 move_speed: player.move_speed,
@@ -133,6 +157,15 @@ impl From<&TuningConfig> for TuningFile {
                 dash_speed: player.dash_speed,
                 dash_duration: player.dash_duration,
                 dash_cooldown: player.dash_cooldown,
+            },
+            strike: StrikeFile {
+                forward_width: strike.forward_width,
+                forward_height: strike.forward_height,
+                up_width: strike.up_width,
+                up_height: strike.up_height,
+                down_width: strike.down_width,
+                down_height: strike.down_height,
+                pogo_speed: strike.pogo_speed,
             },
             enemy: EnemyFile {
                 default_health: enemy.default_health,
