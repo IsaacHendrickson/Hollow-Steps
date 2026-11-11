@@ -20,3 +20,16 @@ fn shipped_player_body_loads_and_validates() {
         .expect("shipped player body must load and validate");
     assert!(body.is_some(), "the wanderer body template is shipped");
 }
+
+#[test]
+fn shipped_boss_body_loads_and_validates() {
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+    // The Ash Warden's template, hurt pose and colors must load and fit together.
+    let bosses = hollow_steps::boss_definition::BossDefinitions::load(&assets)
+        .expect("shipped bosses must load and validate");
+    let boss = bosses
+        .spawn("Ash Warden", macroquad::math::Vec2::new(400.0, 400.0))
+        .expect("the shipped Ash Warden spawns");
+    assert!(boss.body().is_some(), "the Ash Warden has a body");
+    assert!(boss.size().min_element() > 0.0);
+}

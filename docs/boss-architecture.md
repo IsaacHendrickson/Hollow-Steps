@@ -53,6 +53,7 @@ action. Boss action parameters (pixels, seconds, pixels/second) are:
 | `slam_down` | `speed`: descend to the floor; complete on landing. |
 | `spawn_shockwave` | `radius`, `damage`: immediately damage a player within the horizontal radius of the boss. |
 | `area_blast` | Shared `count`, `radius`, `fuse_time`, `damage`: create arena circles, wait for the fuse, then explode them. |
+| `pose` | Shared `pose_name`, `blend_secs`: instantly hold a named pose on the boss's body (none returns to idle). The pose outlasts the attack while a glide it started is still moving and clears once the boss is idle and has arrived; a bodyless boss may only use `pose_name: None`. |
 
 The ground-pound sequence (`jump_to` 200 above the player, `hover` 0.5 seconds,
 `slam_down` at speed 100, `spawn_shockwave`) exists only in a test fixture.

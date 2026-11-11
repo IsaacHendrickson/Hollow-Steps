@@ -28,7 +28,7 @@ pub(crate) struct VisualPreview {
     pub(crate) rect: Rect,
     /// The plain box's color, used when there is no body.
     pub(crate) color: Color,
-    /// A fresh body at rest, for an enemy whose definition has one.
+    /// A fresh body at rest, for an enemy or boss whose definition has one.
     pub(crate) body: Option<BodyInstance>,
 }
 
@@ -59,7 +59,9 @@ pub(crate) fn visual_previews(
                     (
                         visual_box::size(hitbox.size(), definition.visual_size),
                         PURPLE,
-                        None,
+                        definition.body.clone().and_then(|visual| {
+                            BodyInstance::new(visual, &editor.content.bodies).ok()
+                        }),
                     )
                 }
                 _ => return None,

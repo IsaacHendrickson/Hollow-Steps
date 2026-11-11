@@ -84,7 +84,8 @@ Boss definitions appear as **Boss: name** in the same searchable entity list.
 Place one boss per room, drag its purple body freely within the room, or delete it.
 Selecting a boss on the canvas opens its shared properties: name, health, hitbox
 width/height, an optional **Separate visual size** (the same drag boxes as enemies;
-the canvas shows the boss's box at that size under the purple hitbox outline),
+the canvas shows the boss's body, or its purple box when it has none, at that size under the
+purple hitbox outline),
 contact damage, attack selection mode, and pause between attacks. **Add attack**
 prompts for a unique name. Select an attack to rename it or edit its ordered
 actions; use **Up**, **Down**, and **Delete** on attack and action rows.
@@ -287,6 +288,7 @@ plus `pose_blend_ratio` (0.8) and `strike_stiffness_multiplier` (3.0). All shipp
 attack bindings are authored in behavior/preset data; generic editor actions
 start with empty bindings so they can be used by bodyless enemies. Separate
 `telegraph` actions use the following attack's binding and their own duration.
+The zero-time `pose` action (`pose_name`, `blend_secs`) sets or clears a pose anywhere in a sequence, for actions that have no bindings of their own, such as glides.
 Phase changes set/clear existing point targets. Pose targets use the exact
 critically damped spring solution with settling time derived from telegraph
 duration; unposed points retain their template follow/idle rules. Zero-duration

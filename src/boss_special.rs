@@ -5,10 +5,15 @@ use macroquad::math::Vec2;
 use crate::action_runtime::{ActionActor, ActionOutput, ActionRuntime, ActorMotion};
 use crate::behavior::Action;
 use crate::behavior::BehaviorContext;
+use crate::body::BodyTemplates;
 use crate::boss_definition::{AttackSelection, BossDefinition};
 use crate::coin::Coin;
 use crate::enemy::Enemy;
 use crate::player::WorldBounds;
+use crate::pose::Poses;
+
+mod body_link;
+use body_link::BossBody;
 
 pub const SLAM_TELEGRAPH_SECONDS: f32 = 0.5;
 pub const SUMMON_WINDUP_SECONDS: f32 = 1.0;
@@ -66,17 +71,36 @@ pub struct BossSpecials {
     death_effect_remaining: f32,
     defeated: bool,
     random_state: u32,
+    body: Option<BossBody>,
+    facing_left: bool,
 }
 
 impl BossSpecials {
+    /// A boss without access to body templates: a definition that names a body is an error.
     pub fn from_definition(
         definition: Arc<BossDefinition>,
         position: Vec2,
+    ) -> Result<Self, String> {
+        Self::from_definition_with_body(definition, position, &BodyTemplates::new(), Arc::default())
+    }
+
+    /// A boss whose body (if the definition has one) is built from `templates`; `poses` is the
+    /// catalog its hurt feedback and pose steps use.
+    pub fn from_definition_with_body(
+        definition: Arc<BossDefinition>,
+        position: Vec2,
+        templates: &BodyTemplates,
+        poses: Arc<Poses>,
     ) -> Result<Self, String> {
         definition.validate()?;
         if !position.is_finite() {
             return Err("boss position must be finite".into());
         }
+        let body = definition
+            .body
+            .clone()
+            .map(|visual| BossBody::new(visual, templates, poses))
+            .transpose()?;
         Ok(Self {
             health: definition.health,
             definition,
@@ -97,6 +121,8 @@ impl BossSpecials {
             death_effect_remaining: 0.0,
             defeated: false,
             random_state: 0x51a7_2026,
+            body,
+            facing_left: false,
         })
     }
 
@@ -305,6 +331,9 @@ impl BossSpecials {
             return;
         }
         self.health = self.health.saturating_sub(amount);
+        if amount > 0 {
+            self.hurt_body();
+        }
         if self.health == 0 {
             self.defeated = true;
             self.active = None;
@@ -342,6 +371,7 @@ impl BossSpecials {
             return 0;
         }
         self.player_size = player_size;
+        let previous_x = self.position.x;
         self.runtime
             .advance_projectiles(player, player_size, bounds, dt);
         // Nonblocking glides start during action entry and move on the next update.
@@ -356,6 +386,7 @@ impl BossSpecials {
         }
         let pending = std::mem::take(&mut self.pending_damage);
         let damage = pending.saturating_add(self.run_actions(f64::from(dt), player, bounds));
+        self.update_look(dt, previous_x, player.x);
         let modern_damage = self
             .attack_hit(player, player_size)
             .map_or(0, |hit| hit.damage.max(0) as u32)
@@ -393,7 +424,10 @@ impl BossSpecials {
             };
             if action.uses_ground_motion() {
                 self.uses_ground_motion = true;
-            } else if !matches!(action, Action::Wait { .. } | Action::Telegraph { .. }) {
+            } else if !matches!(
+                action,
+                Action::Wait { .. } | Action::Telegraph { .. } | Action::Pose { .. }
+            ) {
                 self.uses_ground_motion = false;
             }
             let ground_physics = self.uses_ground_motion;
@@ -419,10 +453,10 @@ impl BossSpecials {
                 damage: 0,
             };
             let (used, finished) = runtime.step(action, preview, &mut actor, remaining);
-            // Bosses have no pose consumer; retain only the shared gameplay output.
-            runtime.pose_steps.clear();
+            let pose_steps = std::mem::take(&mut runtime.pose_steps);
             damage = damage.saturating_add(actor.damage);
             self.runtime = runtime;
+            self.apply_pose_steps(pose_steps);
             remaining = (remaining - used).max(0.0);
             if finished {
                 active.action += 1;

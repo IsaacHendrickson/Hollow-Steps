@@ -9,12 +9,20 @@
         (
             name: "Slam",
             actions: [
+                pose(
+                    pose_name: Some("ash_warden_windup"),
+                    blend_secs: 0.2,
+                ),
                 glide_to_player(
                     speed: 1000.0,
                     above_floor: 180.0,
                 ),
                 telegraph(
                     seconds: 0.5,
+                ),
+                pose(
+                    pose_name: Some("ash_warden_slam"),
+                    blend_secs: 0.05,
                 ),
                 glide_to_floor(
                     speed: 1000.0,
@@ -28,8 +36,16 @@
         (
             name: "Dash",
             actions: [
+                pose(
+                    pose_name: Some("ash_warden_windup"),
+                    blend_secs: 0.2,
+                ),
                 telegraph(
                     seconds: 0.5,
+                ),
+                pose(
+                    pose_name: Some("ash_warden_dash"),
+                    blend_secs: 0.08,
                 ),
                 glide_to_player(
                     speed: 1000.0,
@@ -38,4 +54,20 @@
             ],
         ),
     ],
+    body: Some((
+        hurt: (
+            pose: Some("ash_warden_hurt"),
+            duration_secs: 0.15,
+            blend_secs: 0.03,
+            flash_secs: 0.08,
+            tint: (1.0, 1.0, 1.0),
+            tint_strength: 1.0,
+        ),
+        template: "ash_warden",
+        primary: (0.36, 0.34, 0.38, 1.0),
+        secondary: (0.16, 0.14, 0.18, 1.0),
+        accent: (0.98, 0.45, 0.14, 1.0),
+        eye: (1.0, 0.86, 0.5, 1.0),
+        scale: 1.0,
+    )),
 )

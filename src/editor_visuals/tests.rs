@@ -120,7 +120,7 @@ fn an_edit_shows_at_once_and_clearing_it_returns_the_preview_to_the_hitbox() {
 }
 
 #[test]
-fn the_boss_is_previewed_at_its_visual_size_and_never_has_a_body() {
+fn the_boss_is_previewed_at_its_visual_size_and_a_plain_boss_has_no_body() {
     let mut game = game_editing(RoomId::Boss);
     let editor = game.editor_mut().unwrap();
     let (markers, plain) = previews(editor);
@@ -142,6 +142,25 @@ fn the_boss_is_previewed_at_its_visual_size_and_never_has_a_body() {
     assert_eq!(boss.rect.bottom(), hit.bottom());
     assert_eq!(boss.rect.center().x, hit.center().x);
     assert!(boss.body.is_none());
+}
+
+#[test]
+fn a_boss_with_a_body_previews_that_body_at_the_visual_size() {
+    let mut game = game_editing(RoomId::Boss);
+    let editor = game.editor_mut().unwrap();
+    let path = editor.content.boss_path("Ash Warden").unwrap();
+    let mut boss = editor.content.bosses[&path].clone();
+    boss.body = Some(BodyVisual::for_template("small"));
+    boss.visual_size = Some((120.0, 160.0));
+    editor.update_boss(&path, boss).unwrap();
+    let (markers, previews) = previews(editor);
+    let boss = preview(&previews, Selection::Boss);
+    assert!(boss.body.is_some());
+    assert_eq!(boss.rect.size(), vec2(120.0, 160.0));
+    assert_eq!(
+        boss.rect.bottom(),
+        hitbox(&markers, Selection::Boss).bottom()
+    );
 }
 
 #[test]

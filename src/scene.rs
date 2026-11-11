@@ -224,19 +224,23 @@ fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
                 color,
             );
         }
-        // Drawn in the visual box; the hitbox (`boss.size()`) is only gameplay.
-        let top_left = boss.visual_center() - boss.visual_size() / 2.0;
-        draw_rectangle(
-            top_left.x,
-            top_left.y,
-            boss.visual_size().x,
-            boss.visual_size().y,
-            if boss.is_telegraphing() {
-                ORANGE
-            } else {
-                PURPLE
-            },
-        );
+        if boss.body().is_some() {
+            body_draw::draw_boss_body(boss);
+        } else {
+            // Drawn in the visual box; the hitbox (`boss.size()`) is only gameplay.
+            let top_left = boss.visual_center() - boss.visual_size() / 2.0;
+            draw_rectangle(
+                top_left.x,
+                top_left.y,
+                boss.visual_size().x,
+                boss.visual_size().y,
+                if boss.is_telegraphing() {
+                    ORANGE
+                } else {
+                    PURPLE
+                },
+            );
+        }
     } else if boss.is_death_effect_active() {
         draw_circle(
             boss.visual_center().x,
@@ -244,5 +248,7 @@ fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
             boss.visual_size().x,
             WHITE,
         );
+        // A boss with a body fades out over the flash; without one there is nothing to draw.
+        body_draw::draw_boss_body(boss);
     }
 }

@@ -39,6 +39,7 @@ Actions execute in list order, carrying unused time to the next action:
 | `hover(seconds: 1.0)` | Hold both coordinates, including height, for the duration. |
 | `slam_down(speed: 600.0)` | Move vertically down at the given speed; finish with the body's bottom exactly on the floor. |
 | `area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 10)` | Sample `count` random circle centers anywhere inside the arena when the action starts. Show stationary warning circles, wait for the fuse, then detonate once and finish. |
+| `pose(pose_name: Some("windup"), blend_secs: 0.12)` | Takes no time. Holds the named pose on the body until the next pose action, an attack's own poses, a state change (enemies) or the boss being idle again (bosses); `pose_name: None` returns to the idle pose. `blend_secs` defaults to `pose_action_blend_secs` in `data/pose_defaults.ron`. The pose must exist and the actor needs a body. |
 
 Completed sequences remain idle until a transition fires. Use an
 `action_finished` self-transition to repeat a sequence or continue pursuing a

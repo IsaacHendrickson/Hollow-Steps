@@ -4,7 +4,6 @@
 
 use crate::editor_panel::{BossPropertyUi, PropertyUi};
 use crate::{body_draw, editor_panel, editor_visuals, terrain_canvas};
-use hollow_steps::boss_special::BossSpecials;
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
 use hollow_steps::editor_history::{shortcut, tracked, History};
@@ -442,16 +441,10 @@ pub(crate) fn draw_editor(
         let boss_preview = editor.draft.boss.as_ref().and_then(|placement| {
             editor
                 .content
-                .bosses
-                .values()
-                .find(|definition| definition.name == placement.definition)
-                .and_then(|definition| {
-                    BossSpecials::from_definition(
-                        std::sync::Arc::new(definition.clone()),
-                        placement.position.into(),
-                    )
-                    .ok()
-                })
+                .boss_definitions()
+                .ok()?
+                .spawn(&placement.definition, placement.position.into())
+                .ok()
         });
         body_draw::draw_body_debug_overlay(
             body_debug_overlay,
