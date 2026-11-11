@@ -26,6 +26,7 @@ pub mod editor_tools;
 pub mod editor_view;
 pub mod enemy;
 pub mod enemy_attack;
+pub mod events;
 pub mod game;
 pub mod health;
 pub mod item;

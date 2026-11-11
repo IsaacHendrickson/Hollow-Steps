@@ -148,6 +148,8 @@ async fn main() {
                 camera = new_camera(&game, camera_config, view);
             }
         }
+        // Nothing reacts to gameplay events here yet; drop them so the queue stays empty.
+        drop(game.take_events());
 
         set_camera(&screen_camera(camera.view_rect(view), Some(screen.clone())));
         draw_scene(&game);

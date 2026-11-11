@@ -8,11 +8,14 @@ use crate::coin::Coin;
 use crate::damage::DamageResolver;
 use crate::editor::{self, EditorSession};
 use crate::enemy::EnemyDefinitions;
+use crate::events::{EventQueue, GameEvent};
 use crate::item::WorldItem;
 use crate::player::{Player, PlayerInput, WorldBounds};
 use crate::room::{load_rooms, Room, RoomId};
 use crate::tuning::TuningConfig;
 
+#[cfg(test)]
+mod event_tests;
 #[cfg(test)]
 mod strike_tests;
 mod test_room;
@@ -47,6 +50,8 @@ pub struct GameState {
     tuning: TuningConfig,
     /// The tunables as last loaded from or saved to `player.ron`.
     saved_tuning: TuningConfig,
+    /// What has happened since `take_events` was last called, oldest first.
+    events: EventQueue,
 }
 
 impl GameState {
@@ -80,7 +85,14 @@ impl GameState {
             test_run: None,
             tuning,
             saved_tuning: tuning,
+            events: EventQueue::default(),
         })
+    }
+
+    /// Removes and returns the events raised since the last call, oldest first. Each thing
+    /// that happens appears exactly once; nothing is raised while the game is paused.
+    pub fn take_events(&mut self) -> Vec<GameEvent> {
+        self.events.take()
     }
 
     /// The player and enemy tunables in effect.
@@ -349,6 +361,7 @@ impl GameState {
         let bounds = self.rooms[index].world_bounds();
         self.player
             .update_with_terrain(input, delta_seconds, bounds, &self.rooms[index].terrain);
+        self.events.extend(self.player.take_events());
         let room = &mut self.rooms[index];
         let bounds = room.world_bounds();
         let mut special_damage = 0;
@@ -394,7 +407,13 @@ impl GameState {
                         .player
                         .attack()
                         .knockback_direction(self.player.position().x, enemy.position().x);
-                    struck |= enemy.hit(self.player.attack().id(), direction);
+                    if enemy.hit(self.player.attack().id(), direction) {
+                        struck = true;
+                        self.events.push(GameEvent::EnemyHit);
+                        if enemy.is_dead() {
+                            self.events.push(GameEvent::EnemyDied);
+                        }
+                    }
                 }
             }
             if let Some(boss) = &mut room.boss_special {
@@ -403,9 +422,16 @@ impl GameState {
                 let swing_id = self.player.attack().id();
                 if hitbox.overlaps(&body) && self.last_special_hit != Some(swing_id) {
                     // A boss that is already defeated is not a pogo target.
-                    struck |= !boss.is_defeated();
+                    let was_defeated = boss.is_defeated();
+                    struck |= !was_defeated;
                     boss.damage_boss(1);
                     self.last_special_hit = Some(swing_id);
+                    if !was_defeated {
+                        self.events.push(GameEvent::EnemyHit);
+                        if boss.is_defeated() {
+                            self.events.push(GameEvent::BossDefeated);
+                        }
+                    }
                 }
                 if boss.is_defeated() {
                     special_damage = 0;
@@ -423,7 +449,9 @@ impl GameState {
             special_damage,
         )
         .resolve();
-        self.player.take_attack_damage(hit);
+        if self.player.take_attack_damage(hit) {
+            self.events.push(GameEvent::PlayerDamaged);
+        }
         if self.player.health().current() == 0 {
             self.player.respawn(room.spawn, bounds);
             return;
@@ -439,6 +467,7 @@ impl GameState {
             {
                 let item = room.items.remove(index);
                 self.player.collect_item(item.item);
+                self.events.push(GameEvent::ItemPickedUp);
             }
         }
 
@@ -447,6 +476,7 @@ impl GameState {
         coins.retain(|coin| {
             if coin.touches(&self.player) {
                 self.coin_count = self.coin_count.saturating_add(1);
+                self.events.push(GameEvent::CoinCollected);
                 false
             } else {
                 true
@@ -467,6 +497,7 @@ impl GameState {
             {
                 self.current = target;
                 self.player.place_at(exit.spawn, self.world_bounds());
+                self.events.push(GameEvent::RoomEntered);
             }
         }
     }

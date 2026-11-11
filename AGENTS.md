@@ -82,6 +82,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/boss_special.rs`: boss sequence cursors, selection, actor effect integration, and coin drops.
 - `src/combat.rs`: melee swings (forward, up, down), per-direction hitboxes from `StrikeConfig`, knockback direction, once-per-swing pogo, duration, and cooldown.
 - `src/damage.rs`: `DamageResolver` combines enemy contact/blast/attack and boss action/contact damage into the single hit applied to the player.
+- `src/events.rs`: `GameEvent` (jump, landing, dash, swing, enemy hit/death, player damage, coin, item, room, boss) and the `EventQueue` drained by `GameState::take_events`.
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.
