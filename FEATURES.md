@@ -71,11 +71,11 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 
 - F2 paused room editor: placement, move, delete, entity list, spawn/exit editing, atomic RON saves, custom rooms; `src/editor.rs`; `tests/editor.rs`
 - Entity/behavior side panel, state/link editing, shared-name updates, staged RON saves; `src/definition_editor.rs`; `tests/definition_editor.rs`
-- Responsive scrollable panel, pinned Save, ordered action/transition rows, type catalogs, advanced RON editing; `src/editor_panel.rs`; `tests/definition_editor.rs`
+- Responsive scrollable panel, pinned Save, ordered action/transition rows, type catalogs, advanced RON editing; `src/editor_panel.rs`, `src/editor_panel/entity.rs`, `src/editor_panel/states.rs`; `tests/definition_editor.rs`
 - Save conflict detection, full validation, LF writes, recoverable staging, repeat renames; `src/definition_editor.rs`; `tests/definition_editor.rs`
 - Searchable lists with stable selection, Unicode prefix-first matching, counts, management buttons; `src/search.rs`; `tests/definition_editor.rs`
 - Patrol handles, exit/arrival deletion, item catalog, no-exit warnings, transactional saves, Windows-safe names; `src/editor.rs`, `src/item.rs`; `tests/editor.rs`
-- egui panel: collapsing sections, filtered dropdowns, tooltip truncation, solid scrollbars, canvas input capture; `src/editor_panel.rs`; headless tests, manual
+- egui panel: collapsing sections, filtered dropdowns, tooltip truncation, solid scrollbars, canvas input capture; `src/editor_panel.rs`, `src/editor_panel/widgets.rs`; headless tests (`src/editor_panel/panel_tests/`), manual
 - Editor canvas view: wheel zoom about the cursor, middle-drag/Space+drag pan, Home/Reset view, clamped zoom, grid overlay with snap size (default 8 px, snaps place/drag), footer sized from the window; `src/editor_view.rs`, `src/main.rs`, `src/editor_panel/canvas_tools.rs`; `tests/editor_view.rs`, headless panel tests, manual
 - Room size section (x, y, width, height, floor_y): changes that would leave the spawn, items, exits, terrain, enemies or boss outside are refused; `src/room_size.rs`, `src/editor_panel/canvas_tools.rs`; `tests/room_size.rs`
 - Unsaved-changes guard: closing the editor (F2), Open room and New room ask Save / Discard / Cancel when the session is dirty and act at once when clean; a failed save keeps the dialog open with the error; `src/editor_guard.rs`, `src/editor_panel/unsaved_dialog.rs`; `tests/editor_guard.rs`, headless dialog tests, manual
@@ -84,7 +84,7 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Editor tools: a Tools section (Select, Place, Terrain, Erase; keys V, P, T, E) replaces the Place and Select / drag buttons; Terrain drags out a grid-snapped solid, Select moves and resizes solids by eight handles, Erase and right-click and Delete remove solids or markers; every edit is validated and refused over the spawn, items, exits or outside the room; solids save to `layout.terrain` and undo/redo covers them (a drag is one step); `src/editor_terrain.rs`, `src/editor_tools.rs`, `src/terrain_canvas.rs`, `src/editor_panel/tool_panel.rs`; `tests/editor_terrain.rs`, headless panel tests, manual
 - Behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation, usage warnings, Key values; `src/preset.rs`, `src/behavior_values.rs`; `tests/presets.rs`
 - Blank-enemy creation and behavior assignment, editable Skittish distances/speed; `src/definition_editor.rs`, `src/behavior.rs`; `tests/presets.rs`
-- Catalog-backed pose dropdowns for attack phases in rows and Key values; `src/editor_panel.rs`, `src/behavior_values.rs`; `tests/poses.rs`
+- Catalog-backed pose dropdowns for attack phases in rows and Key values; `src/editor_panel/widgets.rs`, `src/editor_panel/states.rs`, `src/editor_panel/key_values.rs`, `src/behavior_values.rs`; `tests/poses.rs`
 - Body, pose, spring, hurt, blend and tint values all have data, validation, editor controls; `src/body.rs`, `src/pose.rs`, `data/`; `tests/poses.rs`
 
 ## Tests and CI

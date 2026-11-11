@@ -1,6 +1,7 @@
 //! The tool selector (Select, Place, Terrain, Erase) and the Delete selected button. What
 //! each tool does on the canvas lives in `hollow_steps::editor_tools` and `terrain_canvas`.
-use super::{panel_button, panel_label, section, EditorSession, EditorUi};
+use super::widgets::{panel_button, panel_label, probe, section};
+use super::{EditorSession, EditorUi};
 use egui_macroquad::egui;
 use hollow_steps::editor::Selection;
 use hollow_steps::editor_tools::EditorTool;
@@ -38,9 +39,8 @@ pub(super) fn draw_tool_section(
                 let response = ui
                     .add(egui::Button::new(label.as_str()).selected(state.tool == tool))
                     .on_hover_text(tool.hint());
-                #[cfg(test)]
-                ui.data_mut(|data| {
-                    data.insert_temp(egui::Id::new(("button", label.as_str())), response.rect)
+                probe(ui, || {
+                    (egui::Id::new(("button", label.as_str())), response.rect)
                 });
                 if response.clicked() {
                     choose_tool(editor, state, tool);

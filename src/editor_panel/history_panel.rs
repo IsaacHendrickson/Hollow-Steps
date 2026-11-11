@@ -1,6 +1,7 @@
 //! The Undo and Redo buttons and what they do to the editor state. The snapshot logic
 //! lives in `hollow_steps::editor_history`; this is presentation and wiring only.
-use super::{section, EditorSession, EditorUi};
+use super::widgets::{probe, section};
+use super::{EditorSession, EditorUi};
 use egui_macroquad::egui;
 use hollow_steps::editor_history::{redo_session, undo_session, HistoryKey};
 
@@ -34,8 +35,7 @@ fn history_button(ui: &mut egui::Ui, text: &str, enabled: bool) -> bool {
         .add_enabled(enabled, egui::Button::new(text))
         .on_hover_text(HISTORY_TOOLTIP)
         .on_disabled_hover_text(HISTORY_TOOLTIP);
-    #[cfg(test)]
-    ui.data_mut(|data| data.insert_temp(egui::Id::new(("button", text)), response.rect));
+    probe(ui, || (egui::Id::new(("button", text)), response.rect));
     response.clicked()
 }
 

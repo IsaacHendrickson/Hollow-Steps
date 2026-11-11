@@ -1,6 +1,6 @@
 //! The Save / Discard / Cancel window shown when closing the editor or switching rooms
 //! with unsaved changes. The decisions live in `hollow_steps::editor_guard`.
-use super::{panel_button, panel_label};
+use super::widgets::{panel_button, panel_label};
 use egui_macroquad::egui;
 use hollow_steps::editor_guard::{GuardChoice, UnsavedGuard};
 
