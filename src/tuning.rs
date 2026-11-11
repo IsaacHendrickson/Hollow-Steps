@@ -608,7 +608,8 @@ mod tests {
 
     #[test]
     fn parsing_is_strict() {
-        let missing = DEFAULTS.replace("        gravity: 1400.0,\n", "");
+        // Not matching the newline: a Windows checkout has CRLF line endings in the data file.
+        let missing = DEFAULTS.replace("gravity: 1400.0,", "");
         let error = TuningConfig::parse(&missing, "player.ron").unwrap_err();
         assert!(error.starts_with("player.ron: "), "{error}");
         assert!(error.contains("gravity"), "{error}");
