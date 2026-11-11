@@ -101,6 +101,16 @@ Overlapping enemies apply the highest contact damage once, respecting the
 player's normal immunity; damage saturates at zero health. Each entity instance
 owns its health, timers, action cursor, and facing independently.
 
+`death_secs` is optional (default 0.4) and sets how long a defeated enemy stays
+before it is removed: a number from 0 to 5 seconds, where 0 removes it the
+moment its health reaches zero. While it stays it fades out (flashing from the
+killing blow), deals no damage of any kind, cannot be hit again and runs no
+behavior. The Entity section of the editor has a "Death time" drag box for it.
+
+```ron
+(name: "chase", health: 3, size: (36.0, 36.0), contact_damage: 1, behavior: "chase", death_secs: 0.6)
+```
+
 The three room placement files are `first.ron`, `second.ron`, and `boss.ron`:
 
 ```ron

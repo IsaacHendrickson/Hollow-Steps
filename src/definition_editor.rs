@@ -498,6 +498,7 @@ impl DefinitionDraft {
             contact_damage: 1,
             behavior: behavior.clone(),
             body: None,
+            death_secs: crate::enemy::DEFAULT_DEATH_SECS,
         });
         if result.is_err() {
             self.behaviors.remove(&behavior);
@@ -811,18 +812,31 @@ pub fn entity_from_fields(fields: &[String; 6]) -> Result<EnemyDefinition, Strin
             .map_err(|_| "contact damage must be 0..255")?,
         behavior: fields[5].clone(),
         body: None,
+        death_secs: crate::enemy::DEFAULT_DEATH_SECS,
     };
     entity.validate()?;
     Ok(entity)
 }
 
 /// Apply entity fields and body settings together so ordinary edits retain the visual.
+/// The death time is the default; `entity_with_body_and_death` carries an edited one.
 pub fn entity_with_body(
     fields: &[String; 6],
     body: Option<crate::body::BodyVisual>,
 ) -> Result<EnemyDefinition, String> {
+    entity_with_body_and_death(fields, body, crate::enemy::DEFAULT_DEATH_SECS)
+}
+
+/// `entity_with_body` with the death time (a drag box in the panel, not a text field), so an
+/// ordinary edit keeps the value the author set.
+pub fn entity_with_body_and_death(
+    fields: &[String; 6],
+    body: Option<crate::body::BodyVisual>,
+    death_secs: f32,
+) -> Result<EnemyDefinition, String> {
     let mut entity = entity_from_fields(fields)?;
     entity.body = body;
+    entity.death_secs = death_secs;
     entity.validate()?;
     Ok(entity)
 }

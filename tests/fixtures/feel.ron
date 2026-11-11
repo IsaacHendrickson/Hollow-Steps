@@ -1,0 +1,11 @@
+// Fixed behavioral fixture. Do not synchronize with editable assets.
+// Hit-stop and screen shake are off here so tests of enemy timing and combat see every
+// tick; the feel tests build their own configs.
+(
+    hit_stop: (enemy_hit_secs: 0.0, player_damaged_secs: 0.0),
+    shake: (
+        enemy_hit: (amplitude: 0.0, secs: 0.0),
+        player_damaged: (amplitude: 0.0, secs: 0.0),
+        frequency_hz: 30.0,
+    ),
+)

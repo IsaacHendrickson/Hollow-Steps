@@ -148,8 +148,12 @@ async fn main() {
                 camera = new_camera(&game, camera_config, view);
             }
         }
+        // Nothing reacts to gameplay events here yet; drop them so the queue stays empty.
+        drop(game.take_events());
 
-        set_camera(&screen_camera(camera.view_rect(view), Some(screen.clone())));
+        // Screen shake moves only the picture, not the camera that follows the player.
+        let world_view = camera.view_rect_shaken(view, game.shake_offset());
+        set_camera(&screen_camera(world_view, Some(screen.clone())));
         draw_scene(&game);
         set_camera(&screen_camera(
             Rect::new(0.0, 0.0, view.x, view.y),
@@ -182,7 +186,7 @@ async fn main() {
         if body_debug {
             // The overlay draws in window space, so project world points through the
             // camera and letterbox.
-            let top_left = camera.view_rect(view).point();
+            let top_left = world_view.point();
             body_draw::draw_body_debug_overlay(
                 &body_debug_overlay,
                 &game.room().enemies,
@@ -332,6 +336,11 @@ fn draw_scene(game: &GameState) {
         );
     }
     for enemy in &game.room().enemies {
+        if enemy.is_dead() {
+            // A dying enemy only fades: its attacks, blasts and health bar are gone.
+            body_draw::draw_enemy_body(enemy);
+            continue;
+        }
         for blast in enemy
             .behavior()
             .blasts()

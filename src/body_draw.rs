@@ -62,7 +62,15 @@ pub fn draw_enemy_body(enemy: &Enemy) {
     }
 }
 
+/// The draw color for one body part: hurt flash or warning tint, faded by how far through
+/// its death the enemy is (fully opaque while alive).
 fn enemy_tint(enemy: &Enemy, color: Color) -> Color {
+    let mut tinted = tint_for_state(enemy, color);
+    tinted.a *= enemy.opacity();
+    tinted
+}
+
+fn tint_for_state(enemy: &Enemy, color: Color) -> Color {
     if let Some(body) = enemy.body() {
         let strength = body.flash_strength();
         if strength > 0.0 {

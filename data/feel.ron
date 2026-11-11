@@ -1,0 +1,16 @@
+(
+    // How long enemies and the boss freeze after a hit, in seconds.
+    hit_stop: (
+        // The player's swing hit an enemy or the boss.
+        enemy_hit_secs: 0.06,
+        // The player lost health.
+        player_damaged_secs: 0.12,
+    ),
+    // Screen shake: a sine offset that fades to nothing over `secs`.
+    shake: (
+        enemy_hit: (amplitude: 2.5, secs: 0.15),
+        player_damaged: (amplitude: 6.0, secs: 0.3),
+        // How fast the shake oscillates, in cycles per second.
+        frequency_hz: 30.0,
+    ),
+)

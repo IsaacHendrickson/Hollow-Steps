@@ -1,6 +1,7 @@
 use macroquad::math::Vec2;
 
 use crate::combat::{Attack, StrikeConfig, StrikeDirection};
+use crate::events::{EventQueue, GameEvent};
 use crate::health::Health;
 use crate::item::Item;
 use crate::terrain::Terrain;
@@ -102,6 +103,11 @@ pub struct Player {
     jump_buffer_remaining: f32,
     attack_knockback_x: f32,
     attack_knockback_remaining: f32,
+    /// True from the moment the player starts falling until it touches down, so a landing
+    /// is only reported after a real fall (not after being placed on a platform).
+    falling: bool,
+    /// Events raised by `update_with_terrain`, until `take_events` hands them over.
+    events: EventQueue,
 }
 
 impl Player {
@@ -123,7 +129,15 @@ impl Player {
             jump_buffer_remaining: 0.0,
             attack_knockback_x: 0.0,
             attack_knockback_remaining: 0.0,
+            falling: false,
+            events: EventQueue::default(),
         }
+    }
+
+    /// Removes and returns the events raised since the last call: jump, landing, dash and
+    /// swing start, oldest first.
+    pub fn take_events(&mut self) -> Vec<GameEvent> {
+        self.events.take()
     }
 
     pub fn config(&self) -> &PlayerConfig {
@@ -246,6 +260,7 @@ impl Player {
         self.dash_remaining = 0.0;
         self.dash_cooldown = 0.0;
         self.air_dash_used = false;
+        self.falling = false;
         self.resolve_horizontal_bounds(bounds);
         self.resolve_floor(bounds, &Terrain::default());
     }
@@ -279,8 +294,12 @@ impl Player {
             self.facing = move_axis.signum();
         }
         let strike = StrikeDirection::from_aim(input.up_held, input.down_held, !self.grounded);
+        let swing_before = self.attack.id();
         self.attack
             .update_directed(input.attack_pressed, self.facing, strike, delta_seconds);
+        if self.attack.id() != swing_before {
+            self.events.push(GameEvent::PlayerAttacked);
+        }
         self.velocity.x = move_axis * self.config.move_speed;
 
         self.coyote_remaining = if self.grounded {
@@ -294,7 +313,7 @@ impl Player {
             (self.jump_buffer_remaining - delta_seconds).max(0.0)
         };
         // Recheck support so stepping off a ledge uses the grace timer.
-        self.resolve_floor(bounds, terrain);
+        self.settle_on_floor(bounds, terrain);
         if self.dash_remaining == 0.0
             && self.jump_buffer_remaining > 0.0
             && (self.grounded || self.coyote_remaining > 0.0)
@@ -316,6 +335,7 @@ impl Player {
             self.dash_remaining = self.config.dash_duration;
             self.dash_cooldown = self.config.dash_cooldown;
             self.air_dash_used |= !self.grounded;
+            self.events.push(GameEvent::PlayerDashed);
         }
 
         // Split long frames so dash speed never lasts beyond its duration.
@@ -342,6 +362,7 @@ impl Player {
             self.velocity.y = (self.velocity.y
                 + self.config.gravity * gravity_multiplier * normal_seconds)
                 .min(self.config.max_fall_speed);
+            self.falling |= !self.grounded && self.velocity.y > 0.0;
             self.displace(self.velocity * normal_seconds, terrain, bounds);
         }
         self.dash_cooldown = (self.dash_cooldown - delta_seconds).max(0.0);
@@ -366,7 +387,7 @@ impl Player {
         self.attack_knockback_remaining =
             (self.attack_knockback_remaining - delta_seconds).max(0.0);
         self.resolve_horizontal_bounds(bounds);
-        self.resolve_floor(bounds, terrain);
+        self.settle_on_floor(bounds, terrain);
         if self.dash_remaining == 0.0 && self.grounded && self.jump_buffer_remaining > 0.0 {
             self.start_jump();
         }
@@ -377,6 +398,19 @@ impl Player {
         self.grounded = false;
         self.coyote_remaining = 0.0;
         self.jump_buffer_remaining = 0.0;
+        self.events.push(GameEvent::PlayerJumped);
+    }
+
+    /// `resolve_floor`, raising `PlayerLanded` when the player touches down after a fall.
+    fn settle_on_floor(&mut self, bounds: WorldBounds, terrain: &Terrain) {
+        let was_grounded = self.grounded;
+        self.resolve_floor(bounds, terrain);
+        if self.grounded {
+            if !was_grounded && self.falling {
+                self.events.push(GameEvent::PlayerLanded);
+            }
+            self.falling = false;
+        }
     }
 
     fn resolve_horizontal_bounds(&mut self, bounds: WorldBounds) {
@@ -443,318 +477,10 @@ impl Player {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const BOUNDS: WorldBounds = WorldBounds::new(0.0, 960.0, 460.0);
-
-    fn player_on_floor() -> Player {
-        let config = PlayerConfig::default();
-        let mut player = Player::new(Vec2::ZERO, config);
-        player.place_on_floor(200.0, BOUNDS);
-        player
-    }
-
-    #[test]
-    fn horizontal_input_moves_at_configured_speed() {
-        let mut player = player_on_floor();
-
-        player.update(
-            PlayerInput {
-                move_axis: 1.0,
-                jump_pressed: false,
-                ..PlayerInput::default()
-            },
-            0.5,
-            BOUNDS,
-        );
-
-        assert!((player.position().x - 310.0).abs() < f32::EPSILON);
-        assert!((player.velocity().x - 220.0).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn horizontal_input_is_clamped_to_the_world() {
-        let mut player = player_on_floor();
-
-        player.update(
-            PlayerInput {
-                move_axis: 1.0,
-                jump_pressed: false,
-                ..PlayerInput::default()
-            },
-            10.0,
-            BOUNDS,
-        );
-
-        assert_eq!(player.position().x, 944.0);
-    }
-
-    #[test]
-    fn jump_applies_upward_velocity_and_gravity() {
-        let mut player = player_on_floor();
-
-        player.update(
-            PlayerInput {
-                move_axis: 0.0,
-                jump_pressed: true,
-                ..PlayerInput::default()
-            },
-            0.0,
-            BOUNDS,
-        );
-
-        assert!(!player.is_grounded());
-        assert!((player.velocity().y + 480.0).abs() < f32::EPSILON);
-
-        player.update(PlayerInput::default(), 0.1, BOUNDS);
-
-        assert!((player.velocity().y + 340.0).abs() < f32::EPSILON);
-        assert!(player.position().y < 436.0);
-    }
-
-    #[test]
-    fn jump_input_is_ignored_while_airborne() {
-        let mut player = player_on_floor();
-        player.update(
-            PlayerInput {
-                move_axis: 0.0,
-                jump_pressed: true,
-                ..PlayerInput::default()
-            },
-            0.0,
-            BOUNDS,
-        );
-
-        player.update(
-            PlayerInput {
-                move_axis: 0.0,
-                jump_pressed: true,
-                ..PlayerInput::default()
-            },
-            0.1,
-            BOUNDS,
-        );
-
-        assert!((player.velocity().y + 340.0).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn falling_player_lands_on_the_floor() {
-        let mut player = player_on_floor();
-        player.update(PlayerInput::default(), 1.0, BOUNDS);
-
-        assert_eq!(player.position().y, 436.0);
-        assert_eq!(player.velocity().y, 0.0);
-        assert!(player.is_grounded());
-    }
-
-    #[test]
-    fn room_spawn_preserves_height_and_inventory_but_clears_movement() {
-        let mut player = player_on_floor();
-        player.collect_item(Item::AmberShard);
-        player.update(
-            PlayerInput {
-                move_axis: 1.0,
-                jump_pressed: true,
-                ..PlayerInput::default()
-            },
-            0.1,
-            BOUNDS,
-        );
-
-        player.place_at(Vec2::new(100.0, 200.0), BOUNDS);
-
-        assert_eq!(player.position(), Vec2::new(100.0, 200.0));
-        assert_eq!(player.velocity(), Vec2::ZERO);
-        assert!(!player.is_grounded());
-        assert_eq!(player.collected_items(), &[Item::AmberShard]);
-    }
-}
-
+mod dash_tests;
+#[cfg(test)]
+mod event_tests;
 #[cfg(test)]
 mod strike_tests;
-
 #[cfg(test)]
-mod dash_tests {
-    use super::*;
-
-    const BOUNDS: WorldBounds = WorldBounds::new(0.0, 960.0, 460.0);
-    const DASH: PlayerInput = PlayerInput {
-        dash_pressed: true,
-        move_axis: 0.0,
-        jump_pressed: false,
-        pickup_pressed: false,
-        jump_held: false,
-        attack_pressed: false,
-        up_held: false,
-        down_held: false,
-    };
-
-    fn equipped_player() -> Player {
-        let mut player = Player::new(Vec2::ZERO, PlayerConfig::default());
-        player.place_on_floor(400.0, BOUNDS);
-        player.collect_item(Item::Dash);
-        player
-    }
-
-    #[test]
-    fn dash_requires_pickup() {
-        let mut player = equipped_player();
-        player.collected_items.clear();
-        player.update(DASH, 0.1, BOUNDS);
-        assert_eq!(player.position.x, 400.0);
-    }
-
-    #[test]
-    fn dash_uses_last_facing_and_expires_after_point_two_seconds() {
-        let mut player = equipped_player();
-        player.update(
-            PlayerInput {
-                move_axis: -1.0,
-                ..PlayerInput::default()
-            },
-            0.0,
-            BOUNDS,
-        );
-        player.update(DASH, 0.1, BOUNDS);
-        assert_eq!(player.position, Vec2::new(320.0, 436.0));
-        assert_eq!(player.velocity.x, -DASH_SPEED);
-        // Opposite input cannot reverse a dash in progress.
-        player.update(
-            PlayerInput {
-                move_axis: 1.0,
-                ..PlayerInput::default()
-            },
-            0.1,
-            BOUNDS,
-        );
-        assert_eq!(player.position.x, 240.0);
-        player.update(PlayerInput::default(), 0.1, BOUNDS);
-        assert_eq!(player.position.x, 240.0);
-    }
-
-    #[test]
-    fn cooldown_blocks_another_dash_until_half_a_second_after_start() {
-        let mut player = equipped_player();
-        player.update(DASH, 0.25, BOUNDS);
-        let x = player.position.x;
-        player.update(DASH, 0.25, BOUNDS);
-        assert_eq!(player.position.x, x);
-        player.update(DASH, 0.1, BOUNDS);
-        assert_eq!(player.position.x, x + 80.0);
-    }
-
-    #[test]
-    fn air_dash_is_horizontal_and_only_landing_restores_it() {
-        let mut player = equipped_player();
-        player.update(
-            PlayerInput {
-                jump_pressed: true,
-                ..PlayerInput::default()
-            },
-            0.0,
-            BOUNDS,
-        );
-        for _ in 0..20 {
-            player.update(PlayerInput::default(), 0.01, BOUNDS);
-        }
-        let y = player.position.y;
-        player.update(DASH, 0.2, BOUNDS);
-        assert_eq!(player.position.y, y);
-        for _ in 0..30 {
-            player.update(PlayerInput::default(), 0.01, BOUNDS);
-        }
-        assert!(!player.is_grounded());
-        let x = player.position.x;
-        player.update(DASH, 0.0, BOUNDS);
-        assert_eq!(player.dash_remaining, 0.0);
-        assert_eq!(player.position.x, x);
-        player.update(PlayerInput::default(), 1.0, BOUNDS);
-        assert!(player.is_grounded());
-        player.update(
-            PlayerInput {
-                jump_pressed: true,
-                ..PlayerInput::default()
-            },
-            0.1,
-            BOUNDS,
-        );
-        player.update(DASH, 0.1, BOUNDS);
-        assert_eq!(player.velocity.x, DASH_SPEED);
-        assert_eq!(player.velocity.y, 0.0);
-        assert!(!player.is_grounded());
-    }
-
-    #[test]
-    fn buffered_jump_waits_for_ground_dash_to_finish() {
-        let mut player = equipped_player();
-        player.update(DASH, 0.1, BOUNDS);
-        player.update(
-            PlayerInput {
-                jump_pressed: true,
-                jump_held: true,
-                ..PlayerInput::default()
-            },
-            0.05,
-            BOUNDS,
-        );
-        assert_eq!(player.position.y, 436.0);
-        assert_eq!(player.velocity.y, 0.0);
-        player.update(
-            PlayerInput {
-                jump_held: true,
-                ..PlayerInput::default()
-            },
-            0.05,
-            BOUNDS,
-        );
-        assert_eq!(player.position.x, 560.0);
-        assert!(!player.is_grounded());
-        assert_eq!(player.velocity.y, -player.config.jump_speed);
-    }
-
-    #[test]
-    fn attack_during_dash_keeps_dash_and_swing_direction() {
-        let mut player = equipped_player();
-        player.update(DASH, 0.05, BOUNDS);
-        player.update(
-            PlayerInput {
-                move_axis: -1.0,
-                attack_pressed: true,
-                ..PlayerInput::default()
-            },
-            0.05,
-            BOUNDS,
-        );
-        assert_eq!(player.position.x, 480.0);
-        assert_eq!(player.attack.direction(), 1.0);
-        assert!(player
-            .attack
-            .hitbox(player.position, player.size())
-            .is_some());
-    }
-
-    #[test]
-    fn zero_and_large_steps_preserve_duration_and_bounds() {
-        let mut player = equipped_player();
-        player.update(DASH, 0.0, BOUNDS);
-        assert_eq!(player.position.x, 400.0);
-        player.update(PlayerInput::default(), 10.0, BOUNDS);
-        assert_eq!(player.position.x, 560.0);
-        player.place_on_floor(900.0, BOUNDS);
-        player.update(DASH, 0.2, BOUNDS);
-        assert_eq!(player.position.x, 944.0);
-        player.place_on_floor(30.0, BOUNDS);
-        player.update(
-            PlayerInput {
-                move_axis: -1.0,
-                ..DASH
-            },
-            10.0,
-            BOUNDS,
-        );
-        assert_eq!(player.position.x, 16.0);
-        assert!(player.is_grounded());
-    }
-}
+mod tests;

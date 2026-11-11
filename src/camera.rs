@@ -104,6 +104,14 @@ impl Camera {
         )
     }
 
+    /// The visible rectangle moved by `shake`, e.g. the screen-shake offset from `feel`. Only
+    /// the picture moves: the camera's own position, which follows the player, is untouched.
+    /// A non-finite `shake` is ignored.
+    pub fn view_rect_shaken(&self, view: Vec2, shake: Vec2) -> Rect {
+        let shake = if shake.is_finite() { shake } else { Vec2::ZERO };
+        self.view_rect(view).offset(shake)
+    }
+
     /// Jumps straight to the settled position for `target`, e.g. after a room change.
     pub fn snap(&mut self, target: Vec2, facing: f32, bounds: Rect, view: Vec2) {
         if !target.is_finite() {
@@ -273,6 +281,31 @@ mod tests {
             assert!(broken.validate().is_err());
         }
         assert!(ron::from_str::<CameraConfig>("(follow_rate: 1.0, extra: 2.0)").is_err());
+    }
+
+    #[test]
+    fn shake_moves_only_the_picture_never_the_camera() {
+        let camera = camera_at(Vec2::new(1000.0, 500.0));
+        let before = camera;
+        let plain = camera.view_rect(VIEW);
+        let shaken = camera.view_rect_shaken(VIEW, Vec2::new(3.0, -2.0));
+        assert_eq!(shaken.point(), plain.point() + Vec2::new(3.0, -2.0));
+        assert_eq!(shaken.size(), plain.size());
+        assert_eq!(camera, before);
+        assert_eq!(camera.view_rect_shaken(VIEW, Vec2::ZERO), plain);
+    }
+
+    #[test]
+    fn a_non_finite_shake_is_ignored() {
+        let camera = camera_at(Vec2::new(1000.0, 500.0));
+        let plain = camera.view_rect(VIEW);
+        for shake in [
+            Vec2::new(f32::NAN, 0.0),
+            Vec2::new(0.0, f32::INFINITY),
+            Vec2::NEG_INFINITY,
+        ] {
+            assert_eq!(camera.view_rect_shaken(VIEW, shake), plain);
+        }
     }
 
     #[test]

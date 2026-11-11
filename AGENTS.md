@@ -66,7 +66,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/player.rs`: player input, movement rules (including dash),
   collision resolution, and player-focused tests.
 - `src/health.rs`: player health, damage, and invincibility.
-- `src/enemy.rs`: enemy behavior, health, knockback, death, and body instances.
+- `src/enemy.rs`: enemy behavior, health, knockback, the dying state, and body instances. Its sub-modules: `definition.rs` (`EnemyDefinition`, including `death_secs`, its default and range) and `death.rs` (`DeathTimer`, the fade clock of a defeated enemy).
 - `src/pose.rs`: semantic pose assets, presentation playback, and validation.
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
@@ -82,11 +82,13 @@ Gameplay modules (pure rules, no rendering):
 - `src/boss_special.rs`: boss sequence cursors, selection, actor effect integration, and coin drops.
 - `src/combat.rs`: melee swings (forward, up, down), per-direction hitboxes from `StrikeConfig`, knockback direction, once-per-swing pogo, duration, and cooldown.
 - `src/damage.rs`: `DamageResolver` combines enemy contact/blast/attack and boss action/contact damage into the single hit applied to the player.
+- `src/events.rs`: `GameEvent` (jump, landing, dash, swing, enemy hit/death, player damage, coin, item, room, boss) and the `EventQueue` drained by `GameState::take_events`.
+- `src/feel.rs`: hit-stop and screen shake driven by `GameEvent`s (sine shake, no randomness); tunables in `data/feel.ron` (an `assets/feel.ron` replaces it whole).
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, and terrain validation.
-- `src/camera.rs`: follow camera with look-ahead and room clamping, letterbox fit, HUD anchors; tunables in `data/camera.ron`.
+- `src/camera.rs`: follow camera with look-ahead and room clamping, screen-shake view offset, letterbox fit, HUD anchors; tunables in `data/camera.ron`.
 - `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
 - `src/tuning.rs`: player, strike (hitbox sizes, pogo speed) and enemy-knockback tunables from `data/player.ron` (an `assets/player.ron` replaces it whole), validation, staged save.
 - `src/tuning_fields.rs`: the editable `player.ron` numbers (`Field`, `FieldSpec`): one range per field shared by validation and the F4 window; re-exported from `tuning`.
@@ -107,7 +109,7 @@ Composition and front end:
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
-- `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `history_panel.rs` (Undo/Redo), `tool_panel.rs` (tool selector, Delete selected), `unsaved_dialog.rs` (Save / Discard / Cancel window).
+- `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `death_field.rs` (the Death time drag box), `history_panel.rs` (Undo/Redo), `tool_panel.rs` (tool selector, Delete selected), `unsaved_dialog.rs` (Save / Discard / Cancel window).
 - `src/terrain_canvas.rs`: Macroquad drawing of solids, handles and the drawing preview, and mouse-to-`TerrainTool` glue for the editor canvas.
 - `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field (typed out-of-range values are refused with a message), unsaved note, Save, and headless layout/input checks.
 - `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
