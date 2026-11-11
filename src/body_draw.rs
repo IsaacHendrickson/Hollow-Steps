@@ -1,9 +1,12 @@
 //! Macroquad adapter; all content geometry is resolved in the pure body module.
+use hollow_steps::body::BodyInstance;
 use hollow_steps::body::Shape;
 use hollow_steps::body_debug::{
     body_primitives, label_requests, nearest_entity, ColorSlot, OverlayPrimitive, LINE_WIDTH,
 };
 use hollow_steps::enemy::Enemy;
+use hollow_steps::player::Player;
+use hollow_steps::player_body::PlayerBody;
 use macroquad::prelude::*;
 
 pub fn draw_enemy_body(enemy: &Enemy) {
@@ -18,12 +21,30 @@ pub fn draw_enemy_body(enemy: &Enemy) {
         );
         return;
     };
+    draw_body(
+        body,
+        enemy.position(),
+        enemy.size(),
+        enemy.facing_left(),
+        |color| enemy_tint(enemy, color),
+    );
+}
+
+/// Draws a body's parts in order inside the box of `size` centered on `position`. `tint` maps
+/// each part's palette color to the color drawn (hurt flash, warning tint, fade).
+pub fn draw_body(
+    body: &BodyInstance,
+    position: Vec2,
+    size: Vec2,
+    facing_left: bool,
+    tint: impl Fn(Color) -> Color,
+) {
     for part in &body.template.parts {
         let transform = body
-            .part_transform(part, enemy.position(), enemy.size(), enemy.facing_left())
+            .part_transform(part, position, size, facing_left)
             .expect("validated body points and geometry");
         let (r, g, b, a) = body.visual.color(part.color_slot);
-        let color = enemy_tint(enemy, Color::new(r, g, b, a));
+        let color = tint(Color::new(r, g, b, a));
         match part.shape {
             Shape::Ellipse => draw_ellipse(
                 transform.center.x,
@@ -60,6 +81,18 @@ pub fn draw_enemy_body(enemy: &Enemy) {
             }
         }
     }
+}
+
+/// Draws the player's body over its unchanged hitbox, white while the hurt flicker is on.
+pub fn draw_player(body: &PlayerBody, player: &Player) {
+    let flash = player.health().flash_on();
+    draw_body(
+        body.body(),
+        player.position(),
+        player.size(),
+        player.facing() < 0.0,
+        |color| if flash { WHITE } else { color },
+    );
 }
 
 /// The draw color for one body part: hurt flash or warning tint, faded by how far through
