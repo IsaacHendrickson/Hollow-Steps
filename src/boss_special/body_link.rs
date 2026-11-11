@@ -120,15 +120,21 @@ impl BossSpecials {
         }
     }
 
-    /// Faces the direction of travel while moving and the player while idle, then advances the
-    /// body by whatever part of `dt` the pose steps did not already cover.
+    /// Faces the direction of travel while moving and the player while idle, drops a finished
+    /// pose, then advances the body by whatever part of `dt` the pose steps did not cover.
     pub(super) fn update_look(&mut self, dt: f32, previous_x: f32, player_x: f32) {
         if self.position.x != previous_x {
             self.facing_left = self.position.x < previous_x;
         } else if self.active.is_none() && player_x != self.position.x {
             self.facing_left = player_x < self.position.x;
         }
+        // Glides outlast the attack that started them, so a pose set by a `pose` action holds
+        // until the boss is idle and has arrived; then it returns to the idle pose.
+        let settled = self.active.is_none() && self.position == self.target_position;
         if let Some(body) = &mut self.body {
+            if settled {
+                body.instance.clear_pose();
+            }
             let remainder = (dt - std::mem::take(&mut body.stepped)).max(0.0);
             body.instance.step(remainder);
         }

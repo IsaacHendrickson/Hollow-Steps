@@ -95,6 +95,7 @@ pub struct PoseMotion {
 #[derive(serde::Deserialize)]
 struct Defaults {
     pose_blend_ratio: f32,
+    pose_action_blend_secs: f32,
     strike_stiffness_multiplier: f32,
     motion: PoseMotion,
 }
@@ -120,6 +121,10 @@ impl PoseMotion {
 }
 pub fn default_blend_ratio() -> f32 {
     defaults().pose_blend_ratio
+}
+/// Blend time of a `pose` action that does not say.
+pub fn default_pose_action_blend_secs() -> f32 {
+    defaults().pose_action_blend_secs
 }
 pub fn default_strike_multiplier() -> f32 {
     defaults().strike_stiffness_multiplier
@@ -167,19 +172,12 @@ pub fn validate_behavior(
 ) -> Result<(), String> {
     for state in &behavior.states {
         for (index, action) in state.actions.iter().enumerate() {
-            if let Some(bindings) = action.pose_bindings() {
-                for (field, name) in ["telegraph_pose", "active_pose", "recovery_pose"]
-                    .into_iter()
-                    .zip(bindings)
-                {
-                    if let Some(name) = name {
-                        if !poses.contains_key(&name) {
-                            return Err(format!(
-                                "state {:?}, action {index}, {field}: unknown pose {name:?}",
-                                state.name
-                            ));
-                        }
-                    }
+            for (field, name) in action.pose_names() {
+                if !poses.contains_key(name) {
+                    return Err(format!(
+                        "state {:?}, action {index}, {field}: unknown pose {name:?}",
+                        state.name
+                    ));
                 }
             }
         }
@@ -195,9 +193,7 @@ pub fn validate_entity(
         .states
         .iter()
         .flat_map(|s| &s.actions)
-        .filter_map(crate::behavior::Action::pose_bindings)
-        .flatten()
-        .any(|n| n.is_some());
+        .any(|action| !action.pose_names().is_empty());
     if entity.body.is_none() && has_binding {
         return Err(format!(
             "entity {:?}: pose binding requires a body template",
@@ -233,23 +229,14 @@ pub fn validate_boss(
     }
     for attack in &boss.attacks {
         for (index, action) in attack.actions.iter().enumerate() {
-            let Some(bindings) = action.pose_bindings() else {
-                continue;
-            };
-            for (field, name) in ["telegraph_pose", "active_pose", "recovery_pose"]
-                .into_iter()
-                .zip(bindings)
-            {
-                let Some(name) = name else {
-                    continue;
-                };
+            for (field, name) in action.pose_names() {
                 if boss.body.is_none() {
                     return Err(format!(
                         "boss {:?}: pose binding requires a body",
                         boss.name
                     ));
                 }
-                if !poses.contains_key(&name) {
+                if !poses.contains_key(name) {
                     return Err(format!(
                         "boss {:?}, attack {:?}, action {index}, {field}: unknown pose {name:?}",
                         boss.name, attack.name
@@ -262,7 +249,10 @@ pub fn validate_boss(
 }
 
 pub fn is_pose_parameter(field: &str) -> bool {
-    matches!(field, "telegraph_pose" | "active_pose" | "recovery_pose")
+    matches!(
+        field,
+        "telegraph_pose" | "active_pose" | "recovery_pose" | "pose_name"
+    )
 }
 
 pub fn validate_name(name: &str) -> Result<(), String> {

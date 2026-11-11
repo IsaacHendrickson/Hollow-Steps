@@ -13,6 +13,29 @@ pub(super) struct PoseCue<'a> {
 }
 
 impl ActionRuntime {
+    /// A `pose` action: takes no time and holds the named pose (or returns to idle) until the
+    /// next pose step.
+    pub(super) fn pose_action(&mut self, action: &Action) -> (f64, bool) {
+        let Action::Pose {
+            pose_name,
+            blend_secs,
+        } = action
+        else {
+            unreachable!("pose_action runs only for pose")
+        };
+        self.pose_steps.push(match pose_name {
+            Some(name) => PoseStep::Apply {
+                name: Some(name.clone()),
+                seconds: 0.0,
+                blend_secs: *blend_secs,
+                stiffness_multiplier: 1.0,
+                instant: false,
+            },
+            None => PoseStep::Clear,
+        });
+        (0.0, true)
+    }
+
     pub(super) fn begin_poses<'a>(
         &mut self,
         action: &Action,

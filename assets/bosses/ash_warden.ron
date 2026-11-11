@@ -9,12 +9,20 @@
         (
             name: "Slam",
             actions: [
+                pose(
+                    pose_name: Some("ash_warden_windup"),
+                    blend_secs: 0.2,
+                ),
                 glide_to_player(
                     speed: 1000.0,
                     above_floor: 180.0,
                 ),
                 telegraph(
                     seconds: 0.5,
+                ),
+                pose(
+                    pose_name: Some("ash_warden_slam"),
+                    blend_secs: 0.05,
                 ),
                 glide_to_floor(
                     speed: 1000.0,
@@ -28,8 +36,16 @@
         (
             name: "Dash",
             actions: [
+                pose(
+                    pose_name: Some("ash_warden_windup"),
+                    blend_secs: 0.2,
+                ),
                 telegraph(
                     seconds: 0.5,
+                ),
+                pose(
+                    pose_name: Some("ash_warden_dash"),
+                    blend_secs: 0.08,
                 ),
                 glide_to_player(
                     speed: 1000.0,

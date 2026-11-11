@@ -59,6 +59,26 @@ impl Action {
 }
 
 impl Action {
+    /// Every pose this action names, with the field it is written in: the three bindings of an
+    /// attack action, or the pose of a `pose` action.
+    pub fn pose_names(&self) -> Vec<(&'static str, &String)> {
+        if let Self::Pose {
+            pose_name: Some(name),
+            ..
+        } = self
+        {
+            return vec![("pose_name", name)];
+        }
+        let Some(bindings) = self.pose_binding_refs() else {
+            return Vec::new();
+        };
+        ["telegraph_pose", "active_pose", "recovery_pose"]
+            .into_iter()
+            .zip(bindings)
+            .filter_map(|(field, name)| name.as_ref().map(|name| (field, name)))
+            .collect()
+    }
+
     pub fn pose_bindings(&self) -> Option<[Option<String>; 3]> {
         self.pose_binding_refs()
             .map(|names| names.map(Clone::clone))

@@ -1,1 +1,1 @@
-(pose_blend_ratio: 0.8, strike_stiffness_multiplier: 3.0, motion: (settle_factor: 7.0, min_blend_secs: 0.001, instant_strike_secs: 0.04))
+(pose_blend_ratio: 0.8, pose_action_blend_secs: 0.12, strike_stiffness_multiplier: 3.0, motion: (settle_factor: 7.0, min_blend_secs: 0.001, instant_strike_secs: 0.04))

@@ -415,7 +415,10 @@ impl BossSpecials {
             };
             if action.uses_ground_motion() {
                 self.uses_ground_motion = true;
-            } else if !matches!(action, Action::Wait { .. } | Action::Telegraph { .. }) {
+            } else if !matches!(
+                action,
+                Action::Wait { .. } | Action::Telegraph { .. } | Action::Pose { .. }
+            ) {
                 self.uses_ground_motion = false;
             }
             let ground_physics = self.uses_ground_motion;

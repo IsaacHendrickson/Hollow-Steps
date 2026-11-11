@@ -14,7 +14,10 @@ use crate::enemy_attack::{
 };
 use crate::enemy_attack::{blast_radius, valid_vector, AttackVector};
 use crate::enemy_attack::{default_feedback, valid_feedback, AttackFeedback};
-use crate::pose::{default_blend_ratio, default_strike_multiplier, valid_blend_ratio};
+use crate::pose::{
+    default_blend_ratio, default_pose_action_blend_secs, default_strike_multiplier,
+    valid_blend_ratio,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
@@ -231,6 +234,10 @@ actions! {
         #[serde(default)] recovery_pose: Option<String> => ("recovery_pose", valid_pose_name),
         #[serde(default = "default_blend_ratio")] pose_blend_ratio: f32 => ("pose blend ratio (0..1)", valid_blend_ratio),
         #[serde(default = "default_strike_multiplier")] strike_stiffness_multiplier: f32 => ("strike stiffness multiplier (positive)", positive)
+    },
+    Pose => "pose" {
+        #[serde(default = "default_pose_action_blend_secs")] blend_secs: f32 => ("pose blend time (seconds)", positive),
+        #[serde(default)] pose_name: Option<String> => ("pose name (empty returns to the idle pose)", valid_pose_name)
     };
     GlideToPlayer => "glide_to_player" {
         speed: f32 => ("Glide speed (px/s)", positive), above_floor: f32 => ("Height above floor (px)", nonnegative)
