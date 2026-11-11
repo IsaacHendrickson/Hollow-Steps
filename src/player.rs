@@ -5,6 +5,8 @@ use crate::health::Health;
 use crate::item::Item;
 use crate::terrain::Terrain;
 
+/// The shipped dash values, kept so existing tests and callers still compile. The game reads
+/// `PlayerConfig` (from `data/player.ron`); a test keeps these equal to that file.
 pub const DASH_SPEED: f32 = 800.0;
 pub const DASH_DURATION: f32 = 0.2;
 /// Minimum time between dash starts.
@@ -38,20 +40,16 @@ pub struct PlayerConfig {
     pub coyote_seconds: f32,
     pub jump_buffer_seconds: f32,
     pub size: Vec2,
+    pub dash_speed: f32,
+    pub dash_duration: f32,
+    /// Minimum time between dash starts.
+    pub dash_cooldown: f32,
 }
 
+/// The shipped values from `data/player.ron`.
 impl Default for PlayerConfig {
     fn default() -> Self {
-        Self {
-            move_speed: 220.0,
-            jump_speed: 480.0,
-            gravity: 1_400.0,
-            max_fall_speed: 900.0,
-            held_jump_gravity_multiplier: 0.5,
-            coyote_seconds: 0.1,
-            jump_buffer_seconds: 0.12,
-            size: Vec2::new(32.0, 48.0),
-        }
+        crate::tuning::TuningConfig::default().player
     }
 }
 /// The playable rectangular area for the first prototype.
@@ -120,6 +118,17 @@ impl Player {
             attack_knockback_x: 0.0,
             attack_knockback_remaining: 0.0,
         }
+    }
+
+    pub fn config(&self) -> &PlayerConfig {
+        &self.config
+    }
+
+    /// Swaps in new tunables mid-game. Position, velocity, timers and items are kept; a
+    /// height change keeps the feet where they are so the player is never pushed into the floor.
+    pub fn set_config(&mut self, config: PlayerConfig) {
+        self.position.y += (self.config.size.y - config.size.y) / 2.0;
+        self.config = config;
     }
 
     pub fn attack(&self) -> &Attack {
@@ -279,15 +288,15 @@ impl Player {
             && self.dash_cooldown == 0.0
             && (self.grounded || !self.air_dash_used)
         {
-            self.dash_remaining = DASH_DURATION;
-            self.dash_cooldown = DASH_COOLDOWN;
+            self.dash_remaining = self.config.dash_duration;
+            self.dash_cooldown = self.config.dash_cooldown;
             self.air_dash_used |= !self.grounded;
         }
 
         // Split long frames so dash speed never lasts beyond its duration.
         let dash_seconds = delta_seconds.min(self.dash_remaining);
         if self.dash_remaining > 0.0 {
-            self.velocity = Vec2::new(self.facing * DASH_SPEED, 0.0);
+            self.velocity = Vec2::new(self.facing * self.config.dash_speed, 0.0);
             let contacts = self.displace(self.velocity * dash_seconds, terrain, bounds);
             if contacts.wall {
                 self.dash_remaining = 0.0;

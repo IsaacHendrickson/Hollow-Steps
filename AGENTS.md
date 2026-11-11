@@ -88,6 +88,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, and terrain validation.
 - `src/camera.rs`: follow camera with look-ahead and room clamping, letterbox fit, HUD anchors; tunables in `data/camera.ron`.
 - `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
+- `src/tuning.rs`: player and enemy-knockback tunables from `data/player.ron` (an `assets/player.ron` replaces it whole), one range per field shared by validation and the F4 window, staged save.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/editor_guard.rs`: unsaved-changes state machine (Save / Discard / Cancel) and the approved-action runner.
 - `src/editor_history.rs`: snapshot undo/redo for the room draft (limit 100; a drag is one step) and the Ctrl+Z / Ctrl+Y key mapping.
@@ -103,6 +104,7 @@ Composition and front end:
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
 - `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `history_panel.rs` (Undo/Redo), `unsaved_dialog.rs` (Save / Discard / Cancel window).
+- `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field (typed out-of-range values are refused with a message), unsaved note, Save, and headless layout/input checks.
 - `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
 - `src/startup.rs`: Macroquad startup: loads the game and shows load errors on the virtual-resolution screen (F5 retries); shared letterboxed frame presentation.
 - `src/main.rs`: Macroquad window setup, keyboard translation, drawing, and
