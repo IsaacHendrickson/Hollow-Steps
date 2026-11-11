@@ -280,6 +280,7 @@ plus `pose_blend_ratio` (0.8) and `strike_stiffness_multiplier` (3.0). All shipp
 attack bindings are authored in behavior/preset data; generic editor actions
 start with empty bindings so they can be used by bodyless enemies. Separate
 `telegraph` actions use the following attack's binding and their own duration.
+The zero-time `pose` action (`pose_name`, `blend_secs`) sets or clears a pose anywhere in a sequence, for actions that have no bindings of their own, such as glides.
 Phase changes set/clear existing point targets. Pose targets use the exact
 critically damped spring solution with settling time derived from telegraph
 duration; unposed points retain their template follow/idle rules. Zero-duration

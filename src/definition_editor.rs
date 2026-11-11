@@ -153,7 +153,11 @@ impl DefinitionDraft {
     }
 
     pub fn boss_definitions(&self) -> Result<BossDefinitions, String> {
-        BossDefinitions::from_definitions(self.bosses.values().cloned())
+        BossDefinitions::from_definitions_with_assets(
+            self.bosses.values().cloned(),
+            self.bodies.clone(),
+            self.poses.clone(),
+        )
     }
 
     /// One catalog shared by the picker and canvas placement, with explicit entity types.

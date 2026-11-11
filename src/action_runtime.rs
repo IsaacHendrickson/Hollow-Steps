@@ -244,6 +244,7 @@ impl ActionRuntime {
                 Self::glide_to_player(action, *position, context, actor)
             }
             Action::GlideToFloor { .. } => Self::glide_to_floor(action, context, actor),
+            Action::Pose { .. } => self.pose_action(action),
             Action::DamageTarget { .. } => Self::damage_target(action, context, actor),
             Action::SpawnShockwave { .. } => {
                 Self::spawn_shockwave(action, *position, context, actor)

@@ -19,6 +19,7 @@ fn boss(actions: Vec<Action>, position: Vec2) -> BossSpecials {
                 name: "Test".into(),
                 actions,
             }],
+            body: None,
         }),
         position,
     )

@@ -8,7 +8,9 @@ use macroquad::math::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::behavior::{nonnegative, ron_files, Action};
+use crate::body::{load_body_templates, BodyTemplates, BodyVisual};
 use crate::boss_special::BossSpecials;
+use crate::pose::{load_poses, Poses};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -34,6 +36,9 @@ pub struct BossDefinition {
     pub selection: AttackSelection,
     pub pause_seconds: f32,
     pub attacks: Vec<AttackDefinition>,
+    /// The boss's look. `None` keeps the plain box; the hitbox is always `size`.
+    #[serde(default)]
+    pub body: Option<BodyVisual>,
 }
 
 impl BossDefinition {
@@ -62,6 +67,9 @@ impl BossDefinition {
                 return Err("size must be finite and positive".into());
             }
             nonnegative(self.pause_seconds).map_err(|e| format!("pause_seconds: {e}"))?;
+            if let Some(body) = &self.body {
+                body.validate()?;
+            }
             if self.attacks.is_empty() {
                 return Err("attacks must not be empty".into());
             }
@@ -98,26 +106,58 @@ pub(crate) fn validate_action(action: &Action) -> Result<(), String> {
     Ok(())
 }
 
+/// Validated boss content plus the body templates and poses the bosses draw on.
 #[derive(Debug, Default)]
-pub struct BossDefinitions(BTreeMap<String, Arc<BossDefinition>>);
+pub struct BossDefinitions {
+    bosses: BTreeMap<String, Arc<BossDefinition>>,
+    bodies: BodyTemplates,
+    poses: Arc<Poses>,
+}
+
+/// Checks a boss against the body templates and poses it names.
+fn validate_assets(
+    definition: &BossDefinition,
+    bodies: &BodyTemplates,
+    poses: &Poses,
+) -> Result<(), String> {
+    if let Some(body) = &definition.body {
+        body.validate_template(bodies)
+            .map_err(|e| format!("boss {:?}: {e}", definition.name))?;
+    }
+    crate::pose::validate_boss(definition, poses)
+}
 
 impl BossDefinitions {
+    /// Bosses without bodies; a boss that names a body template is rejected here.
     pub fn from_definitions(
         definitions: impl IntoIterator<Item = BossDefinition>,
+    ) -> Result<Self, String> {
+        Self::from_definitions_with_assets(definitions, BodyTemplates::new(), Poses::new())
+    }
+
+    pub fn from_definitions_with_assets(
+        definitions: impl IntoIterator<Item = BossDefinition>,
+        bodies: BodyTemplates,
+        poses: Poses,
     ) -> Result<Self, String> {
         let mut catalog = BTreeMap::new();
         for definition in definitions {
             definition.validate()?;
+            validate_assets(&definition, &bodies, &poses)?;
             let name = definition.name.clone();
             if catalog.insert(name.clone(), Arc::new(definition)).is_some() {
                 return Err(format!("duplicate boss name {name:?}"));
             }
         }
-        Ok(Self(catalog))
+        Ok(Self {
+            bosses: catalog,
+            bodies,
+            poses: Arc::new(poses),
+        })
     }
 
     pub fn size(&self, name: &str) -> Result<Vec2, String> {
-        self.0
+        self.bosses
             .get(name)
             .map(|b| b.size.into())
             .ok_or_else(|| format!("missing boss definition {name:?}"))
@@ -129,11 +169,15 @@ impl BossDefinitions {
         if !directory.exists() {
             return Ok(Self::default());
         }
+        let bodies = load_body_templates(&assets.join("bodies"))?;
+        let poses = load_poses(&assets.join("poses"))?;
         let mut definitions = BTreeMap::new();
         for path in ron_files(&directory)? {
             let source =
                 std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
             let definition = BossDefinition::from_ron(&source)
+                .map_err(|e| format!("{}: {e}", path.display()))?;
+            validate_assets(&definition, &bodies, &poses)
                 .map_err(|e| format!("{}: {e}", path.display()))?;
             let name = definition.name.clone();
             if definitions
@@ -143,14 +187,23 @@ impl BossDefinitions {
                 return Err(format!("{}: duplicate boss name {name:?}", path.display()));
             }
         }
-        Ok(Self(definitions))
+        Ok(Self {
+            bosses: definitions,
+            bodies,
+            poses: Arc::new(poses),
+        })
     }
 
     pub fn spawn(&self, name: &str, position: Vec2) -> Result<BossSpecials, String> {
         let definition = self
-            .0
+            .bosses
             .get(name)
             .ok_or_else(|| format!("missing boss definition {name:?}"))?;
-        BossSpecials::from_definition(definition.clone(), position)
+        BossSpecials::from_definition_with_body(
+            definition.clone(),
+            position,
+            &self.bodies,
+            self.poses.clone(),
+        )
     }
 }

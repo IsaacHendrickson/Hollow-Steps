@@ -12,4 +12,5 @@
     spawn_rings(count: 3),
     explode_rings(radius: 48.0, damage: 20),
     spawn_shockwave(radius: 80.0, damage: 20),
+    pose(blend_secs: 0.12, pose_name: Some("windup")),
 ]

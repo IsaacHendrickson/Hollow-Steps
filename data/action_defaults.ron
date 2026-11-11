@@ -15,4 +15,5 @@
     hover(seconds: 1.0),
     slam_down(speed: 600.0),
     area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 10),
+    pose(blend_secs: 0.12, pose_name: None),
 ]
