@@ -37,17 +37,5 @@
                 ),
             ],
         ),
-        (
-            name: "temp",
-            actions: [
-                telegraph(
-                    seconds: 0.5,
-                ),
-                spawn_shockwave(
-                    radius: 80.0,
-                    damage: 2,
-                ),
-            ],
-        ),
     ],
 )
