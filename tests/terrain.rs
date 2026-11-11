@@ -240,6 +240,7 @@ fn lunger(bounds: hollow_steps::player::WorldBounds, x: f32) -> hollow_steps::en
             name: "lunger".into(),
             health: 3,
             size: (36.0, 36.0),
+            visual_size: None,
             contact_damage: 1,
             behavior: "lunge".into(),
             body: None,

@@ -3,7 +3,7 @@
 //! of the edited room; `draw_editor` runs one editor frame.
 
 use crate::editor_panel::{BossPropertyUi, PropertyUi};
-use crate::{body_draw, editor_panel, terrain_canvas};
+use crate::{body_draw, editor_panel, editor_visuals, terrain_canvas};
 use hollow_steps::boss_special::BossSpecials;
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
@@ -71,7 +71,7 @@ impl EditorUi {
     }
 }
 
-fn editor_markers(
+pub(crate) fn editor_markers(
     editor: &EditorSession,
     destination: Option<usize>,
     selected: Option<Selection>,
@@ -415,32 +415,12 @@ pub(crate) fn draw_editor(
     let erase_target =
         terrain_canvas::erase_target(state, editor, &markers, world).filter(|_| over_canvas);
     terrain_canvas::draw(state, &layout, &canvas, erase_target);
-    for (selection, rect, color) in editor_markers(editor, state.destination, state.selected) {
-        let r = canvas.rect(rect);
-        draw_rectangle(
-            r.x,
-            r.y,
-            r.w,
-            r.h,
-            Color::new(color.r, color.g, color.b, 0.45),
-        );
-        draw_rectangle_lines(
-            r.x,
-            r.y,
-            r.w,
-            r.h,
-            if state.selected == Some(selection) {
-                3.0
-            } else {
-                1.0
-            },
-            if state.selected == Some(selection) {
-                WHITE
-            } else {
-                color
-            },
-        );
-    }
+    // Recomputed after this frame's edits. Enemies and the boss are drawn at their visual size
+    // under their hitbox outline.
+    let drawn = editor_markers(editor, state.destination, state.selected);
+    let previews = editor_visuals::visual_previews(editor, &drawn);
+    editor_visuals::draw_visual_previews(&previews, state.selected, &canvas);
+    editor_visuals::draw_markers(&drawn, state.selected, &canvas);
     if body_debug && state.destination.is_none() {
         // Preview authored placements and unsaved definitions without touching runtime bodies.
         let enemies = editor

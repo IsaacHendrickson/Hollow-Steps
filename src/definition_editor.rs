@@ -495,6 +495,7 @@ impl DefinitionDraft {
             name: name.to_owned(),
             health: 10,
             size: (32.0, 40.0),
+            visual_size: None,
             contact_damage: 10,
             behavior: behavior.clone(),
             body: None,
@@ -807,6 +808,7 @@ pub fn entity_from_fields(fields: &[String; 6]) -> Result<EnemyDefinition, Strin
             fields[2].parse().map_err(|_| "invalid width")?,
             fields[3].parse().map_err(|_| "invalid height")?,
         ),
+        visual_size: None,
         contact_damage: fields[4]
             .parse()
             .map_err(|_| "contact damage must be 0..65535")?,

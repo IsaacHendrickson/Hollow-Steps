@@ -9,7 +9,7 @@ use macroquad::math::Vec2;
 
 use super::{Enemy, EnemyDefinition};
 use crate::behavior::{load_behaviors, read_ron, ron_files, BehaviorDefinition};
-use crate::body::{load_body_templates, BodyTemplates};
+use crate::body::{load_body_templates, BodyInstance, BodyTemplates};
 use crate::player::WorldBounds;
 
 /// Validated asset definitions, shared by all room instances.
@@ -134,6 +134,32 @@ impl EnemyDefinitions {
             .get(name)
             .ok_or_else(|| format!("missing enemy definition {name:?}"))?;
         Ok(Vec2::new(entity.size.0, entity.size.1))
+    }
+
+    /// The size the enemy is drawn at: its own `visual_size`, else the hitbox size.
+    pub fn visual_size(&self, name: &str) -> Result<Vec2, String> {
+        let entity = self
+            .entities
+            .get(name)
+            .ok_or_else(|| format!("missing enemy definition {name:?}"))?;
+        Ok(crate::visual_box::size(
+            Vec2::from(entity.size),
+            entity.visual_size,
+        ))
+    }
+
+    /// A fresh body at rest for the definition, or `None` when it is drawn as a plain box.
+    /// The editor draws this still body so an unsaved definition shows its look.
+    pub fn body_instance(&self, name: &str) -> Result<Option<BodyInstance>, String> {
+        let entity = self
+            .entities
+            .get(name)
+            .ok_or_else(|| format!("missing enemy definition {name:?}"))?;
+        entity
+            .body
+            .clone()
+            .map(|visual| BodyInstance::new(visual, &self.bodies))
+            .transpose()
     }
 
     pub fn spawn(

@@ -4,8 +4,9 @@ use std::sync::Arc;
 
 use hollow_steps::body::{BodyInstance, BodyTemplate, BodyTemplates, BodyVisual};
 use hollow_steps::body_debug::{
-    body_primitives, label_requests, nearest_entity, ColorSlot, OverlayPrimitive, CURRENT_RADIUS,
-    FONT_SIZES, LABEL_FONT_SIZE, LABEL_OFFSET, REST_RADIUS, TARGET_RADIUS,
+    body_primitives, body_primitives_in, label_requests, nearest_entity, ColorSlot,
+    OverlayPrimitive, CURRENT_RADIUS, FONT_SIZES, LABEL_FONT_SIZE, LABEL_OFFSET, REST_RADIUS,
+    TARGET_RADIUS,
 };
 use hollow_steps::enemy::Enemy;
 use hollow_steps::player::WorldBounds;
@@ -317,4 +318,64 @@ fn pose_legend_uses_an_existing_hud_size_and_handles_no_body() {
     use hollow_steps::body_debug::{pose_legend, LEGEND_FONT_SIZE};
     assert_eq!(LEGEND_FONT_SIZE, 18);
     assert!(pose_legend(&[], Vec2::ZERO).ends_with("pose: none"));
+}
+
+fn hitbox_rect(primitives: &[OverlayPrimitive]) -> Rect {
+    let rects = primitives
+        .iter()
+        .filter_map(|p| match p {
+            OverlayPrimitive::Rect {
+                rect,
+                color_slot: ColorSlot::Hitbox,
+            } => Some(*rect),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(rects.len(), 1);
+    rects[0]
+}
+
+fn current_points(primitives: &[OverlayPrimitive]) -> Vec<Vec2> {
+    primitives
+        .iter()
+        .filter_map(|p| match p {
+            OverlayPrimitive::Circle {
+                position,
+                color_slot: ColorSlot::Current,
+                ..
+            } => Some(*position),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_body_in_its_own_box_matches_the_single_box_overlay() {
+    let body = body();
+    let (center, size) = (Vec2::new(100.0, 200.0), Vec2::new(40.0, 60.0));
+    assert_eq!(
+        body_primitives_in(&body, (center, size), (center, size), true, true),
+        body_primitives(&body, center, size, true, true)
+    );
+}
+
+#[test]
+fn the_overlay_places_points_in_the_visual_box_and_the_hitbox_in_the_hitbox() {
+    let body = body();
+    let hitbox = (Vec2::new(100.0, 200.0), Vec2::new(40.0, 60.0));
+    let visual = (Vec2::new(100.0, 170.0), Vec2::new(80.0, 120.0));
+    let split = body_primitives_in(&body, visual, hitbox, false, false);
+    assert_eq!(
+        hitbox_rect(&split),
+        Rect::new(80.0, 170.0, 40.0, 60.0),
+        "the hitbox rectangle ignores the visual box"
+    );
+    // The same body drawn alone in the visual box has the same points.
+    let alone = body_primitives(&body, visual.0, visual.1, false, false);
+    assert_eq!(current_points(&split), current_points(&alone));
+    assert_ne!(
+        current_points(&split),
+        current_points(&body_primitives(&body, hitbox.0, hitbox.1, false, false)),
+        "and they differ from where the hitbox box would put them"
+    );
 }

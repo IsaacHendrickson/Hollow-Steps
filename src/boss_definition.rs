@@ -29,7 +29,12 @@ pub struct AttackDefinition {
 pub struct BossDefinition {
     pub name: String,
     pub health: u32,
+    /// The hitbox: contact damage and being hit use this size.
     pub size: (f32, f32),
+    /// The size the boss is drawn at, when it should differ from the hitbox. Absent means the
+    /// hitbox size. See `crate::visual_box`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visual_size: Option<(f32, f32)>,
     pub contact_damage: u16,
     pub selection: AttackSelection,
     pub pause_seconds: f32,
@@ -61,6 +66,7 @@ impl BossDefinition {
             if !Vec2::from(self.size).is_finite() || self.size.0 <= 0.0 || self.size.1 <= 0.0 {
                 return Err("size must be finite and positive".into());
             }
+            crate::visual_box::validate(self.visual_size)?;
             nonnegative(self.pause_seconds).map_err(|e| format!("pause_seconds: {e}"))?;
             if self.attacks.is_empty() {
                 return Err("attacks must not be empty".into());

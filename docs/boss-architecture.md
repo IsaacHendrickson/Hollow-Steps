@@ -25,6 +25,10 @@ must fit within the room. A definition contains all encounter settings:
 )
 ```
 
+`size` is the boss's hitbox (contact damage, being hit). An optional `visual_size: Some((w, h))` (each
+side 1 to 2000 px, left out of saved files when unset) is the size of the box it is drawn in; the two
+boxes share a horizontal center and a bottom edge, so a taller picture rises above the hitbox.
+
 `selection` is `cycle` (file order, wrapping) or `random` (uniform choices,
 repeats allowed, with an instance-local seed for reproducible tests). The pause
 is the minimum interval between attack starts, including attack time; an

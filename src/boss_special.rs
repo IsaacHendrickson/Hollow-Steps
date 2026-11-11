@@ -128,8 +128,17 @@ impl BossSpecials {
     pub fn position(&self) -> Vec2 {
         self.position
     }
+    /// The hitbox size: contact damage and being hit use it.
     pub fn size(&self) -> Vec2 {
         self.definition.size.into()
+    }
+    /// The size the boss is drawn at; the hitbox size unless its definition sets one.
+    pub fn visual_size(&self) -> Vec2 {
+        crate::visual_box::size(self.size(), self.definition.visual_size)
+    }
+    /// The center of the drawn box: the hitbox's horizontal center and bottom edge.
+    pub fn visual_center(&self) -> Vec2 {
+        crate::visual_box::center(self.position, self.size(), self.visual_size())
     }
     pub fn health(&self) -> u32 {
         self.health

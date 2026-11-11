@@ -265,6 +265,7 @@ fn every_enemy_can_run_all_actions_and_knockback_pauses_airborne_behavior() {
         name: "flyer".into(),
         health: 30,
         size: (36.0, 36.0),
+        visual_size: None,
         contact_damage: 0,
         behavior: "all".into(),
         body: None,

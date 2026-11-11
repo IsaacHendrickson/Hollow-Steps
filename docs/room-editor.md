@@ -68,7 +68,12 @@ behavior for already loaded rooms; restart or use editor Save to apply layouts.
 
 
 Select an enemy, then choose **Entity properties** in the right panel. Edit its
-shared name, health, width/height, and contact damage. Choose a behavior in the
+shared name, health, hitbox width/height, and contact damage. Tick **Separate visual
+size** to give the picture its own **Visual width** and **Visual height** (drag boxes,
+1 to 2000 px); unticked, it is drawn in the hitbox. Only the hitbox affects play. The
+canvas draws each enemy's body (or plain box) at its visual size with a thin light
+outline, under the hitbox's colored outline, and both update as you edit; the two
+boxes share a bottom edge and center, so a taller picture rises above the hitbox. Choose a behavior in the
 **Behavior** dropdown and click **Use selected behavior** to assign it. These
 edits affect every instance using that definition. Renaming an
 entity updates references in all saved rooms while retaining its entity filename.
@@ -77,7 +82,9 @@ below the visible area.
 
 Boss definitions appear as **Boss: name** in the same searchable entity list.
 Place one boss per room, drag its purple body freely within the room, or delete it.
-Selecting a boss on the canvas opens its shared properties: name, health, size,
+Selecting a boss on the canvas opens its shared properties: name, health, hitbox
+width/height, an optional **Separate visual size** (the same drag boxes as enemies;
+the canvas shows the boss's box at that size under the purple hitbox outline),
 contact damage, attack selection mode, and pause between attacks. **Add attack**
 prompts for a unique name. Select an attack to rename it or edit its ordered
 actions; use **Up**, **Down**, and **Delete** on attack and action rows.
@@ -446,3 +453,18 @@ Run `cargo run`, press F2 and use a room with a few entities.
   start and the footer says why.
 - Press F5 and Open room during a test: refused until you press F2. Resize the window and
   repeat: the view letterboxes as in normal play.
+
+## Manual check: hitbox and visual size
+
+- Open a room with an enemy, select it, open Entity properties. Tick Separate visual size:
+  the picture starts at the hitbox size. Drag Visual width and height: the picture and its
+  thin light outline resize live while the colored hitbox outline stays put, and a taller
+  picture grows upward from the same floor line.
+- Change Hitbox width and height: the hitbox outline resizes and the picture does not (while
+  the visual size is ticked). Untick it: the picture goes back to the hitbox size.
+- Zoom and pan the canvas: the picture scales with the hitbox. Save, press F2, play: the
+  enemy is drawn at the saved visual size, its health bar is over the picture, and it hurts
+  you only inside the hitbox. Press F3 in play: body points sit in the picture and the
+  hitbox rectangle is the hitbox.
+- Select the boss, set a bigger Visual size: the purple box grows upward beyond the hitbox
+  outline; in play the boss box is drawn at that size and slams still land on the hitbox.
