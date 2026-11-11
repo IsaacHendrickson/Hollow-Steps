@@ -8,7 +8,7 @@ use hollow_steps::game::GameState;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player_body::PlayerBody;
 use hollow_steps::room::Room;
-use hollow_steps::terrain_style::{self, TerrainLook, TerrainStyle};
+use hollow_steps::terrain_style::{self, TerrainLook};
 use macroquad::prelude::*;
 
 use crate::{body_draw, terrain_draw};
@@ -51,7 +51,7 @@ pub fn draw_scene(
         room.id,
         room.terrain.solids(),
         Some(ground),
-        &TerrainStyle::default(),
+        &room.terrain_style,
     );
     terrain_draw::draw_shapes(look, camera_view);
     draw_rectangle_lines(

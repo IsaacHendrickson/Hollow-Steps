@@ -24,6 +24,7 @@
 //! solids, the ground or the palette change.
 
 use macroquad::math::Rect;
+use serde::{Deserialize, Serialize};
 
 use crate::particles::Rng;
 use crate::room::RoomId;
@@ -171,8 +172,11 @@ impl Shape {
     }
 }
 
-/// A room's terrain palette and switches.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// A room's terrain palette and switches, the room file's `layout.terrain_style`. Every field
+/// is optional there and falls back to the default look, so older room files load unchanged
+/// and a palette may name only what it changes.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct TerrainStyle {
     /// The middle band of every solid; the other bands are derived from it.
     pub fill: Rgb,
@@ -198,6 +202,33 @@ impl Default for TerrainStyle {
             seed_offset: 0,
             moss: true,
         }
+    }
+}
+
+impl TerrainStyle {
+    /// True for the look a room gets without a palette (it is left out of saved room files).
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// Checks that every palette color is finite with each part between 0 and 1.
+    pub fn validate(&self) -> Result<(), String> {
+        for (name, (red, green, blue)) in [
+            ("fill", self.fill),
+            ("edge", self.edge),
+            ("highlight", self.highlight),
+            ("accent", self.accent),
+        ] {
+            if ![red, green, blue]
+                .iter()
+                .all(|part| part.is_finite() && (0.0..=1.0).contains(part))
+            {
+                return Err(format!(
+                    "terrain_style {name}: red, green and blue must be finite and between 0 and 1"
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
