@@ -1,7 +1,6 @@
 use hollow_steps::assets;
 use hollow_steps::boss_special::BossSpecials;
 use hollow_steps::camera::{Camera, CameraConfig};
-use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
 use hollow_steps::editor_history::{shortcut, tracked, History};
@@ -21,6 +20,8 @@ mod body_draw;
 mod editor_panel;
 mod effects;
 mod hud;
+mod postfx_pass;
+mod scene;
 mod startup;
 mod terrain_canvas;
 mod tuning_panel;
@@ -48,6 +49,11 @@ async fn main() {
     // Invalid effect settings are shown like a failed reload.
     let (mut effects, effects_error) = effects::Effects::load(&assets::assets_root());
     let mut reload_result = effects_error.map(Err);
+    // Vignette and glow over the world picture; a settings or shader error is shown the same way.
+    let (mut post_pass, post_error) = postfx_pass::PostPass::load(&assets::assets_root(), view);
+    if let Some(error) = post_error {
+        reload_result = Some(Err(error));
+    }
     // The player's body; a load error is shown like a failed reload and keeps the plain box.
     let mut player_body = match PlayerBody::load(&assets::assets_root()) {
         Ok(body) => body,
@@ -133,6 +139,7 @@ async fn main() {
             reload_result = Some(
                 game.reload_rooms()
                     .and_then(|()| effects.reload())
+                    .and_then(|()| post_pass.reload(&assets::assets_root()))
                     .and_then(|()| {
                         player_body = PlayerBody::load(&assets::assets_root())?;
                         Ok(())
@@ -186,11 +193,13 @@ async fn main() {
         // Screen shake moves only the picture, not the camera that follows the player.
         let world_view = camera.view_rect_shaken(view, game.shake_offset());
         set_camera(&screen_camera(world_view, Some(screen.clone())));
-        draw_scene(&game, player_body.as_ref());
+        scene::draw_scene(&game, player_body.as_ref(), camera.view_rect(view));
         effects.draw();
+        // The HUD is drawn after the post-process pass so the vignette never dims it.
+        let frame = post_pass.process(&screen, view);
         set_camera(&screen_camera(
             Rect::new(0.0, 0.0, view.x, view.y),
-            Some(screen.clone()),
+            Some(frame.clone()),
         ));
         hud::draw_hud(&game, view);
         if game.testing_room() {
@@ -207,7 +216,7 @@ async fn main() {
                 view,
             );
         }
-        let letterbox = present(&screen, view);
+        let letterbox = present(&frame, view);
         // Drain the integration's event subscription while the editor is closed, so reopening
         // cannot replay earlier gameplay clicks or keys into its controls.
         egui_macroquad::ui(|ctx| {
@@ -262,198 +271,6 @@ fn read_player_input() -> PlayerInput {
         dash_pressed: is_key_pressed(KeyCode::LeftShift) || is_key_pressed(KeyCode::RightShift),
         up_held: is_key_down(KeyCode::Up),
         down_held: is_key_down(KeyCode::Down),
-    }
-}
-
-fn draw_scene(game: &GameState, player_body: Option<&PlayerBody>) {
-    let room = game.room();
-    let bounds = game.world_bounds();
-    let player = game.player();
-    let player_position = player.position();
-    let player_size = player.size();
-
-    clear_background(Color::from_rgba(16, 18, 31, 255));
-    draw_rectangle(
-        bounds.left,
-        bounds.floor_y,
-        bounds.right - bounds.left,
-        room.bounds.bottom() - bounds.floor_y,
-        Color::from_rgba(34, 37, 58, 255),
-    );
-    draw_line(
-        bounds.left,
-        bounds.floor_y,
-        bounds.right,
-        bounds.floor_y,
-        4.0,
-        Color::from_rgba(111, 122, 164, 255),
-    );
-    for solid in room.terrain.solids() {
-        draw_rectangle(
-            solid.x,
-            solid.y,
-            solid.w,
-            solid.h,
-            Color::from_rgba(34, 37, 58, 255),
-        );
-        draw_rectangle_lines(
-            solid.x,
-            solid.y,
-            solid.w,
-            solid.h,
-            3.0,
-            Color::from_rgba(111, 122, 164, 255),
-        );
-    }
-    draw_rectangle_lines(
-        room.bounds.x,
-        room.bounds.y,
-        room.bounds.w,
-        room.bounds.h,
-        2.0,
-        Color::from_rgba(62, 70, 103, 255),
-    );
-    for exit in &room.exits {
-        let zone = exit.zone(room.bounds);
-        draw_rectangle(
-            zone.x,
-            zone.y,
-            zone.w,
-            zone.h,
-            if room.exits_locked() {
-                Color::from_rgba(220, 65, 70, 190)
-            } else {
-                Color::from_rgba(82, 172, 164, 100)
-            },
-        );
-        if room.exits_locked() {
-            draw_rectangle_lines(zone.x, zone.y, zone.w, zone.h, 3.0, RED);
-        }
-    }
-    for item in game.items() {
-        let nearby = item.can_pick_up(player);
-        let top_left = item.position - ITEM_SIZE / 2.0;
-        draw_rectangle(
-            top_left.x,
-            top_left.y,
-            ITEM_SIZE.x,
-            ITEM_SIZE.y,
-            if nearby { YELLOW } else { GOLD },
-        );
-        if nearby {
-            draw_rectangle_lines(
-                top_left.x - 3.0,
-                top_left.y - 3.0,
-                ITEM_SIZE.x + 6.0,
-                ITEM_SIZE.y + 6.0,
-                2.0,
-                WHITE,
-            );
-            draw_text(
-                format!("Up: pick up {}", item.item.name()),
-                top_left.x - 80.0,
-                top_left.y - 16.0,
-                20.0,
-                WHITE,
-            );
-        }
-    }
-    for coin in game.coins() {
-        draw_circle(coin.position.x, coin.position.y, COIN_RADIUS, GOLD);
-        draw_circle_lines(
-            coin.position.x,
-            coin.position.y,
-            COIN_RADIUS - 2.0,
-            1.0,
-            YELLOW,
-        );
-    }
-    for enemy in &game.room().enemies {
-        if enemy.is_dead() {
-            // A dying enemy only fades: its attacks, blasts and health bar are gone.
-            body_draw::draw_enemy_body(enemy);
-            continue;
-        }
-        for blast in enemy
-            .behavior()
-            .blasts()
-            .iter()
-            .chain(enemy.behavior().rings())
-        {
-            let color = if blast.exploded { RED } else { ORANGE };
-            draw_circle_lines(blast.position.x, blast.position.y, blast.radius, 2.0, color);
-        }
-        let top_left = enemy.position() - enemy.size() / 2.0;
-        body_draw::draw_enemy_body(enemy);
-        body_draw::draw_enemy_attacks(enemy);
-        draw_rectangle(top_left.x, top_left.y - 8.0, enemy.size().x, 4.0, DARKGRAY);
-        draw_rectangle(
-            top_left.x,
-            top_left.y - 8.0,
-            enemy.size().x * f32::from(enemy.health()) / f32::from(enemy.max_health()),
-            4.0,
-            RED,
-        );
-    }
-    if let Some(boss) = &room.boss_special {
-        draw_boss_special(boss, bounds.floor_y);
-    }
-    if let Some(hitbox) = player.strike_hitbox() {
-        draw_rectangle(
-            hitbox.x,
-            hitbox.y,
-            hitbox.w,
-            hitbox.h,
-            Color::from_rgba(255, 231, 160, 150),
-        );
-        draw_rectangle_lines(hitbox.x, hitbox.y, hitbox.w, hitbox.h, 2.0, GOLD);
-    }
-    match player_body {
-        Some(body) => body_draw::draw_player(body, player),
-        None => draw_rectangle(
-            player_position.x - player_size.x / 2.0,
-            player_position.y - player_size.y / 2.0,
-            player_size.x,
-            player_size.y,
-            if player.health().flash_on() {
-                WHITE
-            } else {
-                Color::from_rgba(110, 160, 230, 255)
-            },
-        ),
-    }
-}
-
-fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
-    if !boss.is_defeated() {
-        body_draw::draw_boss_attacks(boss);
-        if let Some((target_x, radius)) = boss.landing_preview() {
-            draw_rectangle(target_x - radius, floor_y - 12.0, radius * 2.0, 12.0, RED);
-        }
-        for ring in boss.rings() {
-            let color = if ring.exploded() { ORANGE } else { RED };
-            draw_circle_lines(
-                ring.position().x,
-                ring.position().y,
-                ring.radius(),
-                3.0,
-                color,
-            );
-        }
-        let top_left = boss.position() - boss.size() / 2.0;
-        draw_rectangle(
-            top_left.x,
-            top_left.y,
-            boss.size().x,
-            boss.size().y,
-            if boss.is_telegraphing() {
-                ORANGE
-            } else {
-                PURPLE
-            },
-        );
-    } else if boss.is_death_effect_active() {
-        draw_circle(boss.position().x, boss.position().y, boss.size().x, WHITE);
     }
 }
 

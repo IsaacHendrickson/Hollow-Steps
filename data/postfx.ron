@@ -1,0 +1,22 @@
+(
+    // false skips the whole pass, so the game draws exactly as it did without it.
+    enabled: true,
+    // Darkens the edges of the picture. Distances run from 0 (the middle) to 1 (the corners).
+    vignette: (
+        // How dark the corners get: 0 = not at all, 1 = black.
+        strength: 0.35,
+        // How far from the middle the darkening starts.
+        radius: 0.5,
+        // How wide the fade from untouched to darkest is.
+        softness: 0.55,
+    ),
+    // A soft halo around the brightest parts of the picture (sparks, light colors).
+    glow: (
+        // How much halo is added: 0 = none.
+        strength: 1.0,
+        // Brightness (0 to 0.95) a pixel needs before it glows.
+        threshold: 0.55,
+        // How far the halo reaches, in pixels of the 960x540 picture.
+        radius: 8.0,
+    ),
+)

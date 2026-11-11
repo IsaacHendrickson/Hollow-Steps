@@ -86,6 +86,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/sound.rs`: validated event-to-sound cues (`data/audio.ron`, an `assets/audio.ron` replaces it whole), sound-name and volume checks, sound-file lookup in `assets/audio/` (wav, then ogg), the WAV/Ogg header check, and the per-frame play plan; sub-module `tests.rs`.
 - `src/particles.rs`: validated burst presets (`data/particles.ron`, an `assets/particles.ron` replaces it whole), a seeded deterministic generator, the capped live-particle list, and the event-to-burst rules; sub-module `tests.rs`.
 - `src/feel.rs`: hit-stop and screen shake driven by `GameEvent`s (sine shake, no randomness); tunables in `data/feel.ron` (an `assets/feel.ron` replaces it whole).
+- `src/background.rs`: parallax background layers (procedural `Rect`/`Circle`/`Triangle` shapes with a depth factor, per room in `layout.background`), their validation, and the pure `parallax_offset`; sub-module `tests.rs`.
+- `src/postfx.rs`: post-process settings (vignette and glow, `data/postfx.ron`, an `assets/postfx.ron` replaces it whole, `enabled` is the data toggle), the shader source, and the pure `vignette_factor` / `glow_weight` formulas the shader runs; sub-module `tests.rs`.
 - `src/player_body.rs`: the player's look (`data/player_body.ron`, an `assets/player_body.ron` replaces it whole), pose choice from player state, and the `BodyInstance` that plays the `wanderer_*` poses; no template in the assets keeps the box.
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
@@ -115,6 +117,8 @@ Composition and front end:
 - `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `death_field.rs` (the Death time drag box), `history_panel.rs` (Undo/Redo), `tool_panel.rs` (tool selector, Delete selected), `unsaved_dialog.rs` (Save / Discard / Cancel window).
 - `src/terrain_canvas.rs`: Macroquad drawing of solids, handles and the drawing preview, and mouse-to-`TerrainTool` glue for the editor canvas.
 - `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field (typed out-of-range values are refused with a message), unsaved note, Save, and headless layout/input checks.
+- `src/scene.rs`: Macroquad drawing of the world (background layers first, then floor, terrain, exits, items, coins, enemies, boss, player), moved out of `main.rs`.
+- `src/postfx_pass.rs`: Macroquad adapter for the post-process pass: builds the material, draws the world target through it into a second target and returns the target the HUD is drawn on; an unbuilt shader or a switched-off pass returns the input untouched.
 - `src/effects.rs`: Macroquad front end for event-driven effects: feeds the frame's located events to the particles and the sound bank, steps the particles with the fixed tick and draws them in world space. Its sub-module `sound_bank.rs` loads and plays sound files; real playback needs the opt-in `audio` cargo feature (`docs/audio.md`).
 - `src/hud_layout.rs`: pure HUD rules: health pip states and positions, boss bar fill and caption, room labels.
 - `src/hud.rs`: Macroquad HUD (health masks, counters, room label, boss bar), inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
