@@ -116,7 +116,8 @@ Composition and front end:
 - `src/terrain_canvas.rs`: Macroquad drawing of solids, handles and the drawing preview, and mouse-to-`TerrainTool` glue for the editor canvas.
 - `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field (typed out-of-range values are refused with a message), unsaved note, Save, and headless layout/input checks.
 - `src/effects.rs`: Macroquad front end for event-driven effects: feeds the frame's located events to the particles and the sound bank, steps the particles with the fixed tick and draws them in world space. Its sub-module `sound_bank.rs` loads and plays sound files; real playback needs the opt-in `audio` cargo feature (`docs/audio.md`).
-- `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
+- `src/hud_layout.rs`: pure HUD rules: health pip states and positions, boss bar fill and caption, room labels.
+- `src/hud.rs`: Macroquad HUD (health masks, counters, room label, boss bar), inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
 - `src/startup.rs`: Macroquad startup: loads the game and shows load errors on the virtual-resolution screen (F5 retries); shared letterboxed frame presentation.
 - `src/main.rs`: Macroquad window setup, keyboard translation, drawing, and
   frame scheduling. It should stay thin; do not put movement, combat, room,

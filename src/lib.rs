@@ -30,6 +30,7 @@ pub mod events;
 pub mod feel;
 pub mod game;
 pub mod health;
+pub mod hud_layout;
 pub mod item;
 pub mod particles;
 pub mod player;

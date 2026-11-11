@@ -4,66 +4,107 @@ use hollow_steps::boss_special::SpecialAttack;
 use hollow_steps::camera::{anchored, Anchor};
 use hollow_steps::game::GameState;
 use hollow_steps::health::MAX_HEALTH;
+use hollow_steps::hud_layout::{
+    boss_caption, boss_fill, pip_center, pip_row_size, pip_states, room_label, PIP_RADIUS,
+};
 use hollow_steps::room::Room;
 use macroquad::prelude::*;
 
 pub fn draw_hud(game: &GameState, view: Vec2) {
     let room = game.room();
     let player = game.player();
-    let left = anchored(view, Anchor::TopLeft, Vec2::ZERO, vec2(24.0, 0.0)).x;
-    draw_text(
-        "A/D: move   Space/Z: hold jump   X: attack   Up: pickup   Shift: dash   I: inventory",
-        left,
-        36.0,
-        21.0,
-        Color::from_rgba(220, 231, 255, 255),
+    let margin = 24.0;
+
+    // Top left: health masks, then the coin and item counters.
+    let masks = pip_states(player.health().current(), MAX_HEALTH);
+    let row = anchored(
+        view,
+        Anchor::TopLeft,
+        pip_row_size(masks.len()),
+        vec2(margin, 20.0),
     );
+    for (index, filled) in masks.into_iter().enumerate() {
+        draw_mask(pip_center(row, index), PIP_RADIUS, filled);
+    }
+    let counters = anchored(view, Anchor::TopLeft, Vec2::ZERO, vec2(margin, 62.0));
+    draw_circle(counters.x + 9.0, counters.y + 2.0, 9.0, GOLD);
+    draw_circle_lines(counters.x + 9.0, counters.y + 2.0, 6.0, 1.5, YELLOW);
     draw_text(
-        format!("Health: {}/{}", player.health().current(), MAX_HEALTH),
-        left,
-        92.0,
-        22.0,
+        game.coin_count().to_string(),
+        counters.x + 26.0,
+        counters.y + 10.0,
+        28.0,
         WHITE,
     );
     draw_text(
-        format!(
-            "Coins: {}    Items: {}",
-            game.coin_count(),
-            player.collected_items().len()
-        ),
-        left,
-        64.0,
-        22.0,
-        WHITE,
-    );
-    draw_text(
-        format!(
-            "Room: {:?} ({})",
-            room.id,
-            if room.exits_locked() {
-                "exits locked until the boss falls"
-            } else {
-                "walk into a green exit"
-            }
-        ),
-        left,
-        120.0,
-        22.0,
-        WHITE,
-    );
-    draw_text(
-        "F5: reload rooms, definitions and bodies",
-        left,
-        148.0,
-        18.0,
+        format!("Items {}", player.collected_items().len()),
+        counters.x + 90.0,
+        counters.y + 8.0,
+        20.0,
         LIGHTGRAY,
     );
+
+    // Top right: where you are, and whether the way on is open.
+    let title = room_label(room.id);
+    let note = if room.exits_locked() {
+        "Exits locked until the boss falls"
+    } else {
+        "Walk into a green exit"
+    };
+    for (text, size, top, color) in [
+        (title.as_str(), 28.0, 38.0, WHITE),
+        (note, 18.0, 62.0, LIGHTGRAY),
+    ] {
+        let width = measure_text(text, None, size as u16, 1.0).width;
+        let at = anchored(view, Anchor::TopRight, vec2(width, 0.0), vec2(margin, top));
+        draw_text(text, at.x, at.y, size, color);
+    }
+
+    // Bottom left: controls, kept small.
+    let hint =
+        "A/D move   Space/Z jump   X attack   Up pickup   Shift dash   I inventory   F5 reload";
+    let at = anchored(view, Anchor::BottomLeft, Vec2::ZERO, vec2(margin, 14.0));
+    draw_text(hint, at.x, at.y, 18.0, Color::from_rgba(170, 180, 210, 255));
     draw_boss_hud(room, view);
+}
+
+/// A health mask: a pale face with two dark eye holes when full, a dim outline when empty.
+fn draw_mask(center: Vec2, radius: f32, filled: bool) {
+    if filled {
+        draw_ellipse(
+            center.x,
+            center.y,
+            radius * 0.85,
+            radius,
+            0.0,
+            Color::from_rgba(236, 240, 250, 255),
+        );
+        for side in [-1.0, 1.0] {
+            draw_ellipse(
+                center.x + side * radius * 0.36,
+                center.y - radius * 0.1,
+                radius * 0.2,
+                radius * 0.3,
+                -side * 15.0,
+                Color::from_rgba(16, 18, 31, 255),
+            );
+        }
+    } else {
+        draw_ellipse_lines(
+            center.x,
+            center.y,
+            radius * 0.85,
+            radius,
+            0.0,
+            2.0,
+            Color::from_rgba(90, 96, 130, 255),
+        );
+    }
 }
 
 fn draw_boss_hud(room: &Room, view: Vec2) {
     if let Some(boss) = &room.boss_special {
-        draw_boss_health(boss.health(), boss.max_health(), view);
+        draw_boss_health(boss.name(), boss.health(), boss.max_health(), view);
         let cue = match boss.active_attack() {
             Some(SpecialAttack::Slam) => "Slam - move out of the red zone!",
             Some(SpecialAttack::Summon) => "Summoning enemies",
@@ -76,9 +117,9 @@ fn draw_boss_hud(room: &Room, view: Vec2) {
 }
 
 const BOSS_BAR_SIZE: Vec2 = vec2(360.0, 12.0);
-const BOSS_BAR_TOP: f32 = 166.0;
+const BOSS_BAR_TOP: f32 = 60.0;
 
-fn draw_boss_health(health: u32, max_health: u32, view: Vec2) {
+fn draw_boss_health(name: &str, health: u32, max_health: u32, view: Vec2) {
     let bar = anchored(
         view,
         Anchor::TopCenter,
@@ -86,7 +127,7 @@ fn draw_boss_health(health: u32, max_health: u32, view: Vec2) {
         vec2(0.0, BOSS_BAR_TOP),
     );
     draw_text(
-        format!("Ash Warden: {health}/{max_health}"),
+        boss_caption(name, health, max_health),
         bar.x,
         bar.y - 10.0,
         26.0,
@@ -96,7 +137,7 @@ fn draw_boss_health(health: u32, max_health: u32, view: Vec2) {
     draw_rectangle(
         bar.x,
         bar.y,
-        BOSS_BAR_SIZE.x * health as f32 / max_health as f32,
+        BOSS_BAR_SIZE.x * boss_fill(health, max_health),
         BOSS_BAR_SIZE.y,
         RED,
     );
