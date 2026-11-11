@@ -23,6 +23,8 @@ mod event_tests;
 #[cfg(test)]
 mod feel_tests;
 #[cfg(test)]
+mod hud_loss_tests;
+#[cfg(test)]
 mod located_event_tests;
 #[cfg(test)]
 mod strike_tests;
@@ -533,9 +535,9 @@ impl GameState {
         )
         .resolve();
         if self.player.take_attack_damage(hit) {
-            self.vitals.damage(vitals_link::applied_damage(hit));
+            let loss = vitals_link::apply_damage(&mut self.vitals, hit);
             self.events
-                .push_at(GameEvent::PlayerDamaged, self.player.position());
+                .push_player_damaged(self.player.position(), loss);
         }
         if self.player.health().current() == 0 {
             self.player.respawn(room.spawn, bounds);

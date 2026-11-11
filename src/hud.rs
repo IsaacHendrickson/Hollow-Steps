@@ -1,33 +1,102 @@
 //! Heads-up display drawn in virtual-resolution space, anchored to the screen edges.
 
+use std::path::Path;
+
 use hollow_steps::boss_special::SpecialAttack;
 use hollow_steps::camera::{anchored, Anchor};
+use hollow_steps::events::LocatedEvent;
 use hollow_steps::game::GameState;
-use hollow_steps::health::MAX_HEALTH;
-use hollow_steps::hud_layout::{
-    boss_caption, boss_fill, masks_for, pip_center, pip_row_size, pip_states, room_label,
-    PIP_RADIUS,
-};
+use hollow_steps::hud_bars::{layout_bars, BarColors, BarLayout, BarValues, HudConfig, Rgba};
+use hollow_steps::hud_damage::HudFeedback;
+use hollow_steps::hud_layout::{boss_caption, boss_fill, room_label};
+use hollow_steps::particles::ParticleConfig;
 use hollow_steps::room::Room;
 use macroquad::prelude::*;
 
-pub fn draw_hud(game: &GameState, view: Vec2) {
+use crate::effects::draw_particles;
+
+/// The gold coin is drawn 9 pixels in radius with its center 2 pixels below the counter row's
+/// anchor, so its top is 7 pixels above the anchor; lowering the row by that much leaves
+/// exactly one `gap` between the mana bar and the coin.
+const COUNTER_INSET: f32 = 7.0;
+
+/// The HUD's settings (`data/hud.ron`) and the health bar's damage feedback: its shake and a
+/// particle emitter of its own that draws in screen space, never through the world camera.
+pub struct Hud {
+    config: HudConfig,
+    feedback: HudFeedback,
+}
+
+impl Hud {
+    /// Loads `hud.ron` from `assets` (or the defaults); `particles` are the particle settings
+    /// the world's effects run on, which hold the `hud_damage` burst. An invalid file falls
+    /// back to the defaults and the reason comes back so it can be shown on screen.
+    pub fn load(assets: &Path, particles: &ParticleConfig) -> (Self, Option<String>) {
+        let (config, error) = match HudConfig::load(assets) {
+            Ok(config) => (config, None),
+            Err(error) => (HudConfig::default(), Some(error)),
+        };
+        let hud = Self {
+            config,
+            feedback: HudFeedback::new(particles.clone()),
+        };
+        (hud, error)
+    }
+
+    /// Re-reads the settings and takes the current particle settings. Nothing changes if the
+    /// file is invalid.
+    pub fn reload(&mut self, assets: &Path, particles: &ParticleConfig) -> Result<(), String> {
+        self.config = HudConfig::load(assets)?;
+        self.feedback.set_particle_config(particles.clone());
+        Ok(())
+    }
+
+    /// Reacts to a frame's events: damage shakes the health bar and throws off particles.
+    pub fn handle(&mut self, events: &[LocatedEvent], view: Vec2, max_health: f32) {
+        let bar = self.config.health_anchor(view);
+        self.feedback.handle(&self.config, bar, max_health, events);
+    }
+
+    /// Moves the shake and the particles on by one fixed tick.
+    pub fn update(&mut self, delta_seconds: f32) {
+        self.feedback.update(&self.config, delta_seconds);
+    }
+
+    /// Stops the shake and drops the particles, for when the world changes under them.
+    pub fn clear(&mut self) {
+        self.feedback.clear();
+    }
+
+    /// Draws the damage particles. Call after the HUD, with the HUD's camera set.
+    pub fn draw_particles(&self) {
+        draw_particles(self.feedback.particles());
+    }
+}
+
+pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
     let room = game.room();
     let player = game.player();
     let margin = 24.0;
 
-    // Top left: health masks, then the coin and item counters.
-    let masks = pip_states(masks_for(player.health().current()), masks_for(MAX_HEALTH));
-    let row = anchored(
+    // Top left: the health and mana bars, then the coin and item counters under them.
+    let config = &hud.config;
+    let layout = layout_bars(
+        config,
+        BarValues::from(game.vitals()),
+        config.health_anchor(view),
+    );
+    // The counters go under the bars where they rest; only the health bar shakes.
+    let counters = anchored(
         view,
         Anchor::TopLeft,
-        pip_row_size(masks.len()),
-        vec2(margin, 20.0),
+        Vec2::ZERO,
+        vec2(
+            config.margin.0,
+            layout.bounds().bottom() + config.gap + COUNTER_INSET,
+        ),
     );
-    for (index, filled) in masks.into_iter().enumerate() {
-        draw_mask(pip_center(row, index), PIP_RADIUS, filled);
-    }
-    let counters = anchored(view, Anchor::TopLeft, Vec2::ZERO, vec2(margin, 62.0));
+    let shaken = layout.with_health_offset(hud.feedback.bar_offset(config));
+    draw_bars(&shaken, &config.colors);
     draw_circle(counters.x + 9.0, counters.y + 2.0, 9.0, GOLD);
     draw_circle_lines(counters.x + 9.0, counters.y + 2.0, 6.0, 1.5, YELLOW);
     draw_text(
@@ -69,38 +138,29 @@ pub fn draw_hud(game: &GameState, view: Vec2) {
     draw_boss_hud(room, view);
 }
 
-/// A health mask: a pale face with two dark eye holes when full, a dim outline when empty.
-fn draw_mask(center: Vec2, radius: f32, filled: bool) {
-    if filled {
-        draw_ellipse(
-            center.x,
-            center.y,
-            radius * 0.85,
-            radius,
-            0.0,
-            Color::from_rgba(236, 240, 250, 255),
-        );
-        for side in [-1.0, 1.0] {
-            draw_ellipse(
-                center.x + side * radius * 0.36,
-                center.y - radius * 0.1,
-                radius * 0.2,
-                radius * 0.3,
-                -side * 15.0,
-                Color::from_rgba(16, 18, 31, 255),
-            );
-        }
-    } else {
-        draw_ellipse_lines(
-            center.x,
-            center.y,
-            radius * 0.85,
-            radius,
-            0.0,
-            2.0,
-            Color::from_rgba(90, 96, 130, 255),
+/// Fills `rect` with `color`; a part with nothing in it (zero width) draws nothing.
+fn fill(rect: Rect, color: Rgba) {
+    if rect.w > 0.0 && rect.h > 0.0 {
+        let [red, green, blue, alpha] = color;
+        draw_rectangle(
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h,
+            Color::from_rgba(red, green, blue, alpha),
         );
     }
+}
+
+/// The bars, back to front: the empty health bar, the trailing bar, the pending heal and the
+/// current health; then the mana bar.
+fn draw_bars(layout: &BarLayout, colors: &BarColors) {
+    fill(layout.empty, colors.empty);
+    fill(layout.trailing, colors.trailing);
+    fill(layout.pending, colors.pending);
+    fill(layout.health, colors.health);
+    fill(layout.mana_empty, colors.mana_empty);
+    fill(layout.mana, colors.mana);
 }
 
 fn draw_boss_hud(room: &Room, view: Vec2) {

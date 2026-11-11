@@ -40,6 +40,20 @@ pub enum GameEvent {
     BossDefeated,
 }
 
+/// What a hit did to the player's health, carried by the `PlayerDamaged` event.
+///
+/// It rides on `LocatedEvent` rather than inside `GameEvent`, because `GameEvent` is a plain
+/// name that the data files list and compare.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HealthLoss {
+    /// Health actually lost, above zero. A hit that takes the last of the health loses only
+    /// what was left, not the whole hit.
+    pub lost: f32,
+    /// Health left right after the hit, before a respawn refills it. The part of the health
+    /// bar between `remaining` and `remaining + lost` is the part the hit took.
+    pub remaining: f32,
+}
+
 /// An event and, when it has one, the world position it happened at.
 ///
 /// The position is where the effect belongs, taken at the end of the tick the event happened
@@ -47,32 +61,46 @@ pub enum GameEvent {
 /// landing, dash or swing, the player's center for damage, and the center of the enemy or
 /// boss for a hit or a defeat. Events with no useful place (a coin, an item, a room change)
 /// carry none.
+///
+/// `loss` is set for `PlayerDamaged` when the vitals took health, and for no other event.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LocatedEvent {
     pub event: GameEvent,
     pub at: Option<Vec2>,
+    pub loss: Option<HealthLoss>,
 }
 
 /// Events in the order they happened, until someone takes them.
 ///
-/// `events` and `points` always have the same length: `points[i]` is where `events[i]`
-/// happened, if known.
+/// `events`, `points` and `losses` always have the same length: `points[i]` is where
+/// `events[i]` happened, if known, and `losses[i]` is the health it took, if it took any.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct EventQueue {
     events: Vec<GameEvent>,
     points: Vec<Option<Vec2>>,
+    losses: Vec<Option<HealthLoss>>,
 }
 
 impl EventQueue {
     pub fn push(&mut self, event: GameEvent) {
         self.events.push(event);
         self.points.push(None);
+        self.losses.push(None);
     }
 
     /// Adds an event that happened at `at`.
     pub fn push_at(&mut self, event: GameEvent, at: Vec2) {
         self.events.push(event);
         self.points.push(Some(at));
+        self.losses.push(None);
+    }
+
+    /// Adds a `PlayerDamaged` event at `at`, with the health the hit took if the vitals lost
+    /// any.
+    pub fn push_player_damaged(&mut self, at: Vec2, loss: Option<HealthLoss>) {
+        self.events.push(GameEvent::PlayerDamaged);
+        self.points.push(Some(at));
+        self.losses.push(loss);
     }
 
     /// Adds `events` to the end of the queue, keeping their order.
@@ -92,6 +120,7 @@ impl EventQueue {
     /// Removes and returns all events, oldest first.
     pub fn take(&mut self) -> Vec<GameEvent> {
         self.points.clear();
+        self.losses.clear();
         std::mem::take(&mut self.events)
     }
 
@@ -99,10 +128,12 @@ impl EventQueue {
     pub fn take_located(&mut self) -> Vec<LocatedEvent> {
         let events = std::mem::take(&mut self.events);
         let points = std::mem::take(&mut self.points);
+        let losses = std::mem::take(&mut self.losses);
         events
             .into_iter()
             .zip(points)
-            .map(|(event, at)| LocatedEvent { event, at })
+            .zip(losses)
+            .map(|((event, at), loss)| LocatedEvent { event, at, loss })
             .collect()
     }
 
@@ -171,7 +202,8 @@ mod tests {
             queue.take_located(),
             vec![LocatedEvent {
                 event: GameEvent::CoinCollected,
-                at: None
+                at: None,
+                loss: None
             }]
         );
     }
@@ -215,5 +247,42 @@ mod tests {
                 GameEvent::EnemyDied
             ]
         );
+    }
+
+    #[test]
+    fn a_damage_event_carries_its_loss_and_no_other_event_does() {
+        let mut queue = EventQueue::default();
+        let loss = HealthLoss {
+            lost: 7.5,
+            remaining: 12.0,
+        };
+        queue.push_at(GameEvent::EnemyHit, Vec2::ONE);
+        queue.push_player_damaged(Vec2::new(3.0, 4.0), Some(loss));
+        queue.push(GameEvent::CoinCollected);
+        queue.push_player_damaged(Vec2::new(5.0, 6.0), None);
+        let located = queue.take_located();
+        let losses: Vec<_> = located.iter().map(|located| located.loss).collect();
+        assert_eq!(losses, [None, Some(loss), None, None]);
+        assert_eq!(located[1].event, GameEvent::PlayerDamaged);
+        assert_eq!(located[1].at, Some(Vec2::new(3.0, 4.0)));
+        assert_eq!(located[3].event, GameEvent::PlayerDamaged);
+        assert_eq!(located[3].at, Some(Vec2::new(5.0, 6.0)));
+    }
+
+    #[test]
+    fn taking_plain_events_also_forgets_their_losses() {
+        let mut queue = EventQueue::default();
+        queue.push_player_damaged(
+            Vec2::ZERO,
+            Some(HealthLoss {
+                lost: 1.0,
+                remaining: 2.0,
+            }),
+        );
+        assert_eq!(queue.take(), vec![GameEvent::PlayerDamaged]);
+        // A later event must not inherit the dropped event's loss.
+        queue.push_player_damaged(Vec2::ONE, None);
+        assert_eq!(queue.take_located()[0].loss, None);
+        assert!(queue.take_located().is_empty());
     }
 }

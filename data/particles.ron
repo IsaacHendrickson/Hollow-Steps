@@ -80,4 +80,24 @@
         color_start: (255, 200, 150, 255),
         color_end: (200, 60, 40, 0),
     ),
+
+    // The burst the health bar throws off where it just lost health (src/hud_damage.rs). It is
+    // drawn on the screen, not in the world: positions are virtual-resolution pixels, the burst
+    // starts at the right end of the part of the bar that was lost, and neither the camera nor
+    // its shake moves it. `on` must stay empty because the HUD spawns this burst itself;
+    // `offset` is added to that point. An assets/particles.ron without this preset uses this one.
+    hud_damage: (
+        on: [],
+        count: 12,
+        lifetime_secs: (min: 0.25, max: 0.6),
+        speed: (min: 40.0, max: 170.0),
+        direction_deg: (min: -75.0, max: 75.0),
+        spread: (2.0, 6.0),
+        offset: (0.0, 0.0),
+        gravity: 320.0,
+        drag: 3.0,
+        size: (5.0, 1.0),
+        color_start: (214, 62, 72, 255),
+        color_end: (240, 190, 70, 0),
+    ),
 )

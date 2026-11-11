@@ -447,3 +447,65 @@ fn load_names_the_file_when_it_is_invalid_instead_of_falling_back() {
     let error = ParticleConfig::load(&dir.0).unwrap_err();
     assert!(error.contains(FILE_NAME), "{error}");
 }
+
+// ---- the HUD's damage burst -----------------------------------------------------------
+
+#[test]
+fn a_file_without_hud_damage_gets_the_built_in_burst_and_one_with_it_keeps_its_own() {
+    // The fixture text lists only the four world presets.
+    let config = fixture(64);
+    assert_eq!(config.hud_damage, ParticleConfig::default().hud_damage);
+    config.validate().unwrap();
+
+    let own = format!(
+        "(max_particles: 64, hit_spark: {0}, dust: {0}, dash_trail: {0}, death_burst: {0}, \
+         hud_damage: {1})",
+        preset_text("PlayerLanded", 1),
+        preset_text("", 7),
+    );
+    let config = ParticleConfig::from_ron(&own).expect("parses");
+    assert_eq!(config.hud_damage.count, 7);
+}
+
+#[test]
+fn the_shipped_hud_burst_validates_and_is_not_one_of_the_world_presets() {
+    let config = ParticleConfig::default();
+    config.validate().unwrap();
+    assert!(config.hud_damage.count > 0);
+    assert!(config.hud_damage.on.is_empty());
+    let names: Vec<_> = config.presets().iter().map(|(name, _)| *name).collect();
+    assert_eq!(names, ["hit_spark", "dust", "dash_trail", "death_burst"]);
+}
+
+#[test]
+fn the_hud_burst_must_list_no_events_and_its_numbers_are_checked() {
+    assert!(
+        error_for(|c| c.hud_damage.on = vec![GameEvent::PlayerDamaged])
+            .contains("hud_damage.on must be empty")
+    );
+    assert!(error_for(|c| c.hud_damage.count = 0).contains("hud_damage.count"));
+    assert!(error_for(|c| c.hud_damage.count = MAX_BURST_COUNT + 1).contains("hud_damage.count"));
+    assert!(error_for(|c| c.hud_damage.lifetime_secs.min = 0.0).contains("hud_damage.lifetime"));
+    assert!(error_for(|c| c.hud_damage.gravity = f32::NAN).contains("hud_damage.gravity"));
+    assert!(error_for(|c| c.hud_damage.spread.1 = -1.0).contains("hud_damage.spread.y"));
+}
+
+#[test]
+fn no_event_makes_the_world_spawn_the_hud_burst() {
+    let mut config = fixture(512);
+    config.hud_damage.count = 9;
+    let mut system = ParticleSystem::new(config);
+    // The fixture's world bursts: 4 for a hit or damage, 3 landing, 2 dashing, 5 a death.
+    for (event, expected) in [
+        (GameEvent::PlayerDamaged, 4),
+        (GameEvent::EnemyHit, 4),
+        (GameEvent::PlayerLanded, 3),
+        (GameEvent::PlayerDashed, 2),
+        (GameEvent::EnemyDied, 5),
+    ] {
+        let before = system.len();
+        assert_eq!(system.handle(event, Some(AT)), expected, "{event:?}");
+        assert_eq!(system.len() - before, expected, "{event:?}");
+    }
+    assert_eq!(system.spawn_hud_damage(AT), 9);
+}
