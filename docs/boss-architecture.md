@@ -12,14 +12,14 @@ must fit within the room. A definition contains all encounter settings:
 
 ```ron
 (
-    name: "Ash Warden", health: 100, size: (48.0, 48.0), contact_damage: 0,
+    name: "Ash Warden", health: 1000, size: (48.0, 48.0), contact_damage: 0,
     selection: cycle, pause_seconds: 3.0,
     attacks: [
         (name: "Slam", actions: [
             glide_to_player(speed: 1000.0, above_floor: 180.0),
             telegraph(seconds: 0.5),
             glide_to_floor(speed: 1000.0),
-            damage_target(radius: 56.0, damage: 1),
+            damage_target(radius: 56.0, damage: 10),
         ]),
     ],
 )
@@ -60,15 +60,15 @@ boss attacks. Loading rejects unknown/missing fields or action types, duplicate
 boss/attack names, zero health, invalid size or placement, missing references,
 negative/nonfinite values (signed finite jump offsets are allowed), zero boss
 movement speeds, noninteger damage outside
-0..255, and ring counts outside 1..256. Errors identify the file, boss, attack,
+0..65535, and ring counts outside 1..256. Errors identify the file, boss, attack,
 action index, and invalid parameter. F5 validates bosses before applying a
 reload; existing encounter progress remains intact. Room saves preserve boss
 placements; this task adds no boss editor controls.
 
-The playable arena uses `src/boss_special.rs`: a 100-health boss cycles Slam,
+The playable arena uses `src/boss_special.rs`: a boss (health from its definition) cycles Slam,
 Summon, and Rings roughly every three seconds. Move out of the red slam zone
 and pending red rings; orange rings have already exploded. Summoned enemies
-use normal enemy combat. Each melee swing deals one boss damage, and defeat
+use normal enemy combat. Each melee swing deals one hit (10) of boss damage, and defeat
 unlocks the exit and drops twenty collectible coins after a brief effect.
 Inventory and inactive rooms pause the encounter. The game imports each enemy
 and coin spawn once into the room's existing lists for combat and collection.

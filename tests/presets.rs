@@ -304,7 +304,7 @@ fn invalid_key_values_are_transactional_and_zero_and_integer_boundaries_are_vali
         (6, "NaN"),
         (7, "inf"),
         (8, "1.5"),
-        (8, "256"),
+        (8, "65536"),
         (8, "-1"),
     ] {
         let mut values = KeyValues::from_behavior(&behavior);
@@ -318,7 +318,7 @@ fn invalid_key_values_are_transactional_and_zero_and_integer_boundaries_are_vali
     for entry in &mut values.values {
         entry.value = "0".into();
     }
-    values.values[8].value = "255".into();
+    values.values[8].value = "65535".into();
     values.apply(&mut behavior).unwrap();
     behavior.validate().unwrap();
     assert!(KeyValues::from_behavior(&preset("Stationary").behavior)

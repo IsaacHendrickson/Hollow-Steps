@@ -493,9 +493,9 @@ impl DefinitionDraft {
         self.add_behavior(&behavior, BehaviorDefinition::blank())?;
         let result = self.add_entity(EnemyDefinition {
             name: name.to_owned(),
-            health: 1,
+            health: 10,
             size: (32.0, 40.0),
-            contact_damage: 1,
+            contact_damage: 10,
             behavior: behavior.clone(),
             body: None,
             death_secs: crate::enemy::DEFAULT_DEATH_SECS,
@@ -802,14 +802,14 @@ pub fn entity_from_fields(fields: &[String; 6]) -> Result<EnemyDefinition, Strin
     }
     let entity = EnemyDefinition {
         name: fields[0].clone(),
-        health: fields[1].parse().map_err(|_| "health must be 1..255")?,
+        health: fields[1].parse().map_err(|_| "health must be 1..65535")?,
         size: (
             fields[2].parse().map_err(|_| "invalid width")?,
             fields[3].parse().map_err(|_| "invalid height")?,
         ),
         contact_damage: fields[4]
             .parse()
-            .map_err(|_| "contact damage must be 0..255")?,
+            .map_err(|_| "contact damage must be 0..65535")?,
         behavior: fields[5].clone(),
         body: None,
         death_secs: crate::enemy::DEFAULT_DEATH_SECS,
@@ -1137,9 +1137,9 @@ pub fn validate_entity_field(index: usize, text: &str) -> Result<(), String> {
     let text = text.trim();
     match index {
         0 | 5 if text.trim().is_empty() => Err("must not be empty".into()),
-        1 => match text.parse::<u8>() {
-            Ok(1..=255) => Ok(()),
-            _ => Err("expected integer 1..255".into()),
+        1 => match text.parse::<u16>() {
+            Ok(1..=65535) => Ok(()),
+            _ => Err("expected integer 1..65535".into()),
         },
         2 | 3 => {
             let value = crate::behavior::parse_nonnegative(text)?;
@@ -1150,9 +1150,9 @@ pub fn validate_entity_field(index: usize, text: &str) -> Result<(), String> {
             }
         }
         4 => text
-            .parse::<u8>()
+            .parse::<u16>()
             .map(|_| ())
-            .map_err(|_| "expected integer 0..255".into()),
+            .map_err(|_| "expected integer 0..65535".into()),
         _ => Ok(()),
     }
 }

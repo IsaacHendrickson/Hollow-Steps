@@ -3,6 +3,7 @@
 
 use macroquad::math::{vec2, Vec2};
 
+use crate::health::HIT_DAMAGE;
 use crate::room::RoomId;
 
 /// Radius of one health mask and the space between neighbours, in virtual-resolution pixels.
@@ -10,8 +11,14 @@ pub const PIP_RADIUS: f32 = 13.0;
 pub const PIP_GAP: f32 = 8.0;
 
 /// Which of `max` health pips are full for `current` health. `current` above `max` fills all.
-pub fn pip_states(current: u8, max: u8) -> Vec<bool> {
+pub fn pip_states(current: u16, max: u16) -> Vec<bool> {
     (0..max).map(|index| index < current).collect()
+}
+
+/// How many health masks show `health`: one per standard hit, a part-used hit still counts.
+/// The health bars of the next task replace this.
+pub fn masks_for(health: u16) -> u16 {
+    health.div_ceil(HIT_DAMAGE)
 }
 
 /// Center of pip `index` for a row whose first pip's top-left corner is `origin`.

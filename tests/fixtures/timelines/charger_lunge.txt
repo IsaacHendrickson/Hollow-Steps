@@ -12,36 +12,36 @@
 11 pos=500.000,300.000 finished=false
 12 pos=500.000,300.000 finished=false
 13 pos=500.000,300.000 finished=false
-14 pos=500.000,300.000 finished=false area=Rect center=500.000,300.000 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-15 pos=498.523,300.772 finished=false area=Rect center=498.523,300.772 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-16 pos=497.046,301.545 finished=false area=Rect center=497.046,301.545 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-17 pos=495.569,302.317 finished=false area=Rect center=495.569,302.317 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-18 pos=494.093,303.090 finished=false area=Rect center=494.093,303.090 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-19 pos=492.616,303.862 finished=false area=Rect center=492.616,303.862 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-20 pos=491.139,304.635 finished=false area=Rect center=491.139,304.635 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-21 pos=489.662,305.407 finished=false area=Rect center=489.662,305.407 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-22 pos=488.185,306.180 finished=false area=Rect center=488.185,306.180 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-23 pos=486.708,306.952 finished=false area=Rect center=486.708,306.952 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-24 pos=485.232,307.725 finished=false area=Rect center=485.232,307.725 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-25 pos=483.755,308.497 finished=false area=Rect center=483.755,308.497 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-26 pos=482.278,309.270 finished=false area=Rect center=482.278,309.270 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-27 pos=480.801,310.042 finished=false area=Rect center=480.801,310.042 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-28 pos=479.324,310.815 finished=false area=Rect center=479.324,310.815 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-29 pos=477.847,311.587 finished=false area=Rect center=477.847,311.587 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-30 pos=476.371,312.360 finished=false area=Rect center=476.371,312.360 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-31 pos=474.894,313.132 finished=false area=Rect center=474.894,313.132 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-32 pos=473.417,313.905 finished=false area=Rect center=473.417,313.905 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-33 pos=471.940,314.677 finished=false area=Rect center=471.940,314.677 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-34 pos=470.463,315.450 finished=false area=Rect center=470.463,315.450 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-35 pos=468.986,316.222 finished=false area=Rect center=468.986,316.222 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-36 pos=467.510,316.995 finished=false area=Rect center=467.510,316.995 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-37 pos=466.033,317.767 finished=false area=Rect center=466.033,317.767 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-38 pos=464.556,318.540 finished=false area=Rect center=464.556,318.540 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-39 pos=463.079,319.312 finished=false area=Rect center=463.079,319.312 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-40 pos=461.602,320.085 finished=false area=Rect center=461.602,320.085 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-41 pos=460.125,320.857 finished=false area=Rect center=460.125,320.857 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-42 pos=458.649,321.630 finished=false area=Rect center=458.649,321.630 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
-43 pos=457.172,322.402 finished=false area=Rect center=457.172,322.402 size=60.000,30.000 damage=2 knockback=80.000,-120.000 secs=0.500
+14 pos=500.000,300.000 finished=false area=Rect center=500.000,300.000 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+15 pos=498.523,300.772 finished=false area=Rect center=498.523,300.772 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+16 pos=497.046,301.545 finished=false area=Rect center=497.046,301.545 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+17 pos=495.569,302.317 finished=false area=Rect center=495.569,302.317 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+18 pos=494.093,303.090 finished=false area=Rect center=494.093,303.090 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+19 pos=492.616,303.862 finished=false area=Rect center=492.616,303.862 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+20 pos=491.139,304.635 finished=false area=Rect center=491.139,304.635 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+21 pos=489.662,305.407 finished=false area=Rect center=489.662,305.407 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+22 pos=488.185,306.180 finished=false area=Rect center=488.185,306.180 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+23 pos=486.708,306.952 finished=false area=Rect center=486.708,306.952 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+24 pos=485.232,307.725 finished=false area=Rect center=485.232,307.725 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+25 pos=483.755,308.497 finished=false area=Rect center=483.755,308.497 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+26 pos=482.278,309.270 finished=false area=Rect center=482.278,309.270 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+27 pos=480.801,310.042 finished=false area=Rect center=480.801,310.042 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+28 pos=479.324,310.815 finished=false area=Rect center=479.324,310.815 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+29 pos=477.847,311.587 finished=false area=Rect center=477.847,311.587 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+30 pos=476.371,312.360 finished=false area=Rect center=476.371,312.360 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+31 pos=474.894,313.132 finished=false area=Rect center=474.894,313.132 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+32 pos=473.417,313.905 finished=false area=Rect center=473.417,313.905 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+33 pos=471.940,314.677 finished=false area=Rect center=471.940,314.677 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+34 pos=470.463,315.450 finished=false area=Rect center=470.463,315.450 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+35 pos=468.986,316.222 finished=false area=Rect center=468.986,316.222 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+36 pos=467.510,316.995 finished=false area=Rect center=467.510,316.995 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+37 pos=466.033,317.767 finished=false area=Rect center=466.033,317.767 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+38 pos=464.556,318.540 finished=false area=Rect center=464.556,318.540 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+39 pos=463.079,319.312 finished=false area=Rect center=463.079,319.312 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+40 pos=461.602,320.085 finished=false area=Rect center=461.602,320.085 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+41 pos=460.125,320.857 finished=false area=Rect center=460.125,320.857 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+42 pos=458.649,321.630 finished=false area=Rect center=458.649,321.630 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
+43 pos=457.172,322.402 finished=false area=Rect center=457.172,322.402 size=60.000,30.000 damage=20 knockback=80.000,-120.000 secs=0.500
 44 pos=455.695,323.175 finished=false
 45 pos=455.695,323.564 finished=false
 46 pos=455.695,324.341 finished=false

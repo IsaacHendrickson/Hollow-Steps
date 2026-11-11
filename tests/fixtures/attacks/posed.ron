@@ -1,7 +1,7 @@
 (initial_state: "run", states: [
     (name: "run", actions: [
         lunge(speed: 100.0, duration_secs: 0.2,
-            attack: (shape: Rect, offset: (0.0, 0.0), size: (40.0, 40.0), damage: 1, knockback: (0.0, -10.0), active_secs: 0.2),
+            attack: (shape: Rect, offset: (0.0, 0.0), size: (40.0, 40.0), damage: 10, knockback: (0.0, -10.0), active_secs: 0.2),
             recovery_secs: 0.2, telegraph_secs: 0.5,
             telegraph_pose: Some("windup"), active_pose: Some("hurt"), recovery_pose: None),
     ], transitions: [])

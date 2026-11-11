@@ -42,7 +42,7 @@ fn game() -> GameState {
 }
 
 /// An enemy that walks right at `speed` px/s from `x`, with `contact_damage`.
-fn walker(x: f32, speed: f32, contact_damage: u8, bounds: WorldBounds) -> Enemy {
+fn walker(x: f32, speed: f32, contact_damage: u16, bounds: WorldBounds) -> Enemy {
     let behavior = BehaviorDefinition::from_ron(&format!(
         r#"(initial_state: "walk", states: [
             (name: "walk", actions: [patrol(speed: {speed})], transitions: [])])"#
@@ -51,7 +51,7 @@ fn walker(x: f32, speed: f32, contact_damage: u8, bounds: WorldBounds) -> Enemy 
     Enemy::from_definition(
         &EnemyDefinition {
             name: "walker".into(),
-            health: 5,
+            health: 50,
             size: (36.0, 36.0),
             contact_damage,
             behavior: "walk".into(),
@@ -155,9 +155,9 @@ fn taking_damage_freezes_enemies_for_the_damage_time() {
     let bounds = game.world_bounds();
     game.player.place_on_floor(200.0, bounds);
     game.rooms[0].coins.clear();
-    game.rooms[0].enemies = vec![walker(205.0, 64.0, 1, bounds)];
+    game.rooms[0].enemies = vec![walker(205.0, 64.0, 10, bounds)];
     game.update(input(), DT);
-    assert_eq!(game.player.health().current(), 4);
+    assert_eq!(game.player.health().current(), 40);
     assert_eq!(game.feel().hit_stop_remaining(), 16.0 * DT);
     let x = enemy_x(&game);
     for _ in 0..16 {
@@ -273,7 +273,7 @@ fn damage_shakes_the_screen_and_the_shake_fades_to_nothing() {
     let bounds = game.world_bounds();
     game.player.place_on_floor(200.0, bounds);
     game.rooms[0].coins.clear();
-    game.rooms[0].enemies = vec![walker(205.0, 0.0, 1, bounds)];
+    game.rooms[0].enemies = vec![walker(205.0, 0.0, 10, bounds)];
     assert_eq!(game.shake_offset(), Vec2::ZERO);
     game.update(input(), DT);
     let mut peak: f32 = 0.0;

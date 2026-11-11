@@ -137,7 +137,7 @@ impl BossSpecials {
     pub fn max_health(&self) -> u32 {
         self.definition.health
     }
-    pub fn contact_damage(&self) -> u8 {
+    pub fn contact_damage(&self) -> u16 {
         if self.defeated {
             0
         } else {
@@ -391,7 +391,7 @@ impl BossSpecials {
             let mut runtime = std::mem::take(&mut self.runtime);
             let motion = runtime.motion();
             let size = self.size();
-            let health = self.health.min(u32::from(u8::MAX)) as u8;
+            let health = self.health.min(u32::from(u16::MAX)) as u16;
             let player_size = self.player_size;
             let mut actor = BossActionActor {
                 boss: self,
@@ -429,7 +429,7 @@ impl BossSpecials {
                 &mut self.position,
                 BehaviorContext {
                     player_position: player,
-                    health: self.health.min(255) as u8,
+                    health: self.health.min(u32::from(u16::MAX)) as u16,
                     size: self.definition.size.into(),
                     bounds,
                     patrol_left: bounds.left,

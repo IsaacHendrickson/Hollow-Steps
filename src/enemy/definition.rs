@@ -18,9 +18,9 @@ fn default_death_secs() -> f32 {
 #[serde(deny_unknown_fields)]
 pub struct EnemyDefinition {
     pub name: String,
-    pub health: u8,
+    pub health: u16,
     pub size: (f32, f32),
-    pub contact_damage: u8,
+    pub contact_damage: u16,
     pub behavior: String,
     #[serde(default)]
     pub body: Option<BodyVisual>,

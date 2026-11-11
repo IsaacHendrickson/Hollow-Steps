@@ -270,6 +270,7 @@ fn read_player_input() -> PlayerInput {
         dash_pressed: is_key_pressed(KeyCode::LeftShift) || is_key_pressed(KeyCode::RightShift),
         up_held: is_key_down(KeyCode::Up),
         down_held: is_key_down(KeyCode::Down),
+        heal_held: is_key_down(KeyCode::C),
     }
 }
 

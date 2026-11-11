@@ -2,6 +2,8 @@ use macroquad::math::{Rect, Vec2};
 
 pub const SWING_SECONDS: f32 = 0.12;
 pub const ATTACK_COOLDOWN: f32 = 0.35;
+/// Health taken from an enemy or boss by one sword hit (see `health::HIT_DAMAGE`).
+pub const SWORD_DAMAGE: u16 = 10;
 /// The shipped forward hitbox size, kept so existing tests and callers still compile. The game
 /// reads `StrikeConfig` (from `data/player.ron`); a test keeps these equal to that file.
 pub const ATTACK_REACH: f32 = 38.0;

@@ -241,7 +241,7 @@ fn reload_picks_up_attack_edits_and_clears_old_projectiles_atomically() {
             .unwrap()
             .attack
             .damage,
-        2
+        20
     );
     let mut enemy = enemy.clone();
     enemy.update(
@@ -255,7 +255,7 @@ fn reload_picks_up_attack_edits_and_clears_old_projectiles_atomically() {
         "behaviors/chase.ron",
         &lunge
             .replace("speed: 100.0", "speed: 200.0")
-            .replace("damage: 2", "damage: 4"),
+            .replace("damage: 20", "damage: 40"),
     );
     game.reload_rooms().unwrap();
     let mut enemy = game.room().enemies[0].clone();
@@ -270,7 +270,7 @@ fn reload_picks_up_attack_edits_and_clears_old_projectiles_atomically() {
             .attack_hit(enemy.position(), macroquad::math::Vec2::ONE)
             .unwrap()
             .damage,
-        4
+        40
     );
 
     let before = format!("{game:?}");
@@ -298,11 +298,14 @@ fn boss_modern_actions_reload_atomically_and_unchanged_runtime_survives() {
     game.reload_rooms().unwrap();
     assert_eq!(format!("{:?}", game.room().boss_special), before);
     let definition = include_str!("fixtures/bosses/ash_warden.ron")
-        .replace("health: 100", "health: 101")
+        .replace("health: 1000", "health: 1010")
         .replace("glide_to_floor(speed: 1000.0)", "shoot_projectile(speed: 100.0, damage: 2, lifetime_secs: 2.0, size: (8.0, 8.0), aim: AtPlayer, count: 1, spread_degrees: 0.0, telegraph_secs: 0.0)");
     assets.write("bosses/ash_warden.ron", &definition);
     game.reload_rooms().unwrap();
-    assert_eq!(game.room().boss_special.as_ref().unwrap().max_health(), 101);
+    assert_eq!(
+        game.room().boss_special.as_ref().unwrap().max_health(),
+        1010
+    );
     let committed = format!("{:?}", game.room().boss_special);
     assets.write(
         "bosses/ash_warden.ron",

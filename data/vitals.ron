@@ -1,0 +1,21 @@
+(
+    // Mana: gained when the sword kills a regular enemy (not a boss), spent by healing.
+    max_mana: 100.0,
+    mana_start: 0.0,
+    mana_per_kill: 10.0,
+    // The trailing health bar: after damage it waits `trail_hold` seconds, then drains toward
+    // current health at `trail_drain` health per second. A sword hit gives back
+    // `regain_fraction` of the gap between the trailing bar and current health.
+    regain_fraction: 0.5,
+    trail_hold: 0.5,
+    trail_drain: 40.0,
+    // Healing: hold the heal button on the ground. After `heal_start_delay` seconds mana turns
+    // into pending health at `heal_mana_per_second` (`health_per_mana` health for each mana).
+    // Letting go applies the pending health after `heal_stop_delay` seconds.
+    heal_start_delay: 0.25,
+    heal_stop_delay: 0.2,
+    heal_mana_per_second: 30.0,
+    health_per_mana: 1.0,
+    // Horizontal speed multiplier while a heal is active (1 = no slowdown, 0 = rooted).
+    heal_move_scale: 0.5,
+)

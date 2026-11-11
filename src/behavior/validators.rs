@@ -27,7 +27,7 @@ pub(super) fn finite(value: f32) -> Result<(), String> {
 pub(super) fn valid_count(_: u16) -> Result<(), String> {
     Ok(())
 }
-pub(super) fn valid_damage(_: u8) -> Result<(), String> {
+pub(super) fn valid_damage(_: u16) -> Result<(), String> {
     Ok(())
 }
 

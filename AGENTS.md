@@ -97,6 +97,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
 - `src/tuning.rs`: player, strike (hitbox sizes, pogo speed) and enemy-knockback tunables from `data/player.ron` (an `assets/player.ron` replaces it whole), validation, staged save.
 - `src/tuning_fields.rs`: the editable `player.ron` numbers (`Field`, `FieldSpec`): one range per field shared by validation and the F4 window; re-exported from `tuning`.
+- `src/vitals.rs`: pure player vitals (health, trailing bar, mana, hold-to-heal) driven by the tick; no window, no `GameState`. Tunables in `data/vitals.ron` (an `assets/vitals.ron` replaces it whole); `VitalsField`/`FieldSpec` ranges shared by validation and the F4 window. Tests in `src/vitals/tests.rs`.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/editor_guard.rs`: unsaved-changes state machine (Save / Discard / Cancel) and the approved-action runner.
 - `src/editor_history.rs`: snapshot undo/redo for the room draft (limit 100; a drag is one step) and the Ctrl+Z / Ctrl+Y key mapping.
@@ -110,13 +111,14 @@ Gameplay modules (pure rules, no rendering):
 Composition and front end:
 
 - `src/body_draw.rs`: Macroquad adapter: `draw_body` (ordered body parts for enemies and the player), legacy enemy boxes, and debug overlays.
+- `src/game/vitals_link.rs`: how `GameState` drives the vitals: input gating while a heal runs, healing and regain copied into `Health`, and the F4 / F5 accessors (`vitals`, `set_vitals_config`, `save_vitals`).
 - `src/game/test_room.rs`: Test room: swaps the editor's draft in as the playable room, parks the editor session and player, and restores them.
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
 - `src/editor_panel.rs`: egui editor panel frame (`draw_panel`, the Room tools / Entity properties switch). One sub-module per panel: `room_tools.rs` (Room tools view: rooms, exits, entity list), `entity.rs` (Entity properties view, entity fields, `pending_error`), `body_visual.rs` (Body visual, Pose assets, template motion), `behavior.rs` (preset picker, behavior create / pick / rename / delete, shared-behavior guard), `states.rs` (States, action and transition rows), `key_values.rs` (Key values), `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `death_field.rs` (the Death time drag box), `history_panel.rs` (Undo/Redo), `tool_panel.rs` (tool selector, Delete selected), `unsaved_dialog.rs` (Save / Discard / Cancel window). `property.rs` holds `PropertyUi` and the named `EntityFields`; `widgets.rs` the shared widgets and `probe`, the single test-only layout hook. Headless tests: `panel_tests/` (whole panel) and `test_support.rs` (section helpers).
 - `src/terrain_canvas.rs`: Macroquad drawing of solids, handles and the drawing preview, and mouse-to-`TerrainTool` glue for the editor canvas.
-- `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field (typed out-of-range values are refused with a message), unsaved note, Save, and headless layout/input checks.
+- `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field and per `vitals.ron` field (typed out-of-range values are refused with a message), unsaved note, Save (writes `vitals.ron` only when its values changed), and headless layout/input checks in `tuning_panel/tests.rs`.
 - `src/scene.rs`: Macroquad drawing of the world (background layers first, then floor, terrain, exits, items, coins, enemies, boss, player), moved out of `main.rs`.
 - `src/postfx_pass.rs`: Macroquad adapter for the post-process pass: builds the material, draws the world target through it into a second target and returns the target the HUD is drawn on; an unbuilt shader or a switched-off pass returns the input untouched.
 - `src/effects.rs`: Macroquad front end for event-driven effects: feeds the frame's located events to the particles and the sound bank, steps the particles with the fixed tick and draws them in world space. Its sub-module `sound_bank.rs` loads and plays sound files; real playback needs the opt-in `audio` cargo feature (`docs/audio.md`).

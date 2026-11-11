@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use hollow_steps::body::{BodyTemplate, BodyVisual, ColorSlot};
+use hollow_steps::combat::SWORD_DAMAGE;
 use hollow_steps::definition_editor::{serialize, write_files, DefinitionDraft};
 use hollow_steps::enemy::{EnemyDefinition, EnemyDefinitions};
 use hollow_steps::game::GameState;
@@ -101,7 +102,7 @@ fn idle_continues_during_knockback_but_dead_enemies_do_not_animate() {
     assert!(enemy.hit(1, 1.0));
     enemy.update(Vec2::ZERO, 0.01, bounds);
     assert_ne!(enemy.body().unwrap().points, points);
-    for id in 2..=u64::from(enemy.max_health()) {
+    for id in 2..=u64::from(enemy.max_health().div_ceil(SWORD_DAMAGE)) {
         assert!(enemy.hit(id, 1.0));
     }
     assert!(enemy.is_dead());

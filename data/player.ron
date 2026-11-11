@@ -23,7 +23,7 @@
         pogo_speed: 450.0,
     ),
     enemy: (
-        default_health: 3,
+        default_health: 30,
         knockback_speed: 260.0,
         knockback_seconds: 0.16,
     ),

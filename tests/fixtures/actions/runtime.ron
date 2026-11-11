@@ -7,9 +7,9 @@
     hover(seconds: 0.5),
     glide_to_player(speed: 500.0, above_floor: 180.0),
     glide_to_floor(speed: 600.0),
-    damage_target(radius: 80.0, damage: 2),
+    damage_target(radius: 80.0, damage: 20),
     summon(inset: 120.0),
     spawn_rings(count: 3),
-    explode_rings(radius: 48.0, damage: 2),
-    spawn_shockwave(radius: 80.0, damage: 2),
+    explode_rings(radius: 48.0, damage: 20),
+    spawn_shockwave(radius: 80.0, damage: 20),
 ]

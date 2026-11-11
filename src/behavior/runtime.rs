@@ -11,7 +11,7 @@ use std::sync::Arc;
 #[derive(Clone, Copy, Debug)]
 pub struct BehaviorContext {
     pub player_position: Vec2,
-    pub health: u8,
+    pub health: u16,
     pub size: Vec2,
     pub bounds: WorldBounds,
     pub patrol_left: f32,
@@ -36,7 +36,7 @@ pub struct Behavior {
 pub struct Blast {
     pub position: Vec2,
     pub radius: f32,
-    pub damage: u8,
+    pub damage: u16,
     pub exploded: bool,
 }
 
@@ -113,13 +113,13 @@ impl Behavior {
         &self.runtime.blasts
     }
 
-    pub fn blast_damage(&self, position: Vec2, size: Vec2) -> u8 {
+    pub fn blast_damage(&self, position: Vec2, size: Vec2) -> u16 {
         let immediate = self
             .outputs
             .iter()
             .filter_map(|output| match output {
                 crate::action_runtime::ActionOutput::Damage(damage) => {
-                    Some((*damage).min(u32::from(u8::MAX)) as u8)
+                    Some((*damage).min(u32::from(u16::MAX)) as u16)
                 }
                 _ => None,
             })

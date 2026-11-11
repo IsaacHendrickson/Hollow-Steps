@@ -1,2 +1,2 @@
 // Fixed behavioral fixture. Do not synchronize with editable assets.
-(name: "chase", health: 3, size: (36.0, 36.0), contact_damage: 1, behavior: "chase")
+(name: "chase", health: 30, size: (36.0, 36.0), contact_damage: 10, behavior: "chase")

@@ -2,7 +2,7 @@ mod support;
 
 use hollow_steps::enemy::Enemy;
 use hollow_steps::game::GameState;
-use hollow_steps::health::{Health, MAX_HEALTH};
+use hollow_steps::health::{Health, HIT_DAMAGE, MAX_HEALTH};
 use hollow_steps::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
 use macroquad::math::Vec2;
 
@@ -68,11 +68,11 @@ fn contact_requires_both_axes_including_touching_edges() {
 }
 
 #[test]
-fn damage_is_one_point_and_immunity_expires_at_one_second() {
+fn damage_is_one_hit_and_immunity_expires_at_one_second() {
     let mut health = Health::default();
-    assert_eq!(health.current(), 5);
+    assert_eq!(health.current(), 50);
     assert!(health.take_damage());
-    assert_eq!(health.current(), 4);
+    assert_eq!(health.current(), 40);
     assert!(!health.take_damage());
     let initial_flash = health.flash_on();
     health.update(0.125);
@@ -87,13 +87,13 @@ fn damage_is_one_point_and_immunity_expires_at_one_second() {
     assert!(!health.is_invincible());
     assert!(!health.flash_on());
     assert!(health.take_damage());
-    assert_eq!(health.current(), 3);
+    assert_eq!(health.current(), 30);
 }
 
 #[test]
 fn dead_health_cannot_underflow_and_respawn_clears_player_motion() {
     let mut player = Player::new(Vec2::ZERO, PlayerConfig::default());
-    for _ in 0..MAX_HEALTH {
+    for _ in 0..MAX_HEALTH / HIT_DAMAGE {
         player.update(PlayerInput::default(), 1.0, BOUNDS);
         assert!(player.take_damage());
     }
@@ -112,7 +112,7 @@ fn dead_health_cannot_underflow_and_respawn_clears_player_motion() {
 fn game_contact_damages_once_per_second_then_respawns_at_room_spawn() {
     let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     assert_eq!(game.room().enemies.len(), 1);
-    assert_eq!(game.player().health().current(), 5);
+    assert_eq!(game.player().health().current(), 50);
     // Walk to the enemy in small deterministic steps.
     for _ in 0..400 {
         game.update(
@@ -122,14 +122,14 @@ fn game_contact_damages_once_per_second_then_respawns_at_room_spawn() {
             },
             0.01,
         );
-        if game.player().health().current() == 4 {
+        if game.player().health().current() == 40 {
             break;
         }
     }
-    assert_eq!(game.player().health().current(), 4);
+    assert_eq!(game.player().health().current(), 40);
     game.update(PlayerInput::default(), 0.0);
-    assert_eq!(game.player().health().current(), 4);
-    for expected in [3, 2, 1, 5] {
+    assert_eq!(game.player().health().current(), 40);
+    for expected in [30, 20, 10, 50] {
         game.update(PlayerInput::default(), 1.0);
         assert_eq!(game.player().health().current(), expected);
     }

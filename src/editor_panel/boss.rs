@@ -61,7 +61,7 @@ pub(crate) fn draw_boss_panel(
             "Health (1..4294967295)",
             "Width (px)",
             "Height (px)",
-            "Contact damage (0..255)",
+            "Contact damage (0..65535)",
             "Pause between attacks (seconds)",
         ]
         .iter()

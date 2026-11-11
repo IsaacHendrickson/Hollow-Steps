@@ -217,7 +217,7 @@ mod tests {
             (EntityField::Health, "0", "255"),
             (EntityField::Width, "0", "24"),
             (EntityField::Height, "-3", "24.5"),
-            (EntityField::ContactDamage, "256", "0"),
+            (EntityField::ContactDamage, "65536", "0"),
         ];
         assert_eq!(cases.map(|(field, _, _)| field), EntityField::ALL);
         for (field, invalid, valid) in cases {

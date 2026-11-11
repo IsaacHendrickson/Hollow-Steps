@@ -96,7 +96,7 @@ impl BossInputs {
             contact_damage: self.fields[4]
                 .trim()
                 .parse()
-                .map_err(|_| "Contact damage: expected integer 0..255")?,
+                .map_err(|_| "Contact damage: expected integer 0..65535")?,
             pause_seconds: parse(5).map_err(|e| format!("Pause: {e}"))?,
             selection: self.selection,
             attacks: self

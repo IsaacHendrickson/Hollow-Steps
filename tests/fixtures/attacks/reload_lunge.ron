@@ -2,7 +2,7 @@
     initial_state: "attack",
     states: [(name: "attack", actions: [
         lunge(speed: 100.0, duration_secs: 0.5,
-            attack: (shape: Rect, offset: (0.0, 0.0), size: (60.0, 30.0), damage: 2,
+            attack: (shape: Rect, offset: (0.0, 0.0), size: (60.0, 30.0), damage: 20,
                 knockback: (80.0, -120.0), active_secs: 0.5),
             recovery_secs: 0.25, telegraph_secs: 0.25),
     ], transitions: [])],

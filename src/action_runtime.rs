@@ -124,7 +124,7 @@ impl ActionRuntime {
             .max_by_key(|hit| hit.damage)
     }
 
-    pub fn blast_damage(&self, position: Vec2, size: Vec2) -> u8 {
+    pub fn blast_damage(&self, position: Vec2, size: Vec2) -> u16 {
         self.blasts
             .iter()
             .filter(|blast| {

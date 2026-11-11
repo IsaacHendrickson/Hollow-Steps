@@ -16,7 +16,7 @@ fn game() -> GameState {
 }
 
 /// A stationary enemy with `health` and `contact_damage`.
-fn dummy(x: f32, health: u8, contact_damage: u8, bounds: WorldBounds) -> Enemy {
+fn dummy(x: f32, health: u16, contact_damage: u16, bounds: WorldBounds) -> Enemy {
     let behavior = BehaviorDefinition::from_ron(
         r#"(initial_state: "idle", states: [
             (name: "idle", actions: [patrol(speed: 0.0)], transitions: [])])"#,
@@ -126,12 +126,12 @@ fn a_swing_hits_an_enemy_once_and_only_the_killing_hit_raises_enemy_died() {
     let mut game = game();
     let bounds = game.world_bounds();
     game.player.place_on_floor(200.0, bounds);
-    game.rooms[0].enemies = vec![dummy(235.0, 2, 0, bounds)];
+    game.rooms[0].enemies = vec![dummy(235.0, 20, 0, bounds)];
 
     // The swing stays active for several ticks but registers one hit.
     let first = run(&mut game, swing(), 30);
     assert_eq!(first, [GameEvent::PlayerAttacked, GameEvent::EnemyHit]);
-    assert_eq!(game.room().enemies[0].health(), 1);
+    assert_eq!(game.room().enemies[0].health(), 10);
 
     // The hit knocked it back. After the cooldown, step up to it and swing again.
     run(&mut game, input(), 60);
@@ -153,10 +153,10 @@ fn damage_raises_player_damaged_once_and_invincibility_blocks_a_repeat() {
     let mut game = game();
     let bounds = game.world_bounds();
     game.player.place_on_floor(200.0, bounds);
-    game.rooms[0].enemies = vec![dummy(205.0, 3, 1, bounds)];
+    game.rooms[0].enemies = vec![dummy(205.0, 3, 10, bounds)];
     let events = run(&mut game, input(), 30);
     assert_eq!(events, [GameEvent::PlayerDamaged]);
-    assert_eq!(game.player.health().current(), 4);
+    assert_eq!(game.player.health().current(), 40);
 }
 
 #[test]

@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use hollow_steps::behavior::BehaviorDefinition;
+use hollow_steps::combat::SWORD_DAMAGE;
 use hollow_steps::definition_editor::{serialize, DefinitionDraft};
 use hollow_steps::enemy::{Enemy, EnemyDefinition, EnemyDefinitions, DEFAULT_DEATH_SECS};
 use hollow_steps::player::WorldBounds;
@@ -17,7 +18,7 @@ const PATROL: &str = r#"(initial_state: "walk", states: [
 const BLAST: &str = r#"(initial_state: "fire", states: [
     (name: "fire", actions: [area_blast(radius: 2000.0, damage: 2, knockback: (100.0, -100.0), active_secs: 5.0, telegraph_secs: 0.0)], transitions: [])])"#;
 
-fn enemy(behavior: &str, health: u8, death_secs: f32) -> Enemy {
+fn enemy(behavior: &str, health: u16, death_secs: f32) -> Enemy {
     Enemy::from_definition(
         &EnemyDefinition {
             name: "walker".into(),
@@ -37,7 +38,7 @@ fn enemy(behavior: &str, health: u8, death_secs: f32) -> Enemy {
 }
 
 fn kill(enemy: &mut Enemy) {
-    for id in 1..=u64::from(enemy.max_health()) {
+    for id in 1..=u64::from(enemy.max_health().div_ceil(SWORD_DAMAGE)) {
         assert!(enemy.hit(id, 1.0));
     }
     assert!(enemy.is_dead());

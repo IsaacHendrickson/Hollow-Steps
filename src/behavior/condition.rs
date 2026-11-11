@@ -36,7 +36,7 @@ conditions! {
     TimerElapsed => "timer_elapsed" (f32, "seconds", 1.0),
     PlayerDistanceLessThan => "player_distance_less_than" (f32, "distance", 150.0),
     PlayerDistanceGreaterThan => "player_distance_greater_than" (f32, "distance", 150.0),
-    HealthBelow => "health_below" (u8, "health (0..255)", 2);
+    HealthBelow => "health_below" (u16, "health (0..65535)", 20);
     ActionFinished => "action_finished",
 }
 
@@ -53,7 +53,7 @@ pub fn parse_nonnegative(text: &str) -> Result<f32, String> {
 pub struct ConditionContext {
     pub state_elapsed: f64,
     pub player_distance: f64,
-    pub health: u8,
+    pub health: u16,
     pub action_finished: bool,
 }
 
