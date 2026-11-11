@@ -49,4 +49,5 @@ pub mod terrain;
 pub mod timestep;
 pub mod tuning;
 mod tuning_fields;
+pub mod visual_box;
 pub mod vitals;

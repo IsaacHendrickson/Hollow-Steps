@@ -53,6 +53,7 @@ fn walker(x: f32, speed: f32, contact_damage: u16, bounds: WorldBounds) -> Enemy
             name: "walker".into(),
             health: 50,
             size: (36.0, 36.0),
+            visual_size: None,
             contact_damage,
             behavior: "walk".into(),
             body: None,

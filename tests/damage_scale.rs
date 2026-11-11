@@ -19,6 +19,7 @@ fn enemy(health: u16, contact_damage: u16) -> Enemy {
             name: "dummy".into(),
             health,
             size: (36.0, 36.0),
+            visual_size: None,
             contact_damage,
             behavior: "wait".into(),
             body: None,

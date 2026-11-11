@@ -56,6 +56,9 @@ pub struct BossInputs {
     /// Name, health, width, height, contact damage, pause seconds.
     pub fields: [String; 6],
     pub selection: AttackSelection,
+    /// The drawn size when it differs from the hitbox (width and height above); edited with
+    /// drag boxes in the panel, so it is a number pair and not text.
+    pub visual_size: Option<(f32, f32)>,
     pub attacks: Vec<AttackInput>,
     /// The boss's body has no editor controls yet; it is carried through unchanged so a save
     /// from the boss panel never drops it.
@@ -74,6 +77,7 @@ impl BossInputs {
                 boss.pause_seconds.to_string(),
             ],
             selection: boss.selection,
+            visual_size: boss.visual_size,
             body: boss.body.clone(),
             attacks: boss
                 .attacks
@@ -98,6 +102,7 @@ impl BossInputs {
                 parse(2).map_err(|e| format!("Width: {e}"))?,
                 parse(3).map_err(|e| format!("Height: {e}"))?,
             ),
+            visual_size: self.visual_size,
             contact_damage: self.fields[4]
                 .trim()
                 .parse()

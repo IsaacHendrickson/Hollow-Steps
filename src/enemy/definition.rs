@@ -1,5 +1,5 @@
-//! The RON definition of an enemy type: name, health, size, damage, behavior, body and
-//! how long it takes to die.
+//! The RON definition of an enemy type: name, health, hitbox size, optional visual size,
+//! damage, behavior, body and how long it takes to die.
 
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,12 @@ fn default_death_secs() -> f32 {
 pub struct EnemyDefinition {
     pub name: String,
     pub health: u16,
+    /// The hitbox: collision, contact damage and attack reach use this size.
     pub size: (f32, f32),
+    /// The size the body (or plain box) is drawn at, when it should differ from the hitbox.
+    /// Absent means the hitbox size. See `crate::visual_box`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visual_size: Option<(f32, f32)>,
     pub contact_damage: u16,
     pub behavior: String,
     #[serde(default)]
@@ -48,6 +53,8 @@ impl EnemyDefinition {
                 self.name
             ));
         }
+        crate::visual_box::validate(self.visual_size)
+            .map_err(|e| format!("entity {:?}: {e}", self.name))?;
         if self.behavior.trim().is_empty() {
             return Err(format!("entity {:?}: missing behavior name", self.name));
         }
@@ -74,6 +81,7 @@ mod tests {
             name: "walker".into(),
             health: 3,
             size: (36.0, 36.0),
+            visual_size: None,
             contact_damage: 1,
             behavior: "patrol".into(),
             body: None,

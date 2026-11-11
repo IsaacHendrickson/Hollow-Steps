@@ -536,6 +536,7 @@ fn enemy_action_damage_api_includes_attack_boxes_and_closes_at_window_end() {
             name: "attacker".into(),
             health: 3,
             size: (36.0, 36.0),
+            visual_size: None,
             contact_damage: 0,
             behavior: "attack".into(),
             body: None,

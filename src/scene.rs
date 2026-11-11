@@ -133,14 +133,18 @@ pub fn draw_scene(game: &GameState, player_body: Option<&PlayerBody>, camera_vie
             let color = if blast.exploded { RED } else { ORANGE };
             draw_circle_lines(blast.position.x, blast.position.y, blast.radius, 2.0, color);
         }
-        let top_left = enemy.position() - enemy.size() / 2.0;
+        // The health bar sits over the drawn picture, not the hitbox.
+        let (size, top_left) = (
+            enemy.visual_size(),
+            enemy.visual_center() - enemy.visual_size() / 2.0,
+        );
         body_draw::draw_enemy_body(enemy);
         body_draw::draw_enemy_attacks(enemy);
-        draw_rectangle(top_left.x, top_left.y - 8.0, enemy.size().x, 4.0, DARKGRAY);
+        draw_rectangle(top_left.x, top_left.y - 8.0, size.x, 4.0, DARKGRAY);
         draw_rectangle(
             top_left.x,
             top_left.y - 8.0,
-            enemy.size().x * f32::from(enemy.health()) / f32::from(enemy.max_health()),
+            size.x * f32::from(enemy.health()) / f32::from(enemy.max_health()),
             4.0,
             RED,
         );
@@ -223,12 +227,13 @@ fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
         if boss.body().is_some() {
             body_draw::draw_boss_body(boss);
         } else {
-            let top_left = boss.position() - boss.size() / 2.0;
+            // Drawn in the visual box; the hitbox (`boss.size()`) is only gameplay.
+            let top_left = boss.visual_center() - boss.visual_size() / 2.0;
             draw_rectangle(
                 top_left.x,
                 top_left.y,
-                boss.size().x,
-                boss.size().y,
+                boss.visual_size().x,
+                boss.visual_size().y,
                 if boss.is_telegraphing() {
                     ORANGE
                 } else {
@@ -237,7 +242,12 @@ fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
             );
         }
     } else if boss.is_death_effect_active() {
-        draw_circle(boss.position().x, boss.position().y, boss.size().x, WHITE);
+        draw_circle(
+            boss.visual_center().x,
+            boss.visual_center().y,
+            boss.visual_size().x,
+            WHITE,
+        );
         // A boss with a body fades out over the flash; without one there is nothing to draw.
         body_draw::draw_boss_body(boss);
     }
