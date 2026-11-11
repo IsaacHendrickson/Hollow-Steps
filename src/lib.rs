@@ -5,17 +5,18 @@
 
 mod action_parameters;
 pub mod action_runtime;
+pub mod assets;
 pub mod behavior;
 pub mod behavior_values;
 pub mod body;
 pub mod body_debug;
-pub mod boss;
 pub mod boss_definition;
 pub mod boss_editor;
 pub mod boss_special;
 pub mod camera;
 pub mod coin;
 pub mod combat;
+pub mod damage;
 pub mod definition_editor;
 pub mod editor;
 pub mod editor_guard;

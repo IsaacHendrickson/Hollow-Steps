@@ -71,16 +71,17 @@ Gameplay modules (pure rules, no rendering):
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
 - `src/action_runtime.rs`: shared action execution state, motion, attack output, and actor adapters.
+- `src/assets.rs`: assets folder resolution (`HOLLOW_STEPS_ASSETS`, next to the executable, then the source tree) and load-failure text.
 - `src/behavior.rs`: data-driven action sequences, state transitions, and RON validation.
 - `src/enemy_attack.rs`: shared attack geometry, timed enemy attacks, and projectiles.
 - `src/preset.rs`: validated RON behavior preset catalog.
 - `src/action_parameters.rs`: labeled scalar editor fields for the shared action registry.
 - `src/behavior_values.rs`: numeric behavior controls and transactional validated edits.
-- `src/boss.rs`: boss health, reusable timed attacks, state machine, and death.
 - `src/boss_definition.rs`: validated RON boss definitions and attack selection settings.
 - `src/boss_editor.rs`: pure boss property buffers and ordered attack/action edits.
 - `src/boss_special.rs`: boss sequence cursors, selection, actor effect integration, and coin drops.
 - `src/combat.rs`: melee swing hitboxes, duration, and cooldown.
+- `src/damage.rs`: `DamageResolver` combines enemy contact/blast/attack and boss action/contact damage into the single hit applied to the player.
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.
@@ -107,6 +108,7 @@ Composition and front end:
 - `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `history_panel.rs` (Undo/Redo), `tool_panel.rs` (tool selector, Delete selected), `unsaved_dialog.rs` (Save / Discard / Cancel window).
 - `src/terrain_canvas.rs`: Macroquad drawing of solids, handles and the drawing preview, and mouse-to-`TerrainTool` glue for the editor canvas.
 - `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
+- `src/startup.rs`: Macroquad startup: loads the game and shows load errors on the virtual-resolution screen (F5 retries); shared letterboxed frame presentation.
 - `src/main.rs`: Macroquad window setup, keyboard translation, drawing, and
   frame scheduling. It should stay thin; do not put movement, combat, room,
   or persistence rules here.
