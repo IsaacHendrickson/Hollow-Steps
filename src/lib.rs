@@ -6,6 +6,7 @@
 mod action_parameters;
 pub mod action_runtime;
 pub mod assets;
+pub mod background;
 pub mod behavior;
 pub mod behavior_values;
 pub mod body;
@@ -36,6 +37,7 @@ pub mod particles;
 pub mod player;
 pub mod player_body;
 pub mod pose;
+pub mod postfx;
 pub mod preset;
 pub mod room;
 pub mod room_size;

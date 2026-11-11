@@ -1,0 +1,33 @@
+// Fixed background fixture. Do not synchronize with editable assets.
+// Three layers back to front: a fixed sky (depth 0), far ridges (0.3), a near column (0.8).
+(
+    bounds: (0.0, 0.0, 1920.0, 460.0),
+    floor_y: 460.0,
+    spawn: (50.0, 436.0),
+    items: [],
+    exits: [],
+    background: [
+        (
+            depth: 0.0,
+            color: (20, 24, 48, 255),
+            shapes: [
+                Circle(x: 700.0, y: 90.0, radius: 40.0),
+            ],
+        ),
+        (
+            depth: 0.3,
+            color: (28, 32, 60, 255),
+            shapes: [
+                Triangle(a: (0.0, 460.0), b: (200.0, 240.0), c: (400.0, 460.0)),
+                Rect(x: 400.0, y: 300.0, w: 600.0, h: 160.0),
+            ],
+        ),
+        (
+            depth: 0.8,
+            color: (36, 40, 72, 200),
+            shapes: [
+                Rect(x: 300.0, y: 120.0, w: 40.0, h: 340.0),
+            ],
+        ),
+    ],
+)
