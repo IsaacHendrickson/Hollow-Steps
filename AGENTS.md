@@ -104,6 +104,7 @@ Composition and front end:
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
 - `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `history_panel.rs` (Undo/Redo), `unsaved_dialog.rs` (Save / Discard / Cancel window).
+- `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field (typed out-of-range values are refused with a message), unsaved note, Save, and headless layout/input checks.
 - `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.
 - `src/startup.rs`: Macroquad startup: loads the game and shows load errors on the virtual-resolution screen (F5 retries); shared letterboxed frame presentation.
 - `src/main.rs`: Macroquad window setup, keyboard translation, drawing, and
