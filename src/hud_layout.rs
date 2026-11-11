@@ -16,7 +16,7 @@ pub fn pip_states(current: u16, max: u16) -> Vec<bool> {
 }
 
 /// How many health masks show `health`: one per standard hit, a part-used hit still counts.
-/// The health bars of the next task replace this.
+/// The HUD now draws health bars (`hud_bars`); this and the pip helpers are no longer used by it.
 pub fn masks_for(health: u16) -> u16 {
     health.div_ceil(HIT_DAMAGE)
 }

@@ -1,33 +1,69 @@
 //! Heads-up display drawn in virtual-resolution space, anchored to the screen edges.
 
+use std::path::Path;
+
 use hollow_steps::boss_special::SpecialAttack;
 use hollow_steps::camera::{anchored, Anchor};
 use hollow_steps::game::GameState;
-use hollow_steps::health::MAX_HEALTH;
-use hollow_steps::hud_layout::{
-    boss_caption, boss_fill, masks_for, pip_center, pip_row_size, pip_states, room_label,
-    PIP_RADIUS,
-};
+use hollow_steps::hud_bars::{layout_bars, BarColors, BarLayout, BarValues, HudConfig, Rgba};
+use hollow_steps::hud_layout::{boss_caption, boss_fill, room_label};
 use hollow_steps::room::Room;
 use macroquad::prelude::*;
 
-pub fn draw_hud(game: &GameState, view: Vec2) {
+/// The gold coin is drawn 9 pixels in radius with its center 2 pixels below the counter row's
+/// anchor, so its top is 7 pixels above the anchor; lowering the row by that much leaves
+/// exactly one `gap` between the mana bar and the coin.
+const COUNTER_INSET: f32 = 7.0;
+
+/// The HUD's settings (`data/hud.ron`), loaded once and re-read on F5.
+pub struct Hud {
+    config: HudConfig,
+}
+
+impl Hud {
+    /// Loads `hud.ron` from `assets` (or the defaults). An invalid file falls back to the
+    /// defaults and the reason comes back so it can be shown on screen.
+    pub fn load(assets: &Path) -> (Self, Option<String>) {
+        match HudConfig::load(assets) {
+            Ok(config) => (Self { config }, None),
+            Err(error) => (
+                Self {
+                    config: HudConfig::default(),
+                },
+                Some(error),
+            ),
+        }
+    }
+
+    /// Re-reads the settings. Nothing changes if the file is invalid.
+    pub fn reload(&mut self, assets: &Path) -> Result<(), String> {
+        self.config = HudConfig::load(assets)?;
+        Ok(())
+    }
+}
+
+pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
     let room = game.room();
     let player = game.player();
     let margin = 24.0;
 
-    // Top left: health masks, then the coin and item counters.
-    let masks = pip_states(masks_for(player.health().current()), masks_for(MAX_HEALTH));
-    let row = anchored(
+    // Top left: the health and mana bars, then the coin and item counters under them.
+    let config = &hud.config;
+    let layout = layout_bars(
+        config,
+        BarValues::from(game.vitals()),
+        config.health_anchor(view),
+    );
+    draw_bars(&layout, &config.colors);
+    let counters = anchored(
         view,
         Anchor::TopLeft,
-        pip_row_size(masks.len()),
-        vec2(margin, 20.0),
+        Vec2::ZERO,
+        vec2(
+            config.margin.0,
+            layout.bounds().bottom() + config.gap + COUNTER_INSET,
+        ),
     );
-    for (index, filled) in masks.into_iter().enumerate() {
-        draw_mask(pip_center(row, index), PIP_RADIUS, filled);
-    }
-    let counters = anchored(view, Anchor::TopLeft, Vec2::ZERO, vec2(margin, 62.0));
     draw_circle(counters.x + 9.0, counters.y + 2.0, 9.0, GOLD);
     draw_circle_lines(counters.x + 9.0, counters.y + 2.0, 6.0, 1.5, YELLOW);
     draw_text(
@@ -69,38 +105,29 @@ pub fn draw_hud(game: &GameState, view: Vec2) {
     draw_boss_hud(room, view);
 }
 
-/// A health mask: a pale face with two dark eye holes when full, a dim outline when empty.
-fn draw_mask(center: Vec2, radius: f32, filled: bool) {
-    if filled {
-        draw_ellipse(
-            center.x,
-            center.y,
-            radius * 0.85,
-            radius,
-            0.0,
-            Color::from_rgba(236, 240, 250, 255),
-        );
-        for side in [-1.0, 1.0] {
-            draw_ellipse(
-                center.x + side * radius * 0.36,
-                center.y - radius * 0.1,
-                radius * 0.2,
-                radius * 0.3,
-                -side * 15.0,
-                Color::from_rgba(16, 18, 31, 255),
-            );
-        }
-    } else {
-        draw_ellipse_lines(
-            center.x,
-            center.y,
-            radius * 0.85,
-            radius,
-            0.0,
-            2.0,
-            Color::from_rgba(90, 96, 130, 255),
+/// Fills `rect` with `color`; a part with nothing in it (zero width) draws nothing.
+fn fill(rect: Rect, color: Rgba) {
+    if rect.w > 0.0 && rect.h > 0.0 {
+        let [red, green, blue, alpha] = color;
+        draw_rectangle(
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h,
+            Color::from_rgba(red, green, blue, alpha),
         );
     }
+}
+
+/// The bars, back to front: the empty health bar, the trailing bar, the pending heal and the
+/// current health; then the mana bar.
+fn draw_bars(layout: &BarLayout, colors: &BarColors) {
+    fill(layout.empty, colors.empty);
+    fill(layout.trailing, colors.trailing);
+    fill(layout.pending, colors.pending);
+    fill(layout.health, colors.health);
+    fill(layout.mana_empty, colors.mana_empty);
+    fill(layout.mana, colors.mana);
 }
 
 fn draw_boss_hud(room: &Room, view: Vec2) {

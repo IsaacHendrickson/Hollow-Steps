@@ -1,0 +1,27 @@
+(
+    // The health and mana bars, top left. Sizes and margins are in virtual-resolution pixels
+    // (the 960x540 picture the window scales), colors are red, green, blue, alpha.
+    // An `assets/hud.ron` replaces this whole file; F5 re-reads it.
+
+    // Distance of the health bar's top-left corner from the corner of the screen.
+    margin: (24.0, 20.0),
+    // Fixed on-screen length of both bars. A full bar is this long; every other value is a
+    // fraction of max health or max mana.
+    bar_length: 280.0,
+    health_height: 18.0,
+    mana_height: 12.0,
+    // Space between the health bar and the mana bar under it.
+    gap: 6.0,
+
+    colors: (
+        // Back to front on the health bar: the empty bar, health lost a moment ago (it drains
+        // away), health being healed but not added yet, and current health.
+        empty: (34, 22, 30, 255),
+        trailing: (240, 190, 70, 255),
+        pending: (255, 170, 178, 255),
+        health: (214, 62, 72, 255),
+        // The mana bar: the empty bar and the mana in it.
+        mana_empty: (22, 28, 48, 255),
+        mana: (92, 150, 255, 255),
+    ),
+)

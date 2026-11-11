@@ -42,6 +42,11 @@ async fn main() {
     // Invalid effect settings are shown like a failed reload.
     let (mut effects, effects_error) = effects::Effects::load(&assets::assets_root());
     let mut reload_result = effects_error.map(Err);
+    // The health and mana bars' settings; an invalid file is shown the same way.
+    let (mut hud, hud_error) = hud::Hud::load(&assets::assets_root());
+    if let Some(error) = hud_error {
+        reload_result = Some(Err(error));
+    }
     // Vignette and glow over the world picture; a settings or shader error is shown the same way.
     let (mut post_pass, post_error) = postfx_pass::PostPass::load(&assets::assets_root(), view);
     if let Some(error) = post_error {
@@ -132,6 +137,7 @@ async fn main() {
             reload_result = Some(
                 game.reload_rooms()
                     .and_then(|()| effects.reload())
+                    .and_then(|()| hud.reload(&assets::assets_root()))
                     .and_then(|()| post_pass.reload(&assets::assets_root()))
                     .and_then(|()| {
                         player_body = PlayerBody::load(&assets::assets_root())?;
@@ -194,7 +200,7 @@ async fn main() {
             Rect::new(0.0, 0.0, view.x, view.y),
             Some(frame.clone()),
         ));
-        hud::draw_hud(&game, view);
+        hud::draw_hud(&game, &hud, view);
         if game.testing_room() {
             hud::draw_test_banner(view);
         }
