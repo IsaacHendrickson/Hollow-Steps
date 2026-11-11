@@ -5,7 +5,8 @@ use hollow_steps::camera::{anchored, Anchor};
 use hollow_steps::game::GameState;
 use hollow_steps::health::MAX_HEALTH;
 use hollow_steps::hud_layout::{
-    boss_caption, boss_fill, pip_center, pip_row_size, pip_states, room_label, PIP_RADIUS,
+    boss_caption, boss_fill, masks_for, pip_center, pip_row_size, pip_states, room_label,
+    PIP_RADIUS,
 };
 use hollow_steps::room::Room;
 use macroquad::prelude::*;
@@ -16,7 +17,7 @@ pub fn draw_hud(game: &GameState, view: Vec2) {
     let margin = 24.0;
 
     // Top left: health masks, then the coin and item counters.
-    let masks = pip_states(player.health().current(), MAX_HEALTH);
+    let masks = pip_states(masks_for(player.health().current()), masks_for(MAX_HEALTH));
     let row = anchored(
         view,
         Anchor::TopLeft,

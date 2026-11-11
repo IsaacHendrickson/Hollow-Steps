@@ -514,7 +514,7 @@ mod tests {
         }
         let health = Field::EnemyDefaultHealth.spec();
         assert_eq!(parse_entry(health, "4.4", &rejected), Some(4.0));
-        assert_eq!(parse_entry(health, "100", &rejected), None);
+        assert_eq!(parse_entry(health, "1000", &rejected), None);
     }
 
     #[test]

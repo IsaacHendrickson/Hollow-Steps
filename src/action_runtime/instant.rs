@@ -73,7 +73,7 @@ impl ActionRuntime {
     fn horizontal_hit(
         x: f32,
         radius: f32,
-        damage: u8,
+        damage: u16,
         context: BehaviorContext,
         actor: &mut impl ActionActor,
     ) -> (f64, bool) {

@@ -1,8 +1,8 @@
 (
     name: "scout",
-    health: 1,
+    health: 10,
     size: (30.0, 40.0),
-    contact_damage: 1,
+    contact_damage: 10,
     body: Some((
         template: "animal",
         primary: (0.48, 0.62, 0.22, 1.0),

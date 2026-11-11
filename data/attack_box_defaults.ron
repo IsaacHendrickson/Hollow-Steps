@@ -1,1 +1,1 @@
-(shape: Rect, offset: (0.0, 0.0), size: (48.0, 36.0), damage: 1, knockback: (0.0, -120.0), active_secs: 0.25)
+(shape: Rect, offset: (0.0, 0.0), size: (48.0, 36.0), damage: 10, knockback: (0.0, -120.0), active_secs: 0.25)

@@ -69,7 +69,7 @@ fn slam_glides_down_after_the_telegraph_without_a_landing_teleport() {
     boss.start_attack(SpecialAttack::Slam, target, BOUNDS);
     boss.update(SLAM_TELEGRAPH_SECONDS - 0.001, Vec2::ZERO, BOUNDS);
     let hovering = boss.position();
-    assert_eq!(boss.update(0.001, target, BOUNDS), 1);
+    assert_eq!(boss.update(0.001, target, BOUNDS), 10);
     assert_eq!(boss.position(), hovering);
     assert!(!boss.is_telegraphing());
     assert_eq!(boss.update(0.01, target, BOUNDS), 0);
@@ -83,7 +83,7 @@ fn distant_slam_hits_its_target_x_even_while_still_gliding() {
     let target = Vec2::new(960.0, 436.0);
     let mut boss = warden(Vec2::new(0.0, 436.0));
     boss.start_attack(SpecialAttack::Slam, target, BOUNDS);
-    assert_eq!(boss.update(SLAM_TELEGRAPH_SECONDS, target, BOUNDS), 1);
+    assert_eq!(boss.update(SLAM_TELEGRAPH_SECONDS, target, BOUNDS), 10);
     assert!(boss.position().x < target.x);
     assert_eq!(boss.update(1.0, target, BOUNDS), 0);
     assert_eq!(boss.position(), target);
@@ -104,7 +104,7 @@ fn slam_telegraphs_for_half_a_second_and_lands_above_player() {
 fn slam_damages_only_a_player_under_the_landing_position() {
     let mut boss = warden(Vec2::new(700.0, 436.0));
     boss.start_attack(SpecialAttack::Slam, Vec2::new(240.0, 436.0), BOUNDS);
-    assert_eq!(boss.update(0.5, Vec2::new(240.0, 436.0), BOUNDS), 1);
+    assert_eq!(boss.update(0.5, Vec2::new(240.0, 436.0), BOUNDS), 10);
     boss.start_attack(SpecialAttack::Slam, Vec2::new(240.0, 436.0), BOUNDS);
     assert_eq!(boss.update(0.5, Vec2::new(400.0, 436.0), BOUNDS), 0);
 }
@@ -126,7 +126,7 @@ fn rings_fuse_for_one_second_and_damage_inside_radius() {
     let ring_position = boss.rings()[0].position();
     boss.update(0.999, ring_position, BOUNDS);
     assert!(!boss.rings()[0].exploded());
-    assert_eq!(boss.update(0.001, ring_position, BOUNDS), 1);
+    assert_eq!(boss.update(0.001, ring_position, BOUNDS), 10);
     assert!(boss.rings().iter().all(|ring| ring.exploded()));
     assert!(ring_position.distance(boss.rings()[0].position()) <= RING_RADIUS);
 }
@@ -168,7 +168,7 @@ fn every_exit_edge_locks_while_alive_and_unlocks_immediately_on_death() {
         room.boss_special = Some(warden(Vec2::new(560.0, 436.0)));
         assert!(room.exits_locked());
         assert!(room.exit_at(position, Vec2::ONE).is_none());
-        room.boss_special.as_mut().unwrap().damage_boss(100);
+        room.boss_special.as_mut().unwrap().damage_boss(1000);
         assert!(!room.exits_locked());
         assert!(room.exit_at(position, Vec2::ONE).is_some());
         assert!(room.exit_at(Vec2::new(500.0, 200.0), Vec2::ONE).is_none());
@@ -190,7 +190,7 @@ fn arena_is_reachable_from_second_room_and_live_boss_blocks_return() {
         );
         assert_eq!(game.room().id, expected);
     }
-    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 100);
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 1000);
     game.update(PlayerInput::default(), 0.0);
     assert_eq!(game.room().id, RoomId::Boss);
     game.update(

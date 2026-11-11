@@ -15,7 +15,7 @@ fn game() -> GameState {
 }
 
 /// A stationary enemy with `health` and `contact_damage`.
-fn dummy(x: f32, health: u8, contact_damage: u8, bounds: WorldBounds) -> Enemy {
+fn dummy(x: f32, health: u16, contact_damage: u16, bounds: WorldBounds) -> Enemy {
     let behavior = BehaviorDefinition::from_ron(
         r#"(initial_state: "idle", states: [
             (name: "idle", actions: [patrol(speed: 0.0)], transitions: [])])"#,

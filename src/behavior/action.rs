@@ -150,7 +150,7 @@ actions! {
         count: u16 => ("blast count (integer 0..65535)", valid_count),
         radius: f32 => ("blast radius (pixels)", nonnegative),
         fuse_time: f32 => ("blast fuse time (seconds)", nonnegative),
-        damage: u8 => ("blast damage (integer 0..255)", valid_damage)
+        damage: u16 => ("blast damage (integer 0..65535)", valid_damage)
     },
     Lunge => "lunge" {
         speed: f32 => ("lunge speed (pixels/second)", nonnegative),
@@ -237,14 +237,14 @@ actions! {
     },
     GlideToFloor => "glide_to_floor" { speed: f32 => ("Glide speed (px/s)", positive) },
     DamageTarget => "damage_target" {
-        radius: f32 => ("Hit radius (px)", nonnegative), damage: u8 => ("Hit damage (0..255)", valid_damage)
+        radius: f32 => ("Hit radius (px)", nonnegative), damage: u16 => ("Hit damage (0..65535)", valid_damage)
     },
     Summon => "summon" { inset: f32 => ("Distance from arena edges (px)", nonnegative) },
     SpawnRings => "spawn_rings" { count: u16 => ("Ring count (1..256)", boss_count) },
     ExplodeRings => "explode_rings" {
-        radius: f32 => ("Explosion radius (px)", nonnegative), damage: u8 => ("Explosion damage (0..255)", valid_damage)
+        radius: f32 => ("Explosion radius (px)", nonnegative), damage: u16 => ("Explosion damage (0..65535)", valid_damage)
     },
     SpawnShockwave => "spawn_shockwave" {
-        radius: f32 => ("Shockwave radius (px)", nonnegative), damage: u8 => ("Shockwave damage (0..255)", valid_damage)
+        radius: f32 => ("Shockwave radius (px)", nonnegative), damage: u16 => ("Shockwave damage (0..65535)", valid_damage)
     },
 }

@@ -15,7 +15,7 @@ use crate::tuning::EnemyTuning;
 
 /// The shipped values, kept so existing tests and callers still compile. The game reads
 /// `EnemyTuning` (from `data/player.ron`); a test keeps these equal to that file.
-pub const ENEMY_MAX_HEALTH: u8 = 3;
+pub const ENEMY_MAX_HEALTH: u16 = 30;
 pub const KNOCKBACK_SPEED: f32 = 260.0;
 pub const KNOCKBACK_SECONDS: f32 = 0.16;
 
@@ -186,10 +186,10 @@ pub struct Enemy {
     body: Option<BodyInstance>,
     poses: Arc<crate::pose::Poses>,
     facing_left: bool,
-    max_health: u8,
-    contact_damage: u8,
+    max_health: u16,
+    contact_damage: u16,
     behavior: Behavior,
-    health: u8,
+    health: u16,
     last_attack_id: Option<u64>,
     knockback_direction: f32,
     knockback_remaining: f32,
@@ -245,7 +245,7 @@ impl Enemy {
                 name: "chase".into(),
                 health: EnemyTuning::default().default_health,
                 size: (ENEMY_SIZE.x, ENEMY_SIZE.y),
-                contact_damage: 1,
+                contact_damage: 10,
                 behavior: "chase".into(),
                 body: None,
                 // Code-made enemies (summons, spawns) have no body to fade: gone at once.
@@ -349,11 +349,11 @@ impl Enemy {
         self.facing_left
     }
 
-    pub fn max_health(&self) -> u8 {
+    pub fn max_health(&self) -> u16 {
         self.max_health
     }
 
-    pub fn contact_damage(&self) -> u8 {
+    pub fn contact_damage(&self) -> u16 {
         self.contact_damage
     }
 
@@ -365,7 +365,7 @@ impl Enemy {
         &self.behavior
     }
 
-    pub fn health(&self) -> u8 {
+    pub fn health(&self) -> u16 {
         self.health
     }
 
@@ -422,7 +422,7 @@ impl Enemy {
             return false;
         }
         self.last_attack_id = Some(attack_id);
-        self.health -= 1;
+        self.health = self.health.saturating_sub(crate::combat::SWORD_DAMAGE);
         if let Some(body) = &mut self.body {
             body.hurt(&self.poses);
         }
@@ -601,13 +601,13 @@ impl Enemy {
         }
     }
 
-    pub fn action_damage(&self, position: Vec2, size: Vec2) -> u8 {
+    pub fn action_damage(&self, position: Vec2, size: Vec2) -> u16 {
         if self.is_dead() {
             0
         } else {
             self.behavior.blast_damage(position, size).max(
                 self.attack_hit(position, size)
-                    .map_or(0, |hit| hit.damage.clamp(0, i32::from(u8::MAX)) as u8),
+                    .map_or(0, |hit| hit.damage.clamp(0, i32::from(u16::MAX)) as u16),
             )
         }
     }

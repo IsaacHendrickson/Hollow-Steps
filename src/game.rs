@@ -482,7 +482,7 @@ impl GameState {
                     // A boss that is already defeated is not a pogo target.
                     let was_defeated = boss.is_defeated();
                     struck |= !was_defeated;
-                    boss.damage_boss(1);
+                    boss.damage_boss(u32::from(crate::combat::SWORD_DAMAGE));
                     self.last_special_hit = Some(swing_id);
                     if !was_defeated {
                         self.events.push_at(GameEvent::EnemyHit, boss.position());

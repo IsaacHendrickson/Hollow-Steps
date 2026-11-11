@@ -15,12 +15,12 @@ use crate::room::Room;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DamageResolver {
     /// Contact damage of the strongest enemy touching the player.
-    pub enemy_contact: u8,
+    pub enemy_contact: u16,
     /// Strongest blast or attack damage landing from any enemy (`Enemy::action_damage`).
-    pub enemy_action: u8,
+    pub enemy_action: u16,
     /// Boss body contact damage (zero once it is defeated).
-    pub boss_contact: u8,
-    /// Damage events from the boss's action sequence this tick; capped at 255.
+    pub boss_contact: u16,
+    /// Damage events from the boss's action sequence this tick; capped at 65535.
     pub boss_action: u32,
     /// Attack and projectile hits that carry knockback: enemies' first, then the boss's.
     pub attacks: Vec<DamageHit>,
@@ -65,7 +65,7 @@ impl DamageResolver {
             .enemy_contact
             .max(self.enemy_action)
             .max(self.boss_contact)
-            .max(self.boss_action.min(u32::from(u8::MAX)) as u8);
+            .max(self.boss_action.min(u32::from(u16::MAX)) as u16);
         self.attacks
             .iter()
             .copied()
@@ -149,12 +149,12 @@ mod tests {
     }
 
     #[test]
-    fn boss_action_damage_is_capped_at_255() {
+    fn boss_action_damage_is_capped_at_65535() {
         let sources = DamageResolver {
             boss_action: 100_000,
             ..Default::default()
         };
-        assert_eq!(sources.resolve().damage, 255);
+        assert_eq!(sources.resolve().damage, 65535);
     }
 
     #[test]
@@ -251,11 +251,11 @@ mod tests {
         );
         let on_boss = Vec2::new(560.0, 436.0);
         let touching = DamageResolver::gather(&room, on_boss, SIZE, 7);
-        assert_eq!(touching.boss_contact, 2);
+        assert_eq!(touching.boss_contact, 20);
         assert_eq!(touching.boss_action, 7);
         let apart = DamageResolver::gather(&room, Vec2::new(100.0, 436.0), SIZE, 0);
         assert_eq!(apart.boss_contact, 0);
-        room.boss_special.as_mut().unwrap().damage_boss(10);
+        room.boss_special.as_mut().unwrap().damage_boss(100);
         assert_eq!(
             DamageResolver::gather(&room, on_boss, SIZE, 0).boss_contact,
             0

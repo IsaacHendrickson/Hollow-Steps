@@ -24,8 +24,8 @@ fn game() -> GameState {
 fn enemy(
     behavior: &str,
     x: f32,
-    health: u8,
-    contact_damage: u8,
+    health: u16,
+    contact_damage: u16,
     death_secs: f32,
     bounds: WorldBounds,
 ) -> Enemy {
@@ -65,7 +65,7 @@ fn ticks(game: &mut GameState, count: usize) {
 }
 
 /// The player at x = 200 and one enemy in forward swing reach, dying over `death_secs`.
-fn setup(behavior: &str, health: u8, contact_damage: u8, death_secs: f32) -> GameState {
+fn setup(behavior: &str, health: u16, contact_damage: u16, death_secs: f32) -> GameState {
     let mut game = game();
     let bounds = game.world_bounds();
     game.player.place_on_floor(200.0, bounds);
@@ -158,12 +158,12 @@ fn a_dying_enemy_does_not_hurt_the_player_on_contact() {
     let mut control = game();
     let bounds = control.world_bounds();
     control.player.place_on_floor(200.0, bounds);
-    control.rooms[0].enemies = vec![enemy(PATROL, 205.0, 5, 3, 1.0, bounds)];
+    control.rooms[0].enemies = vec![enemy(PATROL, 205.0, 5, 30, 1.0, bounds)];
     ticks(&mut control, 2);
-    assert_eq!(control.player.health().current(), 2);
+    assert_eq!(control.player.health().current(), 20);
 
     // Kill one out of reach, then walk into its body while it fades.
-    let mut game = setup(PATROL, 1, 3, 1.0);
+    let mut game = setup(PATROL, 1, 30, 1.0);
     game.update(swing(), DT);
     assert!(game.room().enemies[0].is_dying());
     let walk = PlayerInput {
@@ -179,7 +179,7 @@ fn a_dying_enemy_does_not_hurt_the_player_on_contact() {
         overlap.x <= (enemy.size().x + game.player.size().x) / 2.0,
         "the player walked into the dying enemy"
     );
-    assert_eq!(game.player.health().current(), 5);
+    assert_eq!(game.player.health().current(), 50);
 }
 
 #[test]
@@ -213,11 +213,11 @@ fn a_dying_enemy_is_not_a_pogo_target() {
 #[test]
 fn a_blast_cannot_finish_the_job_after_its_enemy_is_defeated() {
     let blast = r#"(initial_state: "fire", states: [
-        (name: "fire", actions: [area_blast(radius: 2000.0, damage: 3, knockback: (100.0, -100.0), active_secs: 2.0, telegraph_secs: 0.5)], transitions: [])])"#;
+        (name: "fire", actions: [area_blast(radius: 2000.0, damage: 30, knockback: (100.0, -100.0), active_secs: 2.0, telegraph_secs: 0.5)], transitions: [])])"#;
     // Control: left alone, the blast lands once its telegraph runs out.
     let mut control = setup(blast, 5, 0, 1.0);
     ticks(&mut control, 90);
-    assert!(control.player.health().current() < 5);
+    assert!(control.player.health().current() < 50);
 
     // Defeated during the telegraph, it never goes off.
     let mut game = setup(blast, 1, 0, 2.0);
@@ -225,7 +225,7 @@ fn a_blast_cannot_finish_the_job_after_its_enemy_is_defeated() {
     assert!(game.room().enemies[0].is_dying());
     ticks(&mut game, 120);
     assert!(game.room().enemies[0].is_dying(), "still fading");
-    assert_eq!(game.player.health().current(), 5);
+    assert_eq!(game.player.health().current(), 50);
 }
 
 #[test]
@@ -245,10 +245,10 @@ fn zero_death_secs_removes_the_enemy_on_the_killing_tick_as_before() {
 
 #[test]
 fn a_non_lethal_hit_leaves_a_live_enemy_not_dying() {
-    let mut game = setup(PATROL, 3, 0, 1.0);
+    let mut game = setup(PATROL, 30, 0, 1.0);
     game.update(swing(), DT);
     let enemy = &game.room().enemies[0];
-    assert_eq!(enemy.health(), 2);
+    assert_eq!(enemy.health(), 20);
     assert!(!enemy.is_dead() && !enemy.is_dying());
     assert_eq!(enemy.opacity(), 1.0);
 }

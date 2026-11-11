@@ -109,7 +109,7 @@ fn invalid_properties_and_unselected_attack_fields_never_mutate_the_definition()
         (1, "4294967296"),
         (2, "0"),
         (3, "NaN"),
-        (4, "256"),
+        (4, "65536"),
         (5, "-1"),
     ] {
         let mut inputs = BossInputs::from_definition(&original);

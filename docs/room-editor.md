@@ -120,7 +120,7 @@ conditions describe the inverted comparison, including equality. Invalid input
 keeps the last valid definition and blocks Save even with the section collapsed.
 Speeds, durations, radii, and distance thresholds must be finite and nonnegative;
 jump offsets may be any finite signed value. Blast counts must be integers in
-0..65535; damage and health thresholds must be integers in 0..255.
+0..65535; damage and health thresholds must be integers in 0..65535.
 Enable **Advanced: structured rows** for state, action,
 and transition editing; **Advanced: raw RON** remains available inside that view.
 For Skittish, **Key values** exposes `idle: switch to flee when player closer

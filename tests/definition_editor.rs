@@ -248,7 +248,7 @@ fn stale_temps_are_removed_and_staging_failures_clean_up() {
 #[test]
 fn entity_fields_parse_all_properties_and_reject_bad_values() {
     use hollow_steps::definition_editor::entity_from_fields;
-    let fields = ["new name", "255", "42.5", "40", "0", "chase"].map(str::to_owned);
+    let fields = ["new name", "65535", "42.5", "40", "0", "chase"].map(str::to_owned);
     let entity = entity_from_fields(&fields).unwrap();
     assert_eq!(
         (
@@ -258,11 +258,11 @@ fn entity_fields_parse_all_properties_and_reject_bad_values() {
             entity.contact_damage,
             entity.behavior.as_str()
         ),
-        ("new name", 255, (42.5, 40.0), 0, "chase")
+        ("new name", 65535, (42.5, 40.0), 0, "chase")
     );
     for (index, value) in [
         (0, " "),
-        (1, "256"),
+        (1, "65536"),
         (1, "0"),
         (2, "NaN"),
         (3, "-1"),
@@ -393,11 +393,11 @@ fn invalid_structured_numbers_preserve_model_and_report_field_errors() {
         .position(|n| *n == "health_below")
         .unwrap();
     let mut row = TransitionInput::new("idle".into(), health).unwrap();
-    for value in ["256", "1.5"] {
+    for value in ["65536", "1.5"] {
         row.value = value.into();
         assert!(row.build(&names).is_err());
     }
-    row.value = "255".into();
+    row.value = "65535".into();
     assert!(row.build(&names).is_ok());
 }
 
@@ -442,7 +442,7 @@ fn transition_validation_is_transactional_and_entity_errors_identify_each_field(
     for (index, invalid) in [
         (0, ""),
         (1, "0"),
-        (1, "256"),
+        (1, "65536"),
         (2, "NaN"),
         (3, "0"),
         (4, "-1"),
@@ -452,7 +452,7 @@ fn transition_validation_is_transactional_and_entity_errors_identify_each_field(
     }
     for (index, valid) in [
         (0, "name"),
-        (1, "255"),
+        (1, "65535"),
         (2, "0.01"),
         (3, "100"),
         (4, "0"),
@@ -582,10 +582,12 @@ fn input_trimming_blank_lines_and_health_message_are_consistent() {
     );
     assert!(validate_entity_field(1, "0")
         .unwrap_err()
-        .contains("1..255"));
+        .contains("1..65535"));
     let mut fields = fields;
     fields[1] = "0".into();
-    assert!(entity_from_fields(&fields).unwrap_err().contains("1..255"));
+    assert!(entity_from_fields(&fields)
+        .unwrap_err()
+        .contains("1..65535"));
     let mut b = behavior();
     add_state(&mut b, " extra ".into()).unwrap();
     rename_state(&mut b, 1, " renamed ".into()).unwrap();
@@ -1048,7 +1050,7 @@ fn boss_edits_from_another_room_apply_and_deletion_and_replacement_survive_reloa
     reloaded.save_editor().unwrap();
     assert_eq!(
         reloaded.room().boss_special.as_ref().unwrap().max_health(),
-        10
+        100
     );
     let mut final_game = GameState::try_new(&assets.0).unwrap();
     final_game.edit_room(RoomId::Boss).unwrap();
@@ -1116,14 +1118,14 @@ fn unrelated_editor_saves_preserve_damaged_boss_progress() {
         },
         0.0,
     );
-    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 9);
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 90);
     game.toggle_editor().unwrap();
     game.save_editor().unwrap();
-    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 9);
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 90);
     game.edit_room(RoomId::Second).unwrap();
     game.save_editor().unwrap();
     game.edit_room(RoomId::First).unwrap();
-    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 9);
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 90);
 }
 
 #[test]

@@ -181,7 +181,7 @@ impl Player {
         self.health.take_damage()
     }
 
-    pub fn take_damage_amount(&mut self, amount: u8) -> bool {
+    pub fn take_damage_amount(&mut self, amount: u16) -> bool {
         self.health.take_damage_amount(amount)
     }
 
@@ -191,7 +191,7 @@ impl Player {
         {
             return false;
         }
-        if self.take_damage_amount(hit.damage.clamp(0, i32::from(u8::MAX)) as u8) {
+        if self.take_damage_amount(hit.damage.clamp(0, i32::from(u16::MAX)) as u16) {
             self.velocity += hit.knockback;
             self.attack_knockback_x = hit.knockback.x;
             self.attack_knockback_remaining = hit.knockback_secs;

@@ -23,7 +23,7 @@ fn dummy(x: f32, size: (f32, f32), bounds: WorldBounds) -> Enemy {
     Enemy::from_definition(
         &EnemyDefinition {
             name: "dummy".into(),
-            health: 3,
+            health: 30,
             size,
             contact_damage: 0,
             behavior: "idle".into(),
@@ -64,7 +64,7 @@ fn a_downward_strike_hurts_the_enemy_pushes_it_away_and_bounces_the_player() {
     game.rooms[0].enemies = vec![enemy];
     game.update(strike(true, false, true), 0.0);
     assert_eq!(game.player.attack().strike(), StrikeDirection::Down);
-    assert_eq!(game.room().enemies[0].health(), 2);
+    assert_eq!(game.room().enemies[0].health(), 20);
     assert_eq!(
         game.player.velocity().y,
         -game.tuning().player.strike.pogo_speed
@@ -89,7 +89,7 @@ fn a_swing_still_hits_each_enemy_once_when_it_points_down() {
         game.update(strike(false, false, true), 0.0);
     }
     let health: Vec<_> = game.room().enemies.iter().map(Enemy::health).collect();
-    assert_eq!(health, [2, 2], "one hit per enemy per swing");
+    assert_eq!(health, [20, 20], "one hit per enemy per swing");
 }
 
 #[test]
@@ -106,12 +106,12 @@ fn an_upward_strike_hits_what_is_above_pushes_it_away_and_does_not_bounce() {
     // Control: a plain forward swing (facing right) misses it.
     let mut control = setup(bounds);
     control.update(strike(true, false, false), 0.0);
-    assert_eq!(control.room().enemies[0].health(), 3);
+    assert_eq!(control.room().enemies[0].health(), 30);
     // Up + X hits it and pushes it left, away from the player.
     let mut game = setup(bounds);
     game.update(strike(true, true, false), 0.0);
     assert_eq!(game.player.attack().strike(), StrikeDirection::Up);
-    assert_eq!(game.room().enemies[0].health(), 2);
+    assert_eq!(game.room().enemies[0].health(), 20);
     game.update(PlayerInput::default(), 0.1);
     assert!(game.room().enemies[0].position().x < 190.0);
     assert_eq!(
@@ -132,7 +132,7 @@ fn down_on_the_floor_is_a_forward_swing_and_never_bounces() {
     assert_eq!(game.player.attack().strike(), StrikeDirection::Forward);
     assert_eq!(
         game.room().enemies[0].health(),
-        2,
+        20,
         "the forward swing still hits"
     );
     assert_eq!(game.player.velocity().y, 0.0);
@@ -147,7 +147,7 @@ fn a_downward_strike_that_misses_does_not_bounce() {
     hover_over(&mut game, &enemy, 200.0, 10.0);
     game.rooms[0].enemies = vec![enemy];
     game.update(strike(true, false, true), 0.0);
-    assert_eq!(game.room().enemies[0].health(), 3);
+    assert_eq!(game.room().enemies[0].health(), 30);
     assert_eq!(game.player.velocity().y, 0.0);
 }
 
@@ -172,7 +172,7 @@ fn a_downward_strike_on_the_boss_bounces_but_not_once_it_is_defeated() {
     game.update(strike(true, false, true), 0.0);
     assert_eq!(
         game.room().boss_special.as_ref().unwrap().health(),
-        health - 1
+        health - 10
     );
     assert_eq!(
         game.player.velocity().y,

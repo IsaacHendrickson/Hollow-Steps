@@ -263,7 +263,7 @@ fn transitions_cancel_fuses_and_resample_jump_on_reentry() {
 fn every_enemy_can_run_all_actions_and_knockback_pauses_airborne_behavior() {
     let definition = EnemyDefinition {
         name: "flyer".into(),
-        health: 3,
+        health: 30,
         size: (36.0, 36.0),
         contact_damage: 0,
         behavior: "all".into(),
@@ -343,7 +343,7 @@ fn new_action_validation_rejects_nonfinite_negative_and_fractional_parameters() 
         "area_blast(count: 65536, radius: 1.0, fuse_time: 1.0, damage: 1)",
         "area_blast(count: 1, radius: -1.0, fuse_time: 1.0, damage: 1)",
         "area_blast(count: 1, radius: 1.0, fuse_time: NaN, damage: 1)",
-        "area_blast(count: 1, radius: 1.0, fuse_time: 1.0, damage: 256)",
+        "area_blast(count: 1, radius: 1.0, fuse_time: 1.0, damage: 65536)",
     ] {
         let source = format!("(initial_state: \"run\", states: [(name: \"run\", actions: [{action}], transitions: [])])");
         assert!(BehaviorDefinition::from_ron(&source).is_err(), "{action}");
@@ -359,7 +359,7 @@ fn new_action_validation_rejects_nonfinite_negative_and_fractional_parameters() 
         (1, "NaN"),
         (2, "-1"),
         (3, "1.5"),
-        (3, "256"),
+        (3, "65536"),
     ] {
         let before = blast.values.clone();
         blast.values[index] = value.into();

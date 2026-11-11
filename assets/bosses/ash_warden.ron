@@ -1,8 +1,8 @@
 (
     name: "Ash Warden",
-    health: 20,
+    health: 200,
     size: (48.0, 48.0),
-    contact_damage: 1,
+    contact_damage: 10,
     selection: random,
     pause_seconds: 2.0,
     attacks: [
@@ -21,7 +21,7 @@
                 ),
                 damage_target(
                     radius: 56.0,
-                    damage: 1,
+                    damage: 10,
                 ),
             ],
         ),

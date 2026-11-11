@@ -7,7 +7,7 @@
         (name: "charge", actions: [
             telegraph(seconds: 0.5),
             lunge(speed: 360.0, duration_secs: 0.4,
-                attack: (shape: Rect, offset: (0.0, 0.0), size: (64.0, 40.0), damage: 1,
+                attack: (shape: Rect, offset: (0.0, 0.0), size: (64.0, 40.0), damage: 10,
                     knockback: (0.0, -180.0), active_secs: 0.4),
                 recovery_secs: 0.65, telegraph_secs: 0.0, telegraph_pose: Some("windup"), active_pose: Some("strike"), recovery_pose: None, pose_blend_ratio: 0.8, strike_stiffness_multiplier: 3.0),
         ], transitions: [(target: "chase", condition: action_finished)]),

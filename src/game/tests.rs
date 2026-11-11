@@ -27,9 +27,9 @@ fn enemy_blasts_apply_configured_damage_once_and_respect_player_immunity() {
             BehaviorDefinition::from_ron(
                 r#"(initial_state: "blast", states: [
             (name: "blast", actions: [
-                area_blast(count: 2, radius: 2000.0, fuse_time: 0.5, damage: 3),
-                area_blast(count: 1, radius: 2000.0, fuse_time: 0.5, damage: 3),
-                area_blast(count: 1, radius: 2000.0, fuse_time: 1.5, damage: 1)
+                area_blast(count: 2, radius: 2000.0, fuse_time: 0.5, damage: 30),
+                area_blast(count: 1, radius: 2000.0, fuse_time: 0.5, damage: 30),
+                area_blast(count: 1, radius: 2000.0, fuse_time: 1.5, damage: 10)
             ], transitions: [])])"#,
             )
             .unwrap(),
@@ -40,15 +40,15 @@ fn enemy_blasts_apply_configured_damage_once_and_respect_player_immunity() {
     )
     .unwrap()];
     game.update(PlayerInput::default(), 0.25);
-    assert_eq!(game.player.health().current(), 5);
+    assert_eq!(game.player.health().current(), 50);
     game.update(PlayerInput::default(), 0.25);
-    assert_eq!(game.player.health().current(), 2);
+    assert_eq!(game.player.health().current(), 20);
     game.update(PlayerInput::default(), 0.5);
-    assert_eq!(game.player.health().current(), 2);
+    assert_eq!(game.player.health().current(), 20);
     game.update(PlayerInput::default(), 1.5);
-    assert_eq!(game.player.health().current(), 1);
+    assert_eq!(game.player.health().current(), 10);
     game.update(PlayerInput::default(), 2.0);
-    assert_eq!(game.player.health().current(), 1);
+    assert_eq!(game.player.health().current(), 10);
 }
 
 #[test]
@@ -60,14 +60,14 @@ fn attack_damage_wins_over_contact_and_immunity_blocks_knockback() {
     let bounds = game.world_bounds();
     let x = game.player.position().x;
     game.rooms[0].enemies = vec![Enemy::from_definition(
-        &EnemyDefinition { name: "attacker".into(), health: 3, size: (36.0, 36.0), contact_damage: 1, behavior: "blast".into(), body: None, death_secs: 0.0 },
-        Arc::new(BehaviorDefinition::from_ron(r#"(initial_state: "fire", states: [(name: "fire", actions: [area_blast(radius: 200.0, damage: 2, knockback: (100.0, -100.0), active_secs: 2.0, telegraph_secs: 0.0)], transitions: [])])"#).unwrap()),
+        &EnemyDefinition { name: "attacker".into(), health: 3, size: (36.0, 36.0), contact_damage: 10, behavior: "blast".into(), body: None, death_secs: 0.0 },
+        Arc::new(BehaviorDefinition::from_ron(r#"(initial_state: "fire", states: [(name: "fire", actions: [area_blast(radius: 200.0, damage: 20, knockback: (100.0, -100.0), active_secs: 2.0, telegraph_secs: 0.0)], transitions: [])])"#).unwrap()),
         x, x, bounds).unwrap()];
     game.update(PlayerInput::default(), 0.1);
-    assert_eq!(game.player.health().current(), 3);
+    assert_eq!(game.player.health().current(), 30);
     assert!(game.player.velocity().y < 0.0);
     game.update(PlayerInput::default(), 0.1);
-    assert_eq!(game.player.health().current(), 3);
+    assert_eq!(game.player.health().current(), 30);
 }
 
 fn special_game() -> GameState {
@@ -97,7 +97,7 @@ fn special_attacks_cycle_every_three_seconds_and_apply_health_damage() {
         assert_eq!(game.player.health().current(), health);
         game.update(PlayerInput::default(), windup);
         if kind == SpecialAttack::Slam {
-            assert_eq!(game.player.health().current(), health - 1);
+            assert_eq!(game.player.health().current(), health - 10);
             assert!(game.player.health().is_invincible());
         }
         assert!(!game.room().boss_special.as_ref().unwrap().is_telegraphing());
@@ -127,10 +127,10 @@ fn specials_pause_in_inactive_rooms_and_inventory_and_ignore_invalid_time() {
     game.toggle_inventory();
     game.update(PlayerInput::default(), 100.0);
     assert!(game.room().boss_special.as_ref().unwrap().is_telegraphing());
-    assert_eq!(game.player.health().current(), 5);
+    assert_eq!(game.player.health().current(), 50);
     game.toggle_inventory();
     game.update(PlayerInput::default(), 0.5);
-    assert_eq!(game.player.health().current(), 4);
+    assert_eq!(game.player.health().current(), 40);
     game.update(PlayerInput::default(), f32::MAX);
     assert!(game.special_attack_timer.is_finite());
 }
@@ -148,14 +148,14 @@ fn summoned_enemies_use_room_combat_knockback_contact_and_stay_dead() {
     assert_eq!(game.room().enemies.len(), 2);
     game.player.place_on_floor(120.0, bounds);
     game.update(PlayerInput::default(), 0.0);
-    assert_eq!(game.player.health().current(), 4);
+    assert_eq!(game.player.health().current(), 40);
     game.player.place_on_floor(80.0, bounds);
     let swing = PlayerInput {
         attack_pressed: true,
         ..PlayerInput::default()
     };
     game.update(swing, 0.0);
-    assert_eq!(game.room().enemies[0].health(), 2);
+    assert_eq!(game.room().enemies[0].health(), 20);
     game.update(PlayerInput::default(), 0.1);
     assert!(game.room().enemies[0].position().x > 120.0);
     game.rooms[2].enemies[0].hit(100, 1.0);
@@ -175,7 +175,7 @@ fn special_melee_hits_once_per_swing_respects_facing_and_range() {
     };
     game.update(swing, 0.0);
     game.update(swing, 0.0);
-    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 99);
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 990);
     game.update(PlayerInput::default(), crate::combat::ATTACK_COOLDOWN);
     game.update(
         PlayerInput {
@@ -184,17 +184,21 @@ fn special_melee_hits_once_per_swing_respects_facing_and_range() {
         },
         0.0,
     );
-    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 99);
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 990);
     game.player.place_on_floor(800.0, game.world_bounds());
     game.update(PlayerInput::default(), crate::combat::ATTACK_COOLDOWN);
     game.update(swing, 0.0);
-    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 99);
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 990);
 }
 
 #[test]
 fn special_death_unlocks_arena_and_coins_are_collected_without_respawning() {
     let mut game = special_game();
-    game.rooms[2].boss_special.as_mut().unwrap().damage_boss(99);
+    game.rooms[2]
+        .boss_special
+        .as_mut()
+        .unwrap()
+        .damage_boss(990);
     game.player.place_on_floor(520.0, game.world_bounds());
     game.update(
         PlayerInput {
@@ -299,7 +303,7 @@ fn coins_persist_through_room_travel_and_respawn() {
     }
     game.update(PlayerInput::default(), 0.0);
     assert_eq!(game.coin_count(), 1);
-    assert_eq!(game.player.health().current(), 5);
+    assert_eq!(game.player.health().current(), 50);
     game.update(
         PlayerInput {
             move_axis: -1.0,
@@ -379,7 +383,7 @@ fn death_uses_current_room_spawn_and_inactive_enemies_stay_frozen() {
     room.enemies
         .push(crate::enemy::Enemy::new(500.0, 500.0, 0.0, 0.0, bounds));
     game.player.place_on_floor(500.0, bounds);
-    for expected in [4, 3, 2, 1, 5] {
+    for expected in [40, 30, 20, 10, 50] {
         game.update(PlayerInput::default(), 1.0);
         assert_eq!(game.player.health().current(), expected);
     }
@@ -409,9 +413,9 @@ fn melee_respects_range_facing_and_hits_each_enemy_once_per_swing() {
     };
     game.update(swing, 0.0);
     game.update(swing, 0.0);
-    assert_eq!(game.room().enemies[0].health(), 2);
-    assert_eq!(game.room().enemies[1].health(), 3);
-    assert_eq!(game.room().enemies[2].health(), 3);
+    assert_eq!(game.room().enemies[0].health(), 20);
+    assert_eq!(game.room().enemies[1].health(), 30);
+    assert_eq!(game.room().enemies[2].health(), 30);
     game.update(PlayerInput::default(), crate::combat::ATTACK_COOLDOWN);
     game.update(
         PlayerInput {
@@ -421,7 +425,7 @@ fn melee_respects_range_facing_and_hits_each_enemy_once_per_swing() {
         },
         0.0,
     );
-    assert_eq!(game.room().enemies[1].health(), 2);
+    assert_eq!(game.room().enemies[1].health(), 20);
 }
 
 #[test]
@@ -440,7 +444,7 @@ fn lethal_swing_removes_enemy_before_contact_damage_and_death_persists() {
         0.0,
     );
     assert!(game.room().enemies.is_empty());
-    assert_eq!(game.player.health().current(), 5);
+    assert_eq!(game.player.health().current(), 50);
     game.update(
         PlayerInput {
             move_axis: 1.0,
@@ -525,7 +529,7 @@ fn death_clears_active_dash_and_preserves_collected_ability() {
     assert_eq!(game.player.position().x, spawn.x + 40.0);
 }
 
-/// Arena boss from the `ground_pound` fixture (10 health, 2 contact damage) at the
+/// Arena boss from the `ground_pound` fixture (100 health, 20 contact damage) at the
 /// Ash Warden spot, with its attack pause pushed out so only contact can hurt.
 fn pound_game() -> GameState {
     let mut game = special_game();
@@ -547,7 +551,7 @@ fn pound_game() -> GameState {
 #[test]
 fn lethal_special_swing_prevents_contact_unlocks_exit_and_death_persists() {
     let mut game = pound_game();
-    game.rooms[2].boss_special.as_mut().unwrap().damage_boss(9);
+    game.rooms[2].boss_special.as_mut().unwrap().damage_boss(90);
     game.player.place_on_floor(520.0, game.world_bounds());
     assert!(game.room().exits_locked());
     game.update(
@@ -557,7 +561,7 @@ fn lethal_special_swing_prevents_contact_unlocks_exit_and_death_persists() {
         },
         0.0,
     );
-    assert_eq!(game.player.health().current(), 5);
+    assert_eq!(game.player.health().current(), 50);
     assert!(game.room().boss_special.as_ref().unwrap().is_defeated());
     assert!(!game.room().exits_locked());
     game.player.place_on_floor(16.0, game.world_bounds());
@@ -575,7 +579,7 @@ fn lethal_special_swing_prevents_contact_unlocks_exit_and_death_persists() {
     assert!(!game.room().exits_locked());
     game.player.place_on_floor(560.0, game.world_bounds());
     game.update(PlayerInput::default(), 10.0);
-    assert_eq!(game.player.health().current(), 5);
+    assert_eq!(game.player.health().current(), 50);
 }
 
 #[test]
@@ -583,15 +587,15 @@ fn special_contact_deals_configured_damage_respects_immunity_and_respawn_keeps_l
     let mut game = pound_game();
     game.player.place_on_floor(560.0, game.world_bounds());
     game.update(PlayerInput::default(), 0.0);
-    assert_eq!(game.player.health().current(), 3);
+    assert_eq!(game.player.health().current(), 30);
     game.update(PlayerInput::default(), 0.0);
-    assert_eq!(game.player.health().current(), 3);
-    for expected in [1, 5] {
+    assert_eq!(game.player.health().current(), 30);
+    for expected in [10, 50] {
         game.update(PlayerInput::default(), 1.0);
         assert_eq!(game.player.health().current(), expected);
     }
     assert_eq!(game.player.position(), game.room().spawn);
-    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 10);
+    assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 100);
     assert!(game.room().exits_locked());
 }
 

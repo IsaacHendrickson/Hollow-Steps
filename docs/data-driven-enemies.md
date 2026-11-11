@@ -38,7 +38,7 @@ Actions execute in list order, carrying unused time to the next action:
 | `jump_to_player(dx: 0.0, dy: -200.0, speed: 300.0)` | Sample the player's center plus the offsets once when this action starts. Clamp the target so the whole entity fits between the walls, the arena top (y = 0), and the floor. Move in a straight line at the given speed; finish exactly at that target. Negative dy targets above the player. |
 | `hover(seconds: 1.0)` | Hold both coordinates, including height, for the duration. |
 | `slam_down(speed: 600.0)` | Move vertically down at the given speed; finish with the body's bottom exactly on the floor. |
-| `area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 1)` | Sample `count` random circle centers anywhere inside the arena when the action starts. Show stationary warning circles, wait for the fuse, then detonate once and finish. |
+| `area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 10)` | Sample `count` random circle centers anywhere inside the arena when the action starts. Show stationary warning circles, wait for the fuse, then detonate once and finish. |
 
 Completed sequences remain idle until a transition fires. Use an
 `action_finished` self-transition to repeat a sequence or continue pursuing a
@@ -66,7 +66,7 @@ then cover the arena with delayed blasts using the existing action-list syntax:
 ```ron
 [jump_to_player(dx: 0.0, dy: -200.0, speed: 300.0),
  hover(seconds: 0.75), slam_down(speed: 600.0),
- area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 2)]
+ area_blast(count: 3, radius: 48.0, fuse_time: 1.0, damage: 20)]
 ```
 
 | Condition | Meaning |
@@ -74,7 +74,7 @@ then cover the arena with delayed blasts using the existing action-list syntax:
 | `timer_elapsed(0.5)` | Time in the current state is at least the threshold. |
 | `player_distance_less_than(180.0)` | Center-to-center distance on both axes is strictly below the threshold. |
 | `player_distance_greater_than(180.0)` | Center-to-center distance is strictly above the threshold. |
-| `health_below(2)` | Current health points are strictly below the threshold. |
+| `health_below(20)` | Current health points are strictly below the threshold. |
 | `action_finished` | All actions in the state have completed. |
 
 Transitions are checked in file order before actions and again afterward if
@@ -92,11 +92,11 @@ An entity file such as `assets/entities/chase.ron` selects its shared behavior
 by filename without `.ron`; its `name` is what room files reference:
 
 ```ron
-(name: "chase", health: 3, size: (36.0, 36.0), contact_damage: 1, behavior: "chase")
+(name: "chase", health: 30, size: (36.0, 36.0), contact_damage: 10, behavior: "chase")
 ```
 
-Health is a positive integer up to 255, size is a pair of positive dimensions,
-and contact damage is an integer from 0 to 255 (0 disables contact damage).
+Health is a positive integer up to 65535 (one sword hit is 10), size is a pair of positive dimensions,
+and contact damage is an integer from 0 to 65535 (0 disables contact damage).
 Overlapping enemies apply the highest contact damage once, respecting the
 player's normal immunity; damage saturates at zero health. Each entity instance
 owns its health, timers, action cursor, and facing independently.
@@ -108,7 +108,7 @@ killing blow), deals no damage of any kind, cannot be hit again and runs no
 behavior. The Entity section of the editor has a "Death time" drag box for it.
 
 ```ron
-(name: "chase", health: 3, size: (36.0, 36.0), contact_damage: 1, behavior: "chase", death_secs: 0.6)
+(name: "chase", health: 30, size: (36.0, 36.0), contact_damage: 10, behavior: "chase", death_secs: 0.6)
 ```
 
 The three room placement files are `first.ron`, `second.ron`, and `boss.ron`:

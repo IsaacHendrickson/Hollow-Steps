@@ -60,8 +60,8 @@ impl KeyValues {
                     (Condition::PlayerDistanceGreaterThan(_), true) => {
                         "player no farther than (pixels)"
                     }
-                    (Condition::HealthBelow(_), false) => "health below (integer 0..255)",
-                    (Condition::HealthBelow(_), true) => "health at least (integer 0..255)",
+                    (Condition::HealthBelow(_), false) => "health below (integer 0..65535)",
+                    (Condition::HealthBelow(_), true) => "health at least (integer 0..65535)",
                     (Condition::ActionFinished, _) => unreachable!("no numeric parameter"),
                 };
                 values.push(KeyValue {

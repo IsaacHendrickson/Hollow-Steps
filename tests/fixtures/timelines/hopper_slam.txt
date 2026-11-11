@@ -71,36 +71,36 @@
 70 pos=500.000,436.667 finished=false
 71 pos=500.000,440.000 finished=false
 72 pos=500.000,443.333 finished=false
-73 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-74 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-75 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-76 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-77 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-78 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-79 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-80 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-81 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-82 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-83 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-84 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-85 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-86 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-87 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-88 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-89 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-90 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-91 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-92 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-93 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-94 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-95 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-96 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-97 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-98 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-99 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-100 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-101 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
-102 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=2 knockback=0.000,-200.000 secs=0.500
+73 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+74 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+75 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+76 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+77 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+78 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+79 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+80 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+81 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+82 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+83 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+84 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+85 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+86 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+87 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+88 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+89 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+90 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+91 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+92 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+93 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+94 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+95 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+96 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+97 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+98 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+99 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+100 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+101 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
+102 pos=500.000,444.000 finished=false area=Rect center=500.000,444.000 size=100.000,32.000 damage=20 knockback=0.000,-200.000 secs=0.500
 103 pos=500.000,444.000 finished=false
 104 pos=500.000,444.000 finished=false
 105 pos=500.000,444.000 finished=false

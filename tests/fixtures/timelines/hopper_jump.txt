@@ -72,36 +72,36 @@
 71 pos=253.000,414.000 finished=false
 72 pos=248.667,421.156 finished=false
 73 pos=244.333,428.489 finished=false
-74 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-75 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-76 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-77 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-78 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-79 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-80 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-81 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-82 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-83 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-84 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-85 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-86 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-87 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-88 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-89 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-90 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-91 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-92 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-93 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-94 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-95 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-96 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-97 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-98 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-99 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-100 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-101 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-102 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
-103 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=2 knockback=0.000,-120.000 secs=0.500
+74 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+75 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+76 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+77 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+78 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+79 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+80 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+81 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+82 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+83 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+84 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+85 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+86 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+87 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+88 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+89 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+90 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+91 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+92 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+93 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+94 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+95 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+96 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+97 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+98 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+99 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+100 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+101 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+102 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
+103 pos=240.000,436.000 finished=false area=Circle center=240.000,436.000 size=60.000,60.000 damage=20 knockback=0.000,-120.000 secs=0.500
 104 pos=240.000,436.000 finished=false
 105 pos=240.000,436.000 finished=false
 106 pos=240.000,436.000 finished=false

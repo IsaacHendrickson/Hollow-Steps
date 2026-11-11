@@ -13,7 +13,7 @@ use macroquad::math::Vec2;
 const BOUNDS: WorldBounds = WorldBounds::new(0.0, 960.0, 460.0);
 const PATROL: &str = r#"(initial_state: "patrol", states: [(name: "patrol", actions: [patrol(speed: 100.0)], transitions: [])])"#;
 const ENTITY: &str =
-    r#"(name: "guard", health: 8, size: (60.0, 80.0), contact_damage: 2, behavior: "patrol")"#;
+    r#"(name: "guard", health: 80, size: (60.0, 80.0), contact_damage: 20, behavior: "patrol")"#;
 
 struct Assets(PathBuf);
 
@@ -57,17 +57,17 @@ fn entity_fields_control_health_size_contact_damage_and_patrol() {
     let definitions = EnemyDefinitions::load(&assets.0).unwrap();
     let mut enemy = definitions.spawn("guard", 100.0, 200.0, BOUNDS).unwrap();
     assert_eq!(enemy.name(), "guard");
-    assert_eq!(enemy.health(), 8);
-    assert_eq!(enemy.max_health(), 8);
+    assert_eq!(enemy.health(), 80);
+    assert_eq!(enemy.max_health(), 80);
     assert_eq!(enemy.size(), Vec2::new(60.0, 80.0));
-    assert_eq!(enemy.contact_damage(), 2);
+    assert_eq!(enemy.contact_damage(), 20);
     assert_eq!(enemy.position(), Vec2::new(100.0, 420.0));
     assert!(enemy.touches(Vec2::new(130.0, 460.0), Vec2::ZERO));
     assert!(!enemy.touches(Vec2::new(131.0, 460.0), Vec2::ZERO));
     enemy.update(Vec2::ZERO, 0.25, BOUNDS);
     assert_eq!(enemy.position(), Vec2::new(125.0, 420.0));
     assert!(enemy.hit(1, -1.0));
-    assert_eq!(enemy.health(), 7);
+    assert_eq!(enemy.health(), 70);
 }
 
 #[test]
@@ -75,11 +75,11 @@ fn variable_contact_damage_is_atomic_respects_immunity_and_saturates() {
     let mut health = Health::default();
     assert!(!health.take_damage_amount(0));
     assert!(!health.is_invincible());
-    assert!(health.take_damage_amount(2));
-    assert_eq!(health.current(), 3);
-    assert!(!health.take_damage_amount(2));
+    assert!(health.take_damage_amount(20));
+    assert_eq!(health.current(), 30);
+    assert!(!health.take_damage_amount(20));
     health.update(1.0);
-    assert!(health.take_damage_amount(u8::MAX));
+    assert!(health.take_damage_amount(u16::MAX));
     assert_eq!(health.current(), 0);
     health.update(1.0);
     assert!(!health.take_damage_amount(1));
@@ -96,11 +96,11 @@ fn game_loads_room_enemies_and_uses_definition_contact_damage() {
     assets.write("rooms/boss.ron", "(enemies: [])");
     let mut game = GameState::try_new(&assets.0).unwrap();
     game.update(PlayerInput::default(), 0.0);
-    assert_eq!(game.player().health().current(), 3);
+    assert_eq!(game.player().health().current(), 30);
     game.update(PlayerInput::default(), 0.0);
-    assert_eq!(game.player().health().current(), 3);
+    assert_eq!(game.player().health().current(), 30);
     game.update(PlayerInput::default(), 1.0);
-    assert_eq!(game.player().health().current(), 1);
+    assert_eq!(game.player().health().current(), 10);
 }
 
 #[test]

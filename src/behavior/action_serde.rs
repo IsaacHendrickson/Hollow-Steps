@@ -188,7 +188,7 @@ pub(super) fn deserialize_blast<'de, A: serde::de::VariantAccess<'de>>(
     let p: Fields = variant.struct_variant(&[], FieldsVisitor(std::marker::PhantomData))?;
     match (p.count, p.fuse_time, p.knockback, p.active_secs) {
         (Some(count), Some(fuse_time), None, None) if p.telegraph_secs.is_none() && p.feedback.is_none() && p.telegraph_pose.is_none() && p.active_pose.is_none() && p.recovery_pose.is_none() && p.pose_blend_ratio.is_none() && p.strike_stiffness_multiplier.is_none() && p.knockback_secs.is_none() => Ok(Action::AreaBlast {
-            count, fuse_time, radius: p.radius, damage: u8::try_from(p.damage).map_err(|_| A::Error::custom("legacy blast damage must be 0..255"))? }),
+            count, fuse_time, radius: p.radius, damage: u16::try_from(p.damage).map_err(|_| A::Error::custom("legacy blast damage must be 0..65535"))? }),
         (None, None, Some(knockback), Some(active_secs)) => Ok(Action::RadialBlast {
             radius: p.radius, damage: p.damage, knockback, active_secs,
             knockback_secs: p.knockback_secs.unwrap_or_else(default_knockback_secs),

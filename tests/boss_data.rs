@@ -68,8 +68,8 @@ fn loads_fields_attacks_and_room_placements_without_a_hardcoded_arena_boss() {
         .spawn("Ash Warden", Vec2::new(300.0, 300.0))
         .unwrap();
     assert_eq!(boss.name(), "Ash Warden");
-    assert_eq!(boss.health(), 100);
-    assert_eq!(boss.max_health(), 100);
+    assert_eq!(boss.health(), 1000);
+    assert_eq!(boss.max_health(), 1000);
     assert_eq!(boss.size(), Vec2::splat(48.0));
     assert_eq!(boss.contact_damage(), 0);
     let definition = BossDefinition::from_ron(WARDEN).unwrap();
@@ -87,7 +87,7 @@ fn loads_fields_attacks_and_room_placements_without_a_hardcoded_arena_boss() {
     assets.write("rooms", "first.ron", "(enemies: [], boss: Some((definition: \"Ground Pound Example\", position: (300.0, 436.0))))");
     assets.write("rooms", "boss.ron", "(enemies: [])");
     let rooms = load_rooms(&assets.0).unwrap();
-    assert_eq!(rooms[0].boss_special.as_ref().unwrap().health(), 10);
+    assert_eq!(rooms[0].boss_special.as_ref().unwrap().health(), 100);
     assert_eq!(
         rooms[0].boss_special.as_ref().unwrap().position(),
         Vec2::new(300.0, 436.0)
@@ -130,7 +130,7 @@ fn load_errors_identify_file_boss_attack_action_and_parameter() {
     let assets = Assets::new();
     for (source, expected) in [
         (
-            WARDEN.replace("health: 100", "health: 0"),
+            WARDEN.replace("health: 1000", "health: 0"),
             "health must be positive",
         ),
         (
@@ -169,7 +169,10 @@ fn load_errors_identify_file_boss_attack_action_and_parameter() {
         (WARDEN.replace("seconds: 0.5", "seconds: NaN"), "seconds"),
         (WARDEN.replace("radius: 56.0", "radius: -1.0"), "radius"),
         (WARDEN.replace("damage: 1", "damage: 1.5"), "Expected comma"),
-        (WARDEN.replace("damage: 1", "damage: 256"), "out of bounds"),
+        (
+            WARDEN.replace("damage: 10", "damage: 65536"),
+            "out of bounds",
+        ),
         (WARDEN.replace("count: 3", "count: 0"), "count"),
         (WARDEN.replace("count: 3", "count: 257"), "count"),
         (WARDEN.replace("count: 3", "count: 1.5"), "count"),
@@ -197,9 +200,9 @@ fn load_errors_identify_file_boss_attack_action_and_parameter() {
             WARDEN.replace("glide_to_floor(speed: 1000.0)", "glide_to_floor()"),
             "speed",
         ),
-        (WARDEN.replace("health: 100,", ""), "health"),
+        (WARDEN.replace("health: 1000,", ""), "health"),
         (
-            WARDEN.replace("contact_damage: 0", "contact_damage: 256"),
+            WARDEN.replace("contact_damage: 0", "contact_damage: 65536"),
             "out of bounds",
         ),
         (WARDEN.replace("selection: cycle,", ""), "selection"),
@@ -326,13 +329,13 @@ fn ground_pound_runs_jump_hover_slam_then_shockwave_in_order_once() {
     }
     assert_eq!(boss.update(1.0, target, BOUNDS), 0);
     assert_eq!(boss.position(), Vec2::new(400.0, 336.0));
-    assert_eq!(boss.update(1.0, target, BOUNDS), 2);
+    assert_eq!(boss.update(1.0, target, BOUNDS), 20);
     assert_eq!(boss.position(), target);
     assert!(!boss.is_telegraphing());
     assert_eq!(boss.update(10.0, target, BOUNDS), 0);
     let mut overshoot = runtime(POUND);
     overshoot.start_next_attack(target, BOUNDS);
-    assert_eq!(overshoot.update(10.0, target, BOUNDS), 2);
+    assert_eq!(overshoot.update(10.0, target, BOUNDS), 20);
     assert_eq!(overshoot.position(), target);
 }
 
@@ -382,12 +385,12 @@ fn independent_instances_invalid_time_death_and_zero_time_sequences_are_safe() {
     }
     first.update(0.1, Vec2::ZERO, BOUNDS);
     assert_ne!(first.position(), second.position());
-    first.damage_boss(10);
+    first.damage_boss(100);
     assert_eq!(first.contact_damage(), 0);
     first.start_next_attack(Vec2::ZERO, BOUNDS);
     assert_eq!(first.update(f32::MAX, Vec2::ZERO, BOUNDS), 0);
     assert!(!first.is_telegraphing());
-    assert_eq!(second.health(), 10);
+    assert_eq!(second.health(), 100);
     let mut definition = BossDefinition::from_ron(POUND).unwrap();
     definition.pause_seconds = 0.0;
     definition.attacks[0].actions = vec![Action::Wait { seconds: 0.0 }];
@@ -403,9 +406,9 @@ fn contact_damage_and_failed_boss_reload_use_the_normal_game_boundaries() {
     assets.write("rooms", "first.ron", "(enemies: [], boss: Some((definition: \"Ground Pound Example\", position: (180.0, 436.0))))");
     let mut game = GameState::try_new(&assets.0).unwrap();
     game.update(PlayerInput::default(), 0.0);
-    assert_eq!(game.player().health().current(), 3);
+    assert_eq!(game.player().health().current(), 30);
     game.update(PlayerInput::default(), 0.0);
-    assert_eq!(game.player().health().current(), 3);
+    assert_eq!(game.player().health().current(), 30);
     let before = format!("{:?}", game.room().boss_special);
     let path = assets.write(
         "bosses",
@@ -418,7 +421,7 @@ fn contact_damage_and_failed_boss_reload_use_the_normal_game_boundaries() {
     assets.write("bosses", "ground_pound.ron", POUND);
     game.reload_rooms().unwrap();
     assert_eq!(format!("{:?}", game.room().boss_special), before);
-    assert_eq!(game.player().health().current(), 3);
+    assert_eq!(game.player().health().current(), 30);
 }
 
 #[test]

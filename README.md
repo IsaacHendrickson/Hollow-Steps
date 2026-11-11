@@ -51,7 +51,8 @@ above; Windows needs no extra system libraries.
   a jump for 0.1 seconds after leaving support.
 - `X`: swing in the last movement direction, including while airborne.
   The hitbox extends 38 pixels for 0.12 seconds with a 0.35-second cooldown.
-  Each swing hits each enemy once; enemies take three hits to defeat and
+  Each swing hits each enemy once; enemies take three hits to defeat (health and
+  damage are in tenths of a hit: a sword hit is 10, the player has 50) and
   are knocked back on impact. Their health bars show remaining health.
 - `Up` + `X`: strike upward. `Down` + `X` while airborne: strike downward (on
   the floor it is an ordinary forward swing). A downward strike that hits an

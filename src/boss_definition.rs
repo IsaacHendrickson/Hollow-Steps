@@ -30,7 +30,7 @@ pub struct BossDefinition {
     pub name: String,
     pub health: u32,
     pub size: (f32, f32),
-    pub contact_damage: u8,
+    pub contact_damage: u16,
     pub selection: AttackSelection,
     pub pause_seconds: f32,
     pub attacks: Vec<AttackDefinition>,

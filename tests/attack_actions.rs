@@ -7,7 +7,7 @@ fn hitbox() -> AttackBox {
         shape: AttackShape::Rect,
         offset: (30.0, 0.0),
         size: (20.0, 20.0),
-        damage: 2,
+        damage: 20,
         knockback: (40.0, -50.0),
         knockback_secs: 0.2,
         active_secs: 0.5,
@@ -30,7 +30,7 @@ fn attack_geometry_is_independent_and_windows_are_half_open() {
 fn attack_damage_and_knockback_respect_existing_invincibility() {
     let mut player = Player::new(Vec2::ZERO, PlayerConfig::default());
     assert!(player.take_attack_damage(hitbox().hit()));
-    assert_eq!(player.health().current(), 3);
+    assert_eq!(player.health().current(), 30);
     let after = player.clone();
     assert!(!player.take_attack_damage(hitbox().hit()));
     assert_eq!(player, after);
@@ -548,7 +548,7 @@ fn enemy_action_damage_api_includes_attack_boxes_and_closes_at_window_end() {
     )
     .unwrap();
     enemy.update(context().player_position, 0.5, context().bounds);
-    assert_eq!(enemy.action_damage(enemy.position(), Vec2::ZERO), 2);
+    assert_eq!(enemy.action_damage(enemy.position(), Vec2::ZERO), 20);
     assert_eq!(
         enemy.action_damage(enemy.position() + Vec2::X * 31.0, Vec2::ZERO),
         0

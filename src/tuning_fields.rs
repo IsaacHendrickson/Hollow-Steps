@@ -274,10 +274,10 @@ const SPECS: [FieldSpec; 22] = [
             "enemy.default_health",
             "Default enemy health",
             "Enemies",
-            "hits",
+            "health",
             1.0,
-            99.0,
-            0.1,
+            990.0,
+            1.0,
             0,
         )
     },
@@ -384,7 +384,7 @@ impl Field {
             Field::StrikeDownWidth => player.strike.down_width = value,
             Field::StrikeDownHeight => player.strike.down_height = value,
             Field::PogoSpeed => player.strike.pogo_speed = value,
-            Field::EnemyDefaultHealth => enemy.default_health = value as u8,
+            Field::EnemyDefaultHealth => enemy.default_health = value as u16,
             Field::EnemyKnockbackSpeed => enemy.knockback_speed = value,
             Field::EnemyKnockbackSeconds => enemy.knockback_seconds = value,
         }

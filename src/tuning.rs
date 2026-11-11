@@ -24,7 +24,7 @@ const DEFAULTS: &str = include_str!("../data/player.ron");
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EnemyTuning {
     /// Health of enemies spawned by code (boss summons, enemy spawns) rather than defined in a file.
-    pub default_health: u8,
+    pub default_health: u16,
     /// Horizontal speed of the push an enemy gets when the player hits it.
     pub knockback_speed: f32,
     /// How long that push lasts.
@@ -99,7 +99,7 @@ struct StrikeFile {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EnemyFile {
-    default_health: u8,
+    default_health: u16,
     knockback_speed: f32,
     knockback_seconds: f32,
 }
@@ -367,6 +367,8 @@ mod tests {
 
         let overflowing = DEFAULTS.replace("default_health: 3", "default_health: 300");
         assert!(TuningConfig::parse(&overflowing, "player.ron").is_err());
+        let past_u16 = DEFAULTS.replace("default_health: 30", "default_health: 70000");
+        assert!(TuningConfig::parse(&past_u16, "player.ron").is_err());
         assert!(TuningConfig::parse("", "player.ron").is_err());
         assert!(TuningConfig::parse("(player: (), enemy: ())", "player.ron").is_err());
     }

@@ -1,4 +1,4 @@
-use hollow_steps::combat::{Attack, ATTACK_COOLDOWN, ATTACK_REACH, SWING_SECONDS};
+use hollow_steps::combat::{Attack, ATTACK_COOLDOWN, ATTACK_REACH, SWING_SECONDS, SWORD_DAMAGE};
 use hollow_steps::enemy::{Enemy, ENEMY_MAX_HEALTH, KNOCKBACK_SECONDS};
 use hollow_steps::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
 use macroquad::math::Vec2;
@@ -46,10 +46,10 @@ fn attack_ignores_invalid_time_and_does_not_repeat_without_a_press() {
 #[test]
 fn enemy_takes_one_damage_per_swing_and_death_disables_contact_and_motion() {
     let mut enemy = Enemy::new(200.0, 300.0, 100.0, 0.0, BOUNDS);
-    for id in 1..=u64::from(ENEMY_MAX_HEALTH) {
+    for id in 1..=u64::from(ENEMY_MAX_HEALTH / SWORD_DAMAGE) {
         assert!(enemy.hit(id, 1.0));
         assert!(!enemy.hit(id, 1.0));
-        assert_eq!(enemy.health(), ENEMY_MAX_HEALTH - id as u8);
+        assert_eq!(enemy.health(), ENEMY_MAX_HEALTH - id as u16 * SWORD_DAMAGE);
     }
     assert!(enemy.is_dead());
     assert!(!enemy.hit(10, -1.0));

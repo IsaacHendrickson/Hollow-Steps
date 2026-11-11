@@ -1,8 +1,8 @@
 (
     name: "scittish",
-    health: 1,
+    health: 10,
     size: (32.0, 40.0),
-    contact_damage: 1,
+    contact_damage: 10,
     behavior: "Shooter",
     body: Some((
         hurt: (
