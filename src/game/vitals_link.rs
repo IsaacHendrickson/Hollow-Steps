@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 use super::GameState;
 use crate::enemy_attack::DamageHit;
+use crate::events::HealthLoss;
 use crate::health::MAX_HEALTH;
 use crate::player::{Player, PlayerInput};
 use crate::vitals::{self, HealInput, VitalsConfig, VitalsState};
@@ -36,6 +37,19 @@ pub(super) fn regain(player: &mut Player, vitals: &mut VitalsState) {
 /// The damage `Player::take_attack_damage` applied for `hit`.
 pub(super) fn applied_damage(hit: DamageHit) -> f32 {
     f32::from(hit.damage.clamp(0, i32::from(u16::MAX)) as u16)
+}
+
+/// Applies the damage `Player::take_attack_damage` just dealt to the vitals and says how much
+/// health that actually took (a hit on the last scraps of health takes only those). `None` when
+/// the vitals had nothing left to lose.
+pub(super) fn apply_damage(vitals: &mut VitalsState, hit: DamageHit) -> Option<HealthLoss> {
+    let before = vitals.health();
+    vitals.damage(applied_damage(hit));
+    let lost = before - vitals.health();
+    (lost > 0.0).then(|| HealthLoss {
+        lost,
+        remaining: vitals.health(),
+    })
 }
 
 impl GameState {

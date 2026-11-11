@@ -4,41 +4,72 @@ use std::path::Path;
 
 use hollow_steps::boss_special::SpecialAttack;
 use hollow_steps::camera::{anchored, Anchor};
+use hollow_steps::events::LocatedEvent;
 use hollow_steps::game::GameState;
 use hollow_steps::hud_bars::{layout_bars, BarColors, BarLayout, BarValues, HudConfig, Rgba};
+use hollow_steps::hud_damage::HudFeedback;
 use hollow_steps::hud_layout::{boss_caption, boss_fill, room_label};
+use hollow_steps::particles::ParticleConfig;
 use hollow_steps::room::Room;
 use macroquad::prelude::*;
+
+use crate::effects::draw_particles;
 
 /// The gold coin is drawn 9 pixels in radius with its center 2 pixels below the counter row's
 /// anchor, so its top is 7 pixels above the anchor; lowering the row by that much leaves
 /// exactly one `gap` between the mana bar and the coin.
 const COUNTER_INSET: f32 = 7.0;
 
-/// The HUD's settings (`data/hud.ron`), loaded once and re-read on F5.
+/// The HUD's settings (`data/hud.ron`) and the health bar's damage feedback: its shake and a
+/// particle emitter of its own that draws in screen space, never through the world camera.
 pub struct Hud {
     config: HudConfig,
+    feedback: HudFeedback,
 }
 
 impl Hud {
-    /// Loads `hud.ron` from `assets` (or the defaults). An invalid file falls back to the
-    /// defaults and the reason comes back so it can be shown on screen.
-    pub fn load(assets: &Path) -> (Self, Option<String>) {
-        match HudConfig::load(assets) {
-            Ok(config) => (Self { config }, None),
-            Err(error) => (
-                Self {
-                    config: HudConfig::default(),
-                },
-                Some(error),
-            ),
-        }
+    /// Loads `hud.ron` from `assets` (or the defaults); `particles` are the particle settings
+    /// the world's effects run on, which hold the `hud_damage` burst. An invalid file falls
+    /// back to the defaults and the reason comes back so it can be shown on screen.
+    pub fn load(assets: &Path, particles: &ParticleConfig) -> (Self, Option<String>) {
+        let (config, error) = match HudConfig::load(assets) {
+            Ok(config) => (config, None),
+            Err(error) => (HudConfig::default(), Some(error)),
+        };
+        let hud = Self {
+            config,
+            feedback: HudFeedback::new(particles.clone()),
+        };
+        (hud, error)
     }
 
-    /// Re-reads the settings. Nothing changes if the file is invalid.
-    pub fn reload(&mut self, assets: &Path) -> Result<(), String> {
+    /// Re-reads the settings and takes the current particle settings. Nothing changes if the
+    /// file is invalid.
+    pub fn reload(&mut self, assets: &Path, particles: &ParticleConfig) -> Result<(), String> {
         self.config = HudConfig::load(assets)?;
+        self.feedback.set_particle_config(particles.clone());
         Ok(())
+    }
+
+    /// Reacts to a frame's events: damage shakes the health bar and throws off particles.
+    pub fn handle(&mut self, events: &[LocatedEvent], view: Vec2, max_health: f32) {
+        let bar = self.config.health_anchor(view);
+        self.feedback.handle(&self.config, bar, max_health, events);
+    }
+
+    /// Moves the shake and the particles on by one fixed tick.
+    pub fn update(&mut self, delta_seconds: f32) {
+        self.feedback.update(&self.config, delta_seconds);
+    }
+
+    /// Stops the shake and drops the particles, for when the world changes under them.
+    pub fn clear(&mut self) {
+        self.feedback.clear();
+    }
+
+    /// Draws the damage particles. Call after the HUD, with the HUD's camera set.
+    pub fn draw_particles(&self) {
+        draw_particles(self.feedback.particles());
     }
 }
 
@@ -54,7 +85,7 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
         BarValues::from(game.vitals()),
         config.health_anchor(view),
     );
-    draw_bars(&layout, &config.colors);
+    // The counters go under the bars where they rest; only the health bar shakes.
     let counters = anchored(
         view,
         Anchor::TopLeft,
@@ -64,6 +95,8 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
             layout.bounds().bottom() + config.gap + COUNTER_INSET,
         ),
     );
+    let shaken = layout.with_health_offset(hud.feedback.bar_offset(config));
+    draw_bars(&shaken, &config.colors);
     draw_circle(counters.x + 9.0, counters.y + 2.0, 9.0, GOLD);
     draw_circle_lines(counters.x + 9.0, counters.y + 2.0, 6.0, 1.5, YELLOW);
     draw_text(

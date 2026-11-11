@@ -9,7 +9,7 @@ mod sound_bank;
 use std::path::{Path, PathBuf};
 
 use hollow_steps::events::LocatedEvent;
-use hollow_steps::particles::{ParticleConfig, ParticleSystem};
+use hollow_steps::particles::{Particle, ParticleConfig, ParticleSystem};
 use hollow_steps::sound::{SoundConfig, SOUND_DIR};
 use macroquad::prelude::*;
 use sound_bank::SoundBank;
@@ -75,16 +75,27 @@ impl Effects {
         self.particles.clear();
     }
 
+    /// The particle settings in effect, for the HUD's own emitter to share.
+    pub fn particle_config(&self) -> &ParticleConfig {
+        self.particles.config()
+    }
+
     /// Draws the particles. Call with the world camera set.
     pub fn draw(&self) {
-        for particle in self.particles.particles() {
-            let [red, green, blue, alpha] = particle.color();
-            draw_circle(
-                particle.position.x,
-                particle.position.y,
-                particle.size() / 2.0,
-                Color::from_rgba(red, green, blue, alpha),
-            );
-        }
+        draw_particles(self.particles.particles());
+    }
+}
+
+/// Draws `particles` as fading circles at their own positions: world pixels when the world
+/// camera is set, screen pixels when the HUD's is.
+pub fn draw_particles(particles: &[Particle]) {
+    for particle in particles {
+        let [red, green, blue, alpha] = particle.color();
+        draw_circle(
+            particle.position.x,
+            particle.position.y,
+            particle.size() / 2.0,
+            Color::from_rgba(red, green, blue, alpha),
+        );
     }
 }

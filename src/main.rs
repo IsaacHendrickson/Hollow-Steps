@@ -43,7 +43,7 @@ async fn main() {
     let (mut effects, effects_error) = effects::Effects::load(&assets::assets_root());
     let mut reload_result = effects_error.map(Err);
     // The health and mana bars' settings; an invalid file is shown the same way.
-    let (mut hud, hud_error) = hud::Hud::load(&assets::assets_root());
+    let (mut hud, hud_error) = hud::Hud::load(&assets::assets_root(), effects.particle_config());
     if let Some(error) = hud_error {
         reload_result = Some(Err(error));
     }
@@ -113,6 +113,7 @@ async fn main() {
             // input or time left over from the other mode must not carry across.
             testing = game.testing_room();
             effects.clear();
+            hud.clear();
             fixed_step.reset();
             input_latch.clear();
             camera = new_camera(&game, camera_config, view);
@@ -137,7 +138,7 @@ async fn main() {
             reload_result = Some(
                 game.reload_rooms()
                     .and_then(|()| effects.reload())
-                    .and_then(|()| hud.reload(&assets::assets_root()))
+                    .and_then(|()| hud.reload(&assets::assets_root(), effects.particle_config()))
                     .and_then(|()| post_pass.reload(&assets::assets_root()))
                     .and_then(|()| {
                         player_body = PlayerBody::load(&assets::assets_root())?;
@@ -163,6 +164,7 @@ async fn main() {
             game.update(input_latch.take_tick(), fixed_step.step_seconds());
             if !game.inventory_open() {
                 effects.update(fixed_step.step_seconds());
+                hud.update(fixed_step.step_seconds());
                 if let Some(body) = &mut player_body {
                     let player = game.player();
                     body.update(
@@ -187,7 +189,9 @@ async fn main() {
                 camera = new_camera(&game, camera_config, view);
             }
         }
-        effects.handle(&game.take_located_events());
+        let events = game.take_located_events();
+        effects.handle(&events);
+        hud.handle(&events, view, game.vitals().max_health());
 
         // Screen shake moves only the picture, not the camera that follows the player.
         let world_view = camera.view_rect_shaken(view, game.shake_offset());
@@ -201,6 +205,8 @@ async fn main() {
             Some(frame.clone()),
         ));
         hud::draw_hud(&game, &hud, view);
+        // The health bar's damage particles, in screen space on top of the HUD.
+        hud.draw_particles();
         if game.testing_room() {
             hud::draw_test_banner(view);
         }

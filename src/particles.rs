@@ -6,7 +6,9 @@
 //! `update` with the step time and draws `particles()` through the world camera.
 //!
 //! Which events spawn which burst is data: each preset in `data/particles.ron` lists its
-//! trigger events (an `assets/particles.ron` replaces the whole file).
+//! trigger events (an `assets/particles.ron` replaces the whole file). The one exception is
+//! `hud_damage`: the health bar's own emitter spawns it where health was lost, so it lists no
+//! events and `handle` never makes it.
 
 use std::path::Path;
 
@@ -159,6 +161,21 @@ pub struct ParticleConfig {
     pub dust: Preset,
     pub dash_trail: Preset,
     pub death_burst: Preset,
+    /// The burst thrown off the health bar where it lost health, in screen space. A file
+    /// that leaves it out gets the built-in one.
+    #[serde(default = "default_hud_damage")]
+    pub hud_damage: Preset,
+}
+
+/// The `hud_damage` preset of the embedded `data/particles.ron`.
+fn default_hud_damage() -> Preset {
+    #[derive(Deserialize)]
+    struct Shipped {
+        hud_damage: Preset,
+    }
+    ron::from_str::<Shipped>(include_str!("../data/particles.ron"))
+        .expect("valid hud_damage default")
+        .hud_damage
 }
 
 impl Default for ParticleConfig {
@@ -193,10 +210,19 @@ impl ParticleConfig {
         for (name, preset) in self.presets() {
             preset.validate(name)?;
         }
+        self.hud_damage.validate("hud_damage")?;
+        if !self.hud_damage.on.is_empty() {
+            return Err(
+                "particles hud_damage.on must be empty: the HUD spawns this burst \
+                        itself, where the health bar lost health"
+                    .into(),
+            );
+        }
         Ok(())
     }
 
-    /// The presets by name, in the fixed order bursts are spawned.
+    /// The world presets by name, in the fixed order bursts are spawned. `hud_damage` is not
+    /// one of them.
     pub fn presets(&self) -> [(&'static str, &Preset); 4] {
         [
             ("hit_spark", &self.hit_spark),
@@ -334,6 +360,22 @@ impl ParticleSystem {
             }
         }
         spawned
+    }
+
+    /// Spawns the `hud_damage` burst at `at` and returns how many particles were created. This
+    /// is for the HUD's own emitter, which lives in screen space: `at` is a screen position.
+    /// A position that is not finite spawns nothing.
+    pub fn spawn_hud_damage(&mut self, at: Vec2) -> usize {
+        if !at.is_finite() {
+            return 0;
+        }
+        let Self {
+            config,
+            particles,
+            rng,
+        } = self;
+        let cap = config.max_particles as usize;
+        spawn_burst(particles, rng, cap, &config.hud_damage, at)
     }
 
     /// Moves every particle on by `delta_seconds` and removes the ones whose time is up.

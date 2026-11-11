@@ -32,6 +32,7 @@ pub mod feel;
 pub mod game;
 pub mod health;
 pub mod hud_bars;
+pub mod hud_damage;
 pub mod hud_layout;
 pub mod item;
 pub mod particles;

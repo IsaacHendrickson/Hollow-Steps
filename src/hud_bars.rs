@@ -25,6 +25,15 @@ pub const MIN_BAR_HEIGHT: f32 = 2.0;
 pub const MAX_BAR_HEIGHT: f32 = 64.0;
 /// Largest gap between the two bars.
 pub const MAX_GAP: f32 = 64.0;
+/// Shortest and longest the health bar may shake after a hit, in seconds.
+pub const MIN_SHAKE_SECONDS: f32 = 0.05;
+pub const MAX_SHAKE_SECONDS: f32 = 2.0;
+/// Fastest and slowest the shake may swing, in swings per second.
+pub const MIN_SHAKE_FREQUENCY_HZ: f32 = 1.0;
+pub const MAX_SHAKE_FREQUENCY_HZ: f32 = 60.0;
+/// Largest shake distance, and largest distance a hit on all of max health asks for, in pixels.
+pub const MAX_SHAKE_AMPLITUDE: f32 = 32.0;
+pub const MAX_SHAKE_AMPLITUDE_PER_MAX_HEALTH: f32 = 320.0;
 
 /// Red, green, blue, alpha.
 pub type Rgba = [u8; 4];
@@ -45,6 +54,22 @@ pub struct BarColors {
     pub mana: Rgba,
 }
 
+/// How the health bar shakes when the player is hurt. See `hud_damage::BarShake`.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DamageShake {
+    /// How long a shake takes to fade to nothing.
+    pub seconds: f32,
+    /// Swings per second.
+    pub frequency_hz: f32,
+    /// Peak distance in pixels for a hit that takes all of max health; a hit asks for the
+    /// share of it that it took.
+    pub amplitude_per_max_health: f32,
+    /// Smallest and largest peak distance, in pixels, whatever the hit.
+    pub min_amplitude: f32,
+    pub max_amplitude: f32,
+}
+
 /// The numbers in `data/hud.ron`.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -58,6 +83,8 @@ pub struct HudConfig {
     /// Space between the health bar and the mana bar.
     pub gap: f32,
     pub colors: BarColors,
+    /// The health bar's shake when the player takes damage.
+    pub damage_shake: DamageShake,
 }
 
 impl Default for HudConfig {
@@ -84,8 +111,9 @@ impl HudConfig {
         }
     }
 
-    /// Every size inside its range and both bars on the screen. The trailing and pending
-    /// colors must differ from the health color, or those layers could not be told apart.
+    /// Every size and shake value inside its range and both bars on the screen. The trailing
+    /// and pending colors must differ from the health color, or those layers could not be told
+    /// apart.
     pub fn validate(&self) -> Result<(), String> {
         let check = |what: &str, value: f32, min: f32, max: f32| {
             if value.is_finite() && (min..=max).contains(&value) {
@@ -125,6 +153,43 @@ impl HudConfig {
                 "hud margin.y plus both bars and the gap must fit in the {VIEW_HEIGHT} pixel \
                  high screen"
             ));
+        }
+        let shake = &self.damage_shake;
+        check(
+            "damage_shake.seconds",
+            shake.seconds,
+            MIN_SHAKE_SECONDS,
+            MAX_SHAKE_SECONDS,
+        )?;
+        check(
+            "damage_shake.frequency_hz",
+            shake.frequency_hz,
+            MIN_SHAKE_FREQUENCY_HZ,
+            MAX_SHAKE_FREQUENCY_HZ,
+        )?;
+        check(
+            "damage_shake.amplitude_per_max_health",
+            shake.amplitude_per_max_health,
+            0.0,
+            MAX_SHAKE_AMPLITUDE_PER_MAX_HEALTH,
+        )?;
+        check(
+            "damage_shake.min_amplitude",
+            shake.min_amplitude,
+            0.0,
+            MAX_SHAKE_AMPLITUDE,
+        )?;
+        check(
+            "damage_shake.max_amplitude",
+            shake.max_amplitude,
+            0.0,
+            MAX_SHAKE_AMPLITUDE,
+        )?;
+        if shake.min_amplitude > shake.max_amplitude {
+            return Err(
+                "hud damage_shake.min_amplitude must not be above damage_shake.max_amplitude"
+                    .into(),
+            );
         }
         if self.colors.trailing == self.colors.health {
             return Err("hud colors.trailing must differ from colors.health".into());

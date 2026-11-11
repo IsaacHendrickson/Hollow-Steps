@@ -24,4 +24,18 @@
         mana_empty: (22, 28, 48, 255),
         mana: (92, 150, 255, 255),
     ),
+
+    // When the player takes damage the health bar (not the mana bar) shakes, and throws off the
+    // `hud_damage` particles of data/particles.ron. The shake's peak distance is
+    // `amplitude_per_max_health` pixels times the share of max health the hit took, kept between
+    // `min_amplitude` and `max_amplitude` pixels. It fades linearly to nothing over `seconds`
+    // and swings `frequency_hz` times a second (a sine wave of time, no randomness). The
+    // camera's screen shake never moves the HUD.
+    damage_shake: (
+        seconds: 0.4,
+        frequency_hz: 24.0,
+        amplitude_per_max_health: 30.0,
+        min_amplitude: 2.0,
+        max_amplitude: 10.0,
+    ),
 )
