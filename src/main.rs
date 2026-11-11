@@ -336,6 +336,11 @@ fn draw_scene(game: &GameState) {
         );
     }
     for enemy in &game.room().enemies {
+        if enemy.is_dead() {
+            // A dying enemy only fades: its attacks, blasts and health bar are gone.
+            body_draw::draw_enemy_body(enemy);
+            continue;
+        }
         for blast in enemy
             .behavior()
             .blasts()

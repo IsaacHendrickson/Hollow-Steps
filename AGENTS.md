@@ -66,7 +66,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/player.rs`: player input, movement rules (including dash),
   collision resolution, and player-focused tests.
 - `src/health.rs`: player health, damage, and invincibility.
-- `src/enemy.rs`: enemy behavior, health, knockback, death, and body instances.
+- `src/enemy.rs`: enemy behavior, health, knockback, the dying state, and body instances. Its sub-modules: `definition.rs` (`EnemyDefinition`, including `death_secs`, its default and range) and `death.rs` (`DeathTimer`, the fade clock of a defeated enemy).
 - `src/pose.rs`: semantic pose assets, presentation playback, and validation.
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
@@ -109,7 +109,7 @@ Composition and front end:
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's
   rules testable without a window.
-- `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `history_panel.rs` (Undo/Redo), `tool_panel.rs` (tool selector, Delete selected), `unsaved_dialog.rs` (Save / Discard / Cancel window).
+- `src/editor_panel.rs`: egui editor panel widgets and headless layout/input checks. Its sub-modules: `boss.rs` (boss properties), `canvas_tools.rs` (View and Room size sections), `death_field.rs` (the Death time drag box), `history_panel.rs` (Undo/Redo), `tool_panel.rs` (tool selector, Delete selected), `unsaved_dialog.rs` (Save / Discard / Cancel window).
 - `src/terrain_canvas.rs`: Macroquad drawing of solids, handles and the drawing preview, and mouse-to-`TerrainTool` glue for the editor canvas.
 - `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field (typed out-of-range values are refused with a message), unsaved note, Save, and headless layout/input checks.
 - `src/hud.rs`: Macroquad HUD, inventory and reload panels drawn in virtual-resolution space with `camera::anchored`.

@@ -30,6 +30,7 @@ fn dummy(x: f32, health: u8, contact_damage: u8, bounds: WorldBounds) -> Enemy {
             contact_damage,
             behavior: "idle".into(),
             body: None,
+            death_secs: 0.0,
         },
         Arc::new(behavior),
         x,

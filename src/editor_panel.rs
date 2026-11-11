@@ -6,6 +6,7 @@ use hollow_steps::editor_tools::EditorTool;
 
 mod boss;
 mod canvas_tools;
+mod death_field;
 mod history_panel;
 #[cfg(test)]
 mod test_support;
@@ -441,6 +442,8 @@ fn draw_entity_tools(
 pub(super) struct PropertyUi {
     pub(super) path: Option<std::path::PathBuf>,
     pub(super) fields: [String; 6],
+    /// The entity's death time, edited with a drag box rather than a text field.
+    pub(super) death_secs: f32,
     pub(super) body: Option<hollow_steps::body::BodyVisual>,
     pub(super) behavior: String,
     pub(super) behavior_list: SearchList,
@@ -488,6 +491,7 @@ impl PropertyUi {
             .and_then(|path| editor.content.entities.get(path))
         {
             ui.body = entity.body.clone();
+            ui.death_secs = entity.death_secs;
             ui.fields = [
                 entity.name.clone(),
                 entity.health.to_string(),
@@ -547,6 +551,7 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
                     ui.colored_label(egui::Color32::LIGHT_RED, &e);
                 }
             }
+            death_field::death_secs_row(ui, &mut p.death_secs);
             panel_label(ui, &format!("Assigned behavior: {}", p.fields[5]));
         } else {
             panel_label(ui, "Select an entity in Room tools or on the canvas");
@@ -736,8 +741,12 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
         };
     });
     if let Some(path) = &path {
-        if let Err(e) = hollow_steps::definition_editor::entity_with_body(&p.fields, p.body.clone())
-            .and_then(|entity| editor.update_entity(path, entity))
+        if let Err(e) = hollow_steps::definition_editor::entity_with_body_and_death(
+            &p.fields,
+            p.body.clone(),
+            p.death_secs,
+        )
+        .and_then(|entity| editor.update_entity(path, entity))
         {
             error = Some(e);
         }
@@ -1005,7 +1014,7 @@ fn draw_definition_panel(ui: &mut egui::Ui, editor: &mut EditorSession, state: &
 }
 
 fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
-    use hollow_steps::definition_editor::{edit_state_lists, entity_with_body};
+    use hollow_steps::definition_editor::{edit_state_lists, entity_with_body_and_death};
     for (name, pose) in &editor.content.poses {
         if let Err(error) = pose.validate() {
             return Some(format!("pose {name:?}: {error}"));
@@ -1020,15 +1029,17 @@ fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<String> {
         .as_ref()
         .is_some_and(|path| editor.content.entities.contains_key(path))
     {
-        if let Err(error) = entity_with_body(&p.fields, p.body.clone()).and_then(|entity| {
-            if let Some(body) = &entity.body {
-                body.validate_template(&editor.content.bodies)?;
-            }
-            if let Some(behavior) = editor.content.behaviors.get(&entity.behavior) {
-                hollow_steps::pose::validate_entity(&entity, behavior, &editor.content.poses)?;
-            }
-            Ok(())
-        }) {
+        if let Err(error) = entity_with_body_and_death(&p.fields, p.body.clone(), p.death_secs)
+            .and_then(|entity| {
+                if let Some(body) = &entity.body {
+                    body.validate_template(&editor.content.bodies)?;
+                }
+                if let Some(behavior) = editor.content.behaviors.get(&entity.behavior) {
+                    hollow_steps::pose::validate_entity(&entity, behavior, &editor.content.poses)?;
+                }
+                Ok(())
+            })
+        {
             return Some(error);
         }
     }

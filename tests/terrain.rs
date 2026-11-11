@@ -243,6 +243,7 @@ fn lunger(bounds: hollow_steps::player::WorldBounds, x: f32) -> hollow_steps::en
             contact_damage: 1,
             behavior: "lunge".into(),
             body: None,
+            death_secs: 0.0,
         },
         std::sync::Arc::new(behavior),
         x,

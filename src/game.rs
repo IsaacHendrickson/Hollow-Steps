@@ -16,6 +16,8 @@ use crate::room::{load_rooms, Room, RoomId};
 use crate::tuning::TuningConfig;
 
 #[cfg(test)]
+mod death_tests;
+#[cfg(test)]
 mod event_tests;
 #[cfg(test)]
 mod feel_tests;
@@ -486,7 +488,7 @@ impl GameState {
                 self.player.pogo();
             }
         }
-        room.enemies.retain(|enemy| !enemy.is_dead());
+        room.enemies.retain(|enemy| !enemy.is_removable());
         let hit = DamageResolver::gather(
             room,
             self.player.position(),

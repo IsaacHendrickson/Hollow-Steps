@@ -3,13 +3,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 use macroquad::math::Vec2;
-use serde::{Deserialize, Serialize};
 
 use crate::behavior::{
     load_behaviors, read_ron, ron_files, Action, Behavior, BehaviorContext, BehaviorDefinition,
     Condition, State, Transition,
 };
-use crate::body::{load_body_templates, BodyInstance, BodyTemplates, BodyVisual};
+use crate::body::{load_body_templates, BodyInstance, BodyTemplates};
 use crate::player::WorldBounds;
 use crate::terrain::Terrain;
 use crate::tuning::EnemyTuning;
@@ -22,46 +21,11 @@ pub const KNOCKBACK_SECONDS: f32 = 0.16;
 
 pub const ENEMY_SIZE: Vec2 = Vec2::new(36.0, 36.0);
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(deny_unknown_fields)]
-pub struct EnemyDefinition {
-    pub name: String,
-    pub health: u8,
-    pub size: (f32, f32),
-    pub contact_damage: u8,
-    pub behavior: String,
-    #[serde(default)]
-    pub body: Option<BodyVisual>,
-}
+mod death;
+mod definition;
 
-impl EnemyDefinition {
-    pub fn validate(&self) -> Result<(), String> {
-        if self.name.trim().is_empty() {
-            return Err("entity name must not be empty".into());
-        }
-        if self.health == 0 {
-            return Err(format!("entity {:?}: health must be positive", self.name));
-        }
-        if !self.size.0.is_finite()
-            || !self.size.1.is_finite()
-            || self.size.0 <= 0.0
-            || self.size.1 <= 0.0
-        {
-            return Err(format!(
-                "entity {:?}: size must be finite and positive",
-                self.name
-            ));
-        }
-        if self.behavior.trim().is_empty() {
-            return Err(format!("entity {:?}: missing behavior name", self.name));
-        }
-        if let Some(body) = &self.body {
-            body.validate()
-                .map_err(|e| format!("entity {:?}: {e}", self.name))?;
-        }
-        Ok(())
-    }
-}
+pub use death::DeathTimer;
+pub use definition::{EnemyDefinition, DEFAULT_DEATH_SECS, MAX_DEATH_SECS};
 
 /// Validated asset definitions, shared by all room instances.
 #[derive(Debug)]
@@ -230,6 +194,8 @@ pub struct Enemy {
     knockback_direction: f32,
     knockback_remaining: f32,
     tuning: EnemyTuning,
+    /// Runs only once the enemy's health has run out.
+    death: DeathTimer,
 }
 
 impl Enemy {
@@ -282,6 +248,8 @@ impl Enemy {
                 contact_damage: 1,
                 behavior: "chase".into(),
                 body: None,
+                // Code-made enemies (summons, spawns) have no body to fade: gone at once.
+                death_secs: 0.0,
             },
             Arc::new(definition),
             left,
@@ -351,6 +319,7 @@ impl Enemy {
             knockback_direction: 0.0,
             knockback_remaining: 0.0,
             tuning: EnemyTuning::default(),
+            death: DeathTimer::new(definition.death_secs),
         })
     }
 
@@ -400,8 +369,29 @@ impl Enemy {
         self.health
     }
 
+    /// Health has run out. A dead enemy is inert: it does not act, deal damage, or get hit.
+    /// It stays in the room, fading, until `is_removable`.
     pub fn is_dead(&self) -> bool {
         self.health == 0
+    }
+
+    /// Dead but still fading out.
+    pub fn is_dying(&self) -> bool {
+        self.is_dead() && !self.death.finished()
+    }
+
+    /// Dead and done fading: time for the room to drop it.
+    pub fn is_removable(&self) -> bool {
+        self.is_dead() && self.death.finished()
+    }
+
+    /// Drawing opacity: `1` while alive, fading to `0` as the death plays out.
+    pub fn opacity(&self) -> f32 {
+        if self.is_dead() {
+            self.death.opacity()
+        } else {
+            1.0
+        }
     }
 
     pub fn tuning(&self) -> EnemyTuning {
@@ -480,6 +470,10 @@ impl Enemy {
         bounds: WorldBounds,
         terrain: &Terrain,
     ) {
+        if self.is_dead() {
+            self.step_dying(delta_seconds);
+            return;
+        }
         let previous = self.position;
         self.step_behavior(player_position, player_size, delta_seconds, bounds);
         // An enemy already inside a solid (authored overlap) is left alone
@@ -502,6 +496,12 @@ impl Enemy {
             },
         );
         self.position = position;
+    }
+
+    /// A defeated enemy runs no behavior and does not move or animate: only its death clock
+    /// advances, so the body keeps the pose and flash of the killing blow while it fades.
+    fn step_dying(&mut self, delta_seconds: f32) {
+        self.death.advance(delta_seconds);
     }
 
     fn step_behavior(
