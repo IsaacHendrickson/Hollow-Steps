@@ -50,6 +50,7 @@ fn bird(behavior: &str, left: f32, right: f32) -> Enemy {
         // More than one sword hit, so a knocked-back bird is still alive and moving.
         health: 30,
         size: SIZE,
+        visual_size: None,
         contact_damage: 10,
         behavior: "behavior".into(),
         body: None,

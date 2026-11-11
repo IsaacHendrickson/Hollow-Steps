@@ -27,6 +27,7 @@ fn bird(x: f32, contact_damage: u16, bounds: WorldBounds) -> Enemy {
             name: "bird".into(),
             health: 30,
             size: (32.0, 40.0),
+            visual_size: None,
             contact_damage,
             behavior: "idle".into(),
             body: None,
