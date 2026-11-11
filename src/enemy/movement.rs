@@ -4,6 +4,7 @@
 use macroquad::math::Vec2;
 use serde::{Deserialize, Serialize};
 
+use super::flap::Flap;
 use crate::player::WorldBounds;
 
 /// The highest hover height an entity definition may ask for, in pixels above the floor.
@@ -15,7 +16,7 @@ pub const MAX_BOB_SPEED: f32 = 20.0;
 
 /// Whether an enemy walks the floor or flies. `Ground` is the default, so every existing entity
 /// file keeps loading and behaving as before.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub enum Movement {
     /// Pinned to the floor by gravity; swept against terrain.
@@ -23,11 +24,14 @@ pub enum Movement {
     Ground,
     /// Ignores gravity, floor snapping and terrain. Its altitude is set by the definition:
     /// `hover_height` pixels between the floor and the bottom of its box (at the middle of the
-    /// bob), plus a sine bob of `bob_amplitude` pixels at `bob_speed` cycles per second.
+    /// bob), plus a sine bob of `bob_amplitude` pixels at `bob_speed` cycles per second. With a
+    /// `flap`, the body's wings alternate between two poses, faster the faster it flies.
     Flying {
         hover_height: f32,
         bob_amplitude: f32,
         bob_speed: f32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        flap: Option<Flap>,
     },
 }
 
@@ -47,6 +51,7 @@ impl Movement {
             hover_height: 48.0,
             bob_amplitude: 4.0,
             bob_speed: 0.5,
+            flap: None,
         }
     }
 
@@ -55,10 +60,12 @@ impl Movement {
             hover_height,
             bob_amplitude,
             bob_speed,
-        } = *self
+            flap,
+        } = self
         else {
             return Ok(());
         };
+        let (hover_height, bob_amplitude, bob_speed) = (*hover_height, *bob_amplitude, *bob_speed);
         if !hover_height.is_finite() || !(0.0..=MAX_HOVER_HEIGHT).contains(&hover_height) {
             return Err(format!(
                 "movement: hover_height must be between 0 and {MAX_HOVER_HEIGHT}"
@@ -74,6 +81,9 @@ impl Movement {
                 "movement: bob_speed must be above 0 and at most {MAX_BOB_SPEED}"
             ));
         }
+        if let Some(flap) = flap {
+            flap.validate()?;
+        }
         Ok(())
     }
 
@@ -85,6 +95,7 @@ impl Movement {
             hover_height,
             bob_amplitude,
             bob_speed,
+            ..
         } = *self
         else {
             return None;
@@ -96,6 +107,14 @@ impl Movement {
         let phase = std::f64::consts::TAU * f64::from(bob_speed) * time_secs;
         let bob = f64::from(bob_amplitude) * phase.sin();
         Some((midline + bob).clamp(highest, lowest) as f32)
+    }
+
+    /// The wing flap of a flier that has one.
+    pub fn flap(&self) -> Option<&Flap> {
+        match self {
+            Self::Flying { flap, .. } => flap.as_ref(),
+            Self::Ground => None,
+        }
     }
 
     /// Keeps a flying enemy's box inside the room horizontally.
@@ -127,6 +146,7 @@ mod tests {
             hover_height,
             bob_amplitude,
             bob_speed,
+            flap: None,
         }
     }
 

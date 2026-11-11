@@ -143,7 +143,7 @@ impl EntityFields {
             height: entity.size.1.to_string(),
             contact_damage: entity.contact_damage.to_string(),
             behavior: entity.behavior.clone(),
-            movement: entity.movement,
+            movement: entity.movement.clone(),
         }
     }
 
@@ -191,7 +191,7 @@ impl EntityFields {
             &fields,
             body,
             death_secs,
-            self.movement,
+            self.movement.clone(),
         )
     }
 }

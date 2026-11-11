@@ -21,11 +21,13 @@ pub const ENEMY_SIZE: Vec2 = Vec2::new(36.0, 36.0);
 mod catalog;
 mod death;
 mod definition;
+mod flap;
 mod movement;
 
 pub use catalog::EnemyDefinitions;
 pub use death::DeathTimer;
 pub use definition::{EnemyDefinition, DEFAULT_DEATH_SECS, MAX_DEATH_SECS};
+pub use flap::{Flap, FlapClock, MAX_FLAP_RATE, MAX_FLAP_RATE_PER_SPEED};
 pub use movement::{Movement, MAX_BOB_AMPLITUDE, MAX_BOB_SPEED, MAX_HOVER_HEIGHT};
 
 /// A behavior-driven enemy. Patrol endpoints and position are rectangle centers.
@@ -53,6 +55,13 @@ pub struct Enemy {
     movement: Movement,
     /// Seconds this enemy has been flying, which drives the bob. Stands still while it is dead.
     flight_secs: f64,
+    /// Where the wings are in their beat (a flier with a `flap` only).
+    flap_clock: FlapClock,
+    /// Which flap pose the body was last given (`true` = up), `None` when none is in place.
+    wing_pose: Option<bool>,
+    /// A pose from the behavior (a wind-up, a recoil) is playing, so the wings leave the body
+    /// alone until the behavior clears it.
+    behavior_pose_held: bool,
 }
 
 impl Enemy {
@@ -185,13 +194,39 @@ impl Enemy {
             knockback_remaining: 0.0,
             tuning: EnemyTuning::default(),
             death: DeathTimer::new(definition.death_secs),
-            movement: definition.movement,
+            movement: definition.movement.clone(),
             flight_secs: 0.0,
+            flap_clock: FlapClock::default(),
+            wing_pose: None,
+            behavior_pose_held: false,
         })
     }
 
-    pub fn movement(&self) -> Movement {
-        self.movement
+    pub fn movement(&self) -> &Movement {
+        &self.movement
+    }
+
+    /// For a flier with a `flap`: beats the wings at the rate its horizontal speed asks for and
+    /// puts the matching pose on the body when the stroke changes. A pose the behavior is
+    /// playing (wind-up, recoil) is never overridden, and the hurt pose still wins while it
+    /// lasts because the body remembers this one for afterwards.
+    fn beat_wings(&mut self, horizontal_speed: f32, dt: f32) {
+        let Movement::Flying {
+            flap: Some(flap), ..
+        } = &self.movement
+        else {
+            return;
+        };
+        self.flap_clock.advance(flap, horizontal_speed, dt);
+        let up = self.flap_clock.wings_up();
+        if self.behavior_pose_held || self.wing_pose == Some(up) {
+            return;
+        }
+        if let Some(body) = &mut self.body {
+            let name = if up { &flap.up_pose } else { &flap.down_pose };
+            body.set_pose(Some(name), &self.poses);
+            self.wing_pose = Some(up);
+        }
     }
 
     /// For a flier: advance its flight clock and put it back on its hover line, inside the room.
@@ -447,6 +482,8 @@ impl Enemy {
                     stiffness_multiplier,
                     instant,
                 } => {
+                    self.behavior_pose_held = name.is_some();
+                    self.wing_pose = None;
                     if let Some(body) = &mut self.body {
                         body.set_pose(name.as_deref(), &self.poses);
                         body.configure_pose_spring(blend_secs, stiffness_multiplier);
@@ -457,6 +494,8 @@ impl Enemy {
                     }
                 }
                 crate::pose::PoseStep::Clear => {
+                    self.behavior_pose_held = false;
+                    self.wing_pose = None;
                     if let Some(body) = &mut self.body {
                         body.clear_pose();
                     }
@@ -469,6 +508,9 @@ impl Enemy {
             }
         }
         self.hold_altitude(dt, bounds);
+        if dt > 0.0 {
+            self.beat_wings((self.position.x - previous_x).abs() / dt, dt);
+        }
         if self.position.x != previous_x {
             self.facing_left = self.position.x < previous_x;
         }

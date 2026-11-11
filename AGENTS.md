@@ -66,7 +66,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/player.rs`: player input, movement rules (including dash),
   collision resolution, and player-focused tests.
 - `src/health.rs`: player health, damage, and invincibility.
-- `src/enemy.rs`: enemy behavior, health, knockback, the dying state, and body instances. Its sub-modules: `catalog.rs` (`EnemyDefinitions`: the validated entity catalog and spawning), `definition.rs` (`EnemyDefinition`, including `death_secs`, its default and range) `death.rs` (`DeathTimer`, the fade clock of a defeated enemy) and `movement.rs` (`Movement`: `Ground` or `Flying` with hover height and sine bob, its validation and the altitude math; a flier ignores gravity, floor snapping and terrain).
+- `src/enemy.rs`: enemy behavior, health, knockback, the dying state, and body instances. Its sub-modules: `catalog.rs` (`EnemyDefinitions`: the validated entity catalog and spawning), `definition.rs` (`EnemyDefinition`, including `death_secs`, its default and range), `death.rs` (`DeathTimer`, the fade clock of a defeated enemy), `movement.rs` (`Movement`: `Ground` or `Flying` with hover height and sine bob, its validation and the altitude math; a flier ignores gravity, floor snapping and terrain) and `flap.rs` (`Flap` and `FlapClock`: a flier's optional wing flap between two named poses, faster with horizontal speed; behavior poses and the hurt pose are never overridden).
 - `src/pose.rs`: semantic pose assets, presentation playback, and validation (enemy and boss pose names).
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.

@@ -74,6 +74,16 @@ Reload matches name and patrol interval first, then moved placements by name and
 occurrence, since placements have no persistent IDs.
 Editor saves also reject body files changed since the editor opened.
 
+The bird body (`assets/bodies/bird.ron`) is a flier: a streamlined body, a fanned
+tail and two wings, each a spar from the fixed `shoulder` point to a wing-tip
+point (`wing_l` far, `wing_r` near, mapped to `hand_l` / `hand_r`), and no legs
+or feet. The `fly_up` and `fly_down` poses move only the wing tips, torso, head
+and tail. An entity with `movement: Flying(..., flap: Some(...))` alternates
+those two poses (always starting with the upstroke), faster the faster the enemy
+moves sideways; a pose the behavior plays (wind-up) and the hurt pose are never
+overridden, and the flap resumes afterwards. Facing mirrors the whole body, wings
+included, so no extra work is needed when the bird turns.
+
 Manual check: run the game, confirm chase (humanoid) and scittish (bird) have
 visible bright eyes, watch the bird/beak mirror when it turns, and confirm an
 enemy without a body still draws as a box. Edit a template point/part and an enemy palette/scale,

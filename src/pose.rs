@@ -210,6 +210,22 @@ pub fn validate_entity(
             }
         }
     }
+    if let Some(flap) = entity.movement.flap() {
+        if entity.body.is_none() {
+            return Err(format!(
+                "entity {:?}: a wing flap requires a body template",
+                entity.name
+            ));
+        }
+        for (field, name) in [("up_pose", &flap.up_pose), ("down_pose", &flap.down_pose)] {
+            if !poses.contains_key(name) {
+                return Err(format!(
+                    "entity {:?}, flap {field}: unknown pose {name:?}",
+                    entity.name
+                ));
+            }
+        }
+    }
     Ok(())
 }
 

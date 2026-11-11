@@ -31,6 +31,7 @@ fn flying(hover_height: f32, bob_amplitude: f32, bob_speed: f32) -> Movement {
         hover_height,
         bob_amplitude,
         bob_speed,
+        flap: None,
     }
 }
 
@@ -113,7 +114,7 @@ fn a_flying_enemy_starts_on_its_hover_line() {
 #[test]
 fn a_flying_enemy_holds_its_hover_height_plus_the_bob() {
     let movement = flying(60.0, 8.0, 0.5);
-    let mut bird = enemy(STAND, movement);
+    let mut bird = enemy(STAND, movement.clone());
     let mut seconds = 0.0_f64;
     let (mut lowest, mut highest) = (f32::MAX, f32::MIN);
     for _ in 0..480 {
@@ -179,7 +180,7 @@ fn a_flying_enemy_never_leaves_the_room() {
         (STAND, flying(0.0, 150.0, 3.0), Vec2::new(500.0, 400.0)),
     ];
     for (behavior, movement, player) in cases {
-        let mut bird = enemy(behavior, movement);
+        let mut bird = enemy(behavior, movement.clone());
         for tick in 0..2400 {
             bird.update(player, DT, BOUNDS);
             let p = bird.position();
@@ -245,10 +246,10 @@ fn validation_rejects_a_bad_flying_definition_naming_the_entity_and_field() {
         (flying(10.0, 4.0, 0.0), "bob_speed"),
         (flying(f32::NAN, 4.0, 1.0), "hover_height"),
     ] {
-        let error = definition(movement).validate().unwrap_err();
+        let error = definition(movement.clone()).validate().unwrap_err();
         assert!(error.contains("bird") && error.contains(field), "{error}");
         let built = Enemy::from_definition(
-            &definition(movement),
+            &definition(movement.clone()),
             Arc::new(BehaviorDefinition::from_ron(STAND).unwrap()),
             300.0,
             600.0,

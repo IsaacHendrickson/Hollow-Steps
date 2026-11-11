@@ -31,7 +31,8 @@ pub(super) fn draw_definition_panel(
         .path
         .clone()
         .filter(|path| editor.content.entities.contains_key(path));
-    draw_entity_section(ui, p, path.is_some());
+    let pose_names: Vec<String> = editor.content.poses.keys().cloned().collect();
+    draw_entity_section(ui, p, path.is_some(), &pose_names);
     if path.is_some() {
         draw_body_visual(ui, editor, p);
     }
@@ -91,7 +92,12 @@ pub(super) fn draw_definition_panel(
 }
 
 /// The Entity section: the shared definition's text fields, death time and movement.
-fn draw_entity_section(ui: &mut egui::Ui, p: &mut PropertyUi, has_entity: bool) {
+fn draw_entity_section(
+    ui: &mut egui::Ui,
+    p: &mut PropertyUi,
+    has_entity: bool,
+    pose_names: &[String],
+) {
     section(ui, "Entity", |ui| {
         if has_entity {
             panel_label(ui, "Shared definition (all rooms)");
@@ -107,7 +113,7 @@ fn draw_entity_section(ui: &mut egui::Ui, p: &mut PropertyUi, has_entity: bool) 
                 }
             }
             death_field::death_secs_row(ui, &mut p.death_secs);
-            movement_field::movement_rows(ui, &mut p.fields.movement);
+            movement_field::movement_rows(ui, &mut p.fields.movement, pose_names);
             panel_label(ui, &format!("Assigned behavior: {}", p.fields.behavior));
         } else {
             panel_label(ui, "Select an entity in Room tools or on the canvas");
