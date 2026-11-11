@@ -217,7 +217,8 @@ pub fn validate_entity(
     Ok(())
 }
 
-/// A boss's hurt pose must exist in the catalog.
+/// A boss's hurt pose and every pose its attack actions name must exist in the catalog, and a
+/// named pose needs a body to play on (as for an enemy).
 pub fn validate_boss(
     boss: &crate::boss_definition::BossDefinition,
     poses: &Poses,
@@ -228,6 +229,33 @@ pub fn validate_boss(
                 "boss {:?}, hurt pose: unknown pose {name:?}",
                 boss.name
             ));
+        }
+    }
+    for attack in &boss.attacks {
+        for (index, action) in attack.actions.iter().enumerate() {
+            let Some(bindings) = action.pose_bindings() else {
+                continue;
+            };
+            for (field, name) in ["telegraph_pose", "active_pose", "recovery_pose"]
+                .into_iter()
+                .zip(bindings)
+            {
+                let Some(name) = name else {
+                    continue;
+                };
+                if boss.body.is_none() {
+                    return Err(format!(
+                        "boss {:?}: pose binding requires a body",
+                        boss.name
+                    ));
+                }
+                if !poses.contains_key(&name) {
+                    return Err(format!(
+                        "boss {:?}, attack {:?}, action {index}, {field}: unknown pose {name:?}",
+                        boss.name, attack.name
+                    ));
+                }
+            }
         }
     }
     Ok(())

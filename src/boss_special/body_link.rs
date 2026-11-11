@@ -7,13 +7,15 @@ use super::{BossSpecials, DEATH_EFFECT_SECONDS};
 use crate::behavior::Action;
 use crate::body::{BodyInstance, BodyTemplates, BodyVisual};
 use crate::enemy_attack::AttackFeedback;
-use crate::pose::Poses;
+use crate::pose::{PoseStep, Poses};
 
 /// A boss's body and the pose catalog its hurt feedback draws on.
 #[derive(Debug)]
 pub(super) struct BossBody {
     instance: BodyInstance,
     poses: Arc<Poses>,
+    /// Seconds the pose steps already advanced the body this update.
+    stepped: f32,
 }
 
 impl BossBody {
@@ -25,6 +27,7 @@ impl BossBody {
         Ok(Self {
             instance: BodyInstance::new(visual, templates)?,
             poses,
+            stepped: 0.0,
         })
     }
 }
@@ -79,8 +82,46 @@ impl BossSpecials {
         }
     }
 
+    /// Plays the pose steps the boss's actions recorded, the way an enemy does. A boss without
+    /// a body ignores everything but a facing step.
+    pub(super) fn apply_pose_steps(&mut self, steps: Vec<PoseStep>) {
+        for step in steps {
+            if let PoseStep::Face(left) = step {
+                self.facing_left = left;
+                continue;
+            }
+            let Some(body) = &mut self.body else {
+                continue;
+            };
+            match step {
+                PoseStep::Face(_) => {}
+                PoseStep::Apply {
+                    name,
+                    seconds,
+                    blend_secs,
+                    stiffness_multiplier,
+                    instant,
+                } => {
+                    body.instance.set_pose(name.as_deref(), &body.poses);
+                    body.instance
+                        .configure_pose_spring(blend_secs, stiffness_multiplier);
+                    if instant {
+                        body.instance.instant_pose_impulse();
+                    }
+                    body.instance.step(seconds);
+                    body.stepped += seconds;
+                }
+                PoseStep::Clear => body.instance.clear_pose(),
+                PoseStep::Idle(seconds) => {
+                    body.instance.step(seconds);
+                    body.stepped += seconds;
+                }
+            }
+        }
+    }
+
     /// Faces the direction of travel while moving and the player while idle, then advances the
-    /// body by `dt`.
+    /// body by whatever part of `dt` the pose steps did not already cover.
     pub(super) fn update_look(&mut self, dt: f32, previous_x: f32, player_x: f32) {
         if self.position.x != previous_x {
             self.facing_left = self.position.x < previous_x;
@@ -88,7 +129,8 @@ impl BossSpecials {
             self.facing_left = player_x < self.position.x;
         }
         if let Some(body) = &mut self.body {
-            body.instance.step(dt);
+            let remainder = (dt - std::mem::take(&mut body.stepped)).max(0.0);
+            body.instance.step(remainder);
         }
     }
 }

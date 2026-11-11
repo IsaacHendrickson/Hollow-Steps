@@ -1,5 +1,5 @@
-//! A boss's optional body: definition loading, validation, hurt flash, facing, death fade and
-//! the unchanged hitbox. Uses fixtures only, never `assets/`.
+//! A boss's optional body: definition loading, validation, hurt flash, facing, death fade, the
+//! unchanged hitbox and the poses its attack actions play. Uses fixtures only, never `assets/`.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -265,4 +265,157 @@ fn a_boss_file_naming_a_missing_template_or_pose_reports_its_path() {
     assets.boss(&definition);
     let error = BossDefinitions::load(&assets.0).unwrap_err();
     assert!(error.contains("unknown pose"), "{error}");
+}
+
+// ---- poses from attack actions ----
+
+const ATTACK_BOX: &str = "attack: (shape: Rect, offset: (0.0, 0.0), size: (20.0, 20.0), damage: 1, knockback: (0.0, 0.0), active_secs: 0.2)";
+
+/// One attack action of each kind that can carry pose names, with `poses` appended.
+fn pose_actions(poses: &str) -> Vec<(&'static str, String)> {
+    vec![
+        (
+            "lunge",
+            format!("lunge(speed: 100.0, duration_secs: 0.2, {ATTACK_BOX}, recovery_secs: 0.1, telegraph_secs: 0.4, {poses})"),
+        ),
+        (
+            "jump_to",
+            format!("jump_to(dx: 0.0, dy: 0.0, air_time_secs: 0.8, arc_height: 120.0, attack: None, recovery_secs: 0.0, telegraph_secs: 0.3, {poses})"),
+        ),
+        (
+            "slam_down",
+            format!("slam_down(speed: 500.0, {ATTACK_BOX}, recovery_secs: 0.1, telegraph_secs: 0.2, {poses})"),
+        ),
+        (
+            "shoot_projectile",
+            format!("shoot_projectile(speed: 280.0, damage: 1, lifetime_secs: 3.0, size: (12.0, 12.0), aim: AtPlayer, count: 1, spread_degrees: 0.0, telegraph_secs: 0.2, {poses})"),
+        ),
+        (
+            "area_blast",
+            format!("area_blast(radius: 40.0, damage: 1, knockback: (0.0, 0.0), active_secs: 0.2, telegraph_secs: 0.4, {poses})"),
+        ),
+    ]
+}
+
+fn posed(action: &str, body: bool) -> BossDefinition {
+    let source = format!(
+        r#"(name: "Ash Warden", health: 100, size: (48.0, 48.0), contact_damage: 0, selection: cycle, pause_seconds: 1.0, attacks: [(name: "Blast", actions: [{action}])])"#
+    );
+    let mut definition = BossDefinition::from_ron(&source).unwrap();
+    definition.body = body.then(visual);
+    definition
+}
+
+const WINDUP_THEN_HURT: &str = r#"telegraph_pose: Some("windup"), active_pose: Some("hurt")"#;
+
+fn blast(body: bool, poses: &str) -> BossSpecials {
+    let action = &pose_actions(poses)[4].1;
+    spawn(posed(action, body))
+}
+
+#[test]
+fn every_pose_capable_action_is_a_valid_boss_action() {
+    for (kind, action) in pose_actions(WINDUP_THEN_HURT) {
+        catalog(posed(&action, true)).unwrap_or_else(|e| panic!("{kind}: {e}"));
+    }
+}
+
+#[test]
+fn an_unknown_pose_name_in_any_slot_is_rejected_at_load() {
+    for field in ["telegraph_pose", "active_pose", "recovery_pose"] {
+        for (kind, action) in pose_actions(&format!(r#"{field}: Some("nope")"#)) {
+            let error = catalog(posed(&action, true)).unwrap_err();
+            assert!(error.contains("unknown pose"), "{kind} {field}: {error}");
+            assert!(error.contains(field), "{kind} {field}: {error}");
+            assert!(error.contains("Blast"), "{kind} {field}: {error}");
+        }
+    }
+}
+
+#[test]
+fn a_named_pose_needs_a_body_but_an_unnamed_pose_action_does_not() {
+    let named = &pose_actions(WINDUP_THEN_HURT)[4].1;
+    let error = catalog(posed(named, false)).unwrap_err();
+    assert!(error.contains("requires a body"), "{error}");
+    let unnamed = &pose_actions("pose_blend_ratio: 0.5")[4].1;
+    assert!(catalog(posed(unnamed, false)).is_ok());
+}
+
+#[test]
+fn a_boss_file_with_an_unknown_action_pose_reports_its_path() {
+    let assets = Assets::new();
+    let mut definition = posed(&pose_actions(r#"active_pose: Some("nope")"#)[4].1, true);
+    definition.body = Some(visual());
+    let path = assets.boss(&definition);
+    let error = BossDefinitions::load(&assets.0).unwrap_err();
+    assert!(error.contains("unknown pose"), "{error}");
+    assert!(
+        error.contains(path.file_name().unwrap().to_str().unwrap()),
+        "{error}"
+    );
+}
+
+#[test]
+fn a_pose_action_sets_the_pose_each_phase_and_clears_it_when_done() {
+    let mut boss = blast(true, WINDUP_THEN_HURT);
+    let player = Vec2::new(400.0, 436.0);
+    let rest = boss.body().unwrap().template.points["root"].rest;
+    assert!(boss.body().unwrap().pose_name.is_none());
+    boss.start_attack("Blast", player, BOUNDS);
+    boss.update(0.1, player, BOUNDS);
+    let body = boss.body().unwrap();
+    assert_eq!(body.pose_name.as_deref(), Some("windup"));
+    // The windup pose moves the head (mapped to `root`) by -0.20 in x.
+    assert!((body.targets["root"].x - (rest.0 - 0.20)).abs() < 1e-5);
+    boss.update(0.4, player, BOUNDS);
+    assert_eq!(boss.body().unwrap().pose_name.as_deref(), Some("hurt"));
+    boss.update(1.0, player, BOUNDS);
+    assert!(boss.body().unwrap().pose_name.is_none());
+}
+
+#[test]
+fn a_facing_step_turns_the_boss_toward_the_player_when_the_attack_starts() {
+    for (player_x, left) in [(100.0, true), (800.0, false)] {
+        let mut boss = blast(true, WINDUP_THEN_HURT);
+        // Idle facing is the opposite way, so the attack's own facing step has to flip it.
+        boss.update(1.0 / 60.0, Vec2::new(900.0 - player_x, 436.0), BOUNDS);
+        assert_eq!(boss.facing_left(), !left);
+        boss.start_attack("Blast", Vec2::new(player_x, 436.0), BOUNDS);
+        assert_eq!(boss.facing_left(), left, "player at {player_x}");
+    }
+}
+
+#[test]
+fn a_boss_without_a_body_ignores_pose_steps_and_plays_the_same_attack() {
+    let run = |body: bool, poses: &str| {
+        let mut boss = blast(body, poses);
+        let player = Vec2::new(400.0, 436.0);
+        boss.start_attack("Blast", player, BOUNDS);
+        let mut damage = 0;
+        for _ in 0..90 {
+            damage +=
+                boss.update_with_player_size(1.0 / 60.0, player, Vec2::new(20.0, 40.0), BOUNDS);
+        }
+        (boss, damage)
+    };
+    let (plain, plain_damage) = run(false, "pose_blend_ratio: 0.5");
+    let (bodied, bodied_damage) = run(true, WINDUP_THEN_HURT);
+    assert!(plain.body().is_none());
+    assert!(plain_damage > 0);
+    assert_eq!(plain_damage, bodied_damage);
+    assert_eq!(plain.position(), bodied.position());
+}
+
+#[test]
+fn pose_steps_and_the_update_never_advance_the_body_twice() {
+    let mut boss = blast(true, WINDUP_THEN_HURT);
+    let player = Vec2::new(400.0, 436.0);
+    boss.start_attack("Blast", player, BOUNDS);
+    boss.damage_boss(1);
+    assert!(boss.body().unwrap().flash_strength() > 0.0);
+    // The hurt flash lasts 0.08 s: still on after 0.05 s of a telegraph, off after 0.10 s.
+    boss.update(0.05, player, BOUNDS);
+    assert!(boss.body().unwrap().flash_strength() > 0.0);
+    boss.update(0.05, player, BOUNDS);
+    assert_eq!(boss.body().unwrap().flash_strength(), 0.0);
 }

@@ -441,10 +441,10 @@ impl BossSpecials {
                 damage: 0,
             };
             let (used, finished) = runtime.step(action, preview, &mut actor, remaining);
-            // Bosses have no pose consumer; retain only the shared gameplay output.
-            runtime.pose_steps.clear();
+            let pose_steps = std::mem::take(&mut runtime.pose_steps);
             damage = damage.saturating_add(actor.damage);
             self.runtime = runtime;
+            self.apply_pose_steps(pose_steps);
             remaining = (remaining - used).max(0.0);
             if finished {
                 active.action += 1;

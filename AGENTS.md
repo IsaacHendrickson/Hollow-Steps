@@ -67,7 +67,7 @@ Gameplay modules (pure rules, no rendering):
   collision resolution, and player-focused tests.
 - `src/health.rs`: player health, damage, and invincibility.
 - `src/enemy.rs`: enemy behavior, health, knockback, the dying state, and body instances. Its sub-modules: `definition.rs` (`EnemyDefinition`, including `death_secs`, its default and range) and `death.rs` (`DeathTimer`, the fade clock of a defeated enemy).
-- `src/pose.rs`: semantic pose assets, presentation playback, and validation.
+- `src/pose.rs`: semantic pose assets, presentation playback, and validation (enemy and boss pose names).
 - `src/body.rs`: validated RON body templates, local point springs/idle targets, palettes, and pure transforms.
 - `src/body_debug.rs`: pure body overlay primitives, display constants, and nearest-entity selection.
 - `src/action_runtime.rs`: shared action execution state, motion, attack output, and actor adapters; `ActionRuntime::execute` is a dispatcher that sends each action to its own function in `src/action_runtime/`: `attacks.rs` (area_blast, shoot_projectile, slam_down, jump_to, lunge), `movement.rs` (wait, hover, walking, patrol, jump_to_player, legacy_slam_down, shared gravity and flight helpers), `blasts.rs` (legacy_area_blast, spawn_rings, explode_rings), `instant.rs` (glides, damage_target, spawn_shockwave, summon), `poses.rs` (pose steps around each action). Executors read the action by reference; never clone it per frame.
@@ -80,7 +80,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/boss_definition.rs`: validated RON boss definitions (optional `body`, checked against body templates and poses) and attack selection settings.
 - `src/boss_editor.rs`: pure boss property buffers and ordered attack/action edits.
 - `src/boss_special.rs`: boss sequence cursors, selection, actor effect integration, and coin drops.
-- `src/boss_special/body_link.rs`: how a boss drives its optional body (`BossBody`): hurt flash, warning tint, facing, death fade and stepping; the hitbox stays the definition's `size`.
+- `src/boss_special/body_link.rs`: how a boss drives its optional body (`BossBody`): hurt flash, warning tint, facing, death fade, stepping and the pose steps of its attack actions (as `Enemy` applies them); the hitbox stays the definition's `size`.
 - `src/combat.rs`: melee swings (forward, up, down), per-direction hitboxes from `StrikeConfig`, knockback direction, once-per-swing pogo, duration, and cooldown.
 - `src/damage.rs`: `DamageResolver` combines enemy contact/blast/attack and boss action/contact damage into the single hit applied to the player.
 - `src/events.rs`: `GameEvent` (jump, landing, dash, swing, enemy hit/death, player damage, coin, item, room, boss) and the `EventQueue` drained by `GameState::take_events`, or by `take_located_events` with the world position each event happened at (`LocatedEvent`); a `PlayerDamaged` event also carries the `HealthLoss` (health lost, health left) in `LocatedEvent::loss`.
