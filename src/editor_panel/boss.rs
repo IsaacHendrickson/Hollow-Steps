@@ -1,3 +1,4 @@
+use super::visual_size_field::{hitbox_side, visual_size_rows};
 use super::widgets::{
     choice, panel_button, panel_combo, panel_input, panel_label, row_controls, searchable_list,
     section,
@@ -59,8 +60,8 @@ pub(crate) fn draw_boss_panel(
         for (i, label) in [
             "Name",
             "Health (1..4294967295)",
-            "Width (px)",
-            "Height (px)",
+            "Hitbox width (px)",
+            "Hitbox height (px)",
             "Contact damage (0..65535)",
             "Pause between attacks (seconds)",
         ]
@@ -74,6 +75,14 @@ pub(crate) fn draw_boss_panel(
                 &mut p.inputs.fields[i],
             );
         }
+        visual_size_rows(
+            ui,
+            &mut p.inputs.visual_size,
+            (
+                hitbox_side(&p.inputs.fields[2]),
+                hitbox_side(&p.inputs.fields[3]),
+            ),
+        );
         let mut mode = usize::from(p.inputs.selection == AttackSelection::Random);
         panel_combo(
             ui,

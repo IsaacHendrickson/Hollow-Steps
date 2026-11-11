@@ -24,6 +24,7 @@ fn enemy(behavior: &str, health: u16, death_secs: f32) -> Enemy {
             name: "walker".into(),
             health,
             size: (36.0, 36.0),
+            visual_size: None,
             contact_damage: 1,
             behavior: "walk".into(),
             body: None,

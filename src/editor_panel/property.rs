@@ -9,6 +9,8 @@ pub(crate) struct PropertyUi {
     pub(crate) fields: EntityFields,
     /// The entity's death time, edited with a drag box rather than a text field.
     pub(crate) death_secs: f32,
+    /// The entity's drawn size when it differs from the hitbox, edited with drag boxes.
+    pub(crate) visual_size: Option<(f32, f32)>,
     pub(crate) body: Option<hollow_steps::body::BodyVisual>,
     pub(crate) behavior: String,
     pub(crate) behavior_list: SearchList,
@@ -45,6 +47,16 @@ pub(crate) struct BehaviorCreation {
 }
 
 impl PropertyUi {
+    /// The definition the pending text, body, death time and visual size describe.
+    pub(super) fn definition(&self) -> Result<hollow_steps::enemy::EnemyDefinition, String> {
+        let mut entity = self
+            .fields
+            .to_definition(self.body.clone(), self.death_secs)?;
+        entity.visual_size = self.visual_size;
+        entity.validate()?;
+        Ok(entity)
+    }
+
     pub(crate) fn for_entity(editor: &EditorSession, path: Option<std::path::PathBuf>) -> Self {
         let mut ui = Self {
             path,
@@ -57,6 +69,7 @@ impl PropertyUi {
         {
             ui.body = entity.body.clone();
             ui.death_secs = entity.death_secs;
+            ui.visual_size = entity.visual_size;
             ui.fields = EntityFields::from_definition(entity);
             ui.behavior_list.selected = editor
                 .content
@@ -115,8 +128,8 @@ impl EntityField {
         match self {
             Self::Name => "Name",
             Self::Health => "Health",
-            Self::Width => "Width",
-            Self::Height => "Height",
+            Self::Width => "Hitbox width (px)",
+            Self::Height => "Hitbox height (px)",
             Self::ContactDamage => "Contact damage",
         }
     }

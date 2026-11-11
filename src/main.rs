@@ -11,6 +11,7 @@ use macroquad::prelude::*;
 mod body_draw;
 mod editor_panel;
 mod editor_ui;
+mod editor_visuals;
 mod effects;
 mod hud;
 mod postfx_pass;

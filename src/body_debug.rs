@@ -122,6 +122,25 @@ pub fn body_primitives(
     facing_left: bool,
     show_labels: bool,
 ) -> Vec<OverlayPrimitive> {
+    body_primitives_in(
+        body,
+        (center, size),
+        (center, size),
+        facing_left,
+        show_labels,
+    )
+}
+
+/// Like `body_primitives` for a body drawn in a box other than its hitbox: the points are placed
+/// in `visual` (center, size) and the hitbox rectangle is drawn from `hitbox` (center, size).
+pub fn body_primitives_in(
+    body: &BodyInstance,
+    visual: (Vec2, Vec2),
+    hitbox: (Vec2, Vec2),
+    facing_left: bool,
+    show_labels: bool,
+) -> Vec<OverlayPrimitive> {
+    let (center, size) = visual;
     let mut primitives = Vec::new();
     let rest = body.template.rest_positions();
     for name in body.template.points.keys() {
@@ -156,9 +175,10 @@ pub fn body_primitives(
             });
         }
     }
-    let top_left = center - size / 2.0;
+    let (hitbox_center, hitbox_size) = hitbox;
+    let top_left = hitbox_center - hitbox_size / 2.0;
     primitives.push(OverlayPrimitive::Rect {
-        rect: Rect::new(top_left.x, top_left.y, size.x, size.y),
+        rect: Rect::new(top_left.x, top_left.y, hitbox_size.x, hitbox_size.y),
         color_slot: ColorSlot::Hitbox,
     });
     primitives

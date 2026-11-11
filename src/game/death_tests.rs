@@ -34,6 +34,7 @@ fn enemy(
             name: "victim".into(),
             health,
             size: (36.0, 36.0),
+            visual_size: None,
             contact_damage,
             behavior: "walk".into(),
             body: None,

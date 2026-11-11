@@ -27,8 +27,6 @@ mod movement;
 pub use catalog::EnemyDefinitions;
 pub use death::DeathTimer;
 pub use definition::{EnemyDefinition, DEFAULT_DEATH_SECS, MAX_DEATH_SECS};
-pub use flap::{Flap, FlapClock, MAX_FLAP_RATE, MAX_FLAP_RATE_PER_SPEED};
-pub use movement::{Movement, MAX_BOB_AMPLITUDE, MAX_BOB_SPEED, MAX_HOVER_HEIGHT};
 
 /// A behavior-driven enemy. Patrol endpoints and position are rectangle centers.
 #[derive(Clone, Debug)]
@@ -37,7 +35,10 @@ pub struct Enemy {
     patrol_left: f32,
     patrol_right: f32,
     name: String,
+    /// The hitbox size.
     size: Vec2,
+    /// The size the body is drawn at (the hitbox size unless the definition sets one).
+    visual_size: Vec2,
     body: Option<BodyInstance>,
     poses: Arc<crate::pose::Poses>,
     facing_left: bool,
@@ -111,6 +112,7 @@ impl Enemy {
                 name: "chase".into(),
                 health: EnemyTuning::default().default_health,
                 size: (ENEMY_SIZE.x, ENEMY_SIZE.y),
+                visual_size: None,
                 contact_damage: 10,
                 behavior: "chase".into(),
                 body: None,
@@ -182,6 +184,7 @@ impl Enemy {
             patrol_right: right,
             name: definition.name.clone(),
             size,
+            visual_size: crate::visual_box::size(size, definition.visual_size),
             body,
             poses: Arc::default(),
             facing_left: false,
@@ -354,8 +357,19 @@ impl Enemy {
         self.position
     }
 
+    /// The hitbox size: collision, contact damage and attack reach.
     pub fn size(&self) -> Vec2 {
         self.size
+    }
+
+    /// The size the enemy is drawn at; the hitbox size unless its definition sets one.
+    pub fn visual_size(&self) -> Vec2 {
+        self.visual_size
+    }
+
+    /// The center of the drawn box: the hitbox's horizontal center and bottom edge.
+    pub fn visual_center(&self) -> Vec2 {
+        crate::visual_box::center(self.position, self.size, self.visual_size)
     }
 
     pub fn update(&mut self, player_position: Vec2, delta_seconds: f32, bounds: WorldBounds) {

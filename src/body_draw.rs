@@ -2,7 +2,7 @@
 use hollow_steps::body::BodyInstance;
 use hollow_steps::body::Shape;
 use hollow_steps::body_debug::{
-    body_primitives, label_requests, nearest_entity, ColorSlot, OverlayPrimitive, LINE_WIDTH,
+    body_primitives_in, label_requests, nearest_entity, ColorSlot, OverlayPrimitive, LINE_WIDTH,
 };
 use hollow_steps::boss_special::BossSpecials;
 use hollow_steps::enemy::Enemy;
@@ -12,13 +12,15 @@ use hollow_steps::player_body::PlayerBody;
 use macroquad::prelude::*;
 
 pub fn draw_enemy_body(enemy: &Enemy) {
+    // The picture is drawn in the visual box; the hitbox (`enemy.size()`) is only gameplay.
+    let (center, size) = (enemy.visual_center(), enemy.visual_size());
     let Some(body) = enemy.body() else {
-        let top_left = enemy.position() - enemy.size() / 2.0;
+        let top_left = center - size / 2.0;
         draw_rectangle(
             top_left.x,
             top_left.y,
-            enemy.size().x,
-            enemy.size().y,
+            size.x,
+            size.y,
             enemy_tint(enemy, MAROON),
         );
         return;
@@ -27,17 +29,13 @@ pub fn draw_enemy_body(enemy: &Enemy) {
         .behavior()
         .warning(enemy.size())
         .map(|warning| (warning.feedback, warning.strength));
-    draw_body(
-        body,
-        enemy.position(),
-        enemy.size(),
-        enemy.facing_left(),
-        |color| body_tint(Some(body), warning, enemy.opacity(), color),
-    );
+    draw_body(body, center, size, enemy.facing_left(), |color| {
+        body_tint(Some(body), warning, enemy.opacity(), color)
+    });
 }
 
-/// Draws the boss's body over its unchanged hitbox, with the same tint rules as enemies. Does
-/// nothing for a boss without a body: the caller draws the plain box.
+/// Draws the boss's body in its visual box (the hitbox is unchanged), with the same tint rules
+/// as enemies. Does nothing for a boss without a body: the caller draws the plain box.
 pub fn draw_boss_body(boss: &BossSpecials) {
     let Some(body) = boss.body() else {
         return;
@@ -45,8 +43,8 @@ pub fn draw_boss_body(boss: &BossSpecials) {
     let warning = boss.body_warning();
     draw_body(
         body,
-        boss.position(),
-        boss.size(),
+        boss.visual_center(),
+        boss.visual_size(),
         boss.facing_left(),
         |color| body_tint(Some(body), warning, boss.opacity(), color),
     );
@@ -293,10 +291,10 @@ pub fn draw_body_debug_overlay(
         let Some(body) = enemy.body() else {
             continue;
         };
-        primitives.extend(body_primitives(
+        primitives.extend(body_primitives_in(
             body,
-            enemy.position(),
-            enemy.size(),
+            (enemy.visual_center(), enemy.visual_size()),
+            (enemy.position(), enemy.size()),
             enemy.facing_left(),
             nearest == Some(index),
         ));

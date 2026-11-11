@@ -98,6 +98,18 @@ by filename without `.ron`; its `name` is what room files reference:
 
 Health is a positive integer up to 65535 (one sword hit is 10), size is a pair of positive dimensions,
 and contact damage is an integer from 0 to 65535 (0 disables contact damage).
+`size` is the **hitbox**: collision, contact damage, attack reach and patrol limits use it. An optional
+`visual_size: Some((w, h))` (each side 1 to 2000 px) is only the box the body, or the plain box of an
+enemy without one, is drawn in:
+
+```ron
+(name: "chase", health: 30, size: (36.0, 36.0), visual_size: Some((60.0, 80.0)), contact_damage: 10, behavior: "chase")
+```
+
+Leave it out and the picture is drawn in the hitbox, so older files look the same (the editor does not
+write the field when it is unset). The two boxes share a horizontal center and a bottom edge, so a
+taller picture rises above the hitbox and the feet stay on the floor line. The enemy's health bar sits
+over the drawn picture. Body points and part sizes are fractions of the visual box.
 Overlapping enemies apply the highest contact damage once, respecting the
 player's normal immunity; damage saturates at zero health. Each entity instance
 owns its health, timers, action cursor, and facing independently.

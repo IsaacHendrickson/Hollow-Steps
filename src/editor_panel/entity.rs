@@ -10,6 +10,7 @@ use super::key_values::draw_key_values;
 use super::movement_field;
 use super::property::{EntityField, PropertyUi};
 use super::states::draw_states_section;
+use super::visual_size_field::{hitbox_side, visual_size_rows};
 use super::widgets::{panel_input, panel_label, section};
 use super::{EditorSession, EditorUi};
 use egui_macroquad::egui;
@@ -44,8 +45,7 @@ pub(super) fn draw_definition_panel(
     let choice = draw_behavior_picker(ui, editor, p, path.is_some());
     if let Some(path) = &path {
         if let Err(e) = p
-            .fields
-            .to_definition(p.body.clone(), p.death_secs)
+            .definition()
             .and_then(|entity| editor.update_entity(path, entity))
         {
             error = Some(e);
@@ -112,6 +112,11 @@ fn draw_entity_section(
                     ui.colored_label(egui::Color32::LIGHT_RED, &e);
                 }
             }
+            visual_size_rows(
+                ui,
+                &mut p.visual_size,
+                (hitbox_side(&p.fields.width), hitbox_side(&p.fields.height)),
+            );
             death_field::death_secs_row(ui, &mut p.death_secs);
             movement_field::movement_rows(ui, &mut p.fields.movement, pose_names);
             panel_label(ui, &format!("Assigned behavior: {}", p.fields.behavior));
@@ -139,19 +144,15 @@ pub(super) fn pending_error(editor: &EditorSession, p: &PropertyUi) -> Option<St
         .as_ref()
         .is_some_and(|path| editor.content.entities.contains_key(path))
     {
-        if let Err(error) = p
-            .fields
-            .to_definition(p.body.clone(), p.death_secs)
-            .and_then(|entity| {
-                if let Some(body) = &entity.body {
-                    body.validate_template(&editor.content.bodies)?;
-                }
-                if let Some(behavior) = editor.content.behaviors.get(&entity.behavior) {
-                    hollow_steps::pose::validate_entity(&entity, behavior, &editor.content.poses)?;
-                }
-                Ok(())
-            })
-        {
+        if let Err(error) = p.definition().and_then(|entity| {
+            if let Some(body) = &entity.body {
+                body.validate_template(&editor.content.bodies)?;
+            }
+            if let Some(behavior) = editor.content.behaviors.get(&entity.behavior) {
+                hollow_steps::pose::validate_entity(&entity, behavior, &editor.content.poses)?;
+            }
+            Ok(())
+        }) {
             return Some(error);
         }
     }

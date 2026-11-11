@@ -25,6 +25,7 @@ fn dummy(x: f32, size: (f32, f32), bounds: WorldBounds) -> Enemy {
             name: "dummy".into(),
             health: 30,
             size,
+            visual_size: None,
             contact_damage: 0,
             behavior: "idle".into(),
             body: None,
