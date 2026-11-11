@@ -4,7 +4,9 @@ use hollow_steps::body::Shape;
 use hollow_steps::body_debug::{
     body_primitives, label_requests, nearest_entity, ColorSlot, OverlayPrimitive, LINE_WIDTH,
 };
+use hollow_steps::boss_special::BossSpecials;
 use hollow_steps::enemy::Enemy;
+use hollow_steps::enemy_attack::AttackFeedback;
 use hollow_steps::player::Player;
 use hollow_steps::player_body::PlayerBody;
 use macroquad::prelude::*;
@@ -21,12 +23,32 @@ pub fn draw_enemy_body(enemy: &Enemy) {
         );
         return;
     };
+    let warning = enemy
+        .behavior()
+        .warning(enemy.size())
+        .map(|warning| (warning.feedback, warning.strength));
     draw_body(
         body,
         enemy.position(),
         enemy.size(),
         enemy.facing_left(),
-        |color| enemy_tint(enemy, color),
+        |color| body_tint(Some(body), warning, enemy.opacity(), color),
+    );
+}
+
+/// Draws the boss's body over its unchanged hitbox, with the same tint rules as enemies. Does
+/// nothing for a boss without a body: the caller draws the plain box.
+pub fn draw_boss_body(boss: &BossSpecials) {
+    let Some(body) = boss.body() else {
+        return;
+    };
+    let warning = boss.body_warning();
+    draw_body(
+        body,
+        boss.position(),
+        boss.size(),
+        boss.facing_left(),
+        |color| body_tint(Some(body), warning, boss.opacity(), color),
     );
 }
 
@@ -95,32 +117,52 @@ pub fn draw_player(body: &PlayerBody, player: &Player) {
     );
 }
 
-/// The draw color for one body part: hurt flash or warning tint, faded by how far through
-/// its death the enemy is (fully opaque while alive).
+/// The draw color for one body part of an enemy: hurt flash or warning tint, faded by how far
+/// through its death the enemy is (fully opaque while alive).
 fn enemy_tint(enemy: &Enemy, color: Color) -> Color {
-    let mut tinted = tint_for_state(enemy, color);
-    tinted.a *= enemy.opacity();
+    let warning = enemy
+        .behavior()
+        .warning(enemy.size())
+        .map(|warning| (warning.feedback, warning.strength));
+    body_tint(enemy.body(), warning, enemy.opacity(), color)
+}
+
+/// The draw color for one body part of any actor: the hurt flash while it lasts, otherwise the
+/// wind-up `warning` tint, then faded by `opacity`.
+fn body_tint(
+    body: Option<&BodyInstance>,
+    warning: Option<(AttackFeedback, f32)>,
+    opacity: f32,
+    color: Color,
+) -> Color {
+    let mut tinted = tint_for_state(body, warning, color);
+    tinted.a *= opacity;
     tinted
 }
 
-fn tint_for_state(enemy: &Enemy, color: Color) -> Color {
-    if let Some(body) = enemy.body() {
+fn tint_for_state(
+    body: Option<&BodyInstance>,
+    warning: Option<(AttackFeedback, f32)>,
+    color: Color,
+) -> Color {
+    if let Some(body) = body {
         let strength = body.flash_strength();
         if strength > 0.0 {
-            let tint = body.visual.hurt.tint;
-            return Color::new(
-                color.r + (tint.0 - color.r) * strength,
-                color.g + (tint.1 - color.g) * strength,
-                color.b + (tint.2 - color.b) * strength,
-                color.a,
-            );
+            return blend(color, body.visual.hurt.tint, strength);
         }
     }
-    let Some(warning) = enemy.behavior().warning(enemy.size()) else {
-        return color;
-    };
-    let tint = warning.feedback.tint;
-    let strength = warning.strength * warning.feedback.warning_tint_strength;
+    match warning {
+        Some((feedback, strength)) => blend(
+            color,
+            feedback.tint,
+            strength * feedback.warning_tint_strength,
+        ),
+        None => color,
+    }
+}
+
+/// Moves `color` toward `tint` by `strength` (0 keeps it, 1 is the tint), keeping its alpha.
+fn blend(color: Color, tint: (f32, f32, f32), strength: f32) -> Color {
     Color::new(
         color.r + (tint.0 - color.r) * strength,
         color.g + (tint.1 - color.g) * strength,

@@ -1,5 +1,6 @@
 //! Pure boss text buffers and ordered attack/action edits. Invalid input never changes a definition.
 use crate::behavior::Action;
+use crate::body::BodyVisual;
 use crate::boss_definition::{AttackDefinition, AttackSelection, BossDefinition};
 use crate::definition_editor::{move_row, remove_row};
 
@@ -56,6 +57,9 @@ pub struct BossInputs {
     pub fields: [String; 6],
     pub selection: AttackSelection,
     pub attacks: Vec<AttackInput>,
+    /// The boss's body has no editor controls yet; it is carried through unchanged so a save
+    /// from the boss panel never drops it.
+    pub body: Option<BodyVisual>,
 }
 
 impl BossInputs {
@@ -70,6 +74,7 @@ impl BossInputs {
                 boss.pause_seconds.to_string(),
             ],
             selection: boss.selection,
+            body: boss.body.clone(),
             attacks: boss
                 .attacks
                 .iter()
@@ -99,6 +104,7 @@ impl BossInputs {
                 .map_err(|_| "Contact damage: expected integer 0..65535")?,
             pause_seconds: parse(5).map_err(|e| format!("Pause: {e}"))?,
             selection: self.selection,
+            body: self.body.clone(),
             attacks: self
                 .attacks
                 .iter()

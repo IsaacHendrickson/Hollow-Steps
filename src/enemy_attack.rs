@@ -560,6 +560,11 @@ pub struct AttackFeedback {
 fn default_warning_tint_strength() -> f32 {
     default_feedback().warning_tint_strength
 }
+/// How strongly a wind-up tint shows at `progress` (0..1) of the wind-up: pulses
+/// `flash_cycles` times, full strength at the start.
+pub(crate) fn warning_strength(feedback: AttackFeedback, progress: f32) -> f32 {
+    (1.0 + (std::f32::consts::TAU * feedback.flash_cycles * progress).cos()) / 2.0
+}
 pub(crate) fn default_feedback() -> AttackFeedback {
     ron::from_str(include_str!("../data/attack_feedback_defaults.ron"))
         .expect("valid attack feedback defaults")

@@ -217,6 +217,22 @@ pub fn validate_entity(
     Ok(())
 }
 
+/// A boss's hurt pose must exist in the catalog.
+pub fn validate_boss(
+    boss: &crate::boss_definition::BossDefinition,
+    poses: &Poses,
+) -> Result<(), String> {
+    if let Some(name) = boss.body.as_ref().and_then(|body| body.hurt.pose.as_ref()) {
+        if !poses.contains_key(name) {
+            return Err(format!(
+                "boss {:?}, hurt pose: unknown pose {name:?}",
+                boss.name
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub fn is_pose_parameter(field: &str) -> bool {
     matches!(field, "telegraph_pose" | "active_pose" | "recovery_pose")
 }

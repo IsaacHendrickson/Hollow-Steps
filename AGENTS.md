@@ -77,9 +77,10 @@ Gameplay modules (pure rules, no rendering):
 - `src/preset.rs`: validated RON behavior preset catalog.
 - `src/action_parameters.rs`: labeled scalar editor fields for the shared action registry.
 - `src/behavior_values.rs`: numeric behavior controls and transactional validated edits.
-- `src/boss_definition.rs`: validated RON boss definitions and attack selection settings.
+- `src/boss_definition.rs`: validated RON boss definitions (optional `body`, checked against body templates and poses) and attack selection settings.
 - `src/boss_editor.rs`: pure boss property buffers and ordered attack/action edits.
 - `src/boss_special.rs`: boss sequence cursors, selection, actor effect integration, and coin drops.
+- `src/boss_special/body_link.rs`: how a boss drives its optional body (`BossBody`): hurt flash, warning tint, facing, death fade and stepping; the hitbox stays the definition's `size`.
 - `src/combat.rs`: melee swings (forward, up, down), per-direction hitboxes from `StrikeConfig`, knockback direction, once-per-swing pogo, duration, and cooldown.
 - `src/damage.rs`: `DamageResolver` combines enemy contact/blast/attack and boss action/contact damage into the single hit applied to the player.
 - `src/events.rs`: `GameEvent` (jump, landing, dash, swing, enemy hit/death, player damage, coin, item, room, boss) and the `EventQueue` drained by `GameState::take_events`, or by `take_located_events` with the world position each event happened at (`LocatedEvent`); a `PlayerDamaged` event also carries the `HealthLoss` (health lost, health left) in `LocatedEvent::loss`.
@@ -110,7 +111,7 @@ Gameplay modules (pure rules, no rendering):
 
 Composition and front end:
 
-- `src/body_draw.rs`: Macroquad adapter: `draw_body` (ordered body parts for enemies and the player), legacy enemy boxes, and debug overlays.
+- `src/body_draw.rs`: Macroquad adapter: `draw_body` (ordered body parts for enemies, bosses and the player), the shared `body_tint` (hurt flash, warning tint, fade), legacy enemy boxes, and debug overlays.
 - `src/game/vitals_link.rs`: how `GameState` drives the vitals: input gating while a heal runs, healing and regain copied into `Health`, and the F4 / F5 accessors (`vitals`, `set_vitals_config`, `save_vitals`).
 - `src/game/test_room.rs`: Test room: swaps the editor's draft in as the playable room, parks the editor session and player, and restores them.
 - `src/game.rs`: top-level gameplay state and world composition. Add new

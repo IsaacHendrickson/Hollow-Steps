@@ -57,6 +57,7 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Arena boss cycling Slam, Summon, Rings with summons, death coins, drawing; `src/boss_special.rs`; `tests/boss_special.rs`
 - RON boss definitions and placements, cycle/seeded random selection, ordered actions; `src/boss_definition.rs`, `src/boss_special.rs`; `tests/boss_data.rs`
 - Boss editor: placement, drag, delete, ordered attacks/actions, staged saves with renames; `src/boss_editor.rs`, `src/editor_panel/boss.rs`; `tests/boss_editor.rs`
+- Boss body: an optional `body` in the boss RON (a body template and colors like an enemy's; no `body` keeps the purple box), checked against the body templates and its hurt pose at load, built when the boss spawns and stepped every update; drawn with `body_draw::draw_body` at the boss position and size while the hitbox stays `size`; hurt flash on every hit (frozen with the killing blow), warning tint during attack wind-ups and plain `telegraph` actions, fade over the death flash, faces its direction of travel while gliding and the player while idle; the boss editor carries the body through a save (no body controls yet); `src/boss_definition.rs`, `src/boss_special/body_link.rs`, `src/body_draw.rs`, `src/scene.rs`, `src/boss_editor.rs`, `src/pose.rs`; `tests/boss_body.rs`, manual
 
 ## Bodies and poses
 

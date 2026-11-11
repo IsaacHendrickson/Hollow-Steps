@@ -220,19 +220,25 @@ fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
                 color,
             );
         }
-        let top_left = boss.position() - boss.size() / 2.0;
-        draw_rectangle(
-            top_left.x,
-            top_left.y,
-            boss.size().x,
-            boss.size().y,
-            if boss.is_telegraphing() {
-                ORANGE
-            } else {
-                PURPLE
-            },
-        );
+        if boss.body().is_some() {
+            body_draw::draw_boss_body(boss);
+        } else {
+            let top_left = boss.position() - boss.size() / 2.0;
+            draw_rectangle(
+                top_left.x,
+                top_left.y,
+                boss.size().x,
+                boss.size().y,
+                if boss.is_telegraphing() {
+                    ORANGE
+                } else {
+                    PURPLE
+                },
+            );
+        }
     } else if boss.is_death_effect_active() {
         draw_circle(boss.position().x, boss.position().y, boss.size().x, WHITE);
+        // A boss with a body fades out over the flash; without one there is nothing to draw.
+        body_draw::draw_boss_body(boss);
     }
 }
