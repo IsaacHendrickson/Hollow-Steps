@@ -1,0 +1,83 @@
+(
+    // Most particles alive at once. A burst that would go past this is cut short.
+    max_particles: 512,
+
+    // Every preset is a burst. Fields:
+    //   on            events that spawn it (GameEvent names; empty turns the preset off)
+    //   count         particles per burst
+    //   lifetime_secs how long each lives, picked at random between min and max
+    //   speed         start speed in pixels per second, between min and max
+    //   direction_deg start direction in degrees: 0 right, 90 down, -90 up (y points down)
+    //   spread        half width and height of the box the particles start in, in pixels
+    //   offset        added to the event's position (events at the player's feet or an
+    //                 enemy's center), in pixels
+    //   gravity       downward acceleration in pixels per second squared (negative floats up)
+    //   drag          share of the velocity lost per second
+    //   size          diameter at birth and at death, in pixels
+    //   color_start / color_end  red, green, blue, alpha at birth and at death
+
+    // Sparks where the player's swing lands on an enemy, and where the player is hurt.
+    hit_spark: (
+        on: [EnemyHit, PlayerDamaged],
+        count: 8,
+        lifetime_secs: (min: 0.12, max: 0.28),
+        speed: (min: 90.0, max: 240.0),
+        direction_deg: (min: 0.0, max: 360.0),
+        spread: (4.0, 4.0),
+        offset: (0.0, 0.0),
+        gravity: 0.0,
+        drag: 6.0,
+        size: (5.0, 1.0),
+        color_start: (255, 236, 170, 255),
+        color_end: (255, 150, 60, 0),
+    ),
+
+    // Puffs at the player's feet when jumping and landing.
+    dust: (
+        on: [PlayerJumped, PlayerLanded],
+        count: 6,
+        lifetime_secs: (min: 0.25, max: 0.5),
+        speed: (min: 20.0, max: 70.0),
+        direction_deg: (min: -170.0, max: -10.0),
+        spread: (10.0, 1.0),
+        offset: (0.0, 0.0),
+        gravity: 0.0,
+        drag: 4.0,
+        size: (5.0, 10.0),
+        color_start: (170, 176, 200, 160),
+        color_end: (170, 176, 200, 0),
+    ),
+
+    // A smear of fading specks around where a dash begins, raised to body height; the player
+    // leaves them behind as it speeds away.
+    dash_trail: (
+        on: [PlayerDashed],
+        count: 10,
+        lifetime_secs: (min: 0.2, max: 0.4),
+        speed: (min: 0.0, max: 25.0),
+        direction_deg: (min: 0.0, max: 360.0),
+        spread: (22.0, 16.0),
+        offset: (0.0, -18.0),
+        gravity: 0.0,
+        drag: 3.0,
+        size: (10.0, 2.0),
+        color_start: (150, 190, 255, 200),
+        color_end: (150, 190, 255, 0),
+    ),
+
+    // A burst when an enemy or the boss is defeated.
+    death_burst: (
+        on: [EnemyDied, BossDefeated],
+        count: 24,
+        lifetime_secs: (min: 0.3, max: 0.7),
+        speed: (min: 60.0, max: 320.0),
+        direction_deg: (min: 0.0, max: 360.0),
+        spread: (10.0, 10.0),
+        offset: (0.0, 0.0),
+        gravity: 240.0,
+        drag: 2.0,
+        size: (8.0, 2.0),
+        color_start: (255, 200, 150, 255),
+        color_end: (200, 60, 40, 0),
+    ),
+)

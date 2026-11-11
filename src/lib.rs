@@ -31,6 +31,7 @@ pub mod feel;
 pub mod game;
 pub mod health;
 pub mod item;
+pub mod particles;
 pub mod player;
 pub mod pose;
 pub mod preset;

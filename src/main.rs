@@ -1,3 +1,4 @@
+use hollow_steps::assets;
 use hollow_steps::boss_special::BossSpecials;
 use hollow_steps::camera::{Camera, CameraConfig};
 use hollow_steps::coin::COIN_RADIUS;
@@ -17,6 +18,7 @@ use hollow_steps::timestep::{FixedStep, InputLatch};
 use macroquad::prelude::*;
 mod body_draw;
 mod editor_panel;
+mod effects;
 mod hud;
 mod startup;
 mod terrain_canvas;
@@ -42,7 +44,9 @@ async fn main() {
     let screen = render_target(VIEW_WIDTH as u32, VIEW_HEIGHT as u32);
     screen.texture.set_filter(FilterMode::Linear);
     let mut game = startup::load_game(&screen, view).await;
-    let mut reload_result = None;
+    // Invalid effect settings are shown like a failed reload.
+    let (mut effects, effects_error) = effects::Effects::load(&assets::assets_root());
+    let mut reload_result = effects_error.map(Err);
     let mut reload_scroll = 0;
     let mut editor_ui = EditorUi::default();
     let mut body_debug = false;
@@ -95,6 +99,7 @@ async fn main() {
             // A test room started or ended: the world changed under the camera and any
             // input or time left over from the other mode must not carry across.
             testing = game.testing_room();
+            effects.clear();
             fixed_step.reset();
             input_latch.clear();
             camera = new_camera(&game, camera_config, view);
@@ -116,7 +121,7 @@ async fn main() {
             tuning_panel.toggle();
         }
         if is_key_pressed(KeyCode::F5) {
-            reload_result = Some(game.reload_rooms());
+            reload_result = Some(game.reload_rooms().and_then(|()| effects.reload()));
             reload_scroll = 0;
         }
         if !ui_wants_keyboard
@@ -134,6 +139,9 @@ async fn main() {
         });
         for _ in 0..fixed_step.advance(frame_seconds) {
             game.update(input_latch.take_tick(), fixed_step.step_seconds());
+            if !game.inventory_open() {
+                effects.update(fixed_step.step_seconds());
+            }
             if game.room().id == camera_room {
                 let player = game.player();
                 camera.update(
@@ -148,13 +156,13 @@ async fn main() {
                 camera = new_camera(&game, camera_config, view);
             }
         }
-        // Nothing reacts to gameplay events here yet; drop them so the queue stays empty.
-        drop(game.take_events());
+        effects.handle(&game.take_located_events());
 
         // Screen shake moves only the picture, not the camera that follows the player.
         let world_view = camera.view_rect_shaken(view, game.shake_offset());
         set_camera(&screen_camera(world_view, Some(screen.clone())));
         draw_scene(&game);
+        effects.draw();
         set_camera(&screen_camera(
             Rect::new(0.0, 0.0, view.x, view.y),
             Some(screen.clone()),
@@ -169,7 +177,7 @@ async fn main() {
         if let Some(result) = &reload_result {
             hud::draw_reload_result(
                 result,
-                "Room reload failed - F5 to retry",
+                "Reload failed - F5 to retry",
                 &mut reload_scroll,
                 view,
             );

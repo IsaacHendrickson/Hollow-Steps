@@ -8,7 +8,7 @@ use crate::coin::Coin;
 use crate::damage::DamageResolver;
 use crate::editor::{self, EditorSession};
 use crate::enemy::EnemyDefinitions;
-use crate::events::{EventQueue, GameEvent};
+use crate::events::{EventQueue, GameEvent, LocatedEvent};
 use crate::feel::{Feel, FeelConfig};
 use crate::item::WorldItem;
 use crate::player::{Player, PlayerInput, WorldBounds};
@@ -21,6 +21,8 @@ mod death_tests;
 mod event_tests;
 #[cfg(test)]
 mod feel_tests;
+#[cfg(test)]
+mod located_event_tests;
 #[cfg(test)]
 mod strike_tests;
 mod test_room;
@@ -116,6 +118,12 @@ impl GameState {
     /// that happens appears exactly once; nothing is raised while the game is paused.
     pub fn take_events(&mut self) -> Vec<GameEvent> {
         self.events.take()
+    }
+
+    /// Like `take_events`, with the world position each event happened at (see
+    /// `LocatedEvent`). Use one or the other: either removes the events.
+    pub fn take_located_events(&mut self) -> Vec<LocatedEvent> {
+        self.events.take_located()
     }
 
     /// The player and enemy tunables in effect.
@@ -402,7 +410,8 @@ impl GameState {
         let bounds = self.rooms[index].world_bounds();
         self.player
             .update_with_terrain(input, delta_seconds, bounds, &self.rooms[index].terrain);
-        self.events.extend(self.player.take_events());
+        let feet = self.player.position() + Vec2::new(0.0, self.player.size().y / 2.0);
+        self.events.extend_at(self.player.take_events(), feet);
         let room = &mut self.rooms[index];
         let bounds = room.world_bounds();
         let mut special_damage = 0;
@@ -456,9 +465,9 @@ impl GameState {
                         .knockback_direction(self.player.position().x, enemy.position().x);
                     if enemy.hit(self.player.attack().id(), direction) {
                         struck = true;
-                        self.events.push(GameEvent::EnemyHit);
+                        self.events.push_at(GameEvent::EnemyHit, enemy.position());
                         if enemy.is_dead() {
-                            self.events.push(GameEvent::EnemyDied);
+                            self.events.push_at(GameEvent::EnemyDied, enemy.position());
                         }
                     }
                 }
@@ -474,9 +483,10 @@ impl GameState {
                     boss.damage_boss(1);
                     self.last_special_hit = Some(swing_id);
                     if !was_defeated {
-                        self.events.push(GameEvent::EnemyHit);
+                        self.events.push_at(GameEvent::EnemyHit, boss.position());
                         if boss.is_defeated() {
-                            self.events.push(GameEvent::BossDefeated);
+                            self.events
+                                .push_at(GameEvent::BossDefeated, boss.position());
                         }
                     }
                 }
@@ -497,7 +507,8 @@ impl GameState {
         )
         .resolve();
         if self.player.take_attack_damage(hit) {
-            self.events.push(GameEvent::PlayerDamaged);
+            self.events
+                .push_at(GameEvent::PlayerDamaged, self.player.position());
         }
         if self.player.health().current() == 0 {
             self.player.respawn(room.spawn, bounds);

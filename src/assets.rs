@@ -41,6 +41,18 @@ pub fn assets_root() -> PathBuf {
     )
 }
 
+/// Reads `file_name` from the assets folder. `Ok(None)` means there is no such file (the caller
+/// uses its embedded defaults); a file that exists but cannot be read is an error naming it,
+/// never a silent fallback.
+pub fn read_override(assets: &Path, file_name: &str) -> Result<Option<String>, String> {
+    let path = assets.join(file_name);
+    match std::fs::read_to_string(&path) {
+        Ok(text) => Ok(Some(text)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(format!("{}: {error}", path.display())),
+    }
+}
+
 /// Adds the folder that was tried and how to point elsewhere to a load error.
 pub fn describe_load_failure(root: &Path, error: &str) -> String {
     format!(
@@ -133,5 +145,22 @@ mod tests {
         assert!(message.starts_with("rooms: not found"));
         assert!(message.contains("missing_assets"));
         assert!(message.contains(ASSETS_ENV));
+    }
+
+    #[test]
+    fn read_override_returns_the_text_nothing_for_a_missing_file_and_an_error_otherwise() {
+        let dir = TempDir::new();
+        assert_eq!(read_override(&dir.0, "particles.ron"), Ok(None));
+
+        std::fs::write(dir.0.join("particles.ron"), "(a: 1)").unwrap();
+        assert_eq!(
+            read_override(&dir.0, "particles.ron"),
+            Ok(Some("(a: 1)".to_owned()))
+        );
+
+        // A directory where the file should be exists but cannot be read as text.
+        std::fs::create_dir(dir.0.join("audio.ron")).unwrap();
+        let error = read_override(&dir.0, "audio.ron").unwrap_err();
+        assert!(error.contains("audio.ron"), "{error}");
     }
 }
