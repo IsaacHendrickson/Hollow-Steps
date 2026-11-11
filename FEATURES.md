@@ -38,12 +38,12 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 
 - Enemy patrol, chase, contact damage, health, knockback, death; `src/enemy.rs`; `tests/enemies.rs`
 - Enemy dying state: at zero health an enemy stays for `death_secs` (entity definition, default 0.4 s, 0 to 5 s, 0 removes it at once as before), flashing from the killing blow and fading out; while dying it deals no contact, blast or attack damage, takes no further hits, is no pogo target and runs no behavior; `EnemyDied` is raised once, at the killing blow, and removal raises nothing; hit-stop holds the fade; an optional `death_secs` in the entity RON and a Death time drag box in the editor's Entity section (kept across ordinary entity edits, clamped to the valid range); `src/enemy.rs`, `src/enemy/death.rs`, `src/enemy/definition.rs`, `src/game.rs`, `src/body_draw.rs`, `src/main.rs`, `src/definition_editor.rs`, `src/editor_panel/death_field.rs`; `tests/enemy_death.rs`, `src/game/death_tests.rs`, `src/enemy/death.rs` and `src/enemy/definition.rs` unit tests, `src/editor_panel/death_field.rs` panel tests, manual
-- RON enemy definitions and room placements, sequential actions, conditional transitions, asset validation; `src/behavior.rs`; `tests/behavior.rs`, `tests/definitions.rs`
-- Shared lunge, jump, slam, projectile fan, radial blast, warning and recovery actions; `src/enemy_attack.rs`, `src/behavior.rs`; `tests/attack_actions.rs`
+- RON enemy definitions and room placements, sequential actions, conditional transitions, asset validation; `src/behavior.rs`, `src/behavior/`; `tests/behavior.rs`, `tests/definitions.rs`
+- Shared lunge, jump, slam, projectile fan, radial blast, warning and recovery actions; `src/enemy_attack.rs`, `src/behavior/`, `src/action_runtime/attacks.rs`; `tests/attack_actions.rs`
 - Lunge samples player direction once, suspends gravity, stops at walls, keeps authored trajectories; `src/enemy_attack.rs`; `tests/attack_actions.rs`
 - Rect/circle attack boxes, immunity-gated damage and knockback; `src/enemy_attack.rs`, `src/player.rs`; `tests/attack_actions.rs`
 - One hit per tick: strongest of enemy contact/blast/attack and boss action/contact damage; an attack hit keeps its knockback only when it is the strongest; `src/damage.rs`, `src/game.rs`; `src/damage.rs` unit tests, `src/game.rs` blast and attack tests
-- Jump-to-player, hover, slam, random area blasts with arena clamping and editor parameters; `src/behavior.rs`, `src/behavior_values.rs`; `tests/arena_actions.rs`
+- Jump-to-player, hover, slam, random area blasts with arena clamping and editor parameters; `src/behavior/`, `src/action_runtime/movement.rs`, `src/action_runtime/blasts.rs`, `src/behavior_values.rs`; `tests/arena_actions.rs`
 - Warning tint strength (0.25) and 30% AttackBox outline; `src/enemy_attack.rs`, `src/body_draw.rs`; `tests/attack_actions.rs`
 - Compile-time guard keeping hitbox/attack motion independent of body state; `src/enemy_attack.rs`; `tests/pose_geometry.rs`
 
@@ -60,7 +60,7 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Damped point following, idle motion, per-point springs, F5 motion preservation; `src/body.rs`, `data/body_motion_defaults.ron`; `tests/body_motion.rs`
 - Charger/Hopper/Shooter use distinct bodies, palettes, scales; `assets/entities/`; `tests/shipped_rooms.rs`, `tests/bodies.rs`
 - Semantic pose assets and per-template point mapping; `src/pose.rs`; `tests/poses.rs`
-- Attack phase pose commands with spring target cleanup; `src/behavior.rs`, `src/enemy_attack.rs`; `tests/poses.rs`
+- Attack phase pose commands with spring target cleanup; `src/behavior/action_info.rs`, `src/action_runtime/poses.rs`, `src/enemy_attack.rs`; `tests/poses.rs`
 - Telegraph-derived critically damped pose springs, blend ratio, strike stiffness, shot recoil; `src/pose.rs`, `data/pose_defaults.ron`; `tests/poses.rs`
 - Eight authored poses, attack bindings, timed hurt pose and white flash; `assets/poses/`, `src/body.rs`; `tests/poses.rs`
 - Player body: a hooded wanderer (`assets/bodies/wanderer.ron`, original design) with idle, run, jump and attack poses (`assets/poses/wanderer_*.ron`) chosen by grounded/speed/swing state; look and run threshold in `data/player_body.ron` (an `assets/player_body.ron` replaces it whole), no template keeps the blue box, the hitbox is unchanged; `draw_body` shared with enemies; `src/player_body.rs`, `src/body_draw.rs`, `src/main.rs`; `tests/player_body.rs`, `tests/shipped_rooms.rs`, manual
@@ -73,11 +73,11 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 
 - F2 paused room editor: placement, move, delete, entity list, spawn/exit editing, atomic RON saves, custom rooms; `src/editor.rs`; `tests/editor.rs`
 - Entity/behavior side panel, state/link editing, shared-name updates, staged RON saves; `src/definition_editor.rs`; `tests/definition_editor.rs`
-- Responsive scrollable panel, pinned Save, ordered action/transition rows, type catalogs, advanced RON editing; `src/editor_panel.rs`; `tests/definition_editor.rs`
+- Responsive scrollable panel, pinned Save, ordered action/transition rows, type catalogs, advanced RON editing; `src/editor_panel.rs`, `src/editor_panel/entity.rs`, `src/editor_panel/states.rs`; `tests/definition_editor.rs`
 - Save conflict detection, full validation, LF writes, recoverable staging, repeat renames; `src/definition_editor.rs`; `tests/definition_editor.rs`
 - Searchable lists with stable selection, Unicode prefix-first matching, counts, management buttons; `src/search.rs`; `tests/definition_editor.rs`
 - Patrol handles, exit/arrival deletion, item catalog, no-exit warnings, transactional saves, Windows-safe names; `src/editor.rs`, `src/item.rs`; `tests/editor.rs`
-- egui panel: collapsing sections, filtered dropdowns, tooltip truncation, solid scrollbars, canvas input capture; `src/editor_panel.rs`; headless tests, manual
+- egui panel: collapsing sections, filtered dropdowns, tooltip truncation, solid scrollbars, canvas input capture; `src/editor_panel.rs`, `src/editor_panel/widgets.rs`; headless tests (`src/editor_panel/panel_tests/`), manual
 - Editor canvas view: wheel zoom about the cursor, middle-drag/Space+drag pan, Home/Reset view, clamped zoom, grid overlay with snap size (default 8 px, snaps place/drag), footer sized from the window; `src/editor_view.rs`, `src/main.rs`, `src/editor_panel/canvas_tools.rs`; `tests/editor_view.rs`, headless panel tests, manual
 - Room size section (x, y, width, height, floor_y): changes that would leave the spawn, items, exits, terrain, enemies or boss outside are refused; `src/room_size.rs`, `src/editor_panel/canvas_tools.rs`; `tests/room_size.rs`
 - Unsaved-changes guard: closing the editor (F2), Open room and New room ask Save / Discard / Cancel when the session is dirty and act at once when clean; a failed save keeps the dialog open with the error; `src/editor_guard.rs`, `src/editor_panel/unsaved_dialog.rs`; `tests/editor_guard.rs`, headless dialog tests, manual
@@ -85,8 +85,8 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Test room: the Test room button and F6 play the unsaved draft (boss included) from its spawn with the editor parked; exits are inert, F5 and Open room wait; F2 returns to the same session with its draft, dirty flag, message and undo history; the built room stands in for the saved one and the player and counters are restored, nothing is written; an invalid draft stays in the editor with the reason in its message; `src/game/test_room.rs`, `src/game.rs`, `src/hud.rs`, `src/main.rs`, `src/editor_panel.rs`; `tests/test_room.rs`, headless panel test, manual
 - Editor tools: a Tools section (Select, Place, Terrain, Erase; keys V, P, T, E) replaces the Place and Select / drag buttons; Terrain drags out a grid-snapped solid, Select moves and resizes solids by eight handles, Erase and right-click and Delete remove solids or markers; every edit is validated and refused over the spawn, items, exits or outside the room; solids save to `layout.terrain` and undo/redo covers them (a drag is one step); `src/editor_terrain.rs`, `src/editor_tools.rs`, `src/terrain_canvas.rs`, `src/editor_panel/tool_panel.rs`; `tests/editor_terrain.rs`, headless panel tests, manual
 - Behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation, usage warnings, Key values; `src/preset.rs`, `src/behavior_values.rs`; `tests/presets.rs`
-- Blank-enemy creation and behavior assignment, editable Skittish distances/speed; `src/definition_editor.rs`, `src/behavior.rs`; `tests/presets.rs`
-- Catalog-backed pose dropdowns for attack phases in rows and Key values; `src/editor_panel.rs`, `src/behavior_values.rs`; `tests/poses.rs`
+- Blank-enemy creation and behavior assignment, editable Skittish distances/speed; `src/definition_editor.rs`, `src/behavior/`; `tests/presets.rs`
+- Catalog-backed pose dropdowns for attack phases in rows and Key values; `src/editor_panel/widgets.rs`, `src/editor_panel/states.rs`, `src/editor_panel/key_values.rs`, `src/behavior_values.rs`; `tests/poses.rs`
 - Body, pose, spring, hurt, blend and tint values all have data, validation, editor controls; `src/body.rs`, `src/pose.rs`, `data/`; `tests/poses.rs`
 
 ## Tests and CI

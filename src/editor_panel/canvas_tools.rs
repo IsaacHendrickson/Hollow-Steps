@@ -2,7 +2,8 @@
 //! rules live in `hollow_steps::editor_view` and `hollow_steps::room_size`.
 use std::ops::RangeInclusive;
 
-use super::{panel_button, panel_label, section, EditorSession, EditorUi};
+use super::widgets::{panel_button, panel_label, probe, section};
+use super::{EditorSession, EditorUi};
 use egui_macroquad::egui;
 use hollow_steps::editor_history::{tracked, History};
 use hollow_steps::editor_view::{MAX_SNAP, MIN_SNAP};
@@ -75,8 +76,7 @@ fn size_row(
             .fixed_decimals(0)
             .suffix(" px"),
     );
-    #[cfg(test)]
-    ui.data_mut(|data| data.insert_temp(egui::Id::new(("size field", label)), response.rect));
+    probe(ui, || (egui::Id::new(("size field", label)), response.rect));
     ui.end_row();
     response
 }

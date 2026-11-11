@@ -12,7 +12,6 @@ use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
 use hollow_steps::player_body::PlayerBody;
-use hollow_steps::room::RoomEdge;
 use hollow_steps::search::SearchList;
 use hollow_steps::timestep::{FixedStep, InputLatch};
 use macroquad::prelude::*;

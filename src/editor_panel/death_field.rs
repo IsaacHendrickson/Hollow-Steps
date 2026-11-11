@@ -89,7 +89,7 @@ mod tests {
     fn an_ordinary_field_edit_keeps_the_stored_death_time() {
         let mut game = editing_game();
         let (path, mut state) = open(&mut game, 2.0);
-        state.property.fields[1] = "7".into();
+        state.property.fields.health = "7".into();
         let ctx = egui::Context::default();
         let editor = game.editor_mut().unwrap();
         frame(&ctx, editor, &mut state);
@@ -124,12 +124,11 @@ mod tests {
                 "{bad} saved as {saved}"
             );
             assert!(
-                hollow_steps::definition_editor::entity_with_body_and_death(
-                    &state.property.fields,
-                    state.property.body.clone(),
-                    state.property.death_secs
-                )
-                .is_ok(),
+                state
+                    .property
+                    .fields
+                    .to_definition(state.property.body.clone(), state.property.death_secs)
+                    .is_ok(),
                 "{bad} left the panel holding an invalid value ({})",
                 state.property.death_secs
             );

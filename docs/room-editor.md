@@ -22,12 +22,12 @@ follows the panel; near the window bottom egui places the popup above the picker
 An empty filter result shows **No matches**. Existing Unicode, prefix-first
 filtering and source-index selection remain in `src/search.rs` with their tests.
 Long captions truncate with a hover tooltip, other text wraps, and text fields
-scroll horizontally. `searchable_list` in `src/editor_panel.rs` is the shared
+scroll horizontally. `searchable_list` in `src/editor_panel/widgets.rs` is the shared
 place for future search/navigation improvements. Pointer capture includes open
 popups and active UI drags, so panel gestures cannot edit the canvas; Delete in
 a text field cannot delete the selected canvas object.
 Mouse input and preview drawing stay in `main.rs`; panel widgets live in
-`editor_panel.rs`. `editor.rs` owns window-free place, move, delete, validation,
+`editor_panel.rs` and its sub-modules. `editor.rs` owns window-free place, move, delete, validation,
 and serialization rules. Edits use authored RON
 placements rather than enemies that have moved or pickups already collected.
 
@@ -139,7 +139,7 @@ checkbox, and the same ordering controls. Invalid numbers show errors beside the
 fields and block saving using the same validation as Key values and the loader.
 
 The loader enums and editor type catalogs come from the same `actions!` and
-`conditions!` declarations in `behavior.rs`. Add a supported variant there with
+`conditions!` declarations in `src/behavior/action.rs` and `src/behavior/condition.rs`. Add a supported variant there with
 its typed parameters, descriptive labels, and validation to include it in the
 dropdown and Key values automatically. Editor insertion defaults live in
 `data/action_defaults.ron`; existing defaults are unchanged. Inserted values are
