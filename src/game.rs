@@ -9,6 +9,7 @@ use crate::damage::DamageResolver;
 use crate::editor::{self, EditorSession};
 use crate::enemy::EnemyDefinitions;
 use crate::events::{EventQueue, GameEvent};
+use crate::feel::{Feel, FeelConfig};
 use crate::item::WorldItem;
 use crate::player::{Player, PlayerInput, WorldBounds};
 use crate::room::{load_rooms, Room, RoomId};
@@ -16,6 +17,8 @@ use crate::tuning::TuningConfig;
 
 #[cfg(test)]
 mod event_tests;
+#[cfg(test)]
+mod feel_tests;
 #[cfg(test)]
 mod strike_tests;
 mod test_room;
@@ -52,6 +55,8 @@ pub struct GameState {
     saved_tuning: TuningConfig,
     /// What has happened since `take_events` was last called, oldest first.
     events: EventQueue,
+    /// Hit-stop and screen shake, fed by the events each tick raises.
+    feel: Feel,
 }
 
 impl GameState {
@@ -64,6 +69,7 @@ impl GameState {
 
     pub fn try_new(assets: &Path) -> Result<Self, String> {
         let tuning = TuningConfig::load(assets)?;
+        let feel = FeelConfig::load(assets)?;
         let mut rooms = load_rooms(assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(assets)?;
         rooms.extend(editor::load_extra_rooms(assets, &definitions)?);
@@ -86,7 +92,22 @@ impl GameState {
             tuning,
             saved_tuning: tuning,
             events: EventQueue::default(),
+            feel: Feel::new(feel),
         })
+    }
+
+    /// Hit-stop and screen-shake state.
+    pub fn feel(&self) -> &Feel {
+        &self.feel
+    }
+
+    /// How far to shift the camera for screen shake. Zero while the game is paused.
+    pub fn shake_offset(&self) -> Vec2 {
+        if self.inventory_open || self.editor.is_some() {
+            Vec2::ZERO
+        } else {
+            self.feel.shake_offset()
+        }
     }
 
     /// Removes and returns the events raised since the last call, oldest first. Each thing
@@ -295,13 +316,15 @@ impl GameState {
     /// Enemy gameplay restarts; matching body points, player, pickups, and unchanged bosses stay intact.
     /// Changed boss definitions restart from their authored placement.
     ///
-    /// The player and enemy tunables in `player.ron` are re-read too; the player keeps its
-    /// state. Nothing changes if any file fails to load.
+    /// The player and enemy tunables in `player.ron` and the hit-stop and shake values in
+    /// `feel.ron` are re-read too; the player keeps its state. Nothing changes if any file
+    /// fails to load.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
         if self.test_run.is_some() {
             return Err("leave the test room (F2) before reloading".into());
         }
         let tuning = TuningConfig::load(&self.assets)?;
+        let feel = FeelConfig::load(&self.assets)?;
         let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(&self.assets)?;
         rooms.extend(editor::load_extra_rooms(&self.assets, &definitions)?);
@@ -344,9 +367,15 @@ impl GameState {
         }
         self.set_tuning(tuning)?;
         self.saved_tuning = tuning;
+        self.feel.set_config(feel);
         Ok(())
     }
 
+    /// Advances the game by one fixed tick. Nothing moves, and no hit-stop or shake time
+    /// passes, while the inventory or the editor is open.
+    ///
+    /// Right after a hit, enemies and the boss stand still for the hit-stop time; the player
+    /// and the camera carry on.
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32) {
         if self.inventory_open || self.editor.is_some() {
             return;
@@ -356,6 +385,16 @@ impl GameState {
         } else {
             0.0
         };
+        let frozen = self.feel.hit_stop_active();
+        self.feel.advance(delta_seconds);
+        let first_new_event = self.events.len();
+        self.step(input, delta_seconds, frozen);
+        // Hit-stop begins with the next tick, after every event of this one is known.
+        self.feel.apply(&self.events.as_slice()[first_new_event..]);
+    }
+
+    /// One tick of the world. `frozen` holds enemies and the boss still (hit-stop).
+    fn step(&mut self, input: PlayerInput, delta_seconds: f32, frozen: bool) {
         let index = self.current;
         let enemy_tuning = self.tuning.enemy;
         let bounds = self.rooms[index].world_bounds();
@@ -365,7 +404,12 @@ impl GameState {
         let room = &mut self.rooms[index];
         let bounds = room.world_bounds();
         let mut special_damage = 0;
-        if let Some(boss) = &mut room.boss_special {
+        let boss_update = if frozen {
+            None
+        } else {
+            room.boss_special.as_mut()
+        };
+        if let Some(boss) = boss_update {
             special_damage = boss.update_with_player_size(
                 delta_seconds,
                 self.player.position(),
@@ -383,7 +427,8 @@ impl GameState {
             room.coins.extend_from_slice(boss.new_coins());
         }
         let mut spawned_positions = Vec::new();
-        for enemy in &mut room.enemies {
+        // During hit-stop no enemy updates: no movement, attack timers, spawns or knockback.
+        for enemy in room.enemies.iter_mut().filter(|_| !frozen) {
             enemy.set_tuning(enemy_tuning);
             enemy.update_with_terrain(
                 self.player.position(),

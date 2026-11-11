@@ -83,11 +83,12 @@ Gameplay modules (pure rules, no rendering):
 - `src/combat.rs`: melee swings (forward, up, down), per-direction hitboxes from `StrikeConfig`, knockback direction, once-per-swing pogo, duration, and cooldown.
 - `src/damage.rs`: `DamageResolver` combines enemy contact/blast/attack and boss action/contact damage into the single hit applied to the player.
 - `src/events.rs`: `GameEvent` (jump, landing, dash, swing, enemy hit/death, player damage, coin, item, room, boss) and the `EventQueue` drained by `GameState::take_events`.
+- `src/feel.rs`: hit-stop and screen shake driven by `GameEvent`s (sine shake, no randomness); tunables in `data/feel.ron` (an `assets/feel.ron` replaces it whole).
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, and terrain validation.
-- `src/camera.rs`: follow camera with look-ahead and room clamping, letterbox fit, HUD anchors; tunables in `data/camera.ron`.
+- `src/camera.rs`: follow camera with look-ahead and room clamping, screen-shake view offset, letterbox fit, HUD anchors; tunables in `data/camera.ron`.
 - `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
 - `src/tuning.rs`: player, strike (hitbox sizes, pogo speed) and enemy-knockback tunables from `data/player.ron` (an `assets/player.ron` replaces it whole), validation, staged save.
 - `src/tuning_fields.rs`: the editable `player.ron` numbers (`Field`, `FieldSpec`): one range per field shared by validation and the F4 window; re-exported from `tuning`.
