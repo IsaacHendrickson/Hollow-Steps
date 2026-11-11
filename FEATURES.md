@@ -19,6 +19,9 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Three rooms, directional exits, spawns, persistent contents; `src/room.rs`; `tests/rooms.rs`
 - Keyboard controls, world rendering, melee visual, health bars; `src/main.rs`; manual
 - F5 atomic reload of rooms and definitions with scrollable errors; `src/game.rs`, `src/room.rs`; `tests/reloading.rs`
+- Assets folder from `HOLLOW_STEPS_ASSETS`, then next to the executable, then the source tree; `src/assets.rs`; `src/assets.rs` unit tests
+- Startup load errors shown on screen (F5 retries) instead of a panic, with the folder tried named; `src/game.rs`, `src/startup.rs`, `src/assets.rs`; `tests/startup.rs`, manual
+- Current room kept as a stored index, recomputed when a save rebuilds the room list; `src/game.rs`; `tests/startup.rs`
 
 ## Enemies and attacks
 
@@ -27,13 +30,14 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Shared lunge, jump, slam, projectile fan, radial blast, warning and recovery actions; `src/enemy_attack.rs`, `src/behavior.rs`; `tests/attack_actions.rs`
 - Lunge samples player direction once, suspends gravity, stops at walls, keeps authored trajectories; `src/enemy_attack.rs`; `tests/attack_actions.rs`
 - Rect/circle attack boxes, immunity-gated damage and knockback; `src/enemy_attack.rs`, `src/player.rs`; `tests/attack_actions.rs`
+- One hit per tick: strongest of enemy contact/blast/attack and boss action/contact damage; an attack hit keeps its knockback only when it is the strongest; `src/damage.rs`, `src/game.rs`; `src/damage.rs` unit tests, `src/game.rs` blast and attack tests
 - Jump-to-player, hover, slam, random area blasts with arena clamping and editor parameters; `src/behavior.rs`, `src/behavior_values.rs`; `tests/arena_actions.rs`
 - Warning tint strength (0.25) and 30% AttackBox outline; `src/enemy_attack.rs`, `src/body_draw.rs`; `tests/attack_actions.rs`
 - Compile-time guard keeping hitbox/attack motion independent of body state; `src/enemy_attack.rs`; `tests/pose_geometry.rs`
 
 ## Bosses
 
-- Ash Warden timed attacks, melee damage, persistent death, locked arena exits; `src/boss.rs`; `tests/boss.rs`
+- Arena exits stay locked while the boss lives and open on defeat, which persists through respawn and room travel; `src/room.rs`, `src/boss_special.rs`; `tests/boss_special.rs`, `src/game.rs` unit tests
 - Arena boss cycling Slam, Summon, Rings with summons, death coins, drawing; `src/boss_special.rs`; `tests/boss_special.rs`
 - RON boss definitions and placements, cycle/seeded random selection, ordered actions; `src/boss_definition.rs`, `src/boss_special.rs`; `tests/boss_data.rs`
 - Boss editor: placement, drag, delete, ordered attacks/actions, staged saves with renames; `src/boss_editor.rs`, `src/editor_panel/boss.rs`; `tests/boss_editor.rs`

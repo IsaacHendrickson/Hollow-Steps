@@ -21,6 +21,12 @@ Then run:
 cargo run
 ```
 
+The game finds its `assets` folder in this order: the `HOLLOW_STEPS_ASSETS`
+environment variable, an `assets` folder next to the executable, then the
+source tree it was built from. So a built binary can be copied with its
+`assets` folder to another machine. If the assets fail to load, the game shows
+the error on screen; fix the files and press F5 to retry.
+
 Useful checks while developing:
 
 ```text

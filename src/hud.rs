@@ -1,6 +1,5 @@
 //! Heads-up display drawn in virtual-resolution space, anchored to the screen edges.
 
-use hollow_steps::boss::BossState;
 use hollow_steps::boss_special::SpecialAttack;
 use hollow_steps::camera::{anchored, Anchor};
 use hollow_steps::game::GameState;
@@ -63,16 +62,6 @@ pub fn draw_hud(game: &GameState, view: Vec2) {
 }
 
 fn draw_boss_hud(room: &Room, view: Vec2) {
-    if let Some(boss) = &room.boss {
-        draw_boss_health(u32::from(boss.health()), u32::from(boss.max_health()), view);
-        let cue = match boss.state() {
-            BossState::Idle => "Recovering",
-            BossState::Telegraphing => boss.current_attack().name,
-            BossState::Attacking => "Attack!",
-            BossState::Dead => "Defeated - exits open",
-        };
-        draw_boss_cue(cue, view);
-    }
     if let Some(boss) = &room.boss_special {
         draw_boss_health(boss.health(), boss.max_health(), view);
         let cue = match boss.active_attack() {
@@ -168,7 +157,12 @@ pub fn draw_inventory(game: &GameState, view: Vec2) {
     );
 }
 
-pub fn draw_reload_result(result: &Result<(), String>, scroll: &mut usize, view: Vec2) {
+pub fn draw_reload_result(
+    result: &Result<(), String>,
+    failure_title: &str,
+    scroll: &mut usize,
+    view: Vec2,
+) {
     let margin = vec2(16.0, 12.0);
     let Err(error) = result else {
         let size = vec2(view.x - margin.x * 2.0, 36.0);
@@ -205,13 +199,7 @@ pub fn draw_reload_result(result: &Result<(), String>, scroll: &mut usize, view:
         panel_size.y,
         Color::from_rgba(28, 12, 18, 245),
     );
-    draw_text(
-        "Room reload failed - F5 to retry",
-        left,
-        top + 28.0,
-        22.0,
-        RED,
-    );
+    draw_text(failure_title, left, top + 28.0, 22.0, RED);
     for (index, line) in lines.iter().skip(*scroll).take(VISIBLE_LINES).enumerate() {
         draw_text(
             line,

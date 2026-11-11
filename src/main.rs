@@ -1,6 +1,5 @@
-use hollow_steps::boss::{Boss, BossState};
 use hollow_steps::boss_special::BossSpecials;
-use hollow_steps::camera::{Camera, CameraConfig, Letterbox};
+use hollow_steps::camera::{Camera, CameraConfig};
 use hollow_steps::coin::COIN_RADIUS;
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
@@ -18,7 +17,9 @@ use macroquad::prelude::*;
 mod body_draw;
 mod editor_panel;
 mod hud;
+mod startup;
 use editor_panel::{BossPropertyUi, PropertyUi};
+use startup::{present, screen_camera};
 
 fn window_conf() -> Conf {
     Conf {
@@ -32,7 +33,12 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut game = GameState::new();
+    // The world and HUD are drawn at the virtual resolution into this target, which is
+    // then scaled to the window with letterboxing.
+    let view = vec2(VIEW_WIDTH, VIEW_HEIGHT);
+    let screen = render_target(VIEW_WIDTH as u32, VIEW_HEIGHT as u32);
+    screen.texture.set_filter(FilterMode::Linear);
+    let mut game = startup::load_game(&screen, view).await;
     let mut reload_result = None;
     let mut reload_scroll = 0;
     let mut editor_ui = EditorUi::default();
@@ -40,11 +46,6 @@ async fn main() {
     let body_debug_overlay = body_draw::BodyDebugOverlay::new();
     let mut fixed_step = FixedStep::default();
     let mut input_latch = InputLatch::default();
-    // The world and HUD are drawn at the virtual resolution into this target, which is
-    // then scaled to the window with letterboxing.
-    let view = vec2(VIEW_WIDTH, VIEW_HEIGHT);
-    let screen = render_target(VIEW_WIDTH as u32, VIEW_HEIGHT as u32);
-    screen.texture.set_filter(FilterMode::Linear);
     let camera_config = CameraConfig::default();
     let mut camera = new_camera(&game, camera_config, view);
     let mut camera_room = game.room().id;
@@ -123,23 +124,14 @@ async fn main() {
             hud::draw_inventory(&game, view);
         }
         if let Some(result) = &reload_result {
-            hud::draw_reload_result(result, &mut reload_scroll, view);
+            hud::draw_reload_result(
+                result,
+                "Room reload failed - F5 to retry",
+                &mut reload_scroll,
+                view,
+            );
         }
-        set_default_camera();
-        clear_background(BLACK);
-        let letterbox = Letterbox::fit(vec2(screen_width(), screen_height()), view);
-        draw_texture_ex(
-            &screen.texture,
-            letterbox.offset.x,
-            letterbox.offset.y,
-            WHITE,
-            DrawTextureParams {
-                dest_size: Some(letterbox.size),
-                // Render targets come out upside down otherwise.
-                flip_y: true,
-                ..Default::default()
-            },
-        );
+        let letterbox = present(&screen, view);
         // Drain the integration's event subscription while the editor is closed, so reopening
         // cannot replay earlier gameplay clicks or keys into its controls.
         egui_macroquad::ui(|_| {});
@@ -158,13 +150,6 @@ async fn main() {
             );
         }
         next_frame().await;
-    }
-}
-
-fn screen_camera(rect: Rect, target: Option<RenderTarget>) -> Camera2D {
-    Camera2D {
-        render_target: target,
-        ..Camera2D::from_display_rect(rect)
     }
 }
 
@@ -323,9 +308,6 @@ fn draw_scene(game: &GameState) {
             RED,
         );
     }
-    if let Some(boss) = &room.boss {
-        draw_boss(boss);
-    }
     if let Some(boss) = &room.boss_special {
         draw_boss_special(boss, bounds.floor_y);
     }
@@ -350,39 +332,6 @@ fn draw_scene(game: &GameState) {
             Color::from_rgba(110, 160, 230, 255)
         },
     );
-}
-
-fn draw_boss(boss: &Boss) {
-    if let Some(area) = boss.attack_area() {
-        let active = boss.state() == BossState::Attacking;
-        draw_rectangle(
-            area.x,
-            area.y,
-            area.w,
-            area.h,
-            if active {
-                Color::from_rgba(240, 65, 70, 160)
-            } else {
-                Color::from_rgba(250, 200, 70, 60)
-            },
-        );
-        draw_rectangle_lines(
-            area.x,
-            area.y,
-            area.w,
-            area.h,
-            3.0,
-            if active { RED } else { GOLD },
-        );
-    }
-    let top_left = boss.position() - boss.size() / 2.0;
-    let color = match boss.state() {
-        BossState::Idle => PURPLE,
-        BossState::Telegraphing => ORANGE,
-        BossState::Attacking => MAROON,
-        BossState::Dead => DARKGRAY,
-    };
-    draw_rectangle(top_left.x, top_left.y, boss.size().x, boss.size().y, color);
 }
 
 fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {

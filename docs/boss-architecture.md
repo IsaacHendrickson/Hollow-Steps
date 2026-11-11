@@ -73,21 +73,10 @@ unlocks the exit and drops twenty collectible coins after a brief effect.
 Inventory and inactive rooms pause the encounter. The game imports each enemy
 and coin spawn once into the room's existing lists for combat and collection.
 
-`src/boss.rs` is simulation-only. A boss owns health and an ordered list of
-`BossAttack` definitions: each is a named rectangle relative to the boss with
-telegraph, active, and cooldown durations. Bosses using this engine reuse its
-state machine by supplying a different list. Telegraphs preview exactly the
-area that becomes dangerous. The reusable Ash Warden example has 30 health,
-deals one contact/attack damage, and alternates a low sweep (jump over it) with
-a crown flare (stay low beside it).
-
-The states are idle, telegraphing, attacking, and dead. Idle includes the
-outgoing attack's cooldown plus a short pause before the next telegraph.
-Timers consume elapsed simulation time across boundaries; full cycles can be
-skipped for large steps. Invalid or negative time does not advance the boss.
-Melee deals one damage per swing, and death immediately disables all boss
-damage. Each room owns an optional boss; `Room::exits_locked()` derives its
-answer from boss life instead of storing a second lock flag. `exit_at` enforces
-the lock for every exit. Boss health/death persists through respawn and room
-travel, and inactive rooms and the inventory pause freeze boss timers.
-
+`Room::exits_locked()` derives its answer from the room's `boss_special`
+(locked while it exists and is not defeated) instead of storing a second lock
+flag, and `exit_at` enforces the lock for every exit. Boss health and defeat
+persist through respawn and room travel, and inactive rooms and the inventory
+pause freeze the encounter. The earlier fixed-attack `src/boss.rs` (an Ash
+Warden with a hardcoded rectangle sweep) was never placed in a real room and
+has been removed; `boss_special` is the only boss system.

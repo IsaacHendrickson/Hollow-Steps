@@ -5,6 +5,7 @@ use macroquad::math::{Rect, Vec2};
 #[cfg(test)]
 use crate::boss_special::SpecialAttack;
 use crate::coin::Coin;
+use crate::damage::DamageResolver;
 use crate::editor::{self, EditorSession};
 use crate::enemy::EnemyDefinitions;
 use crate::item::WorldItem;
@@ -26,22 +27,21 @@ pub struct GameState {
     rooms: Vec<Room>,
     editor: Option<EditorSession>,
     assets: PathBuf,
-    current_room: RoomId,
+    /// Index into `rooms` of the room being played. Rooms keep their positions, except that
+    /// `save_editor` rebuilds the list and recomputes this.
+    current: usize,
     coin_count: u32,
     inventory_open: bool,
     special_attack_timer: f32,
     last_special_hit: Option<u64>,
 }
 
-impl Default for GameState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl GameState {
-    pub fn new() -> Self {
-        Self::try_new(&Path::new(env!("CARGO_MANIFEST_DIR")).join("assets"))
-            .expect("failed to load game assets")
+    /// Loads the game from the assets folder chosen by `assets::assets_root`. A failure
+    /// names the folder that was tried, so the caller can show it instead of panicking.
+    pub fn new() -> Result<Self, String> {
+        let root = crate::assets::assets_root();
+        Self::try_new(&root).map_err(|error| crate::assets::describe_load_failure(&root, &error))
     }
 
     pub fn try_new(assets: &Path) -> Result<Self, String> {
@@ -58,7 +58,7 @@ impl GameState {
             rooms,
             editor: None,
             assets: assets.to_owned(),
-            current_room: RoomId::First,
+            current: RoomId::First.index(),
             coin_count: 0,
             inventory_open: false,
             special_attack_timer: 0.0,
@@ -91,14 +91,7 @@ impl GameState {
     }
 
     pub fn room(&self) -> &Room {
-        &self.rooms[self.current_index()]
-    }
-
-    fn current_index(&self) -> usize {
-        self.rooms
-            .iter()
-            .position(|room| room.id == self.current_room)
-            .expect("current room exists")
+        &self.rooms[self.current]
     }
 
     fn validate_destinations(rooms: &[Room], definitions: &EnemyDefinitions) -> Result<(), String> {
@@ -133,13 +126,14 @@ impl GameState {
     }
 
     pub fn edit_room(&mut self, id: RoomId) -> Result<(), String> {
-        let room = self
+        let index = self
             .rooms
             .iter()
-            .find(|room| room.id == id)
+            .position(|room| room.id == id)
             .ok_or("missing room")?;
+        let room = &self.rooms[index];
         let editor = EditorSession::open(&self.assets, room, &self.rooms)?;
-        self.current_room = id;
+        self.current = index;
         self.player.place_at(room.spawn, room.world_bounds());
         self.editor = Some(editor);
         Ok(())
@@ -159,9 +153,12 @@ impl GameState {
         let (content, mut rooms) = session.content.prepare(&plan)?;
         let definitions = content.definitions()?;
         Self::validate_destinations(&rooms, &definitions)?;
-        if !rooms.iter().any(|r| r.id == session.id) {
-            return Err("missing edited room".into());
-        }
+        // Saving can add a room that sorts before this one, so the index is looked up in
+        // the rebuilt list. Swapping rooms below keeps each id at its position in `rooms`.
+        let edited_index = rooms
+            .iter()
+            .position(|r| r.id == session.id)
+            .ok_or("missing edited room")?;
         let mut draft = session.draft.clone();
         let mut document = crate::room::RoomEnemies {
             enemies: draft.enemies,
@@ -200,12 +197,10 @@ impl GameState {
                 if room.id == session.id {
                     room.coins = std::mem::take(&mut existing.coins);
                     if !boss_changed {
-                        room.boss = existing.boss.take();
                         room.boss_special = existing.boss_special.take();
                     }
                 } else {
                     if boss_changed {
-                        existing.boss = room.boss.take();
                         existing.boss_special = room.boss_special.take();
                     }
                     std::mem::swap(&mut room.enemies, &mut existing.enemies);
@@ -214,7 +209,7 @@ impl GameState {
             }
         }
         self.rooms = rooms;
-        self.current_room = session.id;
+        self.current = edited_index;
         session.content = content;
         session.definitions = definitions;
         session.draft = draft;
@@ -286,7 +281,7 @@ impl GameState {
         } else {
             0.0
         };
-        let index = self.current_index();
+        let index = self.current;
         let bounds = self.rooms[index].world_bounds();
         self.player
             .update_with_terrain(input, delta_seconds, bounds, &self.rooms[index].terrain);
@@ -321,9 +316,6 @@ impl GameState {
                 .into_iter()
                 .map(|position| crate::enemy::Enemy::new(position.x, position.x, 0.0, 0.0, bounds)),
         );
-        if let Some(boss) = &mut room.boss {
-            boss.update(delta_seconds);
-        }
         if let Some(hitbox) = self
             .player
             .attack()
@@ -332,11 +324,6 @@ impl GameState {
             for enemy in &mut room.enemies {
                 if enemy.touches(hitbox.center(), hitbox.size()) {
                     enemy.hit(self.player.attack().id(), self.player.attack().direction());
-                }
-            }
-            if let Some(boss) = &mut room.boss {
-                if boss.touches(hitbox.center(), hitbox.size()) {
-                    boss.hit(self.player.attack().id());
                 }
             }
             if let Some(boss) = &mut room.boss_special {
@@ -353,60 +340,20 @@ impl GameState {
             }
         }
         room.enemies.retain(|enemy| !enemy.is_dead());
-        let enemy_damage = room
-            .enemies
-            .iter()
-            .map(|enemy| {
-                let contact = if enemy.touches(self.player.position(), self.player.size()) {
-                    enemy.contact_damage()
-                } else {
-                    0
-                };
-                contact.max(enemy.action_damage(self.player.position(), self.player.size()))
-            })
-            .max()
-            .unwrap_or(0);
-        let boss_damage = u8::from(
-            room.boss
-                .as_ref()
-                .is_some_and(|boss| boss.damages(self.player.position(), self.player.size())),
-        );
-        let contact_damage = room
-            .boss_special
-            .as_ref()
-            .filter(|boss| {
-                let separation = (boss.position() - self.player.position()).abs();
-                let reach = (boss.size() + self.player.size()) / 2.0;
-                separation.x <= reach.x && separation.y <= reach.y
-            })
-            .map_or(0, |boss| boss.contact_damage());
-        let base_damage = enemy_damage
-            .max(boss_damage)
-            .max(special_damage.min(255) as u8)
-            .max(contact_damage);
-        let hit = room
-            .enemies
-            .iter()
-            .filter_map(|enemy| enemy.attack_hit(self.player.position(), self.player.size()))
-            .chain(
-                room.boss_special
-                    .as_ref()
-                    .and_then(|boss| boss.attack_hit(self.player.position(), self.player.size())),
-            )
-            .filter(|hit| hit.damage >= i32::from(base_damage))
-            .max_by_key(|hit| hit.damage)
-            .unwrap_or(crate::enemy_attack::DamageHit {
-                damage: i32::from(base_damage),
-                knockback: Vec2::ZERO,
-                knockback_secs: 0.0,
-            });
+        let hit = DamageResolver::gather(
+            room,
+            self.player.position(),
+            self.player.size(),
+            special_damage,
+        )
+        .resolve();
         self.player.take_attack_damage(hit);
         if self.player.health().current() == 0 {
             self.player.respawn(room.spawn, bounds);
             return;
         }
         if input.pickup_pressed {
-            let index = self.current_index();
+            let index = self.current;
             let room = &mut self.rooms[index];
             if let Some(index) = room
                 .items
@@ -418,7 +365,7 @@ impl GameState {
             }
         }
 
-        let index = self.current_index();
+        let index = self.current;
         let coins = &mut self.rooms[index].coins;
         coins.retain(|coin| {
             if coin.touches(&self.player) {
@@ -434,8 +381,14 @@ impl GameState {
             .exit_at(self.player.position(), self.player.size())
             .copied()
         {
-            self.current_room = exit.target_room;
-            self.player.place_at(exit.spawn, self.world_bounds());
+            if let Some(target) = self
+                .rooms
+                .iter()
+                .position(|room| room.id == exit.target_room)
+            {
+                self.current = target;
+                self.player.place_at(exit.spawn, self.world_bounds());
+            }
         }
     }
 }
@@ -513,19 +466,9 @@ mod tests {
         assert_eq!(game.player.health().current(), 3);
     }
 
-    fn warden_game() -> GameState {
-        let mut game = test_game();
-        game.rooms[2].boss_special = None;
-        game.rooms[2].boss = Some(crate::boss::Boss::ash_warden(Vec2::new(
-            560.0,
-            FLOOR_Y - 40.0,
-        )));
-        game
-    }
-
     fn special_game() -> GameState {
         let mut game = test_game();
-        game.current_room = RoomId::Boss;
+        game.current = RoomId::Boss.index();
         game.player.place_on_floor(240.0, game.world_bounds());
         game
     }
@@ -570,7 +513,7 @@ mod tests {
         let mut game = test_game();
         game.update(PlayerInput::default(), 100.0);
         assert_eq!(game.special_attack_timer, 0.0);
-        game.current_room = RoomId::Boss;
+        game.current = RoomId::Boss.index();
         game.player.place_on_floor(240.0, game.world_bounds());
         for dt in [0.0, -1.0, f32::NAN, f32::INFINITY] {
             game.update(PlayerInput::default(), dt);
@@ -823,7 +766,7 @@ mod tests {
     #[test]
     fn death_uses_current_room_spawn_and_inactive_enemies_stay_frozen() {
         let mut game = test_game();
-        game.current_room = RoomId::Second;
+        game.current = RoomId::Second.index();
         let first_enemy_position = game.rooms[RoomId::First.index()].enemies[0].position();
         let bounds = game.world_bounds();
         let room = &mut game.rooms[RoomId::Second.index()];
@@ -977,40 +920,31 @@ mod tests {
         assert_eq!(game.player.position().x, spawn.x + 40.0);
     }
 
-    #[test]
-    fn boss_melee_respects_range_facing_and_one_hit_per_swing() {
-        let mut game = warden_game();
-        game.current_room = RoomId::Boss;
-        game.player.place_on_floor(500.0, game.world_bounds());
-        let swing = PlayerInput {
-            attack_pressed: true,
-            ..PlayerInput::default()
-        };
-        game.update(swing, 0.0);
-        game.update(swing, 0.0);
-        assert_eq!(game.room().boss.as_ref().unwrap().health(), 29);
-        game.update(PlayerInput::default(), crate::combat::ATTACK_COOLDOWN);
-        game.update(
-            PlayerInput {
-                move_axis: -1.0,
-                ..swing
-            },
-            0.0,
+    /// Arena boss from the `ground_pound` fixture (10 health, 2 contact damage) at the
+    /// Ash Warden spot, with its attack pause pushed out so only contact can hurt.
+    fn pound_game() -> GameState {
+        let mut game = special_game();
+        let mut definition = crate::boss_definition::BossDefinition::from_ron(include_str!(
+            "../tests/fixtures/bosses/ground_pound.ron"
+        ))
+        .unwrap();
+        definition.pause_seconds = 1_000.0;
+        game.rooms[2].boss_special = Some(
+            crate::boss_special::BossSpecials::from_definition(
+                std::sync::Arc::new(definition),
+                Vec2::new(560.0, FLOOR_Y - 24.0),
+            )
+            .unwrap(),
         );
-        assert_eq!(game.room().boss.as_ref().unwrap().health(), 29);
-        game.player.place_on_floor(800.0, game.world_bounds());
-        game.update(swing, 0.0);
-        assert_eq!(game.room().boss.as_ref().unwrap().health(), 29);
+        game
     }
 
     #[test]
-    fn lethal_boss_swing_prevents_contact_unlocks_exit_and_death_persists() {
-        let mut game = warden_game();
-        game.current_room = RoomId::Boss;
-        for id in 100..129 {
-            game.rooms[2].boss.as_mut().unwrap().hit(id);
-        }
+    fn lethal_special_swing_prevents_contact_unlocks_exit_and_death_persists() {
+        let mut game = pound_game();
+        game.rooms[2].boss_special.as_mut().unwrap().damage_boss(9);
         game.player.place_on_floor(520.0, game.world_bounds());
+        assert!(game.room().exits_locked());
         game.update(
             PlayerInput {
                 attack_pressed: true,
@@ -1019,7 +953,7 @@ mod tests {
             0.0,
         );
         assert_eq!(game.player.health().current(), 5);
-        assert!(game.room().boss.as_ref().unwrap().is_dead());
+        assert!(game.room().boss_special.as_ref().unwrap().is_defeated());
         assert!(!game.room().exits_locked());
         game.player.place_on_floor(16.0, game.world_bounds());
         game.update(PlayerInput::default(), 0.0);
@@ -1032,7 +966,7 @@ mod tests {
             10.0,
         );
         assert_eq!(game.room().id, RoomId::Boss);
-        assert!(game.room().boss.as_ref().unwrap().is_dead());
+        assert!(game.room().boss_special.as_ref().unwrap().is_defeated());
         assert!(!game.room().exits_locked());
         game.player.place_on_floor(560.0, game.world_bounds());
         game.update(PlayerInput::default(), 10.0);
@@ -1040,64 +974,20 @@ mod tests {
     }
 
     #[test]
-    fn boss_contact_deals_one_damage_respects_immunity_and_respawn_keeps_lock() {
-        let mut game = warden_game();
-        game.current_room = RoomId::Boss;
+    fn special_contact_deals_configured_damage_respects_immunity_and_respawn_keeps_lock() {
+        let mut game = pound_game();
         game.player.place_on_floor(560.0, game.world_bounds());
         game.update(PlayerInput::default(), 0.0);
-        assert_eq!(game.player.health().current(), 4);
+        assert_eq!(game.player.health().current(), 3);
         game.update(PlayerInput::default(), 0.0);
-        assert_eq!(game.player.health().current(), 4);
-        for expected in [3, 2, 1, 5] {
+        assert_eq!(game.player.health().current(), 3);
+        for expected in [1, 5] {
             game.update(PlayerInput::default(), 1.0);
             assert_eq!(game.player.health().current(), expected);
         }
         assert_eq!(game.player.position(), game.room().spawn);
-        assert_eq!(game.room().boss.as_ref().unwrap().health(), 30);
+        assert_eq!(game.room().boss_special.as_ref().unwrap().health(), 10);
         assert!(game.room().exits_locked());
-    }
-
-    #[test]
-    fn boss_attack_damages_player_only_after_telegraph() {
-        let mut game = warden_game();
-        game.current_room = RoomId::Boss;
-        game.player.place_on_floor(440.0, game.world_bounds());
-        game.update(PlayerInput::default(), crate::boss::BOSS_PAUSE);
-        assert_eq!(game.player.health().current(), 5);
-        game.update(PlayerInput::default(), 0.75);
-        assert_eq!(game.player.health().current(), 4);
-        game.update(PlayerInput::default(), 0.0);
-        assert_eq!(game.player.health().current(), 4);
-    }
-
-    #[test]
-    fn inactive_rooms_and_inventory_pause_boss_timers() {
-        let mut game = warden_game();
-        game.update(PlayerInput::default(), 10.0);
-        assert_eq!(
-            game.rooms[2].boss.as_ref().unwrap().state(),
-            crate::boss::BossState::Idle
-        );
-        game.current_room = RoomId::Boss;
-        game.player.place_on_floor(160.0, game.world_bounds());
-        game.update(PlayerInput::default(), crate::boss::BOSS_PAUSE);
-        game.toggle_inventory();
-        game.update(PlayerInput::default(), 100.0);
-        assert_eq!(
-            game.room().boss.as_ref().unwrap().state(),
-            crate::boss::BossState::Telegraphing
-        );
-        game.toggle_inventory();
-        game.update(PlayerInput::default(), 0.5);
-        assert_eq!(
-            game.room().boss.as_ref().unwrap().state(),
-            crate::boss::BossState::Telegraphing
-        );
-        game.update(PlayerInput::default(), 0.25);
-        assert_eq!(
-            game.room().boss.as_ref().unwrap().state(),
-            crate::boss::BossState::Attacking
-        );
     }
 
     #[test]

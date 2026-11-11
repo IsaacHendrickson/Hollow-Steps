@@ -4,7 +4,6 @@ use macroquad::math::{Rect, Vec2};
 use serde::{Deserialize, Serialize};
 
 use crate::behavior::read_ron;
-use crate::boss::Boss;
 use crate::boss_definition::BossDefinitions;
 use crate::boss_special::BossSpecials;
 use crate::coin::{Coin, COIN_RADIUS};
@@ -85,7 +84,6 @@ pub struct Room {
     /// Default player-center respawn point for this room.
     pub spawn: Vec2,
     pub enemies: Vec<Enemy>,
-    pub boss: Option<Boss>,
     pub boss_special: Option<BossSpecials>,
     pub(crate) coins: Vec<Coin>,
     pub(crate) items: Vec<WorldItem>,
@@ -112,11 +110,9 @@ impl Room {
     }
 
     pub fn exits_locked(&self) -> bool {
-        self.boss.as_ref().is_some_and(|boss| !boss.is_dead())
-            || self
-                .boss_special
-                .as_ref()
-                .is_some_and(|boss| !boss.is_defeated())
+        self.boss_special
+            .as_ref()
+            .is_some_and(|boss| !boss.is_defeated())
     }
 }
 
@@ -216,7 +212,6 @@ pub(crate) fn default_rooms() -> [Room; 3] {
     [
         Room {
             id: RoomId::First,
-            boss: None,
             boss_special: None,
             coins: [360.0, 410.0, 460.0]
                 .map(|x| Coin {
@@ -248,7 +243,6 @@ pub(crate) fn default_rooms() -> [Room; 3] {
         },
         Room {
             id: RoomId::Second,
-            boss: None,
             boss_special: None,
             coins: [300.0, 350.0, 400.0]
                 .map(|x| Coin {
@@ -285,7 +279,6 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             terrain: Default::default(),
             spawn: Vec2::new(160.0, 436.0),
             enemies: Vec::new(),
-            boss: None,
             boss_special: None,
             coins: vec![],
             exits: vec![Exit {
