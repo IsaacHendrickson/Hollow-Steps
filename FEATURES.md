@@ -60,6 +60,7 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Attack phase pose commands with spring target cleanup; `src/behavior.rs`, `src/enemy_attack.rs`; `tests/poses.rs`
 - Telegraph-derived critically damped pose springs, blend ratio, strike stiffness, shot recoil; `src/pose.rs`, `data/pose_defaults.ron`; `tests/poses.rs`
 - Eight authored poses, attack bindings, timed hurt pose and white flash; `assets/poses/`, `src/body.rs`; `tests/poses.rs`
+- Player body: a hooded wanderer (`assets/bodies/wanderer.ron`, original design) with idle, run, jump and attack poses (`assets/poses/wanderer_*.ron`) chosen by grounded/speed/swing state; look and run threshold in `data/player_body.ron` (an `assets/player_body.ron` replaces it whole), no template keeps the blue box, the hitbox is unchanged; `draw_body` shared with enemies; `src/player_body.rs`, `src/body_draw.rs`, `src/main.rs`; `tests/player_body.rs`, `tests/shipped_rooms.rs`, manual
 - Pose catalog/binding validation shared by load and staged saves; F5 reloads poses; `src/pose.rs`, `src/definition_editor.rs`; `tests/poses.rs`, `tests/reloading.rs`
 - Fixture-only pose regression suite (semantics, lifecycle, facing, hurt timing, hot reload); `tests/poses.rs`, `tests/fixtures/`
 - F3 body debug overlay (dots, lines, hitboxes, nearest-point labels, private font atlas); `src/body_debug.rs`, `src/body_draw.rs`; `tests/body_debug.rs`, manual

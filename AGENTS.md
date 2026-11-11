@@ -86,6 +86,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/sound.rs`: validated event-to-sound cues (`data/audio.ron`, an `assets/audio.ron` replaces it whole), sound-name and volume checks, sound-file lookup in `assets/audio/` (wav, then ogg), the WAV/Ogg header check, and the per-frame play plan; sub-module `tests.rs`.
 - `src/particles.rs`: validated burst presets (`data/particles.ron`, an `assets/particles.ron` replaces it whole), a seeded deterministic generator, the capped live-particle list, and the event-to-burst rules; sub-module `tests.rs`.
 - `src/feel.rs`: hit-stop and screen shake driven by `GameEvent`s (sine shake, no randomness); tunables in `data/feel.ron` (an `assets/feel.ron` replaces it whole).
+- `src/player_body.rs`: the player's look (`data/player_body.ron`, an `assets/player_body.ron` replaces it whole), pose choice from player state, and the `BodyInstance` that plays the `wanderer_*` poses; no template in the assets keeps the box.
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
 - `src/room.rs`: rooms, exits, and room transitions.
@@ -106,7 +107,7 @@ Gameplay modules (pure rules, no rendering):
 
 Composition and front end:
 
-- `src/body_draw.rs`: Macroquad adapter for ordered body parts, legacy enemy boxes, and debug overlays.
+- `src/body_draw.rs`: Macroquad adapter: `draw_body` (ordered body parts for enemies and the player), legacy enemy boxes, and debug overlays.
 - `src/game/test_room.rs`: Test room: swaps the editor's draft in as the playable room, parks the editor session and player, and restores them.
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's

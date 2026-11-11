@@ -1,0 +1,19 @@
+// How the player looks: its body colors and which pose file plays for each state.
+// An assets/player_body.ron replaces this file whole. The body template is
+// assets/bodies/<visual.template>.ron and the poses are assets/poses/<name>.ron.
+(
+    visual: (
+        template: "wanderer",
+        primary: (0.36, 0.52, 0.78, 1.0),
+        secondary: (0.12, 0.16, 0.3, 1.0),
+        accent: (0.95, 0.72, 0.3, 1.0),
+        eye: (1.0, 1.0, 0.85, 1.0),
+        scale: 1.0,
+    ),
+    idle_pose: "wanderer_idle",
+    run_pose: "wanderer_run",
+    jump_pose: "wanderer_jump",
+    attack_pose: "wanderer_attack",
+    // Horizontal speed (pixels per second) above which the run pose plays.
+    run_speed: 30.0,
+)

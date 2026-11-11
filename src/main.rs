@@ -12,6 +12,7 @@ use hollow_steps::editor_view::{
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player::PlayerInput;
+use hollow_steps::player_body::PlayerBody;
 use hollow_steps::room::RoomEdge;
 use hollow_steps::search::SearchList;
 use hollow_steps::timestep::{FixedStep, InputLatch};
@@ -47,6 +48,14 @@ async fn main() {
     // Invalid effect settings are shown like a failed reload.
     let (mut effects, effects_error) = effects::Effects::load(&assets::assets_root());
     let mut reload_result = effects_error.map(Err);
+    // The player's body; a load error is shown like a failed reload and keeps the plain box.
+    let mut player_body = match PlayerBody::load(&assets::assets_root()) {
+        Ok(body) => body,
+        Err(error) => {
+            reload_result = Some(Err(error));
+            None
+        }
+    };
     let mut reload_scroll = 0;
     let mut editor_ui = EditorUi::default();
     let mut body_debug = false;
@@ -121,7 +130,14 @@ async fn main() {
             tuning_panel.toggle();
         }
         if is_key_pressed(KeyCode::F5) {
-            reload_result = Some(game.reload_rooms().and_then(|()| effects.reload()));
+            reload_result = Some(
+                game.reload_rooms()
+                    .and_then(|()| effects.reload())
+                    .and_then(|()| {
+                        player_body = PlayerBody::load(&assets::assets_root())?;
+                        Ok(())
+                    }),
+            );
             reload_scroll = 0;
         }
         if !ui_wants_keyboard
@@ -141,6 +157,15 @@ async fn main() {
             game.update(input_latch.take_tick(), fixed_step.step_seconds());
             if !game.inventory_open() {
                 effects.update(fixed_step.step_seconds());
+                if let Some(body) = &mut player_body {
+                    let player = game.player();
+                    body.update(
+                        player.is_grounded(),
+                        player.velocity(),
+                        player.strike_hitbox().is_some(),
+                        fixed_step.step_seconds(),
+                    );
+                }
             }
             if game.room().id == camera_room {
                 let player = game.player();
@@ -161,7 +186,7 @@ async fn main() {
         // Screen shake moves only the picture, not the camera that follows the player.
         let world_view = camera.view_rect_shaken(view, game.shake_offset());
         set_camera(&screen_camera(world_view, Some(screen.clone())));
-        draw_scene(&game);
+        draw_scene(&game, player_body.as_ref());
         effects.draw();
         set_camera(&screen_camera(
             Rect::new(0.0, 0.0, view.x, view.y),
@@ -240,7 +265,7 @@ fn read_player_input() -> PlayerInput {
     }
 }
 
-fn draw_scene(game: &GameState) {
+fn draw_scene(game: &GameState, player_body: Option<&PlayerBody>) {
     let room = game.room();
     let bounds = game.world_bounds();
     let player = game.player();
@@ -383,17 +408,20 @@ fn draw_scene(game: &GameState) {
         );
         draw_rectangle_lines(hitbox.x, hitbox.y, hitbox.w, hitbox.h, 2.0, GOLD);
     }
-    draw_rectangle(
-        player_position.x - player_size.x / 2.0,
-        player_position.y - player_size.y / 2.0,
-        player_size.x,
-        player_size.y,
-        if player.health().flash_on() {
-            WHITE
-        } else {
-            Color::from_rgba(110, 160, 230, 255)
-        },
-    );
+    match player_body {
+        Some(body) => body_draw::draw_player(body, player),
+        None => draw_rectangle(
+            player_position.x - player_size.x / 2.0,
+            player_position.y - player_size.y / 2.0,
+            player_size.x,
+            player_size.y,
+            if player.health().flash_on() {
+                WHITE
+            } else {
+                Color::from_rgba(110, 160, 230, 255)
+            },
+        ),
+    }
 }
 
 fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {

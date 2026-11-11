@@ -33,6 +33,7 @@ pub mod health;
 pub mod item;
 pub mod particles;
 pub mod player;
+pub mod player_body;
 pub mod pose;
 pub mod preset;
 pub mod room;
