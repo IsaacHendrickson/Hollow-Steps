@@ -13,6 +13,8 @@ use crate::player::{Player, PlayerInput, WorldBounds};
 use crate::room::{load_rooms, Room, RoomId};
 use crate::tuning::TuningConfig;
 
+#[cfg(test)]
+mod strike_tests;
 mod test_room;
 
 pub use crate::room::FLOOR_Y;
@@ -382,14 +384,15 @@ impl GameState {
                 crate::enemy::Enemy::new(position.x, position.x, 0.0, 0.0, bounds)
                     .spawned_with(enemy_tuning)
             }));
-        if let Some(hitbox) = self
-            .player
-            .attack()
-            .hitbox(self.player.position(), self.player.size())
-        {
+        if let Some(hitbox) = self.player.strike_hitbox() {
+            let mut struck = false;
             for enemy in &mut room.enemies {
                 if enemy.touches(hitbox.center(), hitbox.size()) {
-                    enemy.hit(self.player.attack().id(), self.player.attack().direction());
+                    let direction = self
+                        .player
+                        .attack()
+                        .knockback_direction(self.player.position().x, enemy.position().x);
+                    struck |= enemy.hit(self.player.attack().id(), direction);
                 }
             }
             if let Some(boss) = &mut room.boss_special {
@@ -397,12 +400,17 @@ impl GameState {
                 let body = Rect::new(top_left.x, top_left.y, boss.size().x, boss.size().y);
                 let swing_id = self.player.attack().id();
                 if hitbox.overlaps(&body) && self.last_special_hit != Some(swing_id) {
+                    // A boss that is already defeated is not a pogo target.
+                    struck |= !boss.is_defeated();
                     boss.damage_boss(1);
                     self.last_special_hit = Some(swing_id);
                 }
                 if boss.is_defeated() {
                     special_damage = 0;
                 }
+            }
+            if struck {
+                self.player.pogo();
             }
         }
         room.enemies.retain(|enemy| !enemy.is_dead());
@@ -418,7 +426,8 @@ impl GameState {
             self.player.respawn(room.spawn, bounds);
             return;
         }
-        if input.pickup_pressed {
+        // Up with X is an upward strike, not a pickup.
+        if input.pickup_pressed && !(input.attack_pressed && input.up_held) {
             let index = self.current;
             let room = &mut self.rooms[index];
             if let Some(index) = room
@@ -794,6 +803,7 @@ mod tests {
                 attack_pressed: true,
                 jump_held: true,
                 dash_pressed: true,
+                ..PlayerInput::default()
             },
             10.0,
         );

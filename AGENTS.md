@@ -80,7 +80,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/boss_definition.rs`: validated RON boss definitions and attack selection settings.
 - `src/boss_editor.rs`: pure boss property buffers and ordered attack/action edits.
 - `src/boss_special.rs`: boss sequence cursors, selection, actor effect integration, and coin drops.
-- `src/combat.rs`: melee swing hitboxes, duration, and cooldown.
+- `src/combat.rs`: melee swings (forward, up, down), per-direction hitboxes from `StrikeConfig`, knockback direction, once-per-swing pogo, duration, and cooldown.
 - `src/damage.rs`: `DamageResolver` combines enemy contact/blast/attack and boss action/contact damage into the single hit applied to the player.
 - `src/item.rs`: world items and pickup.
 - `src/coin.rs`: collectible coins.
@@ -88,7 +88,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, and terrain validation.
 - `src/camera.rs`: follow camera with look-ahead and room clamping, letterbox fit, HUD anchors; tunables in `data/camera.ron`.
 - `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
-- `src/tuning.rs`: player and enemy-knockback tunables from `data/player.ron` (an `assets/player.ron` replaces it whole), one range per field shared by validation and the F4 window, staged save.
+- `src/tuning.rs`: player, strike (hitbox sizes, pogo speed) and enemy-knockback tunables from `data/player.ron` (an `assets/player.ron` replaces it whole), validation, staged save.
+- `src/tuning_fields.rs`: the editable `player.ron` numbers (`Field`, `FieldSpec`): one range per field shared by validation and the F4 window; re-exported from `tuning`.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/editor_guard.rs`: unsaved-changes state machine (Save / Discard / Cancel) and the approved-action runner.
 - `src/editor_history.rs`: snapshot undo/redo for the room draft (limit 100; a drag is one step) and the Ctrl+Z / Ctrl+Y key mapping.

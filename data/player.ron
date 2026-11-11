@@ -13,6 +13,15 @@
         dash_duration: 0.2,
         dash_cooldown: 0.5,
     ),
+    strike: (
+        forward_width: 38.0,
+        forward_height: 32.0,
+        up_width: 40.0,
+        up_height: 38.0,
+        down_width: 40.0,
+        down_height: 38.0,
+        pogo_speed: 450.0,
+    ),
     enemy: (
         default_health: 3,
         knockback_speed: 260.0,

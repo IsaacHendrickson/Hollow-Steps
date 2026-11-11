@@ -49,6 +49,11 @@ above; Windows needs no extra system libraries.
   The hitbox extends 38 pixels for 0.12 seconds with a 0.35-second cooldown.
   Each swing hits each enemy once; enemies take three hits to defeat and
   are knocked back on impact. Their health bars show remaining health.
+- `Up` + `X`: strike upward. `Down` + `X` while airborne: strike downward (on
+  the floor it is an ordinary forward swing). A downward strike that hits an
+  enemy or the boss bounces you up (once per swing) and restores your air dash.
+  Up and down hits push enemies sideways, away from you. Box sizes and the
+  bounce speed are the `strike` values in `data/player.ron` (F4 window).
 - `Shift`: after collecting Dash, dash horizontally in the facing direction at
   800 units/second for 0.2 seconds. Dash starts have a 0.5 second cooldown;
   only one air dash is available until landing.
@@ -56,7 +61,7 @@ above; Windows needs no extra system libraries.
   Gameplay pauses while it is open; `Esc` also closes it.
 - `F2`: open/close the room editor (gameplay pauses).
 - `F4`: open/close the player tuning window (gameplay keeps running). Drag or type values for
-  move, jump, dash, size and enemy knockback; they apply at once. `Save` writes `player.ron` in the
+  move, jump, dash, size, strike boxes, pogo and enemy knockback; they apply at once. `Save` writes `player.ron` in the
   assets folder, which replaces the shipped `data/player.ron` defaults (delete it to go back).
 - `F5`: validate `player.ron`, room files and their enemy, body template, behavior, and boss definitions, including
   while the inventory is open. Errors appear on screen; fix the files and
@@ -64,7 +69,7 @@ above; Windows needs no extra system libraries.
 - Touch a gold coin to collect it automatically, including while airborne.
   Each coin adds one to the balance and stays collected through room travel
   and respawn for the current game session.
-- `Up`: pick up a nearby item while standing on the floor. The Amber Shard
+- `Up` (without `X`): pick up a nearby item while standing on the floor. The Amber Shard
   and Dash items highlight and show a prompt when in reach; collected items leave
   the world and stay in the player's inventory for the current game session.
 - Walk into the right exit of the first room to enter the second room; its

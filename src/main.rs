@@ -223,6 +223,8 @@ fn read_player_input() -> PlayerInput {
         jump_held: is_key_down(KeyCode::Space) || is_key_down(KeyCode::Z),
         attack_pressed: is_key_pressed(KeyCode::X),
         dash_pressed: is_key_pressed(KeyCode::LeftShift) || is_key_pressed(KeyCode::RightShift),
+        up_held: is_key_down(KeyCode::Up),
+        down_held: is_key_down(KeyCode::Down),
     }
 }
 
@@ -354,7 +356,7 @@ fn draw_scene(game: &GameState) {
     if let Some(boss) = &room.boss_special {
         draw_boss_special(boss, bounds.floor_y);
     }
-    if let Some(hitbox) = player.attack().hitbox(player_position, player_size) {
+    if let Some(hitbox) = player.strike_hitbox() {
         draw_rectangle(
             hitbox.x,
             hitbox.y,
