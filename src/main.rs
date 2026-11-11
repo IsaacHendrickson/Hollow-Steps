@@ -19,6 +19,7 @@ mod body_draw;
 mod editor_panel;
 mod hud;
 mod startup;
+mod terrain_canvas;
 use editor_panel::{BossPropertyUi, PropertyUi};
 use startup::{present, screen_camera};
 

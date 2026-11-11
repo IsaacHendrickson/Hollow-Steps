@@ -135,6 +135,9 @@ impl GameState {
     }
 
     pub fn edit_room(&mut self, id: RoomId) -> Result<(), String> {
+        if self.test_run.is_some() {
+            return Err("leave the test room (F2) before opening another room".into());
+        }
         let index = self
             .rooms
             .iter()

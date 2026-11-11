@@ -7,7 +7,7 @@ use std::mem;
 use super::GameState;
 use crate::editor::EditorSession;
 use crate::player::Player;
-use crate::room::{place_boss, Room, RoomId};
+use crate::room::{place_boss, Room};
 
 /// What a run parks while it is going: the editor session and everything play can change.
 #[derive(Debug)]
@@ -18,7 +18,8 @@ pub(super) struct TestRun {
     inventory_open: bool,
     special_attack_timer: f32,
     last_special_hit: Option<u64>,
-    current_room: RoomId,
+    /// Index into `rooms` of the room that was being played before the test started.
+    current: usize,
     /// The saved room the test room stands in for; `None` for a room that is not saved yet.
     replaced: Option<Room>,
 }
@@ -58,11 +59,11 @@ impl GameState {
         };
         let session = self.editor.take().expect("editor open");
         let id = session.id;
-        let replaced = match self.rooms.iter().position(|saved| saved.id == id) {
-            Some(index) => Some(mem::replace(&mut self.rooms[index], room)),
+        let (test_index, replaced) = match self.rooms.iter().position(|saved| saved.id == id) {
+            Some(index) => (index, Some(mem::replace(&mut self.rooms[index], room))),
             None => {
                 self.rooms.push(room);
-                None
+                (self.rooms.len() - 1, None)
             }
         };
         let run = TestRun {
@@ -72,10 +73,10 @@ impl GameState {
             inventory_open: self.inventory_open,
             special_attack_timer: self.special_attack_timer,
             last_special_hit: self.last_special_hit,
-            current_room: self.current_room,
+            current: self.current,
             replaced,
         };
-        self.current_room = id;
+        self.current = test_index;
         self.inventory_open = false;
         self.special_attack_timer = 0.0;
         self.last_special_hit = None;
@@ -105,7 +106,7 @@ impl GameState {
         self.inventory_open = run.inventory_open;
         self.special_attack_timer = run.special_attack_timer;
         self.last_special_hit = run.last_special_hit;
-        self.current_room = run.current_room;
+        self.current = run.current;
         self.editor = Some(run.session);
         Ok(())
     }
