@@ -97,6 +97,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
 - `src/tuning.rs`: player, strike (hitbox sizes, pogo speed) and enemy-knockback tunables from `data/player.ron` (an `assets/player.ron` replaces it whole), validation, staged save.
 - `src/tuning_fields.rs`: the editable `player.ron` numbers (`Field`, `FieldSpec`): one range per field shared by validation and the F4 window; re-exported from `tuning`.
+- `src/vitals.rs`: pure player vitals (health, trailing bar, mana, hold-to-heal) driven by the tick; no window, no `GameState`. Tunables in `data/vitals.ron` (an `assets/vitals.ron` replaces it whole); `VitalsField`/`FieldSpec` ranges shared by validation and the F4 window. Tests in `src/vitals/tests.rs`.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/editor_guard.rs`: unsaved-changes state machine (Save / Discard / Cancel) and the approved-action runner.
 - `src/editor_history.rs`: snapshot undo/redo for the room draft (limit 100; a drag is one step) and the Ctrl+Z / Ctrl+Y key mapping.

@@ -25,6 +25,7 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Collectible Dash (facing, duration, cooldown, one air dash); `src/item.rs`, `src/player.rs`; `tests/items.rs`
 - Player health, invincibility, respawn; `src/health.rs`; `tests/enemies.rs`
 - Health and damage scale: every health and damage value is ten times the old whole-hit value (one standard hit is `HIT_DAMAGE` = 10, the player has `MAX_HEALTH` = 50, a sword hit is `SWORD_DAMAGE` = 10), stored as `u16`; hits-to-kill and hits-to-die are unchanged; `src/health.rs`, `src/combat.rs`; `tests/damage_scale.rs`
+- Player vitals (pure module, not yet wired into play): trailing health bar that holds then drains, sword-hit regain of a fraction of the trailing gap, mana from regular-enemy sword kills, hold-to-heal that converts mana to pending health (start/stop delays, ends on leaving the ground, cancelled by damage with no mana refund, re-press required); values in `data/vitals.ron`, validated, with an optional whole-file `assets/vitals.ron` override; `src/vitals.rs`; `src/vitals/tests.rs`
 - Grounded item pickup, persistent session inventory; `src/item.rs`; `tests/items.rs`, `tests/rooms.rs`
 - Coin pickups, persistent session balance; `src/coin.rs`; `src/coin.rs` unit tests
 - Inventory screen with paused gameplay; `src/game.rs`, `src/main.rs`; `src/game.rs` unit tests, manual
