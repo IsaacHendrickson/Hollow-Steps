@@ -1,7 +1,15 @@
 (
-    initial_state: "distance",
+    initial_state: "patrol",
     states: [
+        // Idle: glides back and forth over its patrol range (bobbing in the air) until the
+        // player comes within 480 px. Raise 480 to make it snipe from farther away.
+        (name: "patrol", actions: [patrol(speed: 50.0)], transitions: [
+            (target: "distance", condition: player_distance_less_than(480.0)),
+        ]),
+        // Back to patrolling once the player is out of range again (80 px of slack so it does
+        // not flip between the two at the edge).
         (name: "distance", actions: [], transitions: [
+            (target: "patrol", condition: player_distance_greater_than(560.0)),
             (target: "retreat", condition: player_distance_less_than(200.0)),
             (target: "fire", condition: player_distance_less_than(200.0), invert: true),
         ]),

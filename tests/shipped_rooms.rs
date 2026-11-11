@@ -108,3 +108,47 @@ fn shipped_bird_body_and_wing_poses_load_and_fit_together() {
     assert!(right > 0.0 && left < 0.0, "beak right {right}, left {left}");
     assert!((right + left).abs() < 1e-3, "facing mirrors exactly");
 }
+
+#[test]
+fn shipped_bird_flies_flaps_and_patrols_in_the_air() {
+    use hollow_steps::enemy::{EnemyDefinitions, Movement};
+    use hollow_steps::player::WorldBounds;
+    use macroquad::math::Vec2;
+
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+    let catalog = EnemyDefinitions::load(&assets).expect("shipped enemies must load and validate");
+    let bounds = WorldBounds::new(0.0, 960.0, 460.0);
+    // The patrol interval is a loose, made-up one: this checks the kind of enemy the shipped
+    // bird is, not where it is placed or how it is tuned.
+    let mut bird = catalog
+        .spawn("scittish", 700.0, 800.0, bounds)
+        .expect("the shipped bird spawns");
+    let Movement::Flying { flap, .. } = bird.movement().clone() else {
+        panic!("the shipped bird flies");
+    };
+    assert!(flap.is_some(), "and beats its wings");
+    assert!(bird.body().is_some(), "with a body to flap");
+
+    // Far from the player it patrols along its interval, always off the floor.
+    let floor_rest_y = bounds.floor_y - bird.size().y / 2.0;
+    let player = Vec2::new(0.0, bounds.floor_y - 24.0);
+    let start = bird.position().x;
+    let mut travelled = 0.0_f32;
+    for _ in 0..1200 {
+        let before = bird.position().x;
+        bird.update(player, 1.0 / 120.0, bounds);
+        travelled += (bird.position().x - before).abs();
+        assert!(
+            bird.position().y < floor_rest_y - 20.0,
+            "it hovers well off the floor"
+        );
+    }
+    assert!(
+        travelled > 20.0,
+        "it patrols (moved {travelled} px from {start})"
+    );
+    assert!(
+        (700.0..=800.0).contains(&bird.position().x),
+        "inside its interval"
+    );
+}

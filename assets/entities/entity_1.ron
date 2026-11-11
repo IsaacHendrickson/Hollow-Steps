@@ -4,6 +4,18 @@
     size: (32.0, 40.0),
     contact_damage: 10,
     behavior: "Shooter",
+    movement: Flying(
+        hover_height: 56.0,
+        bob_amplitude: 6.0,
+        bob_speed: 0.6,
+        flap: Some((
+            up_pose: "fly_up",
+            down_pose: "fly_down",
+            hover_rate: 3.0,
+            rate_per_speed: 0.02,
+            max_rate: 7.0,
+        )),
+    ),
     body: Some((
         hurt: (
             pose: Some("hurt"),
