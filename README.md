@@ -21,6 +21,10 @@ Then run:
 cargo run
 ```
 
+Sound is optional: no sound files ship, and the game runs without them. To hear
+sounds, add files named in `assets/audio/README.md` and run
+`cargo run --features audio` (see `docs/audio.md` for why audio is opt-in).
+
 The game finds its `assets` folder in this order: the `HOLLOW_STEPS_ASSETS`
 environment variable, an `assets` folder next to the executable, then the
 source tree it was built from. So a built binary can be copied with its
