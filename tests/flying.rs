@@ -40,6 +40,7 @@ fn definition(movement: Movement) -> EnemyDefinition {
         name: "bird".into(),
         health: 20,
         size: SIZE,
+        visual_size: None,
         contact_damage: 10,
         behavior: "behavior".into(),
         body: None,

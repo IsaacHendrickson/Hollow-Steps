@@ -27,6 +27,8 @@ mod movement;
 pub use catalog::EnemyDefinitions;
 pub use death::DeathTimer;
 pub use definition::{EnemyDefinition, DEFAULT_DEATH_SECS, MAX_DEATH_SECS};
+pub use flap::{Flap, FlapClock, MAX_FLAP_RATE, MAX_FLAP_RATE_PER_SPEED};
+pub use movement::{Movement, MAX_BOB_AMPLITUDE, MAX_BOB_SPEED, MAX_HOVER_HEIGHT};
 
 /// A behavior-driven enemy. Patrol endpoints and position are rectangle centers.
 #[derive(Clone, Debug)]

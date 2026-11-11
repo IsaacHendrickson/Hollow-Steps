@@ -100,6 +100,7 @@ fn entity(movement: Movement, body: Option<BodyVisual>) -> EnemyDefinition {
         name: "bird".into(),
         health: 50,
         size: SIZE,
+        visual_size: None,
         contact_damage: 10,
         behavior: "b".into(),
         body,
