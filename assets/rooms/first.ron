@@ -19,6 +19,36 @@
         terrain: [
             (560.0, 380.0, 160.0, 20.0),
         ],
+        // Sample background, back to front. Shapes are placed in room coordinates; depth 0 stays
+        // fixed on the screen, 1 moves with the world. This room is no wider than the screen, so
+        // the layers only slide in a room made wider than 960 (see docs/atmosphere.md).
+        background: [
+            (
+                depth: 0.0,
+                color: (58, 64, 102, 255),
+                shapes: [
+                    Circle(x: 760.0, y: 110.0, radius: 46.0),
+                ],
+            ),
+            (
+                depth: 0.25,
+                color: (30, 34, 60, 255),
+                shapes: [
+                    Triangle(a: (-60.0, 540.0), b: (150.0, 270.0), c: (360.0, 540.0)),
+                    Triangle(a: (260.0, 540.0), b: (520.0, 220.0), c: (780.0, 540.0)),
+                    Triangle(a: (640.0, 540.0), b: (860.0, 290.0), c: (1080.0, 540.0)),
+                ],
+            ),
+            (
+                depth: 0.6,
+                color: (24, 27, 47, 255),
+                shapes: [
+                    Rect(x: 90.0, y: 250.0, w: 34.0, h: 290.0),
+                    Rect(x: 410.0, y: 300.0, w: 26.0, h: 240.0),
+                    Rect(x: 880.0, y: 230.0, w: 40.0, h: 310.0),
+                ],
+            ),
+        ],
         items: [
             (
                 item: AmberShard,

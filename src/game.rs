@@ -363,6 +363,8 @@ impl GameState {
                     }
                 }
                 current.enemies = std::mem::take(&mut reloaded.enemies);
+                // Layers are only a picture, so a reload can swap them without moving anything.
+                current.background = std::mem::take(&mut reloaded.background);
                 let same_boss = match (&current.boss_special, &reloaded.boss_special) {
                     (Some(current), Some(reloaded)) => current.same_definition(reloaded),
                     (None, None) => true,

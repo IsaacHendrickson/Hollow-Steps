@@ -29,3 +29,41 @@ reason is shown like a failed reload and the picture goes out unprocessed.
 
 The glow takes 24 samples (8 directions on 3 rings) around each pixel, so a large radius
 with a high strength shows faint copies of thin bright shapes. Keep the radius small.
+
+### Parallax background layers
+
+`src/background.rs` is pure: the layer types, validation, and `parallax_offset`. The front end
+(`src/scene.rs`) draws the layers first, right after clearing the screen, so everything else
+(floor, terrain, exits, items, enemies, the player) is in front. They go through the same
+world camera, so screen shake moves them with the world.
+
+A room lists its layers in `layout`, back to front (the first is drawn first):
+
+```ron
+background: [
+    (
+        depth: 0.25,                 // 0 = fixed on the screen, 1 = moves with the world
+        color: (30, 34, 60, 255),    // red, green, blue, alpha (0 to 255)
+        shapes: [
+            Rect(x: 90.0, y: 250.0, w: 34.0, h: 290.0),
+            Circle(x: 760.0, y: 110.0, radius: 46.0),
+            Triangle(a: (-60.0, 540.0), b: (150.0, 270.0), c: (360.0, 540.0)),
+        ],
+    ),
+],
+```
+
+- Shapes are placed in room coordinates, as they appear when the camera rests against the
+  room's top-left corner. Shapes may reach outside the room.
+- As the camera travels right or down, a layer slides left or up by `depth` times that travel.
+  The travel is clamped to what the camera can travel in this room, so a layer never slides
+  past the room's edges.
+- A room that is no wider (or taller) than the 960x540 screen gives the camera no travel on
+  that axis, so its layers stay where they were placed. Parallax shows in larger rooms, e.g.
+  after setting the width in the editor's Room size section.
+- Limits: at most 8 layers per room and 64 shapes per layer, `depth` from 0 to 1, positive
+  sizes, coordinates within 100000 pixels. A bad layer is a load error naming the room file
+  and the layer ("background layer 1: ...").
+- Old room files without `background` load as before. The editor keeps a room's layers when
+  it saves, but has no controls for them yet: edit the room file and press F5 (a reload
+  re-reads the layers of rooms that are already loaded).

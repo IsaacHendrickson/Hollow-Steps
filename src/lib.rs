@@ -6,6 +6,7 @@
 mod action_parameters;
 pub mod action_runtime;
 pub mod assets;
+pub mod background;
 pub mod behavior;
 pub mod behavior_values;
 pub mod body;
