@@ -20,6 +20,7 @@ mod editor_panel;
 mod hud;
 mod startup;
 mod terrain_canvas;
+mod tuning_panel;
 use editor_panel::{BossPropertyUi, PropertyUi};
 use startup::{present, screen_camera};
 
@@ -45,6 +46,9 @@ async fn main() {
     let mut reload_scroll = 0;
     let mut editor_ui = EditorUi::default();
     let mut body_debug = false;
+    let mut tuning_panel = tuning_panel::TuningPanel::default();
+    // True while a text box in the tuning window has focus, so typing does not reach the game.
+    let mut ui_wants_keyboard = false;
     let body_debug_overlay = body_draw::BodyDebugOverlay::new();
     let mut fixed_step = FixedStep::default();
     let mut input_latch = InputLatch::default();
@@ -97,6 +101,7 @@ async fn main() {
             camera_room = game.room().id;
         }
         if game.editor().is_some() {
+            ui_wants_keyboard = false;
             draw_editor(&mut game, &mut editor_ui, body_debug, &body_debug_overlay);
             if game.editor().is_none() && !game.testing_room() {
                 // The dialog (Save or Discard) closed the editor.
@@ -107,17 +112,26 @@ async fn main() {
             next_frame().await;
             continue;
         }
+        if is_key_pressed(KeyCode::F4) {
+            tuning_panel.toggle();
+        }
         if is_key_pressed(KeyCode::F5) {
             reload_result = Some(game.reload_rooms());
             reload_scroll = 0;
         }
-        if is_key_pressed(KeyCode::I) || (game.inventory_open() && is_key_pressed(KeyCode::Escape))
+        if !ui_wants_keyboard
+            && (is_key_pressed(KeyCode::I)
+                || (game.inventory_open() && is_key_pressed(KeyCode::Escape)))
         {
             game.toggle_inventory();
         }
         // Edge input is latched until a tick consumes it; only the first tick of a frame
         // sees it, while held input applies to every tick.
-        input_latch.record(read_player_input());
+        input_latch.record(if ui_wants_keyboard {
+            PlayerInput::default()
+        } else {
+            read_player_input()
+        });
         for _ in 0..fixed_step.advance(frame_seconds) {
             game.update(input_latch.take_tick(), fixed_step.step_seconds());
             if game.room().id == camera_room {
@@ -159,7 +173,11 @@ async fn main() {
         let letterbox = present(&screen, view);
         // Drain the integration's event subscription while the editor is closed, so reopening
         // cannot replay earlier gameplay clicks or keys into its controls.
-        egui_macroquad::ui(|_| {});
+        egui_macroquad::ui(|ctx| {
+            tuning_panel::scroll_from_wheel(ctx, mouse_wheel());
+            tuning_panel.draw(ctx, &mut game);
+            ui_wants_keyboard = ctx.wants_keyboard_input();
+        });
         egui_macroquad::draw();
         if body_debug {
             // The overlay draws in window space, so project world points through the

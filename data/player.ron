@@ -1,0 +1,21 @@
+(
+    player: (
+        move_speed: 220.0,
+        jump_speed: 480.0,
+        gravity: 1400.0,
+        max_fall_speed: 900.0,
+        held_jump_gravity_multiplier: 0.5,
+        coyote_seconds: 0.1,
+        jump_buffer_seconds: 0.12,
+        width: 32.0,
+        height: 48.0,
+        dash_speed: 800.0,
+        dash_duration: 0.2,
+        dash_cooldown: 0.5,
+    ),
+    enemy: (
+        default_health: 3,
+        knockback_speed: 260.0,
+        knockback_seconds: 0.16,
+    ),
+)

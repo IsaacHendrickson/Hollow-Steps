@@ -55,7 +55,10 @@ above; Windows needs no extra system libraries.
 - `I`: open/close the inventory screen to see coins and collected items.
   Gameplay pauses while it is open; `Esc` also closes it.
 - `F2`: open/close the room editor (gameplay pauses).
-- `F5`: validate room files and their enemy, body template, behavior, and boss definitions, including
+- `F4`: open/close the player tuning window (gameplay keeps running). Drag or type values for
+  move, jump, dash, size and enemy knockback; they apply at once. `Save` writes `player.ron` in the
+  assets folder, which replaces the shipped `data/player.ron` defaults (delete it to go back).
+- `F5`: validate `player.ron`, room files and their enemy, body template, behavior, and boss definitions, including
   while the inventory is open. Errors appear on screen; fix the files and
   press `F5` again to retry. Use the mouse wheel to scroll long errors.
 - Touch a gold coin to collect it automatically, including while airborne.

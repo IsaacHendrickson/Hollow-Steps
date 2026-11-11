@@ -12,7 +12,10 @@ use crate::behavior::{
 use crate::body::{load_body_templates, BodyInstance, BodyTemplates, BodyVisual};
 use crate::player::WorldBounds;
 use crate::terrain::Terrain;
+use crate::tuning::EnemyTuning;
 
+/// The shipped values, kept so existing tests and callers still compile. The game reads
+/// `EnemyTuning` (from `data/player.ron`); a test keeps these equal to that file.
 pub const ENEMY_MAX_HEALTH: u8 = 3;
 pub const KNOCKBACK_SPEED: f32 = 260.0;
 pub const KNOCKBACK_SECONDS: f32 = 0.16;
@@ -226,6 +229,7 @@ pub struct Enemy {
     last_attack_id: Option<u64>,
     knockback_direction: f32,
     knockback_remaining: f32,
+    tuning: EnemyTuning,
 }
 
 impl Enemy {
@@ -273,7 +277,7 @@ impl Enemy {
         Self::from_definition(
             &EnemyDefinition {
                 name: "chase".into(),
-                health: ENEMY_MAX_HEALTH,
+                health: EnemyTuning::default().default_health,
                 size: (ENEMY_SIZE.x, ENEMY_SIZE.y),
                 contact_damage: 1,
                 behavior: "chase".into(),
@@ -346,6 +350,7 @@ impl Enemy {
             last_attack_id: None,
             knockback_direction: 0.0,
             knockback_remaining: 0.0,
+            tuning: EnemyTuning::default(),
         })
     }
 
@@ -399,6 +404,25 @@ impl Enemy {
         self.health == 0
     }
 
+    pub fn tuning(&self) -> EnemyTuning {
+        self.tuning
+    }
+
+    /// Applies the current knockback tunables. Safe to call every tick; a knockback already
+    /// under way keeps its remaining time.
+    pub fn set_tuning(&mut self, tuning: EnemyTuning) {
+        self.tuning = tuning;
+    }
+
+    /// A freshly spawned code-made enemy (summon, spawn action) with the tunable default
+    /// health and knockback. Enemies built from definitions keep their authored health.
+    pub fn spawned_with(mut self, tuning: EnemyTuning) -> Self {
+        self.tuning = tuning;
+        self.health = tuning.default_health;
+        self.max_health = tuning.default_health;
+        self
+    }
+
     pub fn hit(&mut self, attack_id: u64, direction: f32) -> bool {
         if self.is_dead()
             || self.last_attack_id == Some(attack_id)
@@ -413,7 +437,7 @@ impl Enemy {
             body.hurt(&self.poses);
         }
         self.knockback_direction = direction.signum();
-        self.knockback_remaining = KNOCKBACK_SECONDS;
+        self.knockback_remaining = self.tuning.knockback_seconds;
         true
     }
 
@@ -505,7 +529,7 @@ impl Enemy {
                 .advance_projectiles(player_position, player_size, bounds, dt);
             let knockback_dt = dt.min(self.knockback_remaining);
             self.position.x = (self.position.x
-                + self.knockback_direction * KNOCKBACK_SPEED * knockback_dt)
+                + self.knockback_direction * self.tuning.knockback_speed * knockback_dt)
                 .clamp(
                     bounds.left + self.size.x / 2.0,
                     bounds.right - self.size.x / 2.0,
