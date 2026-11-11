@@ -35,3 +35,4 @@ pub mod room_size;
 pub mod search;
 pub mod terrain;
 pub mod timestep;
+pub mod tuning;

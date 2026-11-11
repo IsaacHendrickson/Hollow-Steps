@@ -9,8 +9,9 @@ use crate::damage::DamageResolver;
 use crate::editor::{self, EditorSession};
 use crate::enemy::EnemyDefinitions;
 use crate::item::WorldItem;
-use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
+use crate::player::{Player, PlayerInput, WorldBounds};
 use crate::room::{load_rooms, Room, RoomId};
+use crate::tuning::TuningConfig;
 
 pub use crate::room::FLOOR_Y;
 
@@ -34,6 +35,10 @@ pub struct GameState {
     inventory_open: bool,
     special_attack_timer: f32,
     last_special_hit: Option<u64>,
+    /// Player and enemy tunables in effect (the F4 window edits these).
+    tuning: TuningConfig,
+    /// The tunables as last loaded from or saved to `player.ron`.
+    saved_tuning: TuningConfig,
 }
 
 impl GameState {
@@ -45,12 +50,13 @@ impl GameState {
     }
 
     pub fn try_new(assets: &Path) -> Result<Self, String> {
+        let tuning = TuningConfig::load(assets)?;
         let mut rooms = load_rooms(assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(assets)?;
         rooms.extend(editor::load_extra_rooms(assets, &definitions)?);
         Self::validate_destinations(&rooms, &definitions)?;
         let world_bounds = rooms[RoomId::First.index()].world_bounds();
-        let mut player = Player::new(Vec2::new(180.0, 0.0), PlayerConfig::default());
+        let mut player = Player::new(Vec2::new(180.0, 0.0), tuning.player);
         player.place_at(rooms[RoomId::First.index()].spawn, world_bounds);
 
         Ok(Self {
@@ -63,7 +69,39 @@ impl GameState {
             inventory_open: false,
             special_attack_timer: 0.0,
             last_special_hit: None,
+            tuning,
+            saved_tuning: tuning,
         })
+    }
+
+    /// The player and enemy tunables in effect.
+    pub fn tuning(&self) -> &TuningConfig {
+        &self.tuning
+    }
+
+    /// True when the tunables in effect differ from `player.ron` (or the defaults).
+    pub fn tuning_unsaved(&self) -> bool {
+        self.tuning != self.saved_tuning
+    }
+
+    /// Puts new tunables into effect at once, mid-game. The player keeps its position,
+    /// velocity and timers; every enemy takes the new knockback values. Invalid tunables
+    /// are refused and nothing changes.
+    pub fn set_tuning(&mut self, tuning: TuningConfig) -> Result<(), String> {
+        tuning.validate()?;
+        self.player.set_config(tuning.player);
+        self.tuning = tuning;
+        for enemy in self.rooms.iter_mut().flat_map(|room| &mut room.enemies) {
+            enemy.set_tuning(tuning.enemy);
+        }
+        Ok(())
+    }
+
+    /// Writes the tunables in effect to `player.ron` in the assets folder and returns its path.
+    pub fn save_tuning(&mut self) -> Result<PathBuf, String> {
+        let path = crate::tuning::save(&self.assets, &self.tuning)?;
+        self.saved_tuning = self.tuning;
+        Ok(path)
     }
 
     pub fn player(&self) -> &Player {
@@ -228,7 +266,11 @@ impl GameState {
     /// Re-read every room and its enemy definitions before applying any changes.
     /// Enemy gameplay restarts; matching body points, player, pickups, and unchanged bosses stay intact.
     /// Changed boss definitions restart from their authored placement.
+    ///
+    /// The player and enemy tunables in `player.ron` are re-read too; the player keeps its
+    /// state. Nothing changes if any file fails to load.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
+        let tuning = TuningConfig::load(&self.assets)?;
         let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(&self.assets)?;
         rooms.extend(editor::load_extra_rooms(&self.assets, &definitions)?);
@@ -269,6 +311,8 @@ impl GameState {
                 self.rooms.push(reloaded);
             }
         }
+        self.set_tuning(tuning)?;
+        self.saved_tuning = tuning;
         Ok(())
     }
 
@@ -282,6 +326,7 @@ impl GameState {
             0.0
         };
         let index = self.current;
+        let enemy_tuning = self.tuning.enemy;
         let bounds = self.rooms[index].world_bounds();
         self.player
             .update_with_terrain(input, delta_seconds, bounds, &self.rooms[index].terrain);
@@ -297,11 +342,17 @@ impl GameState {
             );
             boss.schedule(delta_seconds, self.player.position(), bounds);
             self.special_attack_timer = boss.attack_timer();
-            room.enemies.extend_from_slice(boss.new_enemies());
+            room.enemies.extend(
+                boss.new_enemies()
+                    .iter()
+                    .cloned()
+                    .map(|enemy| enemy.spawned_with(enemy_tuning)),
+            );
             room.coins.extend_from_slice(boss.new_coins());
         }
         let mut spawned_positions = Vec::new();
         for enemy in &mut room.enemies {
+            enemy.set_tuning(enemy_tuning);
             enemy.update_with_terrain(
                 self.player.position(),
                 self.player.size(),
@@ -311,11 +362,11 @@ impl GameState {
             );
             spawned_positions.extend(enemy.take_spawn_positions());
         }
-        room.enemies.extend(
-            spawned_positions
-                .into_iter()
-                .map(|position| crate::enemy::Enemy::new(position.x, position.x, 0.0, 0.0, bounds)),
-        );
+        room.enemies
+            .extend(spawned_positions.into_iter().map(|position| {
+                crate::enemy::Enemy::new(position.x, position.x, 0.0, 0.0, bounds)
+                    .spawned_with(enemy_tuning)
+            }));
         if let Some(hitbox) = self
             .player
             .attack()

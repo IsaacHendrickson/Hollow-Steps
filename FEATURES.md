@@ -10,6 +10,7 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Follow camera: smoothing, horizontal look-ahead by facing, clamped to room bounds (centered when the room is smaller than the view), snap on room change/teleport; tunables in `data/camera.ron`; `src/camera.rs`, `src/main.rs`; `src/camera.rs` unit tests, manual
 - Virtual 960x540 render target with letterboxed window scaling; HUD, inventory and reload panels anchored to the virtual screen; `src/camera.rs`, `src/hud.rs`, `src/main.rs`; `src/camera.rs` unit tests, manual
 - Variable jump height, coyote time, jump buffering; `src/player.rs`; `tests/jumping.rs`
+- Player and enemy-knockback tunables (move/jump/gravity/dash/size, default enemy health, knockback) in `data/player.ron`, strict and fully validated; an `assets/player.ron` replaces it whole and a bad one is an error, never a fallback; F5 re-reads it without resetting the player; `src/tuning.rs`, `src/player.rs`, `src/enemy.rs`, `src/game.rs`; `tests/tuning.rs`, `src/tuning.rs` unit tests
 - Directional melee swing, cooldown, one hit per enemy per swing; `src/combat.rs`, `src/game.rs`; `tests/combat.rs`
 - Collectible Dash (facing, duration, cooldown, one air dash); `src/item.rs`, `src/player.rs`; `tests/items.rs`
 - Player health, invincibility, respawn; `src/health.rs`; `tests/enemies.rs`
