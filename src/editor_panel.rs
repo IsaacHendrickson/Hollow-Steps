@@ -13,6 +13,7 @@ mod death_field;
 mod entity;
 mod history_panel;
 mod key_values;
+mod movement_field;
 #[cfg(test)]
 mod panel_tests;
 mod property;

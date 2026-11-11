@@ -88,6 +88,8 @@ pub(crate) struct EntityFields {
     pub(super) contact_damage: String,
     /// The assigned behavior's file stem, chosen from the Behavior list rather than typed.
     pub(super) behavior: String,
+    /// Ground or flying, edited with a picker and drag boxes rather than text fields.
+    pub(super) movement: hollow_steps::enemy::Movement,
 }
 
 /// A text field of the Entity section, in the order they are drawn.
@@ -141,6 +143,7 @@ impl EntityFields {
             height: entity.size.1.to_string(),
             contact_damage: entity.contact_damage.to_string(),
             behavior: entity.behavior.clone(),
+            movement: entity.movement,
         }
     }
 
@@ -169,7 +172,8 @@ impl EntityFields {
         hollow_steps::definition_editor::validate_entity_field(field.index(), self.text(field))
     }
 
-    /// The definition these fields describe, with the body and death time kept as they are.
+    /// The definition these fields describe, with the body and death time kept as they are
+    /// (and the movement these fields hold).
     pub(super) fn to_definition(
         &self,
         body: Option<hollow_steps::body::BodyVisual>,
@@ -183,7 +187,12 @@ impl EntityFields {
             self.contact_damage.clone(),
             self.behavior.clone(),
         ];
-        hollow_steps::definition_editor::entity_with_body_and_death(&fields, body, death_secs)
+        hollow_steps::definition_editor::entity_with_body_death_and_movement(
+            &fields,
+            body,
+            death_secs,
+            self.movement,
+        )
     }
 }
 

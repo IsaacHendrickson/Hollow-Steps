@@ -57,6 +57,7 @@ fn walker(x: f32, speed: f32, contact_damage: u16, bounds: WorldBounds) -> Enemy
             behavior: "walk".into(),
             body: None,
             death_secs: 0.0,
+            movement: Default::default(),
         },
         Arc::new(behavior),
         x,

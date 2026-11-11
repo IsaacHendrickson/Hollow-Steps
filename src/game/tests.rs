@@ -22,6 +22,7 @@ fn enemy_blasts_apply_configured_damage_once_and_respect_player_immunity() {
             behavior: "blast".into(),
             body: None,
             death_secs: 0.0,
+            movement: Default::default(),
         },
         Arc::new(
             BehaviorDefinition::from_ron(
@@ -60,7 +61,7 @@ fn attack_damage_wins_over_contact_and_immunity_blocks_knockback() {
     let bounds = game.world_bounds();
     let x = game.player.position().x;
     game.rooms[0].enemies = vec![Enemy::from_definition(
-        &EnemyDefinition { name: "attacker".into(), health: 3, size: (36.0, 36.0), contact_damage: 10, behavior: "blast".into(), body: None, death_secs: 0.0 },
+        &EnemyDefinition { name: "attacker".into(), health: 3, size: (36.0, 36.0), contact_damage: 10, behavior: "blast".into(), body: None, death_secs: 0.0, movement: Default::default(), },
         Arc::new(BehaviorDefinition::from_ron(r#"(initial_state: "fire", states: [(name: "fire", actions: [area_blast(radius: 200.0, damage: 20, knockback: (100.0, -100.0), active_secs: 2.0, telegraph_secs: 0.0)], transitions: [])])"#).unwrap()),
         x, x, bounds).unwrap()];
     game.update(PlayerInput::default(), 0.1);

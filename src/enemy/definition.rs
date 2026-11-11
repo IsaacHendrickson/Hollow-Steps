@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::movement::Movement;
 use crate::body::BodyVisual;
 
 /// How long a defeated enemy lingers (flashing and fading) when its definition says nothing.
@@ -28,6 +29,10 @@ pub struct EnemyDefinition {
     /// it the moment its health runs out.
     #[serde(default = "default_death_secs")]
     pub death_secs: f32,
+    /// On the floor (the default) or flying at a hover height. A ground enemy's file says
+    /// nothing, and is saved without the field.
+    #[serde(default, skip_serializing_if = "Movement::is_ground")]
+    pub movement: Movement,
 }
 
 impl EnemyDefinition {
@@ -57,6 +62,9 @@ impl EnemyDefinition {
                 self.name
             ));
         }
+        self.movement
+            .validate()
+            .map_err(|e| format!("entity {:?}: {e}", self.name))?;
         if let Some(body) = &self.body {
             body.validate()
                 .map_err(|e| format!("entity {:?}: {e}", self.name))?;
@@ -78,6 +86,7 @@ mod tests {
             behavior: "patrol".into(),
             body: None,
             death_secs,
+            movement: Default::default(),
         }
     }
 

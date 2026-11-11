@@ -269,6 +269,7 @@ fn every_enemy_can_run_all_actions_and_knockback_pauses_airborne_behavior() {
         behavior: "all".into(),
         body: None,
         death_secs: 0.0,
+        movement: Default::default(),
     };
     let actions = "jump_to_player(dx: 0.0, dy: -200.0, speed: 200.0), hover(seconds: 0.5), slam_down(speed: 400.0), area_blast(count: 1, radius: 2000.0, fuse_time: 0.5, damage: 3)";
     let mut enemy = Enemy::from_definition(

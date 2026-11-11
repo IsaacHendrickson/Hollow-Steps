@@ -503,6 +503,7 @@ impl DefinitionDraft {
             behavior: behavior.clone(),
             body: None,
             death_secs: crate::enemy::DEFAULT_DEATH_SECS,
+            movement: Default::default(),
         });
         if result.is_err() {
             self.behaviors.remove(&behavior);
@@ -817,6 +818,7 @@ pub fn entity_from_fields(fields: &[String; 6]) -> Result<EnemyDefinition, Strin
         behavior: fields[5].clone(),
         body: None,
         death_secs: crate::enemy::DEFAULT_DEATH_SECS,
+        movement: Default::default(),
     };
     entity.validate()?;
     Ok(entity)
@@ -838,9 +840,21 @@ pub fn entity_with_body_and_death(
     body: Option<crate::body::BodyVisual>,
     death_secs: f32,
 ) -> Result<EnemyDefinition, String> {
+    entity_with_body_death_and_movement(fields, body, death_secs, Default::default())
+}
+
+/// `entity_with_body_and_death` with the movement (a picker and drag boxes in the panel), so an
+/// ordinary edit keeps a flier flying.
+pub fn entity_with_body_death_and_movement(
+    fields: &[String; 6],
+    body: Option<crate::body::BodyVisual>,
+    death_secs: f32,
+    movement: crate::enemy::Movement,
+) -> Result<EnemyDefinition, String> {
     let mut entity = entity_from_fields(fields)?;
     entity.body = body;
     entity.death_secs = death_secs;
+    entity.movement = movement;
     entity.validate()?;
     Ok(entity)
 }

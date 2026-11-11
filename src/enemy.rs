@@ -21,10 +21,12 @@ pub const ENEMY_SIZE: Vec2 = Vec2::new(36.0, 36.0);
 mod catalog;
 mod death;
 mod definition;
+mod movement;
 
 pub use catalog::EnemyDefinitions;
 pub use death::DeathTimer;
 pub use definition::{EnemyDefinition, DEFAULT_DEATH_SECS, MAX_DEATH_SECS};
+pub use movement::{Movement, MAX_BOB_AMPLITUDE, MAX_BOB_SPEED, MAX_HOVER_HEIGHT};
 
 /// A behavior-driven enemy. Patrol endpoints and position are rectangle centers.
 #[derive(Clone, Debug)]
@@ -47,6 +49,10 @@ pub struct Enemy {
     tuning: EnemyTuning,
     /// Runs only once the enemy's health has run out.
     death: DeathTimer,
+    /// Ground (floor-pinned) or flying at a hover height; set by the definition.
+    movement: Movement,
+    /// Seconds this enemy has been flying, which drives the bob. Stands still while it is dead.
+    flight_secs: f64,
 }
 
 impl Enemy {
@@ -101,6 +107,7 @@ impl Enemy {
                 body: None,
                 // Code-made enemies (summons, spawns) have no body to fade: gone at once.
                 death_secs: 0.0,
+                movement: Default::default(),
             },
             Arc::new(definition),
             left,
@@ -153,8 +160,15 @@ impl Enemy {
         {
             return Err(format!("entity {:?}: invalid patrol interval [{left}, {right}] for room bounds and entity size", definition.name));
         }
+        // A flier starts on its hover line; everything else on the floor.
+        let start_y = definition
+            .movement
+            .altitude(size, bounds, 0.0)
+            .unwrap_or(bounds.floor_y - size.y / 2.0);
+        let mut behavior = Behavior::new(behavior)?;
+        behavior.set_flying(definition.movement.is_flying());
         Ok(Self {
-            position: Vec2::new(left, bounds.floor_y - size.y / 2.0),
+            position: Vec2::new(left, start_y),
             patrol_left: left,
             patrol_right: right,
             name: definition.name.clone(),
@@ -164,14 +178,33 @@ impl Enemy {
             facing_left: false,
             max_health: definition.health,
             contact_damage: definition.contact_damage,
-            behavior: Behavior::new(behavior)?,
+            behavior,
             health: definition.health,
             last_attack_id: None,
             knockback_direction: 0.0,
             knockback_remaining: 0.0,
             tuning: EnemyTuning::default(),
             death: DeathTimer::new(definition.death_secs),
+            movement: definition.movement,
+            flight_secs: 0.0,
         })
+    }
+
+    pub fn movement(&self) -> Movement {
+        self.movement
+    }
+
+    /// For a flier: advance its flight clock and put it back on its hover line, inside the room.
+    /// Ground enemies are left exactly as the behavior and terrain left them.
+    fn hold_altitude(&mut self, dt: f32, bounds: WorldBounds) {
+        if !self.movement.is_flying() {
+            return;
+        }
+        self.flight_secs += f64::from(dt);
+        self.position.x = Movement::clamp_x(self.position.x, self.size, bounds);
+        if let Some(y) = self.movement.altitude(self.size, bounds, self.flight_secs) {
+            self.position.y = y;
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -330,6 +363,7 @@ impl Enemy {
         // An enemy already inside a solid (authored overlap) is left alone
         // rather than being pushed out unpredictably.
         if terrain.is_empty()
+            || self.movement.is_flying()
             || self.position == previous
             || terrain.overlaps_body(previous, self.size)
         {
@@ -386,6 +420,7 @@ impl Enemy {
                     bounds.right - self.size.x / 2.0,
                 );
             self.knockback_remaining = (self.knockback_remaining - dt).max(0.0);
+            self.hold_altitude(dt, bounds);
             return;
         }
         let previous_x = self.position.x;
@@ -433,6 +468,7 @@ impl Enemy {
                 }
             }
         }
+        self.hold_altitude(dt, bounds);
         if self.position.x != previous_x {
             self.facing_left = self.position.x < previous_x;
         }

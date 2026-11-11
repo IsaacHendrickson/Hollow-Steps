@@ -23,6 +23,7 @@ fn enemy(health: u16, contact_damage: u16) -> Enemy {
             behavior: "wait".into(),
             body: None,
             death_secs: 0.0,
+            movement: Default::default(),
         },
         Arc::new(BehaviorDefinition::from_ron(STAND).unwrap()),
         300.0,

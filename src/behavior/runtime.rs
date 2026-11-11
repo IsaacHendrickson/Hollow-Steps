@@ -76,6 +76,11 @@ impl Behavior {
         std::mem::take(&mut self.runtime.pose_steps)
     }
 
+    /// Marks the owner as flying, so the behavior never applies gravity to it.
+    pub(crate) fn set_flying(&mut self, flying: bool) {
+        self.runtime.flying = flying;
+    }
+
     pub fn set_random_seed(&mut self, seed: u32) {
         self.random_state = Some(seed);
     }

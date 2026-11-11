@@ -59,6 +59,8 @@ pub struct ActionRuntime {
     pub(crate) action_started: bool,
     pub(crate) jump_target: Option<Vec2>,
     pub(crate) airborne: bool,
+    /// A flying enemy: its altitude is set by its definition, so gravity never acts on it.
+    pub(crate) flying: bool,
     pub(crate) vertical_velocity: f64,
     pub(crate) blasts: Vec<Blast>,
     pub(crate) rings: Vec<Blast>,
@@ -76,6 +78,7 @@ impl Default for ActionRuntime {
             action_started: false,
             jump_target: None,
             airborne: false,
+            flying: false,
             vertical_velocity: 0.0,
             blasts: Vec::new(),
             rings: Vec::new(),
