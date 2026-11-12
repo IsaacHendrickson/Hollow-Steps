@@ -1,8 +1,9 @@
 ## Terrain look: design note
 
-How a room's solids are drawn. Collision is never involved: the solids are the same
-rectangles `src/terrain.rs` collides with, and `src/terrain_style.rs` only decides how they
-look. It is pure (no window, no art files); `src/terrain_draw.rs` draws what it returns.
+How a room's solids and its boundary are drawn. Collision is never involved: the solids are
+the same rectangles `src/terrain.rs` collides with, the boundary is visual only, and
+`src/terrain_style.rs` only decides how they look. It is pure (no window, no art files);
+`src/terrain_draw.rs` draws what it returns.
 
 ### What a solid gets
 
@@ -18,9 +19,50 @@ look. It is pure (no window, no art files); `src/terrain_draw.rs` draws what it 
 
 An edge stretch is *open* unless another solid, or the ground, fills the space just outside
 it. Solids that touch, stack or overlap hide the seam between them (`terrain_style::exposure`);
-when two solids share an edge line, the larger one keeps it. The floor counts as ground
-(`ground_cover`), so a wall standing on the floor has no bottom outline or stalactites. The
-floor itself is still drawn by `scene.rs` as before.
+when two solids share an edge line, the larger one keeps it. A wall standing on the floor has
+no bottom outline or stalactites because the boundary's floor slab (below) is under it; when
+the boundary is off, the floor counts as ground instead (`ground_cover`) and `scene.rs` draws
+the flat floor strip as before.
+
+### Room boundary
+
+`build_room` draws a whole room: the solids plus, when the look asks for it (`draw_boundary`,
+on by default), four slabs around the playable area. The slabs are ordinary rectangles fed to
+the same code as the solids, so they get the same fill, speckles, cracks, outline, lit top, lip,
+moss and stalactites, and the seams between them are hidden like any other touching solids.
+They are **visual only**: `Room::bounds` and `floor_y` still do all the blocking.
+
+Geometry (`terrain_style::boundary_slabs`; the choice is documented in `boundary.rs`). The
+slabs sit *outside* the playable rectangle, flush against it, and never overlap each other:
+
+- the **ceiling** runs over the whole top, corners included;
+- the **left and right walls** stand between the ceiling and the floor slab;
+- the **floor slab** starts at `floor_y` (the top of the floor) and runs `thickness` below the
+  bottom of the bounds and out under the walls. When `floor_y` is above the bottom of the
+  bounds it also fills the ground under the floor line inside them, so the room's own floor
+  strip is replaced too.
+
+So for a room with bounds `(x, y, w, h)` and thickness `t` the pieces are the ceiling
+`(x-t, y-t, w+2t, t)`, the walls `(x-t, y, t, floor_y-y)` and `(x+w, y, t, floor_y-y)` and the
+floor slab `(x-t, floor_y, w+2t, y+h-floor_y+t)`. The inner faces (toward the room) are
+exposed, so the ceiling drips stalactites into the room and the floor has the lit top, lip and
+moss; the outer faces are outlined too.
+
+**Exits are never covered.** An exit zone is a 32 px strip against the inside of an edge, so
+the slabs never reach it; each exit also gets a doorway cut through the whole slab over its
+span, so the opening reads as a gap in the wall, ceiling or floor rather than a painted-over
+patch. The decoration next to a doorway stays out of the zone (a test checks every shape of the
+list against every exit zone).
+
+The camera clamps to the room, so in a room at least as large as the 960x540 view you see only
+the floor top, the stalactites and whatever slab shows beyond a room edge that is shorter than
+the view (room 1 is 460 px tall, so its ceiling and floor slabs show in the bands above and
+below); a room smaller than the view, and the editor canvas, show the whole frame.
+
+`Look` is the resolved look `build_room` draws from: the palette plus `speckle_density` and
+`crack_density` (1 is the base rate, 0 draws none; the 256 and 16 caps still hold),
+`boundary_thickness` and `draw_boundary`. A thickness that is not a positive finite number
+gives no slabs and the room falls back to ground cover, exactly like `draw_boundary: false`.
 
 ### Determinism
 
@@ -54,12 +96,18 @@ color. The editor has no controls for the palette yet: edit the file and press F
 
 ### Drawing and caching
 
-`TerrainLook` keeps the last draw list and the room, solids, ground and palette it was built
-from, and rebuilds only when one of them changes. `scene.rs` draws it through the world
-camera and `terrain_draw.rs` skips shapes outside the view. The list is drawn directly each
-frame; it is not baked into a texture, because a texture would have to cover the whole room
-(rooms may be larger than the screen) and could blur or seam under the follow camera. The
-room editor keeps drawing solids as plain rectangles.
+`TerrainLook` keeps the last draw list and what it was built from (the room, its bounds,
+floor, exits and solids and the look, or for `shapes` the solids, ground and palette) and
+rebuilds only when one of them changes; `room_shapes` also says whether the boundary is in the
+list. `scene.rs` draws it through the world camera and `terrain_draw.rs` skips shapes outside
+the view. The list is drawn directly each frame; it is not baked into a texture, because a
+texture would have to cover the whole room (rooms may be larger than the screen) and could
+blur or seam under the follow camera. The room editor keeps drawing solids as plain rectangles.
+
+Draw order in `scene.rs`: clear, background layers, the boundary and solids (one list; the old
+flat floor strip and room outline only when the boundary is off), exits, items and coins,
+enemies, the boss, the player; the HUD is drawn after, in screen space. All of it is in world
+space through the camera, with no window-size pixel constants.
 
 ### Manual playtest checklist
 
@@ -88,4 +136,11 @@ Nothing here can be checked without a window. Run `cargo run`:
 8. **Palette**: in `assets/rooms/first.ron` set `moss: false` or change `seed_offset`, press
    F5 and see the look change; set a color to `1.5` and F5 shows a load error naming the file
    and the color. A room with solids and no palette shows the default dark blue-grey look.
-9. **Speed**: no visible slowdown with several large solids on screen.
+9. **Boundary**: in the first room look at the bands above and below the playable area: a
+   ceiling slab with stalactites hanging into the room and a floor slab whose top has the lit
+   strip, lip and moss, all in the room's palette. In the second room (800x360, smaller than the
+   view) the frame shows on all four sides, with a gap in the left and right walls at each
+   exit; the teal exit zones sit in those gaps and walking through them still changes room.
+10. **Boundary and platforms**: a platform standing on the floor has no outline along its foot,
+    and a platform touching a wall has no outline along the join.
+11. **Speed**: no visible slowdown with several large solids and the boundary on screen.

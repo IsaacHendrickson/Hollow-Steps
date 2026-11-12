@@ -8,7 +8,7 @@ use macroquad::math::Rect;
 use super::colors::Colors;
 use super::edges::{EdgeSpan, Exposure};
 use super::{
-    stream, Shape, TerrainStyle, DRIP_LENGTH, HIGHLIGHT_HEIGHT, LIP_HEIGHT, MAX_CRACKS,
+    stream, Density, Shape, TerrainStyle, DRIP_LENGTH, HIGHLIGHT_HEIGHT, LIP_HEIGHT, MAX_CRACKS,
     MAX_SPECKLES, MOSS_HEIGHT, OUTLINE_WIDTH,
 };
 
@@ -59,12 +59,13 @@ fn inset(rect: Rect, by: f32) -> Option<Rect> {
 /// The fill, then speckles and cracks inside it. The whole solid is the palette fill; a
 /// lighter band is laid under every open stretch of the top and a darker one over every open
 /// stretch of the bottom, so a solid's gradient never shows a seam where another solid sits
-/// against it.
+/// against it. `density` scales how many speckles and cracks the fill gets.
 pub(super) fn fill_layer(
     rect: Rect,
     exposure: &Exposure,
     seed: u64,
     colors: &Colors,
+    density: Density,
     out: &mut Vec<Shape>,
 ) {
     out.push(Shape::rect(rect.x, rect.y, rect.w, rect.h, colors.band_mid));
@@ -88,13 +89,19 @@ pub(super) fn fill_layer(
         ));
     }
     if let Some(inner) = inset(rect, OUTLINE_WIDTH + 1.0) {
-        speckles(inner, seed, colors, out);
-        cracks(inner, seed, colors, out);
+        speckles(inner, seed, colors, density.speckles, out);
+        cracks(inner, seed, colors, density.cracks, out);
     }
 }
 
-fn speckles(inner: Rect, seed: u64, colors: &Colors, out: &mut Vec<Shape>) {
-    let count = ((inner.w * inner.h / SPECKLE_AREA) as usize).min(MAX_SPECKLES);
+/// How many of something one area holds at `density` (1 is the base rate). Not-a-number and
+/// negative densities give none; the cap holds however dense the preset.
+fn count_for(area: f32, per_area: f32, density: f32, cap: usize) -> usize {
+    ((area / per_area * density.max(0.0)) as usize).min(cap)
+}
+
+fn speckles(inner: Rect, seed: u64, colors: &Colors, density: f32, out: &mut Vec<Shape>) {
+    let count = count_for(inner.w * inner.h, SPECKLE_AREA, density, MAX_SPECKLES);
     let mut rng = stream(seed, TAG_SPECKLES, 0.0);
     for _ in 0..count {
         let size = if rng.unit() < 0.7 { 1.0 } else { 2.0 };
@@ -113,8 +120,8 @@ fn speckles(inner: Rect, seed: u64, colors: &Colors, out: &mut Vec<Shape>) {
 }
 
 /// Short wandering cracks that start inside the fill and head downward.
-fn cracks(inner: Rect, seed: u64, colors: &Colors, out: &mut Vec<Shape>) {
-    let count = ((inner.w * inner.h / CRACK_AREA) as usize).min(MAX_CRACKS);
+fn cracks(inner: Rect, seed: u64, colors: &Colors, density: f32, out: &mut Vec<Shape>) {
+    let count = count_for(inner.w * inner.h, CRACK_AREA, density, MAX_CRACKS);
     let mut rng = stream(seed, TAG_CRACKS, 0.0);
     let keep_inside = |x: f32, y: f32| {
         (

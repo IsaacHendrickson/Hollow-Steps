@@ -20,25 +20,36 @@
 //! The list never reaches outside a solid by more than `TOP_MARGIN` above, `BOTTOM_MARGIN`
 //! below and nothing at the sides (lines count half their thickness).
 //!
+//! `build_room` draws a whole room: the solids plus, when the `Look` asks for it, the room's
+//! boundary, four visual-only slabs around the playable area (see `boundary`). The slabs go
+//! through the same pipeline as the solids, so seams between them have no outline and only
+//! their inner and outer faces do.
+//!
 //! `TerrainLook` keeps the last list so the front end rebuilds it only when the room, its
-//! solids, the ground or the palette change.
+//! solids, its exits, the ground or the look change.
 
 use macroquad::math::Rect;
 use serde::{Deserialize, Serialize};
 
 use crate::particles::Rng;
-use crate::room::RoomId;
+use crate::room::{Exit, RoomId};
 
+mod boundary;
 mod colors;
 mod edges;
 mod rock;
 
+pub use boundary::boundary_slabs;
 pub use edges::{exposure, Edge, EdgeSpan, Exposure};
 
+#[cfg(test)]
+mod boundary_tests;
 #[cfg(test)]
 mod edge_tests;
 #[cfg(test)]
 mod limit_tests;
+#[cfg(test)]
+mod room_tests;
 #[cfg(test)]
 mod tests;
 
@@ -62,6 +73,8 @@ pub const MAX_CRACKS: usize = 16;
 /// How far below the floor line the ground cover reaches, so a solid standing on the floor
 /// counts as buried there.
 const GROUND_DEPTH: f32 = 64.0;
+/// Thickness of the boundary slabs when nothing says otherwise, in pixels.
+pub const DEFAULT_BOUNDARY_THICKNESS: f32 = 48.0;
 
 /// Red, green and blue, each 0 to 1.
 pub type Rgb = (f32, f32, f32);
@@ -232,6 +245,73 @@ impl TerrainStyle {
     }
 }
 
+/// The base rate of speckles and cracks is `rock`'s; these scale it (1 keeps it, 0 removes
+/// them). The counts stay capped by `MAX_SPECKLES` and `MAX_CRACKS` whatever the density.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Density {
+    speckles: f32,
+    cracks: f32,
+}
+
+impl Default for Density {
+    fn default() -> Self {
+        Self {
+            speckles: 1.0,
+            cracks: 1.0,
+        }
+    }
+}
+
+/// A room's resolved look: the palette plus the numbers a preset adds to it. This is what
+/// `build_room` draws from (the preset catalog and a room's choices resolve to one).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Look {
+    pub palette: TerrainStyle,
+    /// Scales the speckles inside every solid; 1 is the base rate, 0 draws none.
+    pub speckle_density: f32,
+    /// Scales the cracks inside every solid, the same way.
+    pub crack_density: f32,
+    /// How thick the boundary slabs are, in pixels.
+    pub boundary_thickness: f32,
+    /// Whether the slabs around the room are drawn.
+    pub draw_boundary: bool,
+}
+
+impl Default for Look {
+    /// The default palette at the base densities, with the boundary drawn.
+    fn default() -> Self {
+        Self {
+            palette: TerrainStyle::default(),
+            speckle_density: 1.0,
+            crack_density: 1.0,
+            boundary_thickness: DEFAULT_BOUNDARY_THICKNESS,
+            draw_boundary: true,
+        }
+    }
+}
+
+impl Look {
+    fn density(&self) -> Density {
+        Density {
+            speckles: self.speckle_density,
+            cracks: self.crack_density,
+        }
+    }
+}
+
+/// What the draw list of one whole room is built from.
+#[derive(Clone, Copy, Debug)]
+pub struct RoomInputs<'a> {
+    pub room: RoomId,
+    /// The playable rectangle (`Room::bounds`).
+    pub bounds: Rect,
+    /// The top of the floor (`Room::floor_y`).
+    pub floor_y: f32,
+    /// Doorways are cut into the boundary at these.
+    pub exits: &'a [Exit],
+    pub solids: &'a [Rect],
+}
+
 /// Folds `value` into `seed` (SplitMix64 finalizer over a hash combine).
 fn mix(seed: u64, value: u64) -> u64 {
     let mut z = seed
@@ -294,6 +374,16 @@ pub fn build(
     ground: Option<Rect>,
     style: &TerrainStyle,
 ) -> Vec<Shape> {
+    build_list(room, solids, ground, style, Density::default())
+}
+
+fn build_list(
+    room: RoomId,
+    solids: &[Rect],
+    ground: Option<Rect>,
+    style: &TerrainStyle,
+    density: Density,
+) -> Vec<Shape> {
     let colors = colors::Colors::from_style(style);
     let cover: Vec<Rect> = ground.into_iter().collect();
     let mut fills = Vec::new();
@@ -301,32 +391,90 @@ pub fn build(
     for (index, solid) in solids.iter().enumerate().filter(|(_, s)| drawable(s)) {
         let seed = solid_seed(room, solid, style.seed_offset);
         let open = exposure(solids, index, &cover);
-        rock::fill_layer(*solid, &open, seed, &colors, &mut fills);
+        rock::fill_layer(*solid, &open, seed, &colors, density, &mut fills);
         rock::trim_layer(*solid, &open, seed, style, &colors, &mut trims);
     }
     fills.append(&mut trims);
     fills
 }
 
-/// The inputs a cached draw list was built from.
-#[derive(Clone, Debug, PartialEq)]
-struct Key {
-    room: RoomId,
-    solids: Vec<Rect>,
-    ground: Option<Rect>,
-    style: TerrainStyle,
+/// The slabs of the room's boundary and then its solids, as one list of solids. Without the
+/// boundary (or when it comes out empty) the floor line counts as ground instead, so a solid
+/// standing on the floor is still buried there.
+fn room_solids(inputs: &RoomInputs, look: &Look) -> (Vec<Rect>, Option<Rect>) {
+    let mut solids = if look.draw_boundary {
+        boundary_slabs(
+            inputs.bounds,
+            inputs.floor_y,
+            look.boundary_thickness,
+            inputs.exits,
+        )
+    } else {
+        Vec::new()
+    };
+    let ground = solids
+        .is_empty()
+        .then(|| ground_cover(inputs.bounds, inputs.floor_y));
+    solids.extend_from_slice(inputs.solids);
+    (solids, ground)
 }
 
-/// The last draw list and what it was built from. Asking again with the same room, solids,
-/// ground and palette returns the stored list; any change rebuilds it.
+/// The draw list for a whole room: the boundary slabs (when `look.draw_boundary` is on)
+/// and the solids, drawn by the same code so the boundary reads as part of the same rock.
+/// A room with no solids still draws its boundary; with the boundary off and no solids the
+/// list is empty. Deterministic: the same inputs always give the same list.
+pub fn build_room(inputs: &RoomInputs, look: &Look) -> Vec<Shape> {
+    room_list(inputs, look).0
+}
+
+/// The list for a whole room and whether it includes the boundary slabs.
+fn room_list(inputs: &RoomInputs, look: &Look) -> (Vec<Shape>, bool) {
+    let (solids, ground) = room_solids(inputs, look);
+    let shapes = build_list(inputs.room, &solids, ground, &look.palette, look.density());
+    // Ground cover stands in only when there are no slabs.
+    (shapes, ground.is_none())
+}
+
+/// The inputs a cached draw list was built from.
+#[derive(Clone, Debug, PartialEq)]
+enum Key {
+    Solids {
+        room: RoomId,
+        solids: Vec<Rect>,
+        ground: Option<Rect>,
+        style: TerrainStyle,
+    },
+    Room {
+        room: RoomId,
+        bounds: Rect,
+        floor_y: f32,
+        exits: Vec<Exit>,
+        solids: Vec<Rect>,
+        look: Look,
+    },
+}
+
+/// What `TerrainLook::room_shapes` hands back: the room's draw list and whether it includes
+/// the boundary slabs. It does not when the look turns the boundary off or no slab fits; the
+/// front end then draws its own floor and room outline.
+#[derive(Clone, Copy, Debug)]
+pub struct RoomShapes<'a> {
+    pub shapes: &'a [Shape],
+    pub boundary: bool,
+}
+
+/// The last draw list and what it was built from. Asking again with the same inputs returns
+/// the stored list; any change rebuilds it.
 #[derive(Debug, Default)]
 pub struct TerrainLook {
     key: Option<Key>,
     shapes: Vec<Shape>,
     builds: usize,
+    boundary: bool,
 }
 
 impl TerrainLook {
+    /// The solids only, with the default speckle and crack density and no boundary.
     pub fn shapes(
         &mut self,
         room: RoomId,
@@ -334,12 +482,13 @@ impl TerrainLook {
         ground: Option<Rect>,
         style: &TerrainStyle,
     ) -> &[Shape] {
-        let unchanged = self.key.as_ref().is_some_and(|key| {
-            key.room == room && key.solids == solids && key.ground == ground && key.style == *style
-        });
+        let unchanged = matches!(&self.key, Some(Key::Solids {
+            room: r, solids: s, ground: g, style: st,
+        }) if *r == room && s == solids && *g == ground && st == style);
         if !unchanged {
             self.shapes = build(room, solids, ground, style);
-            self.key = Some(Key {
+            self.boundary = false;
+            self.key = Some(Key::Solids {
                 room,
                 solids: solids.to_vec(),
                 ground,
@@ -348,6 +497,35 @@ impl TerrainLook {
             self.builds += 1;
         }
         &self.shapes
+    }
+
+    /// The whole room (see `build_room`), rebuilt only when the room, its bounds, floor,
+    /// exits, solids or look change.
+    pub fn room_shapes(&mut self, inputs: &RoomInputs, look: &Look) -> RoomShapes<'_> {
+        let unchanged = matches!(&self.key, Some(Key::Room {
+            room, bounds, floor_y, exits, solids, look: l,
+        }) if *room == inputs.room
+            && *bounds == inputs.bounds
+            && *floor_y == inputs.floor_y
+            && exits == inputs.exits
+            && solids == inputs.solids
+            && l == look);
+        if !unchanged {
+            (self.shapes, self.boundary) = room_list(inputs, look);
+            self.key = Some(Key::Room {
+                room: inputs.room,
+                bounds: inputs.bounds,
+                floor_y: inputs.floor_y,
+                exits: inputs.exits.to_vec(),
+                solids: inputs.solids.to_vec(),
+                look: *look,
+            });
+            self.builds += 1;
+        }
+        RoomShapes {
+            shapes: &self.shapes,
+            boundary: self.boundary,
+        }
     }
 
     /// How many times the list has been built (for tests and diagnostics).
