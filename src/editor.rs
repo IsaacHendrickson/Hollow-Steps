@@ -54,12 +54,12 @@ pub struct RoomLayout {
     /// Parallax background layers, back to front; absent in older room files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub background: Vec<crate::background::BackgroundLayer>,
-    /// Palette and switches for the terrain's look; absent (the default look) in older room files.
+    /// The terrain's look: a preset plus the room's overrides; absent in older room files.
     #[serde(
         default,
-        skip_serializing_if = "crate::terrain_style::TerrainStyle::is_default"
+        skip_serializing_if = "crate::terrain_styles::RoomStyle::is_default"
     )]
-    pub terrain_style: crate::terrain_style::TerrainStyle,
+    pub terrain_style: crate::terrain_styles::RoomStyle,
 }
 
 impl RoomLayout {
@@ -75,7 +75,7 @@ impl RoomLayout {
                 .map(|r| (r.x, r.y, r.w, r.h))
                 .collect(),
             background: room.background.clone(),
-            terrain_style: room.terrain_style,
+            terrain_style: room.terrain_style.clone(),
             items: room
                 .items
                 .iter()
@@ -174,7 +174,7 @@ impl RoomLayout {
         room.floor_y = self.floor_y;
         room.terrain = Terrain::from_tuples(&self.terrain);
         room.background = self.background.clone();
-        room.terrain_style = self.terrain_style;
+        room.terrain_style = self.terrain_style.clone();
         room.spawn = self.spawn.into();
         room.items = self
             .items

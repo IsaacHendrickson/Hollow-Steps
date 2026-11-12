@@ -1,5 +1,6 @@
-//! The terrain look's per-room palette through the public room API: defaults, loading,
-//! validation, the editor round trip and the game's room loader.
+//! A room's terrain look through the public room API: the style a room file carries (a preset
+//! plus overrides), defaults, loading, validation, the editor round trip and the game's room
+//! loader and reload.
 mod support;
 
 use hollow_steps::editor::{RoomDraft, RoomLayout};
@@ -7,9 +8,10 @@ use hollow_steps::enemy::EnemyDefinitions;
 use hollow_steps::game::GameState;
 use hollow_steps::room::{RoomEnemies, RoomId};
 use hollow_steps::terrain_style::{
-    build, ground_cover, Shape, TerrainStyle, DEFAULT_ACCENT, DEFAULT_EDGE, DEFAULT_FILL,
-    DEFAULT_HIGHLIGHT,
+    build, build_room, ground_cover, Look, RoomInputs, Shape, TerrainStyle, DEFAULT_ACCENT,
+    DEFAULT_EDGE, DEFAULT_FILL, DEFAULT_HIGHLIGHT,
 };
+use hollow_steps::terrain_styles::{RoomStyle, TerrainStyles};
 
 fn layout(name: &str) -> RoomLayout {
     let path = support::fixture_assets().join("terrain").join(name);
@@ -30,6 +32,13 @@ fn draft(layout: RoomLayout) -> RoomDraft {
 
 fn definitions() -> EnemyDefinitions {
     EnemyDefinitions::load(&support::fixture_assets()).expect("fixtures load")
+}
+
+/// What a room's style resolves to against the built-in presets.
+fn look_of(style: &RoomStyle) -> Look {
+    TerrainStyles::default()
+        .resolve(style)
+        .expect("the style resolves")
 }
 
 fn palette(fill: (f32, f32, f32)) -> TerrainStyle {
@@ -68,14 +77,17 @@ fn the_default_palette_is_the_part_one_look() {
 #[test]
 fn a_room_without_a_palette_draws_exactly_the_default_look() {
     let layout = layout("terrain_layout.ron");
-    assert_eq!(layout.terrain_style, TerrainStyle::default());
+    assert_eq!(layout.terrain_style, RoomStyle::default());
 
     let room = draft(layout)
         .build(RoomId::Custom(0), &definitions())
         .unwrap();
-    assert_eq!(room.terrain_style, TerrainStyle::default());
+    assert_eq!(room.terrain_style, RoomStyle::default());
+    // The default style is the stone preset, which is the original look.
+    let look = look_of(&room.terrain_style);
+    assert_eq!(look, Look::default());
     let ground = Some(ground_cover(room.bounds, room.floor_y));
-    let from_room = build(room.id, room.terrain.solids(), ground, &room.terrain_style);
+    let from_room = build(room.id, room.terrain.solids(), ground, &look.palette);
     let explicit = build(
         room.id,
         room.terrain.solids(),
@@ -97,7 +109,7 @@ fn a_room_without_a_palette_draws_exactly_the_default_look() {
 fn old_room_files_load_without_a_palette_and_saving_adds_none() {
     for name in ["legacy_layout.ron", "terrain_layout.ron"] {
         let old = layout(name);
-        assert_eq!(old.terrain_style, TerrainStyle::default(), "{name}");
+        assert_eq!(old.terrain_style, RoomStyle::default(), "{name}");
         old.validate_geometry().unwrap();
         assert!(
             !ron::to_string(&old).unwrap().contains("terrain_style"),
@@ -110,13 +122,22 @@ fn old_room_files_load_without_a_palette_and_saving_adds_none() {
 fn a_palette_loads_validates_and_survives_a_ron_round_trip() {
     let layout = styled();
     layout.validate_geometry().unwrap();
-    assert_eq!(layout.terrain_style.fill, (0.25, 0.5, 0.75));
-    assert_eq!(layout.terrain_style.edge, (0.0, 0.1, 0.2));
-    assert_eq!(layout.terrain_style.highlight, (1.0, 0.9, 0.8));
-    assert_eq!(layout.terrain_style.accent, (0.3, 0.6, 0.9));
+    assert_eq!(layout.terrain_style.fill, Some((0.25, 0.5, 0.75)));
+    assert_eq!(layout.terrain_style.edge, Some((0.0, 0.1, 0.2)));
+    assert_eq!(layout.terrain_style.highlight, Some((1.0, 0.9, 0.8)));
+    assert_eq!(layout.terrain_style.accent, Some((0.3, 0.6, 0.9)));
     assert_eq!(layout.terrain_style.seed_offset, 42);
-    assert!(!layout.terrain_style.moss);
+    assert_eq!(layout.terrain_style.moss, Some(false));
     assert!(!layout.terrain_style.is_default());
+    // The old palette format is a set of overrides over the original look, so the room draws
+    // exactly the palette it spelled out.
+    let palette = look_of(&layout.terrain_style).palette;
+    assert_eq!(palette.fill, (0.25, 0.5, 0.75));
+    assert_eq!(palette.edge, (0.0, 0.1, 0.2));
+    assert_eq!(palette.highlight, (1.0, 0.9, 0.8));
+    assert_eq!(palette.accent, (0.3, 0.6, 0.9));
+    assert_eq!(palette.seed_offset, 42);
+    assert!(!palette.moss);
 
     let text = ron::to_string(&layout).unwrap();
     assert!(text.contains("terrain_style"));
@@ -145,13 +166,13 @@ fn a_palette_may_name_only_what_it_changes() {
     let moss_off = with("(moss: false)").unwrap().terrain_style;
     assert_eq!(
         moss_off,
-        TerrainStyle {
-            moss: false,
-            ..TerrainStyle::default()
+        RoomStyle {
+            moss: Some(false),
+            ..RoomStyle::default()
         }
     );
     let empty = with("()").unwrap().terrain_style;
-    assert_eq!(empty, TerrainStyle::default());
+    assert_eq!(empty, RoomStyle::default());
     let error = with("(fil: (0.1, 0.1, 0.1))").unwrap_err().to_string();
     assert!(
         error.contains("fil"),
@@ -161,12 +182,12 @@ fn a_palette_may_name_only_what_it_changes() {
 
 #[test]
 fn validation_rejects_not_a_number_and_out_of_range_colors_naming_the_color() {
-    type Setter = fn(&mut TerrainStyle, (f32, f32, f32));
+    type Setter = fn(&mut RoomStyle, (f32, f32, f32));
     let setters: [(&str, Setter); 4] = [
-        ("fill", |s, c| s.fill = c),
-        ("edge", |s, c| s.edge = c),
-        ("highlight", |s, c| s.highlight = c),
-        ("accent", |s, c| s.accent = c),
+        ("fill", |s, c| s.fill = Some(c)),
+        ("edge", |s, c| s.edge = Some(c)),
+        ("highlight", |s, c| s.highlight = Some(c)),
+        ("accent", |s, c| s.accent = Some(c)),
     ];
     let bad_colors = [
         (f32::NAN, 0.5, 0.5),
@@ -180,7 +201,7 @@ fn validation_rejects_not_a_number_and_out_of_range_colors_naming_the_color() {
     ];
     for (name, set) in setters {
         for bad in bad_colors {
-            let mut style = TerrainStyle::default();
+            let mut style = RoomStyle::default();
             set(&mut style, bad);
             let error = style.validate().unwrap_err();
             assert!(error.contains(name), "{name} {bad:?}: {error}");
@@ -201,12 +222,12 @@ fn validation_rejects_not_a_number_and_out_of_range_colors_naming_the_color() {
 #[test]
 fn colors_on_the_range_limits_are_valid() {
     for edge in [0.0_f32, 1.0] {
-        let style = TerrainStyle {
-            fill: (edge, edge, edge),
-            edge: (edge, edge, edge),
-            highlight: (edge, edge, edge),
-            accent: (edge, edge, edge),
-            ..TerrainStyle::default()
+        let style = RoomStyle {
+            fill: Some((edge, edge, edge)),
+            edge: Some((edge, edge, edge)),
+            highlight: Some((edge, edge, edge)),
+            accent: Some((edge, edge, edge)),
+            ..RoomStyle::default()
         };
         style.validate().unwrap();
     }
@@ -244,7 +265,7 @@ fn the_palette_changes_the_draw_list() {
             room.id,
             room.terrain.solids(),
             Some(ground_cover(room.bounds, room.floor_y)),
-            &room.terrain_style,
+            &look_of(&room.terrain_style).palette,
         )
     };
 
@@ -260,7 +281,7 @@ fn the_palette_changes_the_draw_list() {
     assert_eq!(moss_blades(&warm_list, solids), 0, "moss is switched off");
     let mossy = TerrainStyle {
         moss: true,
-        ..warm.terrain_style
+        ..look_of(&warm.terrain_style).palette
     };
     let with_moss = build(warm.id, solids, None, &mossy);
     assert!(moss_blades(&with_moss, solids) > 0, "moss can grow here");
@@ -303,8 +324,143 @@ fn a_different_seed_offset_reshuffles_the_look_and_a_different_palette_recolors_
 #[test]
 fn the_game_loads_a_rooms_palette() {
     let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
-    // Shipped content: loading and validating only, no assertions about its layout. The first
-    // room ships with a palette of its own, which has to be valid for the game to start.
+    // Shipped content: loading and validating only, no assertions about its layout. Every room
+    // has to name a preset the game knows (and may override colors) for the game to start.
     let game = GameState::try_new(&assets).expect("shipped rooms must load and validate");
     game.room().terrain_style.validate().unwrap();
+    let rooms = hollow_steps::room::load_rooms(&assets).expect("shipped rooms load");
+    for room in &rooms {
+        game.terrain_styles()
+            .resolve(&room.terrain_style)
+            .unwrap_or_else(|error| panic!("{:?}: {error}", room.id));
+    }
+}
+
+fn inputs(room: &hollow_steps::room::Room) -> RoomInputs<'_> {
+    RoomInputs {
+        room: room.id,
+        bounds: room.bounds,
+        floor_y: room.floor_y,
+        exits: &room.exits,
+        solids: room.terrain.solids(),
+    }
+}
+
+#[test]
+fn old_room_files_draw_the_default_look_including_the_boundary() {
+    let definitions = definitions();
+    for name in ["legacy_layout.ron", "terrain_layout.ron"] {
+        let room = draft(layout(name))
+            .build(RoomId::Custom(0), &definitions)
+            .unwrap();
+        let look = look_of(&room.terrain_style);
+        assert_eq!(look, Look::default(), "{name}");
+        assert!(look.draw_boundary, "{name}: the boundary is on by default");
+
+        let with = build_room(&inputs(&room), &look);
+        let without = build_room(
+            &inputs(&room),
+            &Look {
+                draw_boundary: false,
+                ..look
+            },
+        );
+        assert!(with.len() > without.len(), "{name}: slabs add shapes");
+        // The walls and the ceiling are outside the playable rectangle, where nothing else is
+        // drawn (the solids of these rooms sit inside it).
+        let bounds = room.bounds;
+        let beyond = |shapes: &[Shape], left_of: bool| {
+            shapes.iter().any(|shape| {
+                let (_, high) = shape.bounds();
+                if left_of {
+                    high.0 <= bounds.x
+                } else {
+                    high.1 <= bounds.y
+                }
+            })
+        };
+        assert!(beyond(&with, true), "{name}: a wall left of the room");
+        assert!(beyond(&with, false), "{name}: a ceiling above the room");
+        assert!(!beyond(&without, true), "{name}");
+        assert!(!beyond(&without, false), "{name}");
+    }
+}
+
+#[test]
+fn a_preset_with_overrides_loads_and_the_override_beats_the_preset() {
+    let layout = layout("preset_layout.ron");
+    layout.validate_geometry().unwrap();
+    assert_eq!(layout.terrain_style.preset, "ruins");
+
+    let styles = TerrainStyles::default();
+    let ruins = styles
+        .preset("ruins")
+        .expect("the ruins preset is built in");
+    let look = styles.resolve(&layout.terrain_style).unwrap();
+    // The fill is the room's own; everything it does not name is the preset's.
+    assert_eq!(look.palette.fill, (0.5, 0.25, 0.125));
+    assert_ne!(look.palette.fill, ruins.fill);
+    assert_eq!(look.palette.edge, ruins.edge);
+    assert_eq!(look.palette.highlight, ruins.highlight);
+    assert_eq!(look.palette.accent, ruins.accent);
+    assert_eq!(look.speckle_density, ruins.speckle_density);
+    assert_eq!(look.crack_density, ruins.crack_density);
+    assert_eq!(look.boundary_thickness, ruins.boundary_thickness);
+    // The preset has no moss, the room switches it on, and the offset and boundary are the room's.
+    assert!(!ruins.moss);
+    assert!(look.palette.moss);
+    assert_eq!(look.palette.seed_offset, 5);
+    assert!(!look.draw_boundary);
+
+    // It survives the editor's round trip and writes only what the room changed.
+    let text = ron::to_string(&layout).unwrap();
+    let back: RoomLayout = ron::from_str(&text).unwrap();
+    assert_eq!(back, layout);
+    assert!(text.contains("\"ruins\""), "{text}");
+}
+
+#[test]
+fn the_editor_save_keeps_the_preset_and_writes_nothing_for_the_default() {
+    let definitions = definitions();
+    let plain = draft(layout("terrain_layout.ron"))
+        .serialize(&definitions, &[])
+        .unwrap();
+    assert!(!plain.contains("terrain_style"), "{plain}");
+
+    let text = draft(layout("preset_layout.ron"))
+        .serialize(&definitions, &[])
+        .unwrap();
+    let saved: RoomEnemies = ron::from_str(&text).unwrap();
+    let style = saved.layout.unwrap().terrain_style;
+    assert_eq!(style, layout("preset_layout.ron").terrain_style);
+    assert_eq!(style.preset, "ruins");
+
+    // A style that only names a preset is the whole of what is written for it.
+    let mut named = layout("terrain_layout.ron");
+    named.terrain_style = RoomStyle::named("cave");
+    let text = draft(named).serialize(&definitions, &[]).unwrap();
+    assert!(text.contains("terrain_style"), "{text}");
+    let saved: RoomEnemies = ron::from_str(&text).unwrap();
+    assert_eq!(
+        saved.layout.unwrap().terrain_style,
+        RoomStyle::named("cave")
+    );
+}
+
+#[test]
+fn every_built_in_preset_gives_a_valid_room_look_with_a_different_picture() {
+    let definitions = definitions();
+    let room = draft(layout("terrain_layout.ron"))
+        .build(RoomId::Custom(0), &definitions)
+        .unwrap();
+    let styles = TerrainStyles::default();
+    let mut seen = Vec::new();
+    for name in styles.names() {
+        let look = styles.resolve(&RoomStyle::named(name)).unwrap();
+        let list = build_room(&inputs(&room), &look);
+        assert!(!list.is_empty(), "{name}");
+        assert!(!seen.contains(&list), "{name} looks like another preset");
+        seen.push(list);
+    }
+    assert!(seen.len() >= 4, "stone, mossy, cave and ruins are shipped");
 }

@@ -29,7 +29,6 @@
 //! solids, its exits, the ground or the look change.
 
 use macroquad::math::Rect;
-use serde::{Deserialize, Serialize};
 
 use crate::particles::Rng;
 use crate::room::{Exit, RoomId};
@@ -80,8 +79,8 @@ pub const DEFAULT_BOUNDARY_THICKNESS: f32 = 48.0;
 pub type Rgb = (f32, f32, f32);
 pub type Point = (f32, f32);
 
-/// The look when a room has no palette of its own: the dark blue-grey of the original flat
-/// terrain, its pale blue rim as the lit top, a near-black edge and a mossy green accent.
+/// The original look, and the `stone` preset's: the dark blue-grey of the first flat terrain,
+/// its pale blue rim as the lit top, a near-black edge and a mossy green accent.
 pub const DEFAULT_FILL: Rgb = (0.133, 0.145, 0.227);
 pub const DEFAULT_EDGE: Rgb = (0.051, 0.055, 0.102);
 pub const DEFAULT_HIGHLIGHT: Rgb = (0.435, 0.478, 0.643);
@@ -185,11 +184,9 @@ impl Shape {
     }
 }
 
-/// A room's terrain palette and switches, the room file's `layout.terrain_style`. Every field
-/// is optional there and falls back to the default look, so older room files load unchanged
-/// and a palette may name only what it changes.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+/// The palette a look draws with: what a room's preset and its own overrides resolve to (see
+/// `terrain_styles`). The default is the original dark blue-grey look.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TerrainStyle {
     /// The middle band of every solid; the other bands are derived from it.
     pub fill: Rgb,
@@ -219,7 +216,7 @@ impl Default for TerrainStyle {
 }
 
 impl TerrainStyle {
-    /// True for the look a room gets without a palette (it is left out of saved room files).
+    /// True for the original look.
     pub fn is_default(&self) -> bool {
         *self == Self::default()
     }

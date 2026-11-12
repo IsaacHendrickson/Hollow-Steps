@@ -1,0 +1,22 @@
+// Fixed terrain fixture with a preset. Do not synchronize with editable assets.
+// Same solids as terrain_layout.ron; the "ruins" preset with the fill color overridden, moss
+// switched on (the preset has none), a seed offset and the boundary off.
+(
+    bounds: (0.0, 0.0, 960.0, 460.0),
+    floor_y: 460.0,
+    spawn: (50.0, 436.0),
+    terrain: [
+        (300.0, 380.0, 120.0, 20.0),
+        (600.0, 300.0, 20.0, 160.0),
+        (100.0, 340.0, 100.0, 20.0),
+    ],
+    items: [],
+    exits: [],
+    terrain_style: (
+        preset: "ruins",
+        fill: (0.5, 0.25, 0.125),
+        moss: true,
+        seed_offset: 5,
+        draw_boundary: false,
+    ),
+)

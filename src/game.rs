@@ -30,6 +30,7 @@ mod hud_loss_tests;
 mod located_event_tests;
 #[cfg(test)]
 mod strike_tests;
+mod terrain_link;
 mod test_room;
 #[cfg(test)]
 mod tests;
@@ -52,6 +53,7 @@ pub struct GameState {
     rooms: Vec<Room>,
     editor: Option<EditorSession>,
     assets: PathBuf,
+    terrain_styles: crate::terrain_styles::TerrainStyles,
     /// Index into `rooms` of the room being played. Rooms keep their positions, except that
     /// `save_editor` rebuilds the list and recomputes this.
     current: usize,
@@ -97,6 +99,7 @@ impl GameState {
 
         Ok(Self {
             player,
+            terrain_styles: terrain_link::load(assets, &rooms)?, // before `rooms` moves
             rooms,
             editor: None,
             assets: assets.to_owned(),
@@ -356,6 +359,7 @@ impl GameState {
         let definitions = EnemyDefinitions::load(&self.assets)?;
         rooms.extend(editor::load_extra_rooms(&self.assets, &definitions)?);
         Self::validate_destinations(&rooms, &definitions)?;
+        let terrain_styles = terrain_link::load(&self.assets, &rooms)?;
         for mut reloaded in rooms {
             if let Some(current) = self.rooms.iter_mut().find(|room| room.id == reloaded.id) {
                 // Prefer exact placements before matching moved placements by name/occurrence.
@@ -380,8 +384,9 @@ impl GameState {
                     }
                 }
                 current.enemies = std::mem::take(&mut reloaded.enemies);
-                // Layers are only a picture, so a reload can swap them without moving anything.
+                // The layers and the terrain look are only a picture, so a reload can swap them.
                 current.background = std::mem::take(&mut reloaded.background);
+                current.terrain_style = std::mem::take(&mut reloaded.terrain_style);
                 let same_boss = match (&current.boss_special, &reloaded.boss_special) {
                     (Some(current), Some(reloaded)) => current.same_definition(reloaded),
                     (None, None) => true,
@@ -395,6 +400,7 @@ impl GameState {
             }
         }
         self.set_tuning(tuning)?;
+        self.terrain_styles = terrain_styles;
         self.saved_tuning = tuning;
         self.feel.set_config(feel);
         self.vitals.set_config(vitals);

@@ -59,9 +59,9 @@ the floor top, the stalactites and whatever slab shows beyond a room edge that i
 the view (room 1 is 460 px tall, so its ceiling and floor slabs show in the bands above and
 below); a room smaller than the view, and the editor canvas, show the whole frame.
 
-`Look` is the resolved look `build_room` draws from: the palette plus `speckle_density` and
-`crack_density` (1 is the base rate, 0 draws none; the 256 and 16 caps still hold),
-`boundary_thickness` and `draw_boundary`. A thickness that is not a positive finite number
+`Look` is the resolved look `build_room` draws from (a preset plus the room's own choices, see
+below): the palette plus `speckle_density` and `crack_density` (1 is the base rate, 0 draws
+none; the 256 and 16 caps still hold), `boundary_thickness` and `draw_boundary`. A thickness that is not a positive finite number
 gives no slabs and the room falls back to ground cover, exactly like `draw_boundary: false`.
 
 ### Determinism
@@ -74,25 +74,74 @@ The generator is `particles::Rng`; nothing reads the clock.
 
 The draw list stays within 6 px above a solid, 12 px below it and never past its sides.
 
-### Palette: `layout.terrain_style`
+### Presets and the room's style
 
-Optional in a room file; every field is optional too, and anything missing is the default look
-(the dark blue-grey of the original flat terrain). A default palette is not written back when
-the editor saves.
+A room's look is a **preset** plus what the room changes about it.
+
+`data/terrain_styles.ron` is the catalog of presets, built into the game. An
+`assets/terrain_styles.ron` replaces it whole (the same rule as the other `data/*.ron` files); a
+bad file stops the game from loading, and F5 keeps the old presets and names the file. Each
+preset is a name and a complete look:
+
+```ron
+(
+    presets: [
+        (
+            name: "cave",
+            fill: (0.235, 0.165, 0.125),       // each color is (red, green, blue), 0 to 1
+            edge: (0.075, 0.045, 0.035),       // outline
+            highlight: (0.800, 0.580, 0.340),  // lit top strip and lip
+            accent: (0.420, 0.620, 0.260),     // moss and some speckles
+            moss: true,
+            speckle_density: 1.5,              // 1 is the base rate, 0 to 10
+            crack_density: 1.2,
+            boundary_thickness: 64.0,          // pixels, more than 0 and at most 512
+        ),
+        // ...
+    ],
+)
+```
+
+Shipped presets: **stone** (the original dark blue-grey look, and the default), **mossy**,
+**cave** (warm brown) and **ruins** (pale masonry, no moss, many cracks). Names must be unique
+and not blank, there must be at least one preset, and every number must be finite and in range.
+
+`layout.terrain_style` in a room file is optional, and so is every field of it:
 
 ```ron
 terrain_style: (
-    fill: (0.235, 0.165, 0.125),       // each color is (red, green, blue), 0 to 1
-    edge: (0.075, 0.045, 0.035),       // outline
-    highlight: (0.800, 0.580, 0.340),  // lit top strip and lip
-    accent: (0.420, 0.620, 0.260),     // moss and some speckles
-    seed_offset: 7,                    // change it to reshuffle this room's speckles and moss
-    moss: true,
+    preset: "cave",          // a name from the catalog; "stone" when left out
+    fill: (0.3, 0.2, 0.1),   // optional color overrides: fill, edge, highlight, accent
+    moss: false,             // optional: switches the preset's moss on or off
+    seed_offset: 7,          // reshuffles this room's speckles and moss
+    draw_boundary: true,     // false: no slabs around the room; true when left out
 ),
 ```
 
-Colors must be finite and between 0 and 1; a bad one is a load error naming the file and the
-color. The editor has no controls for the palette yet: edit the file and press F5.
+The look is the preset, then each override the room names on top of it (a color the room names
+beats the preset's), plus the room's `seed_offset` and `draw_boundary`. Density and boundary
+thickness come from the preset only. A room that says nothing gets `stone` with the boundary
+on, which is the look rooms had before presets existed. The default style is not written back
+when the editor saves, and a style writes only what differs from it (a room that only picks a
+preset saves as `terrain_style: (preset: "cave")`).
+
+Room files from before presets spelled a palette as `fill`, `edge`, `highlight`, `accent`,
+`seed_offset` and `moss` (bare values). Those fields are overrides now, over `stone`, whose
+numbers are the old defaults, so an old room draws exactly what it drew before. `Some(..)` and
+`None` are accepted as well as bare values.
+
+Loading checks every room against the catalog. An unknown preset is an error naming the room
+file and listing the presets the game has (`terrain_style: unknown preset "granite"; known
+presets: stone, mossy, cave, ruins`); a color that is not finite or not between 0 and 1 is an
+error naming the file and the color; unknown fields are errors too. The game never silently
+draws another look for a room it could not resolve. The same checks run on F5, where the room's
+style and the catalog are swapped in together or not at all.
+
+Code: `src/terrain_styles.rs` (`TerrainPreset`, `TerrainStyles` with `load`, `validate` and
+`resolve`, and `RoomStyle`, the type of `layout.terrain_style`); `src/game/terrain_link.rs`
+(loads the catalog with the rooms and checks each room against it);
+`TerrainStyles::resolve(&room.terrain_style)` gives the `Look`. The editor has no controls for
+the style yet: edit the room file and press F5.
 
 ### Drawing and caching
 
@@ -113,7 +162,7 @@ space through the camera, with no window-size pixel constants.
 
 Nothing here can be checked without a window. Run `cargo run`:
 
-1. **Platform tops** (first room, warm palette): each platform has a tan lit top with a gently
+1. **Platform tops** (first room, the `cave` preset): each platform has a tan lit top with a gently
    jagged lip, green moss tufts, a dark outline down the sides and under the bottom, short
    stalactites hanging below, and speckles and cracks inside. Walk along the tops and jump
    on and off: feet rest on the flat top line, the lip and moss poke up behind the player, and
@@ -133,9 +182,13 @@ Nothing here can be checked without a window. Run `cargo run`:
 6. **Collision feels identical**: jump height, landing, dash distance and stopping at walls and
    ceilings are the same as on `main` (collision code is untouched).
 7. **Editor view**: with F2 open, solids are still plain rectangles with their handles.
-8. **Palette**: in `assets/rooms/first.ron` set `moss: false` or change `seed_offset`, press
-   F5 and see the look change; set a color to `1.5` and F5 shows a load error naming the file
-   and the color. A room with solids and no palette shows the default dark blue-grey look.
+8. **Presets**: in `assets/rooms/first.ron` change `preset` to `stone`, `mossy` and `ruins` in
+   turn, pressing F5 each time: the colors, moss, speckle and crack density and the thickness
+   of the boundary change with it. Put `fill: (1.0, 0.0, 0.0)` under it and the fill turns red
+   while the rest stays the preset's. Set `preset: "granite"` and F5 shows a load error naming
+   the file and the known presets (the game keeps the old look); set a color to `1.5` and F5
+   names the color. A room with solids and no style shows the default dark blue-grey look
+   with the boundary.
 9. **Boundary**: in the first room look at the bands above and below the playable area: a
    ceiling slab with stalactites hanging into the room and a floor slab whose top has the lit
    strip, lip and moss, all in the room's palette. In the second room (800x360, smaller than the

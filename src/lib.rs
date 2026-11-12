@@ -47,6 +47,7 @@ pub mod search;
 pub mod sound;
 pub mod terrain;
 pub mod terrain_style;
+pub mod terrain_styles;
 pub mod timestep;
 pub mod tuning;
 mod tuning_fields;

@@ -8,7 +8,7 @@ use hollow_steps::game::GameState;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player_body::PlayerBody;
 use hollow_steps::room::Room;
-use hollow_steps::terrain_style::{Look, RoomInputs, TerrainLook};
+use hollow_steps::terrain_style::{RoomInputs, TerrainLook};
 use macroquad::prelude::*;
 
 use crate::{body_draw, terrain_draw};
@@ -39,10 +39,9 @@ pub fn draw_scene(
         exits: &room.exits,
         solids: room.terrain.solids(),
     };
-    let look = Look {
-        palette: room.terrain_style,
-        ..Look::default()
-    };
+    let look = game
+        .terrain_styles()
+        .resolve_or_default(&room.terrain_style);
     let terrain = terrain_look.room_shapes(&inputs, &look);
     if !terrain.boundary {
         // Without the boundary slabs the floor is the flat strip it always was.

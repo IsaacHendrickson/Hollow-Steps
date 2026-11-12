@@ -1,0 +1,67 @@
+// The looks a room can pick for its terrain and its boundary (`layout.terrain_style.preset` in
+// a room file, or the "Room look" section of the room editor). A file with this name in the
+// assets folder replaces this one whole, so keep "stone": rooms that name no preset use it.
+//
+// Every preset is a name plus:
+//   fill, edge, highlight, accent  colors as (red, green, blue), each 0 to 1:
+//                                  fill = the rock, edge = its dark outline,
+//                                  highlight = the lit strip on an open top, accent = moss
+//                                  and some speckles
+//   moss                           whether moss grows on open tops
+//   speckle_density, crack_density how many speckles and cracks the rock gets: 1 is the
+//                                  base rate, 0 none, at most 10 (the per-solid caps hold)
+//   boundary_thickness             how thick the slabs around the room are, in pixels
+//                                  (more than 0, at most 512)
+// A room can override the four colors and the moss switch for itself; the rest comes from here.
+(
+    presets: [
+        // The original dark blue-grey look. Rooms without a terrain_style draw exactly this.
+        (
+            name: "stone",
+            fill: (0.133, 0.145, 0.227),
+            edge: (0.051, 0.055, 0.102),
+            highlight: (0.435, 0.478, 0.643),
+            accent: (0.286, 0.545, 0.443),
+            moss: true,
+            speckle_density: 1.0,
+            crack_density: 1.0,
+            boundary_thickness: 48.0,
+        ),
+        // Green-tinted stone, damp and overgrown: lots of speckles, few cracks.
+        (
+            name: "mossy",
+            fill: (0.118, 0.180, 0.153),
+            edge: (0.035, 0.075, 0.059),
+            highlight: (0.455, 0.620, 0.376),
+            accent: (0.357, 0.718, 0.322),
+            moss: true,
+            speckle_density: 1.4,
+            crack_density: 0.6,
+            boundary_thickness: 48.0,
+        ),
+        // Warm packed earth with a tan lit top, thick walls and a rough, speckled grain.
+        (
+            name: "cave",
+            fill: (0.235, 0.165, 0.125),
+            edge: (0.075, 0.045, 0.035),
+            highlight: (0.800, 0.580, 0.340),
+            accent: (0.420, 0.620, 0.260),
+            moss: true,
+            speckle_density: 1.5,
+            crack_density: 1.2,
+            boundary_thickness: 64.0,
+        ),
+        // Pale weathered masonry: no moss, many cracks, slimmer walls.
+        (
+            name: "ruins",
+            fill: (0.341, 0.318, 0.290),
+            edge: (0.114, 0.102, 0.094),
+            highlight: (0.725, 0.682, 0.588),
+            accent: (0.451, 0.545, 0.337),
+            moss: false,
+            speckle_density: 0.8,
+            crack_density: 2.2,
+            boundary_thickness: 40.0,
+        ),
+    ],
+)
