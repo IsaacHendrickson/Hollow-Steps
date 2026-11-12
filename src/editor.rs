@@ -54,6 +54,12 @@ pub struct RoomLayout {
     /// Parallax background layers, back to front; absent in older room files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub background: Vec<crate::background::BackgroundLayer>,
+    /// Palette and switches for the terrain's look; absent (the default look) in older room files.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::terrain_style::TerrainStyle::is_default"
+    )]
+    pub terrain_style: crate::terrain_style::TerrainStyle,
 }
 
 impl RoomLayout {
@@ -69,6 +75,7 @@ impl RoomLayout {
                 .map(|r| (r.x, r.y, r.w, r.h))
                 .collect(),
             background: room.background.clone(),
+            terrain_style: room.terrain_style,
             items: room
                 .items
                 .iter()
@@ -124,6 +131,7 @@ impl RoomLayout {
         }
         Terrain::validate(&self.terrain, self.rect())?;
         crate::background::validate(&self.background)?;
+        self.terrain_style.validate()?;
         let terrain = Terrain::from_tuples(&self.terrain);
         if !self.contains_body(self.spawn, Vec2::new(32.0, 48.0)) {
             return Err("spawn must keep the player's body inside the room above the floor".into());
@@ -166,6 +174,7 @@ impl RoomLayout {
         room.floor_y = self.floor_y;
         room.terrain = Terrain::from_tuples(&self.terrain);
         room.background = self.background.clone();
+        room.terrain_style = self.terrain_style;
         room.spawn = self.spawn.into();
         room.items = self
             .items
@@ -486,6 +495,7 @@ impl RoomDraft {
             bounds: self.layout.rect(),
             floor_y: self.layout.floor_y,
             terrain: Default::default(),
+            terrain_style: Default::default(),
             background: Vec::new(),
             spawn: self.layout.spawn.into(),
             enemies: self

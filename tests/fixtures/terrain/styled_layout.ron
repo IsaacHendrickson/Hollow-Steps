@@ -1,0 +1,22 @@
+// Fixed terrain fixture with its own palette. Do not synchronize with editable assets.
+// Same solids as terrain_layout.ron; warm palette, a seed offset and moss off.
+(
+    bounds: (0.0, 0.0, 960.0, 460.0),
+    floor_y: 460.0,
+    spawn: (50.0, 436.0),
+    terrain: [
+        (300.0, 380.0, 120.0, 20.0),
+        (600.0, 300.0, 20.0, 160.0),
+        (100.0, 340.0, 100.0, 20.0),
+    ],
+    items: [],
+    exits: [],
+    terrain_style: (
+        fill: (0.25, 0.5, 0.75),
+        edge: (0.0, 0.1, 0.2),
+        highlight: (1.0, 0.9, 0.8),
+        accent: (0.3, 0.6, 0.9),
+        seed_offset: 42,
+        moss: false,
+    ),
+)
