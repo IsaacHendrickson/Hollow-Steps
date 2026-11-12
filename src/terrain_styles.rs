@@ -25,6 +25,8 @@ use crate::terrain_style::{
 };
 
 #[cfg(test)]
+mod style_tests;
+#[cfg(test)]
 mod tests;
 
 /// Name of the optional file in the assets folder that replaces the embedded presets.

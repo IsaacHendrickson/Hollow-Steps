@@ -140,8 +140,41 @@ style and the catalog are swapped in together or not at all.
 Code: `src/terrain_styles.rs` (`TerrainPreset`, `TerrainStyles` with `load`, `validate` and
 `resolve`, and `RoomStyle`, the type of `layout.terrain_style`); `src/game/terrain_link.rs`
 (loads the catalog with the rooms and checks each room against it);
-`TerrainStyles::resolve(&room.terrain_style)` gives the `Look`. The editor has no controls for
-the style yet: edit the room file and press F5.
+`TerrainStyles::resolve(&room.terrain_style)` gives the `Look`.
+
+### Editing the look in the room editor
+
+The room editor's **Room look** section (Room tools panel, under Room size) edits the open
+room's `terrain_style`:
+
+- **Preset**: a dropdown of the presets in `data/terrain_styles.ron` (or the assets override).
+  Choosing another preset clears the room's color and moss overrides; the seed offset and the
+  boundary switch stay. Choosing the one already chosen does nothing.
+- **Fill, Edge, Highlight, Accent**: a color button each (click it for the picker) with a
+  **Reset** that goes back to the preset's color; Reset is greyed out while the color is the
+  preset's. A color picked equal to the preset's is no override.
+- **Moss**: shows what the room will draw (the preset's, or the room's own choice).
+- **Draw boundary**: the slabs around the room, a picture only.
+- **Seed offset** (a drag box) and **Reroll**, which moves to the next seed and so reshuffles
+  the speckles, cracks and moss.
+
+Every control edits the draft (`RoomDraft::set_look_preset`, `set_look_color`,
+`reset_look_color`, `set_look_moss`, `set_draw_boundary`, `set_seed_offset`, `reroll_seed` in
+`src/editor_look.rs`, checked against the presets), marks the room unsaved, and is covered by
+undo and redo. A choice, a checkbox, a typed value or a Reroll is one step; dragging in the
+color picker or on the seed box is **one** step from the first change to the release. Opening
+the picker is not an edit. Save writes only what differs from the default style, and **Test
+room (F6)** plays the unsaved look.
+
+The canvas shows the room with this look: the same draw list as the game
+(`editor_look::LookPreview::shapes` calls `TerrainLook::room_shapes` with the same inputs and the
+same room id, so the preview, the test room and the played room draw the same picture), drawn
+through the canvas zoom and pan by `terrain_draw::draw_shapes_mapped`, and rebuilt only when the
+look, the terrain, the bounds or the exits change. The room outline and the grid are drawn over
+it; the selected solid gets its white outline and handles, and the Erase tool its red highlight.
+In the arrival-spawn view the other room is drawn with its own style. A preset the catalog does
+not have (only possible if the presets file changed under the editor) is shown in the panel and
+the canvas draws the default look until another preset is chosen.
 
 ### Drawing and caching
 
@@ -151,7 +184,8 @@ rebuilds only when one of them changes; `room_shapes` also says whether the boun
 list. `scene.rs` draws it through the world camera and `terrain_draw.rs` skips shapes outside
 the view. The list is drawn directly each frame; it is not baked into a texture, because a
 texture would have to cover the whole room (rooms may be larger than the screen) and could
-blur or seam under the follow camera. The room editor keeps drawing solids as plain rectangles.
+blur or seam under the follow camera. The room editor draws the same list through its canvas
+transform (see above), with its own cache.
 
 Draw order in `scene.rs`: clear, background layers, the boundary and solids (one list; the old
 flat floor strip and room outline only when the boundary is off), exits, items and coins,
@@ -181,7 +215,9 @@ Nothing here can be checked without a window. Run `cargo run`:
    than the screen, walk to each edge: nothing pops in or out at the screen border.
 6. **Collision feels identical**: jump height, landing, dash distance and stopping at walls and
    ceilings are the same as on `main` (collision code is untouched).
-7. **Editor view**: with F2 open, solids are still plain rectangles with their handles.
+7. **Editor view**: with F2 open, the solids and the boundary show the room's look (the same
+   picture as in play), the room outline and grid are drawn over it, and a selected solid has
+   its white outline and handles.
 8. **Presets**: in `assets/rooms/first.ron` change `preset` to `stone`, `mossy` and `ruins` in
    turn, pressing F5 each time: the colors, moss, speckle and crack density and the thickness
    of the boundary change with it. Put `fill: (1.0, 0.0, 0.0)` under it and the fill turns red
@@ -197,3 +233,24 @@ Nothing here can be checked without a window. Run `cargo run`:
 10. **Boundary and platforms**: a platform standing on the floor has no outline along its foot,
     and a platform touching a wall has no outline along the join.
 11. **Speed**: no visible slowdown with several large solids and the boundary on screen.
+12. **Room edges**: look at all four edges of a room (in the editor, zoomed out, and in play):
+    ceiling, left and right walls and floor each show the frame, seams between the slabs have
+    no outline, and nothing is drawn over the playable area.
+13. **Exits**: every exit still shows its doorway in the frame and the teal exit zone sits in
+    the gap; walk through each one in play and in the editor's Test room: it is usable.
+14. **Room look in the editor** (F2, Room look section): switch through every preset and watch
+    the canvas change at once; drag in a color's picker and watch it follow; Reset puts the
+    preset's color back; toggle Moss and Draw boundary; drag the Seed offset box and press
+    Reroll. Opening a picker and closing it again changes nothing and does not mark the room
+    unsaved.
+15. **Undo of the look**: after changing a color (one drag), the preset and the seed, Ctrl+Z
+    steps back one change at a time: a whole color drag comes back in one step. Ctrl+Y redoes.
+16. **Zoom and pan**: zoom and pan the canvas with the look showing: the picture stays glued to
+    the room, the speckles do not crawl and no seams show.
+17. **Test room**: press F6: the room has the same look (colors, moss, speckles, boundary) as
+    the canvas, including unsaved edits; F2 returns to the editor with the same look.
+18. **Save and reload**: save, press F5 or restart: the room keeps its preset, colors, seed and
+    boundary choice. A room left at the default look writes no `terrain_style`.
+19. **Window resize** in the editor: the canvas refits and the look is not clipped oddly.
+20. **Collision identical**: the boundary is only a picture; the player collides with the same
+    walls, floor and solids as before.

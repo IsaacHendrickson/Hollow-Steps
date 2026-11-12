@@ -22,6 +22,8 @@ pub mod definition_editor;
 pub mod editor;
 pub mod editor_guard;
 pub mod editor_history;
+pub mod editor_look;
+pub mod editor_session;
 pub mod editor_terrain;
 pub mod editor_tools;
 pub mod editor_view;

@@ -2,8 +2,8 @@
 //! frame loop). `EditorUi` is everything the editor remembers between frames that is not part
 //! of the edited room; `draw_editor` runs one editor frame.
 
-use crate::editor_panel::{BossPropertyUi, PropertyUi};
-use crate::{body_draw, editor_panel, editor_visuals, terrain_canvas};
+use crate::editor_panel::{BossPropertyUi, LookUi, PropertyUi};
+use crate::{body_draw, editor_panel, editor_visuals, terrain_canvas, terrain_draw};
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
 use hollow_steps::editor_history::{shortcut, tracked, History};
@@ -48,6 +48,8 @@ pub(crate) struct EditorUi {
     /// Undo and redo for the draft; reset with the rest of this state when a room is opened
     /// or created.
     pub(crate) history: History,
+    /// The Room look section's drag state and the canvas preview's cached draw list.
+    pub(crate) look: LookUi,
 }
 
 impl EditorUi {
@@ -194,7 +196,7 @@ pub(crate) fn draw_editor(
     let test = panel.test && !state.guard.is_open();
     let open = panel.open;
 
-    let layout = state
+    let (layout_room, layout) = state
         .destination
         .and_then(|i| editor.draft.layout.exits.get(i))
         .and_then(|exit| {
@@ -202,9 +204,8 @@ pub(crate) fn draw_editor(
                 .catalog()
                 .into_iter()
                 .find(|(id, _)| *id == exit.target_room)
-                .map(|(_, layout)| layout)
         })
-        .unwrap_or_else(|| editor.draft.layout.clone());
+        .unwrap_or_else(|| (editor.id, editor.draft.layout.clone()));
     // The status message is wrapped first: its line count sets the footer height, which
     // sets the canvas viewport. The wrap width depends only on the window and panel width.
     let window = vec2(screen_width(), screen_height());
@@ -251,18 +252,27 @@ pub(crate) fn draw_editor(
     // While a pan is in progress the left button belongs to it, not to the markers.
     let panning = state.pan.is_panning();
     let area = canvas.rect(layout.rect());
+    // The part of the room in the viewport, in world coordinates.
+    let top_left = canvas.world(regions.viewport.point());
+    let seen = Rect::new(
+        top_left.x,
+        top_left.y,
+        regions.viewport.w / canvas.scale,
+        regions.viewport.h / canvas.scale,
+    );
+    // The room as the game draws it: the same draw list, through the canvas zoom and pan, kept
+    // until the look or the terrain changes. The outline and grid go over it.
+    let look_shapes = state
+        .look
+        .preview
+        .shapes(layout_room, &layout, &editor.styles);
+    terrain_draw::draw_shapes_mapped(look_shapes.shapes, seen, canvas.scale, |p| canvas.screen(p));
+    let styled = !look_shapes.shapes.is_empty();
     draw_rectangle_lines(area.x, area.y, area.w, area.h, 2.0, LIGHTGRAY);
     // Grid lines start at the room's corner so they line up with its edges, and snapping
     // uses the same origin.
     let origin = layout.rect().point();
     if let Some(step) = state.grid.line_step(canvas.scale) {
-        let top_left = canvas.world(regions.viewport.point());
-        let seen = Rect::new(
-            top_left.x,
-            top_left.y,
-            regions.viewport.w / canvas.scale,
-            regions.viewport.h / canvas.scale,
-        );
         if let Some(visible) = layout.rect().intersect(seen) {
             let from = canvas.screen(visible.point());
             let to = canvas.screen(vec2(visible.right(), visible.bottom()));
@@ -413,7 +423,7 @@ pub(crate) fn draw_editor(
     }
     let erase_target =
         terrain_canvas::erase_target(state, editor, &markers, world).filter(|_| over_canvas);
-    terrain_canvas::draw(state, &layout, &canvas, erase_target);
+    terrain_canvas::draw(state, &layout, &canvas, erase_target, styled);
     // Recomputed after this frame's edits. Enemies and the boss are drawn at their visual size
     // under their hitbox outline.
     let drawn = editor_markers(editor, state.destination, state.selected);
