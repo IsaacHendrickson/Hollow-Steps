@@ -15,9 +15,11 @@ mod history_panel;
 mod key_values;
 mod look_panel;
 mod movement_field;
+mod name_dialog;
 #[cfg(test)]
 mod panel_tests;
 mod property;
+mod room_name_field;
 mod room_tools;
 mod states;
 #[cfg(test)]
@@ -30,10 +32,11 @@ pub(super) use boss::{draw_boss_panel, BossPropertyUi};
 use entity::{draw_definition_panel, pending_error};
 pub(super) use history_panel::apply_history;
 pub(super) use look_panel::LookUi;
+pub(super) use name_dialog::{draw_name_dialog, NameChoice};
 pub(super) use property::PropertyUi;
 use room_tools::draw_room_tools;
 pub(super) use tool_panel::choose_tool;
-pub(super) use unsaved_dialog::draw_unsaved_dialog;
+pub(super) use unsaved_dialog::draw_unsaved_dialog_titled;
 use widgets::{panel_button, panel_label, probe};
 
 pub(super) struct PanelResponse {
@@ -58,11 +61,7 @@ pub(super) fn draw_panel(
         .into_iter()
         .map(|(name, _)| name)
         .collect::<Vec<_>>();
-    let room_labels = editor
-        .rooms
-        .iter()
-        .map(|(id, _)| format!("{id:?}"))
-        .collect::<Vec<_>>();
+    let room_labels = editor.room_labels();
     let names = &definitions;
     let mut save = false;
     let mut test = false;
@@ -95,7 +94,11 @@ pub(super) fn draw_panel(
                             }
                             panel_label(
                                 ui,
-                                &format!("{:?}{}", editor.id, if editor.dirty { " *" } else { "" }),
+                                &format!(
+                                    "{}{}",
+                                    editor.room_title(),
+                                    if editor.dirty { " *" } else { "" }
+                                ),
                             );
                             if panel_button(
                                 ui,

@@ -24,6 +24,8 @@ pub struct EditorSession {
     pub new: bool,
     pub dirty: bool,
     pub message: String,
+    /// The room-name field's text while it differs from the room's name (see `editor_name`).
+    pub name_input: Option<String>,
 }
 
 impl EditorSession {
@@ -113,6 +115,7 @@ impl EditorSession {
             new: false,
             dirty: false,
             message: String::new(),
+            name_input: None,
         })
     }
 
@@ -172,7 +175,31 @@ impl EditorSession {
         self.content.delete_entity(path)
     }
 
+    /// Starts a new room draft named "Room N" (the next free N).
     pub fn new_room(&mut self) {
+        let name = self.suggested_room_name();
+        self.new_room_named(&name)
+            .expect("the suggested name is valid and free");
+    }
+
+    /// Starts a new room draft called `name`. A name that breaks the rules is refused with
+    /// the reason and nothing changes.
+    pub fn new_room_named(&mut self, name: &str) -> Result<(), String> {
+        let id = self.free_room_id();
+        let name = self.check_room_name(id, name)?;
+        self.id = id;
+        self.path.set_file_name(room_filename(self.id));
+        self.draft = RoomDraft::new_room(&self.draft.layout);
+        self.draft.layout.name = Some(name);
+        self.name_input = None;
+        self.new = true;
+        self.dirty = true;
+        self.message = "New room draft; Save to create it".into();
+        Ok(())
+    }
+
+    /// The id a new room would get: the lowest custom number with no room and no file.
+    pub fn free_room_id(&self) -> RoomId {
         let mut id = 0;
         while self
             .rooms
@@ -185,11 +212,6 @@ impl EditorSession {
         {
             id += 1;
         }
-        self.id = RoomId::Custom(id);
-        self.path.set_file_name(room_filename(self.id));
-        self.draft = RoomDraft::new_room(&self.draft.layout);
-        self.new = true;
-        self.dirty = true;
-        self.message = "New room draft; Save to create it".into();
+        RoomId::Custom(id)
     }
 }

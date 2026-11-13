@@ -13,6 +13,7 @@ use hollow_steps::editor_view::{
 };
 use hollow_steps::game::GameState;
 use hollow_steps::item::ITEM_SIZE;
+use hollow_steps::room_name::NamePrompt;
 use hollow_steps::search::SearchList;
 use macroquad::prelude::*;
 
@@ -45,6 +46,9 @@ pub(crate) struct EditorUi {
     /// A room switch asked for by the panel this frame (New room); `draw_editor` runs it
     /// through `guard`.
     pub(crate) requested: Option<GuardedAction>,
+    /// The "New room" window while it is open: it asks for the name before the unsaved-changes
+    /// guard is consulted.
+    pub(crate) name_prompt: Option<NamePrompt>,
     /// Undo and redo for the draft; reset with the rest of this state when a room is opened
     /// or created.
     pub(crate) history: History,
@@ -175,6 +179,7 @@ pub(crate) fn draw_editor(
     }
     let mut panel = None;
     let mut dialog = None;
+    let mut naming = None;
     egui_macroquad::ui(|ctx| {
         // The integration divides native wheel events by 90. Normalize once to 28 points per
         // wheel step; egui then routes/consumes the delta for the hovered scroll area.
@@ -186,14 +191,19 @@ pub(crate) fn draw_editor(
             input.smooth_scroll_delta = delta;
         });
         panel = Some(editor_panel::draw_panel(ctx, editor, state));
-        dialog = editor_panel::draw_unsaved_dialog(ctx, &state.guard);
+        dialog =
+            editor_panel::draw_unsaved_dialog_titled(ctx, &state.guard, &|id| editor.title_of(id));
+        if let Some(prompt) = &mut state.name_prompt {
+            naming = editor_panel::draw_name_dialog(ctx, editor, prompt);
+        }
     });
     let panel = panel.expect("egui panel");
     // While the dialog is open nothing behind it may take input.
-    let pointer_blocked = panel.blocks_pointer || state.guard.is_open();
-    let keys_blocked = panel.keyboard || state.guard.is_open();
+    let modal = state.guard.is_open() || state.name_prompt.is_some();
+    let pointer_blocked = panel.blocks_pointer || modal;
+    let keys_blocked = panel.keyboard || modal;
     let mut save = panel.save;
-    let test = panel.test && !state.guard.is_open();
+    let test = panel.test && !modal;
     let open = panel.open;
 
     let (layout_room, layout) = state
@@ -472,8 +482,8 @@ pub(crate) fn draw_editor(
     }
     draw_text(
         format!(
-            "{:?} - {}",
-            editor.id,
+            "{} - {}",
+            editor.room_title(),
             if state.destination.is_some() {
                 "destination room view"
             } else {
@@ -517,6 +527,8 @@ pub(crate) fn draw_editor(
     } else {
         None
     };
+    // Refused text in the room name field blocks Save the same way.
+    let pending_error = pending_error.or_else(|| editor.name_error());
     state.clear_hidden_property_error(editor.draft.enemies.len());
     if save && pending_error.is_some() {
         editor.message = format!(
@@ -539,6 +551,7 @@ pub(crate) fn draw_editor(
             game.editor_mut().expect("open").message = format!("Save failed: {error}");
         }
     }
+    state.finish_naming(naming);
     // Closing, opening a room and New room all go through the unsaved-changes guard.
     let dirty = game.editor().is_some_and(|session| session.dirty);
     let mut step = GuardStep::Wait;
@@ -572,5 +585,8 @@ pub(crate) fn draw_editor(
     }
 }
 
+mod naming;
+#[cfg(test)]
+mod naming_tests;
 #[cfg(test)]
 mod tests;

@@ -3,13 +3,16 @@
 use super::widgets::{panel_button, panel_label};
 use egui_macroquad::egui;
 use hollow_steps::editor_guard::{GuardChoice, UnsavedGuard};
+use hollow_steps::room::RoomId;
 
 /// Draws the dialog while the guard has one open and returns the button pressed this
-/// frame. A modal backdrop blocks the panel and canvas behind it. Escape or a click
-/// outside the window cancels, which keeps the session.
-pub(crate) fn draw_unsaved_dialog(
+/// frame, with rooms named by `title` (their own names, in the editor). A modal backdrop
+/// blocks the panel and canvas behind it. Escape or a click outside the window cancels,
+/// which keeps the session.
+pub(crate) fn draw_unsaved_dialog_titled(
     ctx: &egui::Context,
     guard: &UnsavedGuard,
+    title: &dyn Fn(RoomId) -> String,
 ) -> Option<GuardChoice> {
     let prompt = guard.prompt()?;
     let mut choice = None;
@@ -19,7 +22,10 @@ pub(crate) fn draw_unsaved_dialog(
         ui.heading("Unsaved changes");
         panel_label(
             ui,
-            &format!("Save your changes before you {}?", prompt.action.describe()),
+            &format!(
+                "Save your changes before you {}?",
+                prompt.action.describe_with(title)
+            ),
         );
         if let Some(error) = &prompt.error {
             ui.add(
@@ -43,11 +49,15 @@ pub(crate) fn draw_unsaved_dialog(
 }
 
 #[cfg(test)]
+fn draw_unsaved_dialog(ctx: &egui::Context, guard: &UnsavedGuard) -> Option<GuardChoice> {
+    draw_unsaved_dialog_titled(ctx, guard, &hollow_steps::room_name::default_display_name)
+}
+
+#[cfg(test)]
 mod tests {
     use super::super::test_support::{click, drawn_text};
     use super::*;
     use hollow_steps::editor_guard::GuardedAction;
-    use hollow_steps::room::RoomId;
 
     fn frame(
         ctx: &egui::Context,

@@ -162,6 +162,10 @@ pub fn undo_session(history: &mut History, session: &mut EditorSession) -> Resul
         restorable(d, &session.definitions, bosses.as_ref())
     })?;
     session.dirty |= changed;
+    if changed {
+        // The name field shows the restored draft's name.
+        session.name_input = None;
+    }
     Ok(changed)
 }
 
@@ -172,5 +176,8 @@ pub fn redo_session(history: &mut History, session: &mut EditorSession) -> Resul
         restorable(d, &session.definitions, bosses.as_ref())
     })?;
     session.dirty |= changed;
+    if changed {
+        session.name_input = None;
+    }
     Ok(changed)
 }

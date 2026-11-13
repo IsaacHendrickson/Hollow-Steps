@@ -45,6 +45,9 @@ impl ExitPlacement {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct RoomLayout {
+    /// The room's name; absent in older files and unnamed rooms.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     pub bounds: (f32, f32, f32, f32),
     pub floor_y: f32,
     pub spawn: (f32, f32),
@@ -67,6 +70,7 @@ pub struct RoomLayout {
 impl RoomLayout {
     pub fn from_room(room: &Room) -> Self {
         Self {
+            name: room.name.clone(),
             bounds: (room.bounds.x, room.bounds.y, room.bounds.w, room.bounds.h),
             floor_y: room.floor_y,
             spawn: room.spawn.into(),
@@ -172,6 +176,7 @@ impl RoomLayout {
 
     pub fn apply(&self, room: &mut Room) -> Result<(), String> {
         self.validate_geometry()?;
+        room.name = self.name.clone();
         room.bounds = self.rect();
         room.floor_y = self.floor_y;
         room.terrain = Terrain::from_tuples(&self.terrain);
@@ -220,6 +225,7 @@ pub struct RoomDraft {
 impl RoomDraft {
     pub fn new_room(template: &RoomLayout) -> Self {
         let mut layout = template.clone();
+        layout.name = None; // named by whoever creates it, not by the template
         layout.items.clear();
         layout.exits.clear();
         Self {
@@ -494,6 +500,7 @@ impl RoomDraft {
         self.validate_local(definitions)?;
         let mut room = Room {
             id,
+            name: None,
             bounds: self.layout.rect(),
             floor_y: self.layout.floor_y,
             terrain: Default::default(),
