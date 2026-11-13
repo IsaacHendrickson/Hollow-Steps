@@ -56,7 +56,9 @@ entities, the blue respawn marker, or a green exit span, and selects solids (see
 it and press Delete to remove it.
 Select an exit, choose a **Target**, and click **Set exit target**; use
 **Arrival spawn** to drag its purple arrival marker in the target
-room's coordinate space. **Back to room** restores the current-room view.
+room's coordinate space. **Back to room** restores the current-room view. The exits of
+*other* rooms that lead into the room you are editing show their arrival here too, without
+leaving the room (see "Arrivals of other rooms' exits").
 **Add exit** creates a span on the chosen **Edge** so new rooms can be connected.
 **Save** applies the draft to gameplay and disk; errors remain visible in
 the footer and preserve the draft, running room, and previous file.
@@ -453,9 +455,11 @@ room A you are editing and a room B it should lead to (`src/exit_link.rs`, `src/
    Cancel. Only exits can be selected, placed and dragged in B (the other tools, delete, undo,
    Save and Test room are off). Select an existing exit (outlined in yellow) or press
    **New exit here** and click to place one (grid snap, drag to adjust); a new exit leads back
-   to A, so Two-way stays on for it. **Connect** finishes.
-3. A's exit leads to B and arrives next to the chosen exit. With Two-way, B's exit leads to A and
-   arrives next to A's exit. The arrival is searched from the exit's inner face and is never
+   to A, so Two-way stays on for it. The picked exit shows a purple **Arrival** marker, where
+   the player will arrive in B; drag it before **Connect** to choose the spot (refused where
+   the player does not fit). **Connect** finishes.
+3. A's exit leads to B and arrives at the marker (next to the chosen exit unless it was
+   dragged). With Two-way, B's exit leads to A and arrives next to A's exit. The arrival is searched from the exit's inner face and is never
    inside a solid, outside the room or inside any exit. If B's exit led somewhere else, the
    message names the old target. The editor returns to A with the same selection and view and
    "Linked A <-> B".
@@ -469,6 +473,30 @@ one in B (each room keeps its own history).
 
 Known limit: moving or deleting a linked exit later does not update its partner; use **Link...**
 on it again.
+
+A dragged arrival belongs to the exit it was set for (picking another exit shows that exit's
+own marker), is forgotten on Cancel, and gives way to the spot next to the exit if the exit is
+dragged over it. It is only held until **Connect**, so dragging it does not mark B unsaved.
+
+### Arrivals of other rooms' exits
+
+Every exit in another room that leads into the room you are editing draws its arrival point
+here as a purple, player-sized marker labelled "from <Room>" (`src/editor_inbound.rs`). Drag it
+to move where that exit arrives, without opening the other room or the arrival-spawn view.
+
+- The point must fit like any arrival: inside the room, not inside a solid, not inside an
+  exit. A drag to a place that does not fit is refused with the reason and the marker stays.
+  If the room later changes under it (a solid or an exit drawn over it) the marker turns red
+  and its label says why; Save still refuses an arrival inside an exit or outside the room.
+- The exit belongs to the other room, so that room's draft changes: it is kept in memory
+  (like the rooms a link flow touches) and marked unsaved: the room tools say "Unsaved:
+  Second". This room gets no star from the drag, and the drag is not an undo step; the other
+  room's arrival is not undoable.
+- **Save** writes the other room together with this one, checking them as a set (all or none).
+  The unsaved-changes window lists the other room by name.
+- Only exits from *other* rooms are listed (an exit that leads back into its own room is
+  edited with **Arrival spawn**), and the markers are hidden while exits are being linked.
+  Selecting one shows "Arrival from <Room>" in the room tools; it cannot be erased or deleted.
 
 ### Manual check: terrain tools
 
@@ -519,8 +547,26 @@ Run `cargo run`, press F2.
   an exit that led elsewhere: only the first room's exit changes. Connect with Two-way to one that led
   elsewhere: the message names the old target.
 - Place an exit over a solid in the target room: refused with the reason, nothing added.
+- In the link step, click an exit in Second: a purple "Arrival" marker appears beside it.
+  Drag it somewhere else in Second (it refuses a solid, an exit or outside the room), then
+  Connect. Save, close the editor and walk through the first room's exit: you appear where
+  you left the marker. Pick a different exit before Connect: its marker is where it was.
 - Cancel (button and F2) from the chooser, the name window and Second: nothing changed and a
   new room made by the flow is gone.
+
+### Manual check: arrivals of other rooms' exits
+
+Run `cargo run`, press F2 in the first room (Second's left exit leads to it).
+
+- A purple marker "from Second" shows where Second's left exit puts the player in this room.
+  Click it: the panel says "Arrival from Second" and Delete does nothing. Drag it to another
+  free spot; the room tools say "Unsaved: Second", the room gets no star, and Ctrl+Z does not
+  move it back.
+- Drag it onto a solid, onto the green exit span or outside the room: the marker stays and
+  the footer says why. Draw a solid over it: it turns red with the reason in its label.
+- Press F2: the unsaved-changes window lists Second. Discard, reopen: the marker is back where
+  it was. Move it again and Save: close the editor, walk from Second into the first room: you
+  arrive at the new spot. Press **Link...** on any exit: the marker is hidden until you finish.
 
 ### Manual check: test room
 
