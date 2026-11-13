@@ -226,6 +226,7 @@ impl RoomDraft {
     pub fn new_room(template: &RoomLayout) -> Self {
         let mut layout = template.clone();
         layout.name = None; // named by whoever creates it, not by the template
+        layout.terrain.clear(); // empty: only size, floor, spawn, background, look carry over
         layout.items.clear();
         layout.exits.clear();
         Self {

@@ -43,7 +43,8 @@ stages sibling temporary files before replacing the room and definition files.
 Invalid edits leave all files unchanged; an I/O replacement failure attempts to
 restore files already replaced and reports any rollback error.
 
-New room creates an empty draft with the current room's geometry and a unique
+New room creates an empty draft (no solids, items, exits, enemies or boss) that takes only the
+current room's size, floor, spawn, background and look, and a unique
 `room_N.ron` filename. Save registers it as `Custom(N)` in the room list and game;
 these files are loaded at startup. Exits can target any saved room. Room IDs are
 stable numeric IDs, independent of list order. Coins remain outside this editor's scope.
