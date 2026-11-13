@@ -1,5 +1,6 @@
 //! The markers the editor draws and hit-tests on the canvas: enemies, the boss, items, exits,
-//! the room spawn, the selected enemy's patrol handles, or the arrival point of one exit.
+//! the room spawn, the selected enemy's patrol handles, the arrival points of other rooms' exits
+//! that lead here, or the arrival point of one exit.
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::item::ITEM_SIZE;
 use macroquad::prelude::*;
@@ -74,6 +75,29 @@ pub(crate) fn editor_markers(
         body(editor.draft.layout.spawn.into(), vec2(32.0, 48.0)),
         SKYBLUE,
     ));
+    // Where other rooms' exits arrive here. Not while linking, when only the exits are live.
+    if !editor.link_active() {
+        for inbound in editor.inbound_arrivals() {
+            markers.push((
+                Selection::Inbound {
+                    room: inbound.room,
+                    exit: inbound.exit,
+                },
+                body(inbound.position, vec2(32.0, 48.0)),
+                if inbound.error.is_some() { RED } else { PURPLE },
+            ));
+        }
+    }
+    // Linking: where the player will arrive next to the selected exit of the open room.
+    if let Some(Selection::Exit(i)) = selected {
+        if let Some(at) = editor.link_arrival(i) {
+            markers.push((
+                Selection::LinkArrival(i),
+                body(at, vec2(32.0, 48.0)),
+                PURPLE,
+            ));
+        }
+    }
     if let Some(Selection::Enemy(i) | Selection::PatrolLeft(i) | Selection::PatrolRight(i)) =
         selected
     {
@@ -90,4 +114,14 @@ pub(crate) fn editor_markers(
         }
     }
     markers
+}
+
+/// What a press on `marker` selects: the patrol handles select their enemy, and the arrival
+/// of a link keeps the exit it belongs to selected.
+pub(crate) fn selected_by_press(marker: Selection) -> Selection {
+    match marker {
+        Selection::PatrolLeft(i) | Selection::PatrolRight(i) => Selection::Enemy(i),
+        Selection::LinkArrival(i) => Selection::Exit(i),
+        other => other,
+    }
 }

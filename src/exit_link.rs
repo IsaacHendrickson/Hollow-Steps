@@ -16,7 +16,7 @@ use macroquad::math::Vec2;
 use crate::behavior::read_ron;
 use crate::editor::{room_filename, RoomDraft};
 use crate::editor_session::{EditorSession, RoomWork};
-use crate::exit_arrival::{arrival_next_to, exit_at_click};
+use crate::exit_arrival::{arrival_error, arrival_next_to, exit_at_click};
 use crate::room::{RoomEdge, RoomEnemies, RoomId};
 use crate::room_name::NamePrompt;
 
@@ -41,6 +41,10 @@ pub struct Connecting {
     /// The exit placed in B during this step and not connected yet. It always leads back
     /// to A, so connecting it forces Two-way on.
     pub placed: Option<usize>,
+    /// Where the player arrives in B, when the user dragged it away from the automatic spot:
+    /// the exit of B it was set for, and the point. Used only if that exit is the one chosen
+    /// and the point is still free.
+    pub arrival: Option<(usize, Vec2)>,
     /// B's draft as it was when B opened, for undo.
     opened: RoomDraft,
     /// B as it was in the session's parked list before the flow took it, to put back on
@@ -263,6 +267,7 @@ impl EditorSession {
                 created,
                 two_way: true,
                 placed: None,
+                arrival: None,
                 opened,
                 previous,
             }));
@@ -271,7 +276,7 @@ impl EditorSession {
     }
 
     /// The room as it is on disk, for a room the session has no unsaved draft of.
-    fn load_saved_work(&self, id: RoomId) -> Result<RoomWork, String> {
+    pub(crate) fn load_saved_work(&self, id: RoomId) -> Result<RoomWork, String> {
         let layout = self
             .rooms
             .iter()
@@ -343,6 +348,10 @@ impl EditorSession {
         self.draft = next;
         self.dirty = true;
         if let Some(Step::Connecting(c)) = self.link.as_mut().map(|link| &mut link.step) {
+            // An arrival set for the exit that was just replaced does not carry over.
+            if c.arrival.is_some_and(|(exit, _)| Some(exit) == c.placed) {
+                c.arrival = None;
+            }
             c.placed = Some(index);
         }
         Ok(index)
@@ -365,28 +374,10 @@ impl EditorSession {
             .find(|work| work.id == from)
             .ok_or("the room being linked is missing")?;
         let mut a = a_work.draft.clone();
-        let mut b = self.draft.clone();
-        let mut exit = exit;
-        // An exit placed earlier and not chosen is dropped.
-        let mut forced = false;
-        match connecting.placed {
-            Some(placed) if placed == exit => forced = true,
-            Some(placed) => {
-                b.layout.exits.remove(placed);
-                if exit > placed {
-                    exit -= 1;
-                }
-            }
-            None => {}
-        }
-        if exit >= b.layout.exits.len() {
-            return Err(format!(
-                "Select an exit in {} or place a new one first",
-                self.title_of(to)
-            ));
-        }
+        let (mut b, chosen, forced) = self.link_b_without_unchosen(connecting, exit)?;
+        let into_b = Self::chosen_arrival(connecting, &b, exit, chosen)?;
+        let exit = chosen;
         let two_way = connecting.two_way || forced;
-        let into_b = arrival_next_to(&b.layout, exit)?;
         let into_a = if two_way {
             Some(arrival_next_to(&a.layout, a_exit)?)
         } else {
@@ -438,6 +429,87 @@ impl EditorSession {
             from_before,
             to_before,
         })
+    }
+
+    /// B as Connect would leave it with exit `exit` chosen: an exit placed earlier and not
+    /// chosen is dropped. Returns that draft, the chosen exit's index in it, and whether
+    /// the chosen exit is the placed one.
+    fn link_b_without_unchosen(
+        &self,
+        connecting: &Connecting,
+        exit: usize,
+    ) -> Result<(RoomDraft, usize, bool), String> {
+        let mut b = self.draft.clone();
+        let mut chosen = exit;
+        let mut forced = false;
+        match connecting.placed {
+            Some(placed) if placed == exit => forced = true,
+            Some(placed) => {
+                b.layout.exits.remove(placed);
+                if exit > placed {
+                    chosen -= 1;
+                }
+            }
+            None => {}
+        }
+        if chosen >= b.layout.exits.len() {
+            return Err(format!(
+                "Select an exit in {} or place a new one first",
+                self.title_of(connecting.target)
+            ));
+        }
+        Ok((b, chosen, forced))
+    }
+
+    /// Where the player arrives in `b` for the exit chosen: the point the user dragged the
+    /// marker to for `original` (the exit's index while B was open) if it is still free,
+    /// otherwise the free spot next to `chosen` (its index in `b`).
+    fn chosen_arrival(
+        connecting: &Connecting,
+        b: &RoomDraft,
+        original: usize,
+        chosen: usize,
+    ) -> Result<Vec2, String> {
+        let set = connecting
+            .arrival
+            .filter(|(exit, _)| *exit == original)
+            .map(|(_, at)| at)
+            .filter(|at| arrival_error(&b.layout, *at).is_none());
+        match set {
+            Some(at) => Ok(at),
+            None => arrival_next_to(&b.layout, chosen),
+        }
+    }
+
+    /// Where the player would arrive in B if exit `exit` (an index in the open draft) were
+    /// connected now: the point the marker was dragged to, or the free spot next to the
+    /// exit. `None` outside the linking step or when the exit has no free spot.
+    pub fn link_arrival(&self, exit: usize) -> Option<Vec2> {
+        let Some(Step::Connecting(connecting)) = self.link.as_ref().map(|link| &link.step) else {
+            return None;
+        };
+        let (b, chosen, _) = self.link_b_without_unchosen(connecting, exit).ok()?;
+        Self::chosen_arrival(connecting, &b, exit, chosen).ok()
+    }
+
+    /// Drags the arrival marker of B's exit `exit` to `at`. Refused, with the reason and
+    /// nothing changed, when the player does not fit there. Nothing is written: Connect
+    /// uses the point if `exit` is the exit chosen.
+    pub fn link_set_arrival(&mut self, exit: usize, at: Vec2) -> Result<(), String> {
+        if !at.is_finite() {
+            return Err("position must be finite".into());
+        }
+        let Some(Step::Connecting(connecting)) = self.link.as_ref().map(|link| &link.step) else {
+            return Err("open the room to link to first".into());
+        };
+        let (b, _, _) = self.link_b_without_unchosen(connecting, exit)?;
+        if let Some(reason) = arrival_error(&b.layout, at) {
+            return Err(format!("The player cannot arrive there: {reason}"));
+        }
+        if let Some(Step::Connecting(connecting)) = self.link.as_mut().map(|link| &mut link.step) {
+            connecting.arrival = Some((exit, at));
+        }
+        Ok(())
     }
 
     /// Cancel, at whatever step the flow is in. From the name window it goes back to the

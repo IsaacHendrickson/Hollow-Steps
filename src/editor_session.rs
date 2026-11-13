@@ -57,12 +57,23 @@ impl EditorSession {
     }
 
     pub fn move_selection(&mut self, selection: Selection, position: Vec2) -> Result<(), String> {
-        if selection == Selection::Boss {
-            self.draft
-                .move_boss(position, &self.content.boss_definitions()?)
-        } else {
-            self.draft.move_to(selection, position, &self.definitions)
+        match selection {
+            Selection::Boss => self
+                .draft
+                .move_boss(position, &self.content.boss_definitions()?),
+            Selection::Inbound { room, exit } => self.move_inbound_arrival(room, exit, position),
+            Selection::LinkArrival(exit) => self.link_set_arrival(exit, position),
+            _ => self.draft.move_to(selection, position, &self.definitions),
         }
+    }
+
+    /// A drag of `selection` reached `position`: moves it, and marks this room unsaved when
+    /// it is this room that changed. The arrivals of other rooms' exits and of a link not
+    /// made yet change something else, so they leave the flag alone.
+    pub fn drag_selection(&mut self, selection: Selection, position: Vec2) -> Result<(), String> {
+        self.move_selection(selection, position)?;
+        self.dirty |= selection.edits_current_room();
+        Ok(())
     }
 
     pub fn update_boss(

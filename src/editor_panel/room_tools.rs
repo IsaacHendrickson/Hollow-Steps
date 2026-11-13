@@ -123,6 +123,10 @@ pub(super) fn draw_room_tools(
                 state.tool = EditorTool::Select;
             }
         }
+        if let Some(Selection::Inbound { room, .. }) = state.selected {
+            panel_label(ui, &format!("Arrival from {}", editor.title_of(room)));
+            panel_label(ui, "Drag it to move it; Save also saves that room.");
+        }
         if state.destination.is_some() && panel_button(ui, "Back to room") {
             state.destination = None;
             state.selected = None;

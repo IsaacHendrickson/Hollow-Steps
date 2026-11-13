@@ -157,3 +157,48 @@ fn the_panel_lists_the_other_unsaved_rooms() {
     let (_, text) = text_of(&ctx, editor, &mut state);
     assert!(text.contains("Unsaved: First, Second"), "{text}");
 }
+
+#[test]
+fn a_selected_inbound_arrival_says_which_room_it_belongs_to() {
+    let mut game = editor();
+    let editor = game.editor_mut().unwrap();
+    let mut state = EditorUi::default();
+    let ctx = laid_out(editor, &mut state);
+    let (_, text) = text_of(&ctx, editor, &mut state);
+    assert!(!text.contains("Arrival from"), "nothing selected: {text}");
+    state.selected = Some(Selection::Inbound {
+        room: RoomId::Second,
+        exit: 0,
+    });
+    let _ = text_of(&ctx, editor, &mut state);
+    let (_, text) = text_of(&ctx, editor, &mut state);
+    assert!(text.contains("Arrival from Second"), "{text}");
+    assert!(text.contains("Save also saves that room"), "{text}");
+    // It is another room's exit: no link or exit-target buttons for it.
+    assert!(!text.contains("Leads to"), "{text}");
+    assert!(!text.contains("Set exit target"), "{text}");
+}
+
+#[test]
+fn moving_an_inbound_arrival_lists_the_other_room_as_unsaved_without_starring_this_one() {
+    let mut game = editor();
+    let editor = game.editor_mut().unwrap();
+    let mut state = EditorUi::default();
+    let ctx = laid_out(editor, &mut state);
+    editor
+        .drag_selection(
+            Selection::Inbound {
+                room: RoomId::Second,
+                exit: 0,
+            },
+            macroquad::math::vec2(700.0, 436.0),
+        )
+        .unwrap();
+    let _ = text_of(&ctx, editor, &mut state);
+    let (_, text) = text_of(&ctx, editor, &mut state);
+    assert!(text.contains("Unsaved: Second"), "{text}");
+    assert!(
+        !text.contains("First *"),
+        "this room is not starred: {text}"
+    );
+}

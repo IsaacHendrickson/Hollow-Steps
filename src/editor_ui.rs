@@ -17,7 +17,7 @@ use hollow_steps::room_name::NamePrompt;
 use hollow_steps::search::SearchList;
 use macroquad::prelude::*;
 
-pub(crate) use markers::editor_markers;
+pub(crate) use markers::{editor_markers, selected_by_press};
 
 #[derive(Default)]
 pub(crate) struct EditorUi {
@@ -278,7 +278,7 @@ pub(crate) fn draw_editor(
         } else {
             let hit = markers.iter().rev().find(|(selection, rect, _)| {
                 let r = canvas.rect(*rect);
-                (!linking || matches!(selection, Selection::Exit(_)))
+                (!linking || linking::live_while_linking(*selection))
                     && Rect::new(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0).contains(mouse)
             });
             // A solid (or a handle of the selected one) can take the click before the markers.
@@ -286,10 +286,7 @@ pub(crate) fn draw_editor(
             {
                 // The solid is selected and its move or resize has begun.
             } else {
-                state.selected = hit.map(|(selection, _, _)| match *selection {
-                    Selection::PatrolLeft(i) | Selection::PatrolRight(i) => Selection::Enemy(i),
-                    other => other,
-                });
+                state.selected = hit.map(|(selection, _, _)| selected_by_press(*selection));
                 state.dragging =
                     hit.map(|(selection, rect, _)| (*selection, world - rect.center()));
                 if state.dragging.is_some() {
@@ -326,11 +323,8 @@ pub(crate) fn draw_editor(
             terrain_canvas::drag(state, editor, world);
         } else if let (true, Some((selection, offset))) = (over_canvas, state.dragging) {
             let target = state.grid.snap(world - offset, origin);
-            match editor.move_selection(selection, target) {
-                Ok(()) => {
-                    editor.dirty = true;
-                    editor.message.clear();
-                }
+            match editor.drag_selection(selection, target) {
+                Ok(()) => editor.message.clear(),
                 Err(error) => editor.message = error,
             }
         }
@@ -387,6 +381,7 @@ pub(crate) fn draw_editor(
     if linking {
         linking::draw_exit_highlights(editor, &canvas);
     }
+    arrival_labels::draw(&drawn, editor, &canvas);
     if body_debug && state.destination.is_none() {
         // Preview authored placements and unsaved definitions without touching runtime bodies.
         let enemies = editor
@@ -538,6 +533,9 @@ pub(crate) fn draw_editor(
     }
 }
 
+mod arrival_labels;
+#[cfg(test)]
+mod arrival_tests;
 mod linking;
 #[cfg(test)]
 mod linking_tests;

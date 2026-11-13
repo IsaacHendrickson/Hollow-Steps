@@ -37,6 +37,12 @@ pub(crate) fn link_dialog_open(editor: &EditorSession) -> bool {
         .is_some_and(|link| !link.is_connecting())
 }
 
+/// What the canvas still lets the user press while exits are being linked: B's exits and the
+/// arrival marker of the one picked. Everything else is out of play until Connect or Cancel.
+pub(crate) fn live_while_linking(marker: Selection) -> bool {
+    matches!(marker, Selection::Exit(_) | Selection::LinkArrival(_))
+}
+
 /// Whether B is open and the editor is restricted to selecting and placing exits.
 pub(crate) fn link_connecting(editor: &EditorSession) -> bool {
     editor

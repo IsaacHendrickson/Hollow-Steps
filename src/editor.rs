@@ -11,6 +11,7 @@ use crate::player::WorldBounds;
 use crate::room::{EnemyPlacement, Exit, Room, RoomEdge, RoomEnemies, RoomId};
 use crate::terrain::Terrain;
 
+pub use crate::editor_selection::Selection;
 pub use crate::editor_session::EditorSession;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -196,18 +197,6 @@ impl RoomLayout {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Selection {
-    Enemy(usize),
-    Boss,
-    Item(usize),
-    PatrolLeft(usize),
-    PatrolRight(usize),
-    Spawn,
-    Exit(usize),
-    Destination(usize),
-}
-
 #[derive(Clone, Debug)]
 pub enum Placement {
     Enemy(String),
@@ -385,6 +374,10 @@ impl RoomDraft {
             }
             Selection::Destination(i) => {
                 next.layout.exits.get_mut(i).ok_or("missing exit")?.spawn = position.into()
+            }
+            // These change another room or a link under way: `EditorSession::move_selection`.
+            Selection::Inbound { .. } | Selection::LinkArrival(_) => {
+                return Err("that arrival is not part of this room".into())
             }
         }
         next.validate_local(definitions)?;
