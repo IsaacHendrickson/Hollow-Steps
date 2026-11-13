@@ -5,10 +5,10 @@
 //! assets (`assets/bodies/`, `assets/poses/`), so the same body and pose code that draws
 //! enemies draws the player. Gameplay never reads this: the player's hitbox is unchanged.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use macroquad::math::Vec2;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::body::{load_body_templates, BodyInstance, BodyTemplates, BodyVisual};
 use crate::pose::{load_poses, validate_name, Poses};
@@ -27,7 +27,26 @@ pub enum PlayerPose {
     Idle,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+impl PlayerPose {
+    /// Every pose, in the order the editor lists them.
+    pub const ALL: [PlayerPose; 4] = [
+        PlayerPose::Idle,
+        PlayerPose::Run,
+        PlayerPose::Jump,
+        PlayerPose::Attack,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            PlayerPose::Attack => "Attack",
+            PlayerPose::Jump => "Jump",
+            PlayerPose::Run => "Run",
+            PlayerPose::Idle => "Idle",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct PlayerLook {
     pub visual: BodyVisual,
@@ -53,6 +72,21 @@ impl PlayerLook {
         let look: Self = ron::from_str(text).map_err(|error| error.to_string())?;
         look.validate()?;
         Ok(look)
+    }
+
+    /// The file text, in the pretty format the editors use. Invalid looks are refused.
+    pub fn to_ron(&self) -> Result<String, String> {
+        self.validate()?;
+        crate::definition_editor::serialize(self)
+    }
+
+    /// Writes the look to `player_body.ron` in the assets folder through a staged file, so a
+    /// failed write leaves the previous file untouched. Invalid looks write nothing.
+    pub fn save(&self, assets: &Path) -> Result<PathBuf, String> {
+        let text = self.to_ron()?;
+        let path = assets.join(FILE_NAME);
+        crate::tuning::write_staged(&path, &text)?;
+        Ok(path)
     }
 
     pub fn validate(&self) -> Result<(), String> {
@@ -94,6 +128,16 @@ impl PlayerLook {
             PlayerPose::Jump => &self.jump_pose,
             PlayerPose::Run => &self.run_pose,
             PlayerPose::Idle => &self.idle_pose,
+        }
+    }
+
+    /// Chooses which pose file plays for `pose`.
+    pub fn set_pose_name(&mut self, pose: PlayerPose, name: String) {
+        match pose {
+            PlayerPose::Attack => self.attack_pose = name,
+            PlayerPose::Jump => self.jump_pose = name,
+            PlayerPose::Run => self.run_pose = name,
+            PlayerPose::Idle => self.idle_pose = name,
         }
     }
 }

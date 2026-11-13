@@ -3,9 +3,10 @@
 //! of the edited room; `draw_editor` runs one editor frame.
 
 use crate::editor_panel::{BossPropertyUi, LookUi, PropertyUi};
+use crate::player_panel::Status;
 use crate::{body_draw, editor_panel, editor_visuals, terrain_canvas, terrain_draw};
 use hollow_steps::editor::Selection;
-use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
+use hollow_steps::editor_guard::{perform, save_all, GuardStep, GuardedAction, UnsavedGuard};
 use hollow_steps::editor_history::{shortcut, tracked, History};
 use hollow_steps::editor_tools::{tool_shortcut, EditorTool, TerrainTool};
 use hollow_steps::editor_view::{
@@ -56,6 +57,8 @@ pub(crate) struct EditorUi {
     pub(crate) history: History,
     /// The Room look section's drag state and the canvas preview's cached draw list.
     pub(crate) look: LookUi,
+    /// The Player panel: whether it is open, its Save request and what it last said.
+    pub(crate) player: crate::player_panel::PlayerUi,
     /// Room A's window state while B is open in the exit-link flow.
     pub(crate) link_stash: Option<Box<linking::LinkStash>>,
     /// "New exit here" was pressed: the next click in the room places an exit.
@@ -354,7 +357,9 @@ pub(crate) fn draw_editor(
             is_key_pressed(KeyCode::Z),
             is_key_pressed(KeyCode::Y),
         ) {
-            editor_panel::apply_history(editor, state, key);
+            if !state.player.apply_history(editor, key) {
+                editor_panel::apply_history(editor, state, key);
+            }
         }
         // Tool keys are for the room tools; the properties panel hides the tool buttons.
         let modified = down(KeyCode::LeftControl, KeyCode::RightControl)
@@ -378,6 +383,9 @@ pub(crate) fn draw_editor(
     let previews = editor_visuals::visual_previews(editor, &drawn);
     editor_visuals::draw_visual_previews(&previews, state.selected, &canvas);
     editor_visuals::draw_markers(&drawn, state.selected, &canvas);
+    if let Some(settings) = state.player.canvas_preview() {
+        editor_visuals::draw_player_preview(editor, settings, &canvas);
+    }
     if linking {
         linking::draw_exit_highlights(editor, &canvas);
     }
@@ -486,6 +494,20 @@ pub(crate) fn draw_editor(
         save = false;
     }
     egui_macroquad::draw();
+    // The game takes the Player panel's edits into effect; its Save goes through the game.
+    game.sync_player_from_editor();
+    if std::mem::take(&mut state.player.save_requested) {
+        state.player.status = match game.save_player() {
+            Ok(paths) => Status::Saved(
+                paths
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ),
+            Err(error) => Status::Error(error),
+        };
+    }
     if test {
         // The main loop notices the switch and resets its clocks and camera. A refusal
         // is left in the editor's message.
@@ -501,10 +523,9 @@ pub(crate) fn draw_editor(
     }
     state.finish_naming(naming);
     // Closing, opening a room and New room all go through the unsaved-changes guard.
-    let dirty = game.editor().is_some_and(|session| session.has_unsaved());
     let mut step = GuardStep::Wait;
     if let Some(action) = state.requested.take().or(open.map(GuardedAction::OpenRoom)) {
-        step = state.guard.request(action, dirty);
+        step = state.guard.request_for(action, game.editor());
     }
     if let Some(choice) = dialog {
         step = state.guard.choose(choice);
@@ -513,9 +534,7 @@ pub(crate) fn draw_editor(
         // Same rule as the panel's Save: unapplied invalid text blocks it.
         let result = match &pending_error {
             Some(error) => Err(format!("Save failed: {error}")),
-            None => game
-                .save_editor()
-                .map_err(|error| format!("Save failed: {error}")),
+            None => save_all(game).map_err(|error| format!("Save failed: {error}")),
         };
         if let Err(error) = &result {
             game.editor_mut().expect("open").message = error.clone();

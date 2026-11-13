@@ -8,6 +8,7 @@ use crate::body_draw::draw_body;
 use hollow_steps::body::BodyInstance;
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_view::CanvasView;
+use hollow_steps::player_look_editor::PreviewSettings;
 use hollow_steps::visual_box;
 use macroquad::prelude::*;
 
@@ -20,6 +21,11 @@ const SELECTED_VISUAL_OUTLINE: Color = Color::new(1.0, 1.0, 1.0, 0.95);
 const HITBOX_FILL_ALPHA: f32 = 0.15;
 /// The fill of every other marker.
 const MARKER_FILL_ALPHA: f32 = 0.45;
+
+/// The plain box drawn for the player when its look cannot be drawn.
+const PLAYER_BOX: Color = Color::new(0.36, 0.52, 0.78, 0.9);
+/// The outline of the player's hitbox in the Player panel's preview.
+const PLAYER_HITBOX: Color = Color::new(0.45, 0.9, 1.0, 0.95);
 
 /// What to draw for one placed enemy or the boss.
 pub(crate) struct VisualPreview {
@@ -101,6 +107,35 @@ pub(crate) fn draw_visual_previews(
             VISUAL_OUTLINE
         };
         draw_rectangle_lines(screen.x, screen.y, screen.w, screen.h, 1.0, outline);
+    }
+}
+
+/// Paints the player at the room's spawn point as the Player panel has it: the unsaved look in
+/// the chosen pose and facing, at the unsaved size, with the hitbox outlined if asked.
+pub(crate) fn draw_player_preview(
+    editor: &EditorSession,
+    settings: PreviewSettings,
+    canvas: &CanvasView,
+) {
+    let preview = editor.player_preview(settings);
+    let screen = canvas.rect(Rect::new(
+        preview.center.x - preview.size.x / 2.0,
+        preview.center.y - preview.size.y / 2.0,
+        preview.size.x,
+        preview.size.y,
+    ));
+    match &preview.body {
+        Some(body) => draw_body(
+            body,
+            screen.center(),
+            screen.size(),
+            preview.face_left,
+            |c| c,
+        ),
+        None => draw_rectangle(screen.x, screen.y, screen.w, screen.h, PLAYER_BOX),
+    }
+    if preview.show_hitbox {
+        draw_rectangle_lines(screen.x, screen.y, screen.w, screen.h, 2.0, PLAYER_HITBOX);
     }
 }
 

@@ -5,21 +5,18 @@
 //! `hollow_steps::vitals` and `GameState`; this module turns widget changes into
 //! `GameState::set_tuning` / `set_vitals_config` calls, so a change is in effect on the next
 //! tick, and shows why a typed value was refused.
-use std::cell::RefCell;
-
+use crate::player_panel::{draw_field, FieldRow, Status};
 use egui_macroquad::egui;
 use hollow_steps::game::GameState;
-use hollow_steps::tuning::{Field, FieldSpec};
+use hollow_steps::player_editor::SpawnCheck;
+use hollow_steps::tuning::Field;
 use hollow_steps::vitals::VitalsField;
 
-/// What the footer says about the last Save or refused edit.
-#[derive(Clone, Debug, Default, PartialEq)]
-enum Status {
-    #[default]
-    Quiet,
-    Saved(String),
-    Error(String),
-}
+// The field row and its text parser moved to `player_panel`; the tests below still call them.
+#[cfg(test)]
+use crate::player_panel::parse_entry;
+#[cfg(test)]
+use std::cell::RefCell;
 
 /// State of the F4 window; the values themselves live in `GameState`.
 #[derive(Debug, Default)]
@@ -54,6 +51,7 @@ impl TuningPanel {
                     .max_height(list_height)
                     .auto_shrink([true, true])
                     .show(ui, |ui| {
+                        let spawns = game.spawn_checks();
                         let mut group = "";
                         for field in Field::ALL {
                             if field.spec().group != group {
@@ -61,7 +59,7 @@ impl TuningPanel {
                                 ui.add_space(4.0);
                                 ui.strong(group);
                             }
-                            field_row(ui, game, status, field);
+                            field_row(ui, game, status, field, &spawns);
                         }
                         group = "";
                         for field in VitalsField::ALL {
@@ -79,61 +77,49 @@ impl TuningPanel {
     }
 }
 
-/// One labelled drag box. Returns the new value if it was changed, and why a typed value was
-/// refused (the box keeps its value then).
-fn drag_row(ui: &mut egui::Ui, spec: &FieldSpec, mut value: f32) -> (Option<f32>, Option<String>) {
-    let rejected = RefCell::new(None);
-    let mut changed = false;
-    ui.horizontal(|ui| {
-        ui.add_sized([LABEL_WIDTH, 20.0], egui::Label::new(spec.label));
-        let mut drag = egui::DragValue::new(&mut value)
-            .range(spec.min..=spec.max)
-            .speed(spec.step)
-            .fixed_decimals(spec.decimals)
-            // Judge a typed number when it is entered, not on every key press.
-            .update_while_editing(false)
-            .custom_parser(|text| parse_entry(spec, text, &rejected));
-        if !spec.unit.is_empty() {
-            drag = drag.suffix(format!(" {}", spec.unit));
-        }
-        let response = ui.add(drag).on_hover_text(format!(
-            "{}: {} to {}{}",
-            spec.key,
-            spec.min,
-            spec.max,
-            if spec.unit.is_empty() {
-                String::new()
-            } else {
-                format!(" {}", spec.unit)
-            }
-        ));
-        #[cfg(test)]
-        ui.data_mut(|data| data.insert_temp(egui::Id::new(("field", spec.key)), response.rect));
-        changed = response.changed();
-    });
-    (changed.then_some(value), rejected.into_inner())
-}
-
-fn field_row(ui: &mut egui::Ui, game: &mut GameState, status: &mut Status, field: Field) {
-    let (edited, rejected) = drag_row(ui, field.spec(), field.get(game.tuning()));
-    if let Some(value) = edited {
-        let applied = game
-            .tuning()
-            .with_field(field, value)
-            .and_then(|changed| game.set_tuning(changed));
-        *status = match applied {
+/// A player number, drawn by the row the editor's Player panel uses too. A value that breaks a
+/// rule across fields or against a room's spawn is applied (and shown under the row); Save refuses it.
+fn field_row(
+    ui: &mut egui::Ui,
+    game: &mut GameState,
+    status: &mut Status,
+    field: Field,
+    spawns: &[SpawnCheck],
+) {
+    let problem = game.player_draft().problem_for(field, spawns);
+    let edit = draw_field(
+        ui,
+        FieldRow {
+            spec: field.spec(),
+            value: field.get(game.tuning()),
+            label_width: LABEL_WIDTH,
+            dirty: None,
+            problem: problem.as_deref(),
+        },
+    );
+    if let Some(value) = edit.value {
+        *status = match game.set_tuning_field(field, value) {
             Ok(()) => Status::Quiet,
             Err(error) => Status::Error(error),
         };
     }
-    if let Some(message) = rejected {
+    if let Some(message) = edit.rejected {
         *status = Status::Error(message);
     }
 }
 
 fn vitals_row(ui: &mut egui::Ui, game: &mut GameState, status: &mut Status, field: VitalsField) {
-    let (edited, rejected) = drag_row(ui, field.spec(), field.get(game.vitals_config()));
-    if let Some(value) = edited {
+    let edit = draw_field(
+        ui,
+        FieldRow {
+            spec: field.spec(),
+            value: field.get(game.vitals_config()),
+            label_width: LABEL_WIDTH,
+            dirty: None,
+            problem: None,
+        },
+    );
+    if let Some(value) = edit.value {
         let applied = game
             .vitals_config()
             .with_field(field, value)
@@ -143,7 +129,7 @@ fn vitals_row(ui: &mut egui::Ui, game: &mut GameState, status: &mut Status, fiel
             Err(error) => Status::Error(error),
         };
     }
-    if let Some(message) = rejected {
+    if let Some(message) = edit.rejected {
         *status = Status::Error(message);
     }
 }
@@ -189,30 +175,6 @@ fn footer(ui: &mut egui::Ui, game: &mut GameState, status: &mut Status) {
         "Changes apply at once. Save writes player.ron, and vitals.ron if its values changed, \
          in the assets folder.",
     );
-}
-
-/// Reads typed text for one field. Anything outside the field's range, or not a number, is
-/// refused: the drag box keeps its value and `rejected` gets the reason for the footer.
-fn parse_entry(spec: &FieldSpec, text: &str, rejected: &RefCell<Option<String>>) -> Option<f64> {
-    let text = text.trim();
-    let number = if spec.unit.is_empty() {
-        text
-    } else {
-        text.strip_suffix(spec.unit).unwrap_or(text).trim()
-    };
-    let result = number
-        .replace(',', ".")
-        .parse::<f64>()
-        .map_err(|_| format!("{}: \"{text}\" is not a number", spec.key))
-        .and_then(|value| spec.check(value as f32))
-        .map(f64::from);
-    match result {
-        Ok(value) => Some(value),
-        Err(message) => {
-            *rejected.borrow_mut() = Some(message);
-            None
-        }
-    }
 }
 
 /// egui gets the wheel delta at 28 points per step, the same as the room editor, since the

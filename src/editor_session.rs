@@ -8,6 +8,8 @@ use macroquad::math::Vec2;
 use crate::behavior::read_ron;
 use crate::editor::{room_filename, Placement, RoomDraft, RoomLayout, Selection};
 use crate::enemy::EnemyDefinitions;
+use crate::player_editor::PlayerDraft;
+use crate::player_look_editor::PlayerLookDraft;
 use crate::room::{Room, RoomEnemies, RoomId};
 use crate::terrain_styles::TerrainStyles;
 
@@ -33,6 +35,12 @@ pub struct EditorSession {
     pub rooms: Vec<(RoomId, RoomLayout)>,
     /// The terrain look presets the room's look is chosen from (`editor_look`).
     pub styles: TerrainStyles,
+    /// The Player panel's working copy of the player tunables; `GameState` gives it the game's
+    /// draft when the session opens and takes its values into effect each frame.
+    pub player: PlayerDraft,
+    /// The Player panel's Look section: `player_body.ron` as edited. The body template and poses
+    /// it names are edited in `content`, like any enemy's.
+    pub look: PlayerLookDraft,
     pub new: bool,
     pub dirty: bool,
     pub message: String,
@@ -140,6 +148,8 @@ impl EditorSession {
             content: crate::definition_editor::DefinitionDraft::load(assets)?,
             rooms: catalog,
             styles: TerrainStyles::load(assets)?,
+            player: PlayerDraft::default(),
+            look: PlayerLookDraft::load(assets)?,
             new: false,
             dirty: false,
             message: String::new(),

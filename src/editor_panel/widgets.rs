@@ -6,7 +6,7 @@ use egui_macroquad::egui;
 /// Records, in a test build, where a widget was drawn so the headless tests can find it again.
 /// `record` gives the egui id to store under and the value; in a normal build it is never
 /// called. Every test-only layout hook in the panel goes through here.
-pub(super) fn probe<T: Clone + Send + Sync + 'static>(
+pub(crate) fn probe<T: Clone + Send + Sync + 'static>(
     ui: &egui::Ui,
     record: impl FnOnce() -> (egui::Id, T),
 ) {
@@ -19,7 +19,7 @@ pub(super) fn probe<T: Clone + Send + Sync + 'static>(
     let _ = (ui, record);
 }
 
-pub(super) fn section<R>(ui: &mut egui::Ui, name: &str, contents: impl FnOnce(&mut egui::Ui) -> R) {
+pub(crate) fn section<R>(ui: &mut egui::Ui, name: &str, contents: impl FnOnce(&mut egui::Ui) -> R) {
     let response = egui::CollapsingHeader::new(name)
         .default_open(true)
         .show(ui, contents);
@@ -95,7 +95,7 @@ pub(super) fn searchable_list(
     probe(ui, || (id.with("dropdown"), (dropdown.rect, dropdown.id)));
 }
 
-pub(super) fn panel_label(ui: &mut egui::Ui, text: &str) {
+pub(crate) fn panel_label(ui: &mut egui::Ui, text: &str) {
     ui.add(egui::Label::new(text).wrap());
 }
 pub(super) fn panel_input(ui: &mut egui::Ui, id: egui::Id, label: &str, value: &mut String) {
@@ -136,7 +136,7 @@ pub(super) fn panel_combo(
         .response
         .on_hover_text(names[*index].as_ref());
 }
-pub(super) fn panel_button(ui: &mut egui::Ui, text: impl AsRef<str>) -> bool {
+pub(crate) fn panel_button(ui: &mut egui::Ui, text: impl AsRef<str>) -> bool {
     let response = ui.add_sized(
         [ui.available_width(), 24.0],
         egui::Button::new(text.as_ref()).wrap(),
@@ -157,7 +157,7 @@ pub(super) fn row_controls(ui: &mut egui::Ui) -> Option<u8> {
     });
     command
 }
-pub(super) fn choice(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {
+pub(crate) fn choice(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Response {
     let response = ui
         .add_sized(
             [ui.available_width(), 24.0],
@@ -168,7 +168,7 @@ pub(super) fn choice(ui: &mut egui::Ui, text: &str, selected: bool) -> egui::Res
     response
 }
 
-pub(super) fn pose_dropdown(
+pub(crate) fn pose_dropdown(
     ui: &mut egui::Ui,
     id: egui::Id,
     label: &str,

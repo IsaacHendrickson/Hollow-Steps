@@ -6,7 +6,7 @@ use egui_macroquad::egui;
 use hollow_steps::editor_tools::EditorTool;
 
 mod behavior;
-mod body_visual;
+pub(crate) mod body_visual;
 mod boss;
 mod canvas_tools;
 mod death_field;
@@ -20,7 +20,7 @@ mod movement_field;
 mod name_dialog;
 #[cfg(test)]
 mod panel_tests;
-mod property;
+pub(crate) mod property;
 mod room_name_field;
 mod room_tools;
 mod states;
@@ -29,7 +29,7 @@ mod test_support;
 mod tool_panel;
 mod unsaved_dialog;
 mod visual_size_field;
-mod widgets;
+pub(crate) mod widgets;
 pub(super) use boss::{draw_boss_panel, BossPropertyUi};
 use entity::{draw_definition_panel, pending_error};
 pub(super) use history_panel::apply_history;
@@ -125,6 +125,7 @@ pub(super) fn draw_panel(
                                     "Entity properties"
                                 },
                             ) {
+                                state.player.open = false;
                                 state.properties = !state.properties;
                                 if state.properties {
                                     state.tool = EditorTool::Select;
@@ -177,7 +178,9 @@ pub(super) fn draw_panel(
                                     state.property = PropertyUi::for_entity(editor, path);
                                 }
                             }
-                            if state.properties {
+                            if crate::player_panel::draw(ui, editor, &mut state.player) {
+                                // The Player panel replaces the room tools and properties.
+                            } else if state.properties {
                                 if let Some(p) = &mut state.boss_property {
                                     draw_boss_panel(ui, editor, p);
                                 } else {
