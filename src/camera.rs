@@ -233,6 +233,9 @@ pub fn anchored(view: Vec2, anchor: Anchor, size: Vec2, offset: Vec2) -> Vec2 {
 }
 
 #[cfg(test)]
+mod edge_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

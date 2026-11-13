@@ -69,3 +69,26 @@ pub async fn load_game(screen: &RenderTarget, view: Vec2) -> GameState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_screen_camera_shows_exactly_the_given_rectangle() {
+        // Offset, negative and room-sized rectangles: target is the center, zoom maps the
+        // rectangle's width and height to the whole render target.
+        for rect in [
+            Rect::new(0.0, 0.0, 960.0, 540.0),
+            Rect::new(-500.0, 300.0, 960.0, 540.0),
+            Rect::new(3840.0, 2460.0, 960.0, 540.0),
+        ] {
+            let camera = screen_camera(rect, None);
+            assert_eq!(camera.target, rect.center());
+            assert!((camera.zoom.x.abs() - 2.0 / rect.w).abs() < 1e-6);
+            assert!((camera.zoom.y.abs() - 2.0 / rect.h).abs() < 1e-6);
+            assert_eq!(camera.offset, Vec2::ZERO);
+            assert_eq!(camera.rotation, 0.0);
+        }
+    }
+}
