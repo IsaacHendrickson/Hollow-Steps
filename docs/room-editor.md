@@ -436,6 +436,39 @@ Run `cargo run`, press F2 and use a room with a few entities.
   canvas and it does. After undo, make a new edit and confirm redo is gone.
 - Hover **Undo** and **Redo** and read the tooltip. Open another room: Undo is greyed out.
 
+### Linking exits
+
+An exit stores the room it leads to and the absolute point the player arrives at in that
+room (`target_room`, `spawn`). Linking fills both in from the room editor, for the exit in
+room A you are editing and a room B it should lead to (`src/exit_link.rs`, `src/exit_arrival.rs`).
+
+1. **Add exit and link...** places an exit on the chosen Edge and opens a room chooser at once;
+   **Link...** on the selected exit opens the same chooser (the panel also says "Leads to
+   <name>"). The chooser lists the saved rooms and unsaved drafts by name, then **New room...**
+   (asks for a name with the room-name rules, then makes an unsaved room shaped like A). Cancel
+   removes an exit that was just placed and changes nothing for an existing one. A itself is not
+   a valid target; the chooser says so.
+2. B opens in the editor with the banner "Linking A exit to B", a **Two-way** checkbox (on) and
+   Cancel. Only exits can be selected, placed and dragged in B (the other tools, delete, undo,
+   Save and Test room are off). Select an existing exit (outlined in yellow) or press
+   **New exit here** and click to place one (grid snap, drag to adjust); a new exit leads back
+   to A, so Two-way stays on for it. **Connect** finishes.
+3. A's exit leads to B and arrives next to the chosen exit. With Two-way, B's exit leads to A and
+   arrives next to A's exit. The arrival is searched from the exit's inner face and is never
+   inside a solid, outside the room or inside any exit. If B's exit led somewhere else, the
+   message names the old target. The editor returns to A with the same selection and view and
+   "Linked A <-> B".
+
+Cancel at any step (or F2) returns to A with every draft as it was; a room the flow created is
+discarded and its id and name are free again. From the name window, Cancel goes back to the
+chooser. A is kept in memory, untouched, while B is open, and every room the flow touched stays an
+unsaved draft until the normal **Save**, which checks all of them first and writes all or none.
+The unsaved-changes window lists every unsaved room by name. The link is one undo step in A and
+one in B (each room keeps its own history).
+
+Known limit: moving or deleting a linked exit later does not update its partner; use **Link...**
+on it again.
+
 ### Manual check: terrain tools
 
 - Press T (click the canvas first), drag a rectangle: a green preview with its size, then
@@ -465,6 +498,28 @@ Run `cargo run`, press F2 and use a room with a few entities.
   room is drawn with its own look.
 - Save, press F5: the look is unchanged. A room at the default look has no `terrain_style` in
   its file.
+
+### Manual check: linked exits
+
+Run `cargo run`, press F2.
+
+- Select the first room's exit, press **Link...**, pick Second: Second opens with the banner,
+  the yellow outlines and a panel with only Two-way, New exit here, Connect and Cancel. The
+  tool buttons, Delete, Ctrl+Z, Save and Test room do nothing. Press **Connect** with no exit
+  selected: the footer says to select one.
+- Click Second's left exit and Connect: the editor is back in the first room with the same
+  selection and zoom and "Linked First <-> Second". Save, close the editor and walk through
+  the first room's exit: you appear beside Second's exit, not in it. Walk back through it.
+- **Add exit and link...**, Cancel: the exit is gone. Do it again and pick **New room...**, name
+  it, press **New exit here**, click near its edge, Connect. The unsaved window (F2) lists both
+  rooms by name. Discard, then repeat and Save: both rooms are written, and walking through
+  the first room's new exit and back works.
+- Open the chooser and pick the room you are in: it refuses with a message. Uncheck Two-way, Connect to
+  an exit that led elsewhere: only the first room's exit changes. Connect with Two-way to one that led
+  elsewhere: the message names the old target.
+- Place an exit over a solid in the target room: refused with the reason, nothing added.
+- Cancel (button and F2) from the chooser, the name window and Second: nothing changed and a
+  new room made by the flow is gone.
 
 ### Manual check: test room
 

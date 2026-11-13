@@ -8,7 +8,8 @@ use crate::room::RoomId;
 use crate::room_name::{self, NamedRoom};
 
 impl EditorSession {
-    /// Every room a name must not clash with: the saved rooms and this session's draft. A
+    /// Every room a name must not clash with: the saved rooms, this session's draft and the
+    /// parked drafts. A
     /// room never clashes with itself (`room_name::check_unique` skips the same id), so the
     /// saved copy of the room being edited and its draft can both be here.
     fn named_rooms(&self) -> Vec<NamedRoom<'_>> {
@@ -18,6 +19,11 @@ impl EditorSession {
             .map(|(id, layout)| (*id, layout.name.as_deref()))
             .collect();
         rooms.push((self.id, self.draft.layout.name.as_deref()));
+        rooms.extend(
+            self.parked
+                .iter()
+                .map(|work| (work.id, work.draft.layout.name.as_deref())),
+        );
         rooms
     }
 
@@ -40,6 +46,8 @@ impl EditorSession {
     pub fn title_of(&self, id: RoomId) -> String {
         let name = if id == self.id {
             self.draft.layout.name.as_deref()
+        } else if let Some(work) = self.parked.iter().find(|work| work.id == id) {
+            work.draft.layout.name.as_deref()
         } else {
             self.rooms
                 .iter()

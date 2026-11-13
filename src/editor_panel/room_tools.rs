@@ -84,7 +84,23 @@ pub(super) fn draw_room_tools(
                 }
             }
         }
+        if panel_button(ui, "Add exit and link...") {
+            // Places the exit and asks which room it leads to; Cancel takes it out again.
+            let edge = [
+                RoomEdge::Left,
+                RoomEdge::Right,
+                RoomEdge::Top,
+                RoomEdge::Bottom,
+            ][state.edge];
+            state.start_link_new_exit(editor, edge);
+        }
         if let Some(Selection::Exit(i) | Selection::Destination(i)) = state.selected {
+            if let Some(leads_to) = editor.exit_leads_to(i) {
+                panel_label(ui, &format!("Leads to {leads_to}"));
+            }
+            if panel_button(ui, "Link...") {
+                state.start_link(editor, i);
+            }
             if panel_button(ui, "Set exit target") {
                 let target = state
                     .target

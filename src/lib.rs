@@ -31,6 +31,8 @@ pub mod editor_view;
 pub mod enemy;
 pub mod enemy_attack;
 pub mod events;
+pub mod exit_arrival;
+pub mod exit_link;
 pub mod feel;
 pub mod game;
 pub mod health;

@@ -94,12 +94,21 @@ async fn main() {
             // Back to the same editor session. Its UI state (undo history, selection, view)
             // stays as it was, unlike opening the editor fresh.
             let _ = game.end_test_room();
+        } else if is_key_pressed(KeyCode::F2)
+            && game
+                .editor_mut()
+                .is_some_and(|session| editor_ui.cancel_link(session))
+        {
+            // F2 while an exit link is open is the link's Cancel; the editor stays open.
         } else if is_key_pressed(KeyCode::F2) {
-            // Opening the editor never asks anything; closing it with unsaved changes
-            // opens the Save / Discard / Cancel dialog instead.
+            // Opening the editor never asks anything; closing it with unsaved changes (in
+            // this room or in a room a link parked) opens the Save / Discard / Cancel
+            // dialog instead.
             let toggle = match game.editor() {
                 Some(session) => {
-                    editor_ui.guard.request(GuardedAction::Close, session.dirty)
+                    editor_ui
+                        .guard
+                        .request(GuardedAction::Close, session.has_unsaved())
                         == GuardStep::Perform(GuardedAction::Close)
                 }
                 None => true,

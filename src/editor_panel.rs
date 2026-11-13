@@ -13,6 +13,8 @@ mod death_field;
 mod entity;
 mod history_panel;
 mod key_values;
+mod link_dialog;
+mod link_panel;
 mod look_panel;
 mod movement_field;
 mod name_dialog;
@@ -31,6 +33,8 @@ mod widgets;
 pub(super) use boss::{draw_boss_panel, BossPropertyUi};
 use entity::{draw_definition_panel, pending_error};
 pub(super) use history_panel::apply_history;
+pub(super) use link_dialog::{draw_link_dialog, LinkChoice};
+use link_panel::draw_link_panel;
 pub(super) use look_panel::LookUi;
 pub(super) use name_dialog::{draw_name_dialog, NameChoice};
 pub(super) use property::PropertyUi;
@@ -76,8 +80,12 @@ pub(super) fn draw_panel(
             ui.spacing_mut().scroll = egui::style::ScrollStyle::solid();
             // Bottom-up layout reserves the footer before laying out the scroll viewport.
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                save = panel_button(ui, "Save");
-                test = panel_button(ui, "Test room (F6)");
+                // Nothing is written or played while an exit link is open; Cancel or
+                // Connect first.
+                ui.add_enabled_ui(!editor.link_active(), |ui| {
+                    save = panel_button(ui, "Save");
+                    test = panel_button(ui, "Test room (F6)");
+                });
                 ui.separator();
                 let scroll = egui::ScrollArea::vertical()
                     .id_salt("editor controls")
@@ -100,6 +108,15 @@ pub(super) fn draw_panel(
                                     if editor.dirty { " *" } else { "" }
                                 ),
                             );
+                            let unsaved = editor.unsaved_rooms();
+                            if unsaved.len() > 1 || (unsaved.len() == 1 && !editor.dirty) {
+                                panel_label(ui, &format!("Unsaved: {}", unsaved.join(", ")));
+                            }
+                            if editor.link_banner().is_some() {
+                                // B is open: only the link panel is shown.
+                                draw_link_panel(ui, editor, state);
+                                return;
+                            }
                             if panel_button(
                                 ui,
                                 if state.properties {

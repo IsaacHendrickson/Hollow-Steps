@@ -113,7 +113,7 @@ impl RoomLayout {
             .with_top(self.bounds.1)
     }
 
-    fn contains_body(&self, center: (f32, f32), size: Vec2) -> bool {
+    pub(crate) fn contains_body(&self, center: (f32, f32), size: Vec2) -> bool {
         let p = Vec2::from(center);
         let r = self.rect();
         p.is_finite()
