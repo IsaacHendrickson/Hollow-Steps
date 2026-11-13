@@ -2,6 +2,7 @@
 //! changes. `UnsavedGuard` is a small state machine: the front end reports requests,
 //! dialog buttons and save results, and it says what to do next. It never touches the
 //! session itself; `perform` carries out an approved action.
+use crate::editor::EditorSession;
 use crate::game::GameState;
 use crate::room::RoomId;
 
@@ -52,10 +53,29 @@ pub struct Prompt {
     pub error: Option<String>,
 }
 
+/// What a session has that is not saved, for the dialog to list: the room and its definitions,
+/// and the Player panel's stats or look.
+pub fn unsaved_items(session: &EditorSession) -> Vec<&'static str> {
+    let mut items = Vec::new();
+    if session.dirty {
+        items.push("Room and definitions");
+    }
+    if player_unsaved(session) {
+        items.push("Player");
+    }
+    items
+}
+
+fn player_unsaved(session: &EditorSession) -> bool {
+    session.player.is_dirty() || session.look.is_dirty()
+}
+
 #[derive(Debug, Default)]
 pub struct UnsavedGuard {
     prompt: Option<Prompt>,
     saving: bool,
+    /// What the open dialog says is unsaved (`unsaved_items`); empty when not told.
+    unsaved: Vec<String>,
 }
 
 impl UnsavedGuard {
@@ -72,7 +92,28 @@ impl UnsavedGuard {
             action,
             error: None,
         });
+        self.unsaved.clear();
         GuardStep::Wait
+    }
+
+    /// `request` for an open session: it is dirty when the room or the player is, and the
+    /// dialog lists which. `None` (no session) acts at once.
+    pub fn request_for(
+        &mut self,
+        action: GuardedAction,
+        session: Option<&EditorSession>,
+    ) -> GuardStep {
+        let items = session.map(unsaved_items).unwrap_or_default();
+        let step = self.request(action, !items.is_empty());
+        if self.prompt.is_some() {
+            self.unsaved = items.into_iter().map(str::to_owned).collect();
+        }
+        step
+    }
+
+    /// What the open dialog lists as unsaved.
+    pub fn unsaved(&self) -> &[String] {
+        &self.unsaved
     }
 
     /// A dialog button was pressed. Cancel closes the dialog and keeps the session;
@@ -129,9 +170,26 @@ impl UnsavedGuard {
     }
 }
 
+/// Saves what is unsaved in the open editor: the room and definitions, then the Player
+/// panel's stats and look (which may name poses the first save just wrote). Stops at the first
+/// failure, so nothing after it is written.
+pub fn save_all(game: &mut GameState) -> Result<(), String> {
+    let session = game.editor().ok_or("editor is closed")?;
+    let (room, player) = (session.dirty, player_unsaved(session));
+    if room {
+        game.save_editor()?;
+    }
+    if player {
+        game.save_player()?;
+    }
+    Ok(())
+}
+
 /// Carries out an approved action: closes the editor, opens a room in it, or starts a
 /// new room draft. The error (a room that will not load) is for the editor message.
 pub fn perform(game: &mut GameState, action: &GuardedAction) -> Result<(), String> {
+    // Whatever the Player panel still has unsaved was given up (a Save wrote it first).
+    game.discard_player_edits();
     match action {
         GuardedAction::Close if game.editor().is_some() => game.toggle_editor(),
         GuardedAction::Close => Ok(()),

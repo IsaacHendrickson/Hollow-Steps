@@ -74,6 +74,21 @@ impl GameState {
         Ok(written)
     }
 
+    /// Gives up the Player panel's unsaved edits: the stats go back to the saved values in
+    /// effect, in the game and in the open session, and the unsaved look is dropped.
+    pub fn discard_player_edits(&mut self) {
+        self.player_draft.reset_all();
+        let saved = *self.player_draft.saved();
+        self.player.set_config(saved.player);
+        for enemy in self.rooms.iter_mut().flat_map(|room| &mut room.enemies) {
+            enemy.set_tuning(saved.enemy);
+        }
+        if let Some(session) = &mut self.editor {
+            session.player = self.player_draft;
+            session.look.reset();
+        }
+    }
+
     /// Gives the open editor session a copy of the game's draft to edit.
     pub(super) fn attach_player_draft(&mut self) {
         if let Some(session) = &mut self.editor {

@@ -7,6 +7,7 @@ use std::mem;
 use super::GameState;
 use crate::editor::EditorSession;
 use crate::player::Player;
+use crate::player_body::PlayerBody;
 use crate::room::{place_boss, Room};
 use crate::vitals::VitalsState;
 
@@ -38,7 +39,37 @@ fn build(session: &EditorSession) -> Result<Room, String> {
     Ok(room)
 }
 
+/// Why the unsaved player cannot be played: a size or jump the rooms or the rules refuse, or a
+/// look the game could not draw. Plain-box players (no body template in the assets) have no
+/// look to check.
+fn player_problem(session: &EditorSession) -> Result<(), String> {
+    session.player.validate(&session.spawn_checks())?;
+    let has_body = session
+        .content
+        .bodies
+        .contains_key(&session.look.edited().visual.template);
+    match session
+        .look
+        .problem(&session.content.bodies, &session.content.poses)
+    {
+        Some(problem) if has_body => Err(format!("the player cannot use this look: {problem}")),
+        _ => Ok(()),
+    }
+}
+
 impl GameState {
+    /// The player's body as the editor has it, unsaved colors, poses and parts included, for
+    /// drawing the player during a test room. `None` outside a test room, and when the assets
+    /// have no body for the player (it is then a plain box, as in the game).
+    pub fn test_player_body(&self) -> Option<PlayerBody> {
+        let session = &self.test_run.as_ref()?.session;
+        let look = session.look.edited().clone();
+        if !session.content.bodies.contains_key(&look.visual.template) {
+            return None;
+        }
+        PlayerBody::new(look, &session.content.bodies, session.content.poses.clone()).ok()
+    }
+
     /// True while a test room is being played; the editor session is parked meanwhile.
     pub fn testing_room(&self) -> bool {
         self.test_run.is_some()
@@ -51,8 +82,12 @@ impl GameState {
         if self.test_run.is_some() {
             return Err("already testing the room".into());
         }
+        // The Player panel's edits are what gets played, saved or not, if the player can be.
+        self.sync_player_from_editor();
         let session = self.editor.as_mut().ok_or("open the editor first")?;
-        let room = match build(session) {
+        // The room is judged first: a draft that is not a valid room says so before anything
+        // is said about the player.
+        let room = match build(session).and_then(|room| player_problem(session).map(|()| room)) {
             Ok(room) => room,
             Err(error) => {
                 session.message = format!("Cannot test the room: {error}");

@@ -41,6 +41,7 @@ pub mod particles;
 pub mod player;
 pub mod player_body;
 pub mod player_editor;
+pub mod player_history;
 pub mod player_look_editor;
 pub mod pose;
 pub mod postfx;

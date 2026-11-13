@@ -21,6 +21,9 @@ pub(crate) fn draw_unsaved_dialog(
             ui,
             &format!("Save your changes before you {}?", prompt.action.describe()),
         );
+        if !guard.unsaved().is_empty() {
+            panel_label(ui, &format!("Unsaved: {}", guard.unsaved().join(", ")));
+        }
         if let Some(error) = &prompt.error {
             ui.add(
                 egui::Label::new(egui::RichText::new(error).color(egui::Color32::LIGHT_RED)).wrap(),

@@ -80,6 +80,8 @@ async fn main() {
     let mut camera_room = game.room().id;
     // Whether a room from the editor was being played last frame.
     let mut testing = false;
+    // Whether the editor was open last frame (a test room parks it, so it counts as closed).
+    let mut was_editing = false;
 
     loop {
         let frame_seconds = get_frame_time();
@@ -100,7 +102,9 @@ async fn main() {
             // opens the Save / Discard / Cancel dialog instead.
             let toggle = match game.editor() {
                 Some(session) => {
-                    editor_ui.guard.request(GuardedAction::Close, session.dirty)
+                    editor_ui
+                        .guard
+                        .request_for(GuardedAction::Close, Some(session))
                         == GuardStep::Perform(GuardedAction::Close)
                 }
                 None => true,
@@ -118,6 +122,10 @@ async fn main() {
             // A test room started or ended: the world changed under the camera and any
             // input or time left over from the other mode must not carry across.
             testing = game.testing_room();
+            if testing {
+                // The player wears the editor's unsaved look for the test.
+                player_body = game.test_player_body();
+            }
             effects.clear();
             hud.clear();
             fixed_step.reset();
@@ -125,6 +133,16 @@ async fn main() {
             camera = new_camera(&game, camera_config, view);
             camera_room = game.room().id;
         }
+        let editing = game.editor().is_some();
+        if was_editing && !editing && !testing {
+            // The editor closed: the player has the look on disk again (a Save wrote it,
+            // a Discard dropped the unsaved one).
+            match PlayerBody::load(&assets::assets_root()) {
+                Ok(body) => player_body = body,
+                Err(error) => reload_result = Some(Err(error)),
+            }
+        }
+        was_editing = editing;
         if game.editor().is_some() {
             ui_wants_keyboard = false;
             draw_editor(&mut game, &mut editor_ui, body_debug, &body_debug_overlay);

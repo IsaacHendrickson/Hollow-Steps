@@ -11,6 +11,8 @@ mod look;
 use crate::editor_panel::widgets::{panel_button, panel_label, probe, section};
 use egui_macroquad::egui;
 use hollow_steps::editor::EditorSession;
+use hollow_steps::editor_history::HistoryKey;
+use hollow_steps::player_history::{PlayerHistory, PlayerSnapshot};
 use hollow_steps::tuning::{Field, FieldSpec};
 
 /// What a window says about the last Save or refused edit.
@@ -186,9 +188,34 @@ pub(crate) struct PlayerUi {
     refused: Option<(Field, String)>,
     /// The Look section's state, including what the canvas previews.
     pub(crate) look: look::LookUi,
+    /// Undo and redo for what this panel edits, apart from the room's.
+    history: PlayerHistory,
+    /// The last mouse press was inside this panel: Ctrl+Z and Ctrl+Y are for its history.
+    focused: bool,
+    /// An Undo or Redo button was clicked this frame; applied after the frame is observed.
+    history_request: Option<HistoryKey>,
 }
 
 impl PlayerUi {
+    /// Ctrl+Z / Ctrl+Y: goes through the Player panel's own history when the panel is open and
+    /// has focus, and returns true (the key is taken even if there is nothing to undo). False
+    /// means the keys are the room's.
+    pub(crate) fn apply_history(&mut self, editor: &mut EditorSession, key: HistoryKey) -> bool {
+        if !(self.open && self.focused) {
+            return false;
+        }
+        self.step_history(editor, key);
+        true
+    }
+
+    fn step_history(&mut self, editor: &mut EditorSession, key: HistoryKey) {
+        match key {
+            HistoryKey::Undo => self.history.undo(editor),
+            HistoryKey::Redo => self.history.redo(editor),
+        };
+        self.refused = None;
+    }
+
     /// What the editor canvas draws of the player: only while the panel is open and its Show
     /// player on canvas box is ticked.
     pub(crate) fn canvas_preview(
@@ -205,9 +232,31 @@ pub(crate) fn draw(ui: &mut egui::Ui, editor: &mut EditorSession, state: &mut Pl
         state.open = !state.open;
     }
     if !state.open {
+        state.focused = false;
         return false;
     }
+    let before = PlayerSnapshot::capture(editor);
     draw_stats(ui, editor, state);
+    // A press inside the panel gives it the undo keys; a press anywhere else takes them away.
+    let (down, pressed_at) = ui.input(|input| {
+        (
+            input.pointer.any_down(),
+            input
+                .pointer
+                .any_pressed()
+                .then(|| input.pointer.interact_pos())
+                .flatten(),
+        )
+    });
+    if let Some(at) = pressed_at {
+        state.focused = ui.clip_rect().contains(at);
+    }
+    state
+        .history
+        .observe(before, &PlayerSnapshot::capture(editor), down);
+    if let Some(key) = state.history_request.take() {
+        state.step_history(editor, key);
+    }
     true
 }
 
@@ -268,6 +317,12 @@ fn draw_stats(ui: &mut egui::Ui, editor: &mut EditorSession, state: &mut PlayerU
     if panel_button(ui, "Save player") {
         state.refused = None;
         state.save_requested = true;
+    }
+    if panel_button(ui, "Undo player edit") {
+        state.history_request = Some(HistoryKey::Undo);
+    }
+    if panel_button(ui, "Redo player edit") {
+        state.history_request = Some(HistoryKey::Redo);
     }
     if panel_button(ui, "Reset all") {
         editor.player.reset_all();

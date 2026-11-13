@@ -1,7 +1,9 @@
 use super::*;
 use hollow_steps::game::GameState;
 
+mod dialog;
 mod look;
+mod undo;
 
 /// The editor's side panel is this wide; every row has to fit in it.
 const PANEL_WIDTH: f32 = 360.0;
@@ -370,4 +372,20 @@ fn an_error_from_the_last_save_is_drawn_and_an_edit_clears_it() {
     state.status = Status::Saved("assets/player.ron".into());
     let text = frame(&ctx, vec![], editor, &mut state);
     assert!(text.contains("Saved to assets/player.ron"), "{text}");
+}
+
+fn drag(
+    ctx: &egui::Context,
+    id: egui::Id,
+    by: f32,
+    editor: &mut EditorSession,
+    state: &mut PlayerUi,
+) {
+    let start = rect_of(ctx, id).center();
+    frame(ctx, pointer(start, Some(true)), editor, state);
+    let moved = start + egui::vec2(by, 0.0);
+    frame(ctx, pointer(moved, None), editor, state);
+    frame(ctx, vec![], editor, state);
+    frame(ctx, pointer(moved, Some(false)), editor, state);
+    frame(ctx, vec![], editor, state);
 }

@@ -71,6 +71,11 @@ impl PlayerLookDraft {
         self.edited = self.saved.clone();
     }
 
+    /// Puts back a look the draft had before (undo and redo); the saved look is unchanged.
+    pub fn restore_edited(&mut self, look: PlayerLook) {
+        self.edited = look;
+    }
+
     /// Why the edited look cannot be used with these templates and poses, if it cannot: the
     /// same checks the game makes when it loads the player's body.
     pub fn problem(&self, templates: &BodyTemplates, poses: &Poses) -> Option<String> {

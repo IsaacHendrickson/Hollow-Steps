@@ -49,22 +49,6 @@ impl Drop for BodyAssets {
     }
 }
 
-fn drag(
-    ctx: &egui::Context,
-    id: egui::Id,
-    by: f32,
-    editor: &mut EditorSession,
-    state: &mut PlayerUi,
-) {
-    let start = rect_of(ctx, id).center();
-    frame(ctx, pointer(start, Some(true)), editor, state);
-    let moved = start + egui::vec2(by, 0.0);
-    frame(ctx, pointer(moved, None), editor, state);
-    frame(ctx, vec![], editor, state);
-    frame(ctx, pointer(moved, Some(false)), editor, state);
-    frame(ctx, vec![], editor, state);
-}
-
 fn part_id(part: &str, key: &'static str, axis: &'static str) -> egui::Id {
     egui::Id::new(("part", part, key, axis))
 }
