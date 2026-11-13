@@ -6,6 +6,8 @@
 //! way in both.
 use std::cell::RefCell;
 
+mod look;
+
 use crate::editor_panel::widgets::{panel_button, panel_label, probe, section};
 use egui_macroquad::egui;
 use hollow_steps::editor::EditorSession;
@@ -182,6 +184,18 @@ pub(crate) struct PlayerUi {
     pub(crate) status: Status,
     /// Why a typed value was refused, drawn under its field until the next edit.
     refused: Option<(Field, String)>,
+    /// The Look section's state, including what the canvas previews.
+    pub(crate) look: look::LookUi,
+}
+
+impl PlayerUi {
+    /// What the editor canvas draws of the player: only while the panel is open and its Show
+    /// player on canvas box is ticked.
+    pub(crate) fn canvas_preview(
+        &self,
+    ) -> Option<hollow_steps::player_look_editor::PreviewSettings> {
+        (self.open && self.look.show_on_canvas).then_some(self.look.preview)
+    }
 }
 
 /// Draws the Player button and, while it is open, the panel. Returns true when the panel is
@@ -249,6 +263,7 @@ fn draw_stats(ui: &mut egui::Ui, editor: &mut EditorSession, state: &mut PlayerU
             }
         });
     }
+    look::draw(ui, editor, &mut state.look);
     ui.separator();
     if panel_button(ui, "Save player") {
         state.refused = None;
@@ -271,7 +286,7 @@ fn draw_stats(ui: &mut egui::Ui, editor: &mut EditorSession, state: &mut PlayerU
             );
         }
     }
-    ui.small("Changes apply in play at once. Save writes player.ron in the assets folder.");
+    ui.small("Stat changes apply in play at once. Save writes player.ron in the assets folder.");
 }
 
 #[cfg(test)]

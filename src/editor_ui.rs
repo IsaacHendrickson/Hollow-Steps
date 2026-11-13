@@ -433,6 +433,9 @@ pub(crate) fn draw_editor(
     let previews = editor_visuals::visual_previews(editor, &drawn);
     editor_visuals::draw_visual_previews(&previews, state.selected, &canvas);
     editor_visuals::draw_markers(&drawn, state.selected, &canvas);
+    if let Some(settings) = state.player.canvas_preview() {
+        editor_visuals::draw_player_preview(editor, settings, &canvas);
+    }
     if body_debug && state.destination.is_none() {
         // Preview authored placements and unsaved definitions without touching runtime bodies.
         let enemies = editor
@@ -532,8 +535,14 @@ pub(crate) fn draw_editor(
     // The game takes the Player panel's edits into effect; its Save goes through the game.
     game.sync_player_from_editor();
     if std::mem::take(&mut state.player.save_requested) {
-        state.player.status = match game.save_tuning() {
-            Ok(path) => Status::Saved(path.display().to_string()),
+        state.player.status = match game.save_player() {
+            Ok(paths) => Status::Saved(
+                paths
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ),
             Err(error) => Status::Error(error),
         };
     }

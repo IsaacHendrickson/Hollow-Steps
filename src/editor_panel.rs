@@ -6,7 +6,7 @@ use egui_macroquad::egui;
 use hollow_steps::editor_tools::EditorTool;
 
 mod behavior;
-mod body_visual;
+pub(crate) mod body_visual;
 mod boss;
 mod canvas_tools;
 mod death_field;
@@ -17,7 +17,7 @@ mod look_panel;
 mod movement_field;
 #[cfg(test)]
 mod panel_tests;
-mod property;
+pub(crate) mod property;
 mod room_tools;
 mod states;
 #[cfg(test)]

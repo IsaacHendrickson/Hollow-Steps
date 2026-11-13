@@ -5,7 +5,8 @@
 //! While the editor is open its session carries a copy of the draft for the panel to edit.
 //! The game takes that copy into effect once per editor frame (`sync_player_from_editor`), and
 //! the copy is refreshed from the game whenever the editor opens or a test room ends, so the
-//! two never drift apart. F4 is not drawn while the editor is open.
+//! two never drift apart. F4 is not drawn while the editor is open. The look
+//! (`player_look_editor`) lives only in the session; the Player panel's Save writes it too.
 use std::path::PathBuf;
 
 use super::GameState;
@@ -44,6 +45,33 @@ impl GameState {
         let path = self.player_draft.save(&self.assets, &spawns)?;
         self.attach_player_draft();
         Ok(path)
+    }
+
+    /// Saves what the Player panel edits: `player.ron`, and `player_body.ron` when the look
+    /// changed. Both are checked before either is written, so a refused look leaves
+    /// `player.ron` as it was too. Returns the files written.
+    pub fn save_player(&mut self) -> Result<Vec<PathBuf>, String> {
+        self.sync_player_from_editor();
+        let spawns = self.spawn_checks();
+        self.player_draft.validate(&spawns)?;
+        if let Some(session) = &self.editor {
+            if session.look.is_dirty() {
+                session.look.check_savable(
+                    &self.assets,
+                    &session.content.bodies,
+                    &session.content.poses,
+                )?;
+            }
+        }
+        let mut written = vec![self.player_draft.save(&self.assets, &spawns)?];
+        self.attach_player_draft();
+        if let Some(session) = &mut self.editor {
+            if session.look.is_dirty() {
+                let (bodies, poses) = (&session.content.bodies, &session.content.poses);
+                written.push(session.look.save(&self.assets, bodies, poses)?);
+            }
+        }
+        Ok(written)
     }
 
     /// Gives the open editor session a copy of the game's draft to edit.

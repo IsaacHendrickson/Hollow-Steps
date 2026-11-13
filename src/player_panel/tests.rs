@@ -1,10 +1,12 @@
 use super::*;
 use hollow_steps::game::GameState;
 
+mod look;
+
 /// The editor's side panel is this wide; every row has to fit in it.
 const PANEL_WIDTH: f32 = 360.0;
 /// Tall enough that every row is drawn and clickable without scrolling.
-const TALL: f32 = 1_800.0;
+const TALL: f32 = 12_000.0;
 
 /// The fixture game with its editor open.
 fn editing_game() -> GameState {
