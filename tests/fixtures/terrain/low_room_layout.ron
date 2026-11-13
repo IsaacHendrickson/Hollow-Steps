@@ -1,0 +1,10 @@
+// Fixed low-ceiling fixture with no solids. Do not synchronize with editable assets.
+// Room top is y=400, floor y=460: a standing player's head is 12 px under the top.
+(
+    bounds: (0.0, 400.0, 960.0, 60.0),
+    floor_y: 460.0,
+    spawn: (50.0, 436.0),
+    terrain: [],
+    items: [],
+    exits: [],
+)

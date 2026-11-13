@@ -52,6 +52,11 @@ impl GameState {
             return Err("already testing the room".into());
         }
         let session = self.editor.as_mut().ok_or("open the editor first")?;
+        if session.link_active() {
+            let error = "finish or cancel the exit link before testing a room".to_owned();
+            session.message = error.clone();
+            return Err(error);
+        }
         let room = match build(session) {
             Ok(room) => room,
             Err(error) => {

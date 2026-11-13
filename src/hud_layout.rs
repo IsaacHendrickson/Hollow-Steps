@@ -54,7 +54,8 @@ pub fn boss_caption(name: &str, health: u32, max_health: u32) -> String {
     format!("{name}: {}/{max_health}", health.min(max_health))
 }
 
-/// A readable name for a room, since rooms have no names of their own.
+/// A readable label for a room id alone. The game shows `room_name::room_title`, which
+/// prefers the room's own name.
 pub fn room_label(id: RoomId) -> String {
     match id {
         RoomId::First => "First room".to_owned(),

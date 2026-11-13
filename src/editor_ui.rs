@@ -4,7 +4,7 @@
 
 use crate::editor_panel::{BossPropertyUi, LookUi, PropertyUi};
 use crate::{body_draw, editor_panel, editor_visuals, terrain_canvas, terrain_draw};
-use hollow_steps::editor::{EditorSession, Selection};
+use hollow_steps::editor::Selection;
 use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
 use hollow_steps::editor_history::{shortcut, tracked, History};
 use hollow_steps::editor_tools::{tool_shortcut, EditorTool, TerrainTool};
@@ -12,9 +12,12 @@ use hollow_steps::editor_view::{
     grid_lines, wrap_words, CanvasRegions, CanvasView, Grid, PanDrag, CANVAS_MARGIN,
 };
 use hollow_steps::game::GameState;
-use hollow_steps::item::ITEM_SIZE;
+use hollow_steps::room::RoomId;
+use hollow_steps::room_name::NamePrompt;
 use hollow_steps::search::SearchList;
 use macroquad::prelude::*;
+
+pub(crate) use markers::{editor_markers, selected_by_press};
 
 #[derive(Default)]
 pub(crate) struct EditorUi {
@@ -45,11 +48,20 @@ pub(crate) struct EditorUi {
     /// A room switch asked for by the panel this frame (New room); `draw_editor` runs it
     /// through `guard`.
     pub(crate) requested: Option<GuardedAction>,
+    /// The "New room" window while it is open: it asks for the name before the unsaved-changes
+    /// guard is consulted.
+    pub(crate) name_prompt: Option<NamePrompt>,
     /// Undo and redo for the draft; reset with the rest of this state when a room is opened
     /// or created.
     pub(crate) history: History,
     /// The Room look section's drag state and the canvas preview's cached draw list.
     pub(crate) look: LookUi,
+    /// Room A's window state while B is open in the exit-link flow.
+    pub(crate) link_stash: Option<Box<linking::LinkStash>>,
+    /// "New exit here" was pressed: the next click in the room places an exit.
+    pub(crate) link_placing: bool,
+    /// Undo history of the rooms the exit-link flow parked with unsaved changes.
+    pub(crate) parked_histories: Vec<(RoomId, History)>,
 }
 
 impl EditorUi {
@@ -72,94 +84,6 @@ impl EditorUi {
     }
 }
 
-pub(crate) fn editor_markers(
-    editor: &EditorSession,
-    destination: Option<usize>,
-    selected: Option<Selection>,
-) -> Vec<(Selection, Rect, Color)> {
-    let body =
-        |p: Vec2, size: Vec2| Rect::new(p.x - size.x / 2.0, p.y - size.y / 2.0, size.x, size.y);
-    if let Some(i) = destination {
-        return editor
-            .draft
-            .layout
-            .exits
-            .get(i)
-            .map(|exit| {
-                vec![(
-                    Selection::Destination(i),
-                    body(exit.spawn.into(), vec2(32.0, 48.0)),
-                    PURPLE,
-                )]
-            })
-            .unwrap_or_default();
-    }
-    let mut markers = Vec::new();
-    for (i, enemy) in editor.draft.enemies.iter().enumerate() {
-        if let Ok(size) = editor.definitions.size(&enemy.definition) {
-            markers.push((
-                Selection::Enemy(i),
-                body(
-                    vec2(
-                        enemy.patrol_left,
-                        editor.draft.layout.floor_y - size.y / 2.0,
-                    ),
-                    size,
-                ),
-                RED,
-            ));
-        }
-    }
-    if let Some(boss) = &editor.draft.boss {
-        if let Some(definition) = editor
-            .content
-            .boss_path(&boss.definition)
-            .and_then(|p| editor.content.bosses.get(&p))
-        {
-            markers.push((
-                Selection::Boss,
-                body(boss.position.into(), definition.size.into()),
-                PURPLE,
-            ));
-        }
-    }
-    for (i, item) in editor.draft.layout.items.iter().enumerate() {
-        markers.push((
-            Selection::Item(i),
-            body(item.position.into(), ITEM_SIZE),
-            GOLD,
-        ));
-    }
-    for (i, exit) in editor.draft.layout.exits.iter().enumerate() {
-        markers.push((
-            Selection::Exit(i),
-            exit.exit().zone(editor.draft.layout.rect()),
-            GREEN,
-        ));
-    }
-    markers.push((
-        Selection::Spawn,
-        body(editor.draft.layout.spawn.into(), vec2(32.0, 48.0)),
-        SKYBLUE,
-    ));
-    if let Some(Selection::Enemy(i) | Selection::PatrolLeft(i) | Selection::PatrolRight(i)) =
-        selected
-    {
-        if let Some(enemy) = editor.draft.enemies.get(i) {
-            if let Ok(size) = editor.definitions.size(&enemy.definition) {
-                let y = editor.draft.layout.floor_y - size.y - 14.0;
-                for (selection, x, handle_y) in [
-                    (Selection::PatrolLeft(i), enemy.patrol_left, y),
-                    (Selection::PatrolRight(i), enemy.patrol_right, y - 24.0),
-                ] {
-                    markers.push((selection, body(vec2(x, handle_y), vec2(14.0, 20.0)), ORANGE));
-                }
-            }
-        }
-    }
-    markers
-}
-
 pub(crate) fn draw_editor(
     game: &mut GameState,
     state: &mut EditorUi,
@@ -175,6 +99,8 @@ pub(crate) fn draw_editor(
     }
     let mut panel = None;
     let mut dialog = None;
+    let mut naming = None;
+    let mut link_choice = None;
     egui_macroquad::ui(|ctx| {
         // The integration divides native wheel events by 90. Normalize once to 28 points per
         // wheel step; egui then routes/consumes the delta for the hovered scroll area.
@@ -186,14 +112,36 @@ pub(crate) fn draw_editor(
             input.smooth_scroll_delta = delta;
         });
         panel = Some(editor_panel::draw_panel(ctx, editor, state));
-        dialog = editor_panel::draw_unsaved_dialog(ctx, &state.guard);
+        let unsaved = editor.unsaved_rooms();
+        dialog = editor_panel::draw_unsaved_dialog_titled(
+            ctx,
+            &state.guard,
+            &|id| editor.title_of(id),
+            &unsaved,
+        );
+        link_choice = editor_panel::draw_link_dialog(ctx, editor);
+        if let Some(prompt) = &mut state.name_prompt {
+            naming = editor_panel::draw_name_dialog(ctx, editor, prompt);
+        }
     });
     let panel = panel.expect("egui panel");
-    // While the dialog is open nothing behind it may take input.
-    let pointer_blocked = panel.blocks_pointer || state.guard.is_open();
-    let keys_blocked = panel.keyboard || state.guard.is_open();
+    // While a window of the exit-link flow is open nothing behind it may take input.
+    let modal =
+        state.guard.is_open() || state.name_prompt.is_some() || linking::link_dialog_open(editor);
+    if let Some(choice) = link_choice {
+        state.apply_link_choice(editor, choice);
+    }
+    // With B open only exits can be selected, placed and dragged: no other tool, no delete,
+    // no undo, so Cancel never has to undo anything.
+    let linking = linking::link_connecting(editor);
+    if linking {
+        state.tool = EditorTool::Select;
+        state.properties = false;
+    }
+    let pointer_blocked = panel.blocks_pointer || modal;
+    let keys_blocked = panel.keyboard || modal;
     let mut save = panel.save;
-    let test = panel.test && !state.guard.is_open();
+    let test = panel.test && !modal;
     let open = panel.open;
 
     let (layout_room, layout) = state
@@ -304,7 +252,10 @@ pub(crate) fn draw_editor(
         state.canvas_focused = over_canvas;
     }
     if is_mouse_button_pressed(MouseButton::Left) && over_canvas && !panning {
-        if state.tool == EditorTool::Place && state.destination.is_none() {
+        if linking && state.link_placing {
+            let at = state.grid.snap(world, origin);
+            state.place_link_exit(editor, at);
+        } else if state.tool == EditorTool::Place && state.destination.is_none() {
             if let Some((_, placement)) = state
                 .definition
                 .selected
@@ -325,18 +276,17 @@ pub(crate) fn draw_editor(
         } else if state.tool == EditorTool::Erase && state.destination.is_none() {
             terrain_canvas::erase(state, editor, &markers, world);
         } else {
-            let hit = markers.iter().rev().find(|(_, rect, _)| {
+            let hit = markers.iter().rev().find(|(selection, rect, _)| {
                 let r = canvas.rect(*rect);
-                Rect::new(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0).contains(mouse)
+                (!linking || linking::live_while_linking(*selection))
+                    && Rect::new(r.x - 3.0, r.y - 3.0, r.w + 6.0, r.h + 6.0).contains(mouse)
             });
             // A solid (or a handle of the selected one) can take the click before the markers.
-            if terrain_canvas::press_select(state, editor, hit.is_some(), world, reach) {
+            if !linking && terrain_canvas::press_select(state, editor, hit.is_some(), world, reach)
+            {
                 // The solid is selected and its move or resize has begun.
             } else {
-                state.selected = hit.map(|(selection, _, _)| match *selection {
-                    Selection::PatrolLeft(i) | Selection::PatrolRight(i) => Selection::Enemy(i),
-                    other => other,
-                });
+                state.selected = hit.map(|(selection, _, _)| selected_by_press(*selection));
                 state.dragging =
                     hit.map(|(selection, rect, _)| (*selection, world - rect.center()));
                 if state.dragging.is_some() {
@@ -373,11 +323,8 @@ pub(crate) fn draw_editor(
             terrain_canvas::drag(state, editor, world);
         } else if let (true, Some((selection, offset))) = (over_canvas, state.dragging) {
             let target = state.grid.snap(world - offset, origin);
-            match editor.move_selection(selection, target) {
-                Ok(()) => {
-                    editor.dirty = true;
-                    editor.message.clear();
-                }
+            match editor.drag_selection(selection, target) {
+                Ok(()) => editor.message.clear(),
                 Err(error) => editor.message = error,
             }
         }
@@ -389,16 +336,17 @@ pub(crate) fn draw_editor(
         terrain_canvas::release(state, editor);
         state.history.end_gesture(&editor.draft);
     }
-    if is_mouse_button_pressed(MouseButton::Right) && over_canvas {
+    if is_mouse_button_pressed(MouseButton::Right) && over_canvas && !linking {
         terrain_canvas::erase(state, editor, &markers, world);
     } else if is_key_pressed(KeyCode::Delete)
         && state.canvas_focused
         && !keys_blocked
         && !pointer_blocked
+        && !linking
     {
         terrain_canvas::delete_selected(state, editor);
     }
-    if state.canvas_focused && !keys_blocked {
+    if state.canvas_focused && !keys_blocked && !linking {
         let down = |left, right| is_key_down(left) || is_key_down(right);
         if let Some(key) = shortcut(
             down(KeyCode::LeftControl, KeyCode::RightControl),
@@ -430,6 +378,10 @@ pub(crate) fn draw_editor(
     let previews = editor_visuals::visual_previews(editor, &drawn);
     editor_visuals::draw_visual_previews(&previews, state.selected, &canvas);
     editor_visuals::draw_markers(&drawn, state.selected, &canvas);
+    if linking {
+        linking::draw_exit_highlights(editor, &canvas);
+    }
+    arrival_labels::draw(&drawn, editor, &canvas);
     if body_debug && state.destination.is_none() {
         // Preview authored placements and unsaved definitions without touching runtime bodies.
         let enemies = editor
@@ -472,12 +424,14 @@ pub(crate) fn draw_editor(
     }
     draw_text(
         format!(
-            "{:?} - {}",
-            editor.id,
-            if state.destination.is_some() {
-                "destination room view"
+            "{} - {}",
+            editor.room_title(),
+            if let Some(banner) = editor.link_banner() {
+                banner
+            } else if state.destination.is_some() {
+                "destination room view".to_owned()
             } else {
-                "authored room"
+                "authored room".to_owned()
             }
         ),
         CANVAS_MARGIN,
@@ -486,7 +440,11 @@ pub(crate) fn draw_editor(
         WHITE,
     );
     draw_text(
-        "F2: close | V/P/T/E: tools | Drag: move | Right click / Del: delete",
+        if linking {
+            "F2: cancel link | Click an exit to select it | Drag: move the selected exit"
+        } else {
+            "F2: close | V/P/T/E: tools | Drag: move | Right click / Del: delete"
+        },
         CANVAS_MARGIN,
         52.0,
         17.0,
@@ -517,6 +475,8 @@ pub(crate) fn draw_editor(
     } else {
         None
     };
+    // Refused text in the room name field blocks Save the same way.
+    let pending_error = pending_error.or_else(|| editor.name_error());
     state.clear_hidden_property_error(editor.draft.enemies.len());
     if save && pending_error.is_some() {
         editor.message = format!(
@@ -539,8 +499,9 @@ pub(crate) fn draw_editor(
             game.editor_mut().expect("open").message = format!("Save failed: {error}");
         }
     }
+    state.finish_naming(naming);
     // Closing, opening a room and New room all go through the unsaved-changes guard.
-    let dirty = game.editor().is_some_and(|session| session.dirty);
+    let dirty = game.editor().is_some_and(|session| session.has_unsaved());
     let mut step = GuardStep::Wait;
     if let Some(action) = state.requested.take().or(open.map(GuardedAction::OpenRoom)) {
         step = state.guard.request(action, dirty);
@@ -572,5 +533,15 @@ pub(crate) fn draw_editor(
     }
 }
 
+mod arrival_labels;
+#[cfg(test)]
+mod arrival_tests;
+mod linking;
+#[cfg(test)]
+mod linking_tests;
+mod markers;
+mod naming;
+#[cfg(test)]
+mod naming_tests;
 #[cfg(test)]
 mod tests;

@@ -11,6 +11,7 @@ use egui_macroquad::egui;
 mod behavior;
 mod entity;
 mod layout;
+mod link;
 
 type ScrollMetrics = (egui::Rect, egui::Vec2, egui::Vec2, egui::Id);
 

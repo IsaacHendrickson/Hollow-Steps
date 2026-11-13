@@ -119,11 +119,16 @@ pub fn delete_selected(state: &mut EditorUi, editor: &mut EditorSession) {
     }
 }
 
-/// Markers that deleting makes sense for; the spawn and the patrol handles stay.
+/// Markers that deleting makes sense for; the spawn, the patrol handles and the arrivals of
+/// other rooms' exits and of a link stay.
 fn erasable(selection: Selection) -> bool {
     !matches!(
         selection,
-        Selection::Spawn | Selection::PatrolLeft(_) | Selection::PatrolRight(_)
+        Selection::Spawn
+            | Selection::PatrolLeft(_)
+            | Selection::PatrolRight(_)
+            | Selection::Inbound { .. }
+            | Selection::LinkArrival(_)
     )
 }
 
@@ -231,5 +236,31 @@ pub fn draw(
         draw_rectangle(r.x, r.y, r.w, r.h, Color::new(0.3, 0.9, 0.5, 0.35));
         draw_rectangle_lines(r.x, r.y, r.w, r.h, 2.0, GREEN);
         draw_text(size_label(&rect), r.x, r.y - 6.0, 17.0, GREEN);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hollow_steps::room::RoomId;
+
+    #[test]
+    fn the_eraser_skips_arrivals_of_other_rooms_and_of_a_link() {
+        let rect = Rect::new(0.0, 0.0, 32.0, 48.0);
+        let inbound = Selection::Inbound {
+            room: RoomId::Second,
+            exit: 0,
+        };
+        // Both arrivals are drawn on top of the item, yet the item is what gets erased.
+        let markers = [
+            (Selection::Item(0), rect, GOLD),
+            (inbound, rect, PURPLE),
+            (Selection::LinkArrival(0), rect, PURPLE),
+        ];
+        assert_eq!(
+            marker_at(&markers, vec2(10.0, 10.0)),
+            Some(Selection::Item(0))
+        );
+        assert_eq!(marker_at(&markers[1..], vec2(10.0, 10.0)), None);
     }
 }

@@ -1,5 +1,6 @@
 //! The Room tools panel: tools, history, rooms and exits, room size, view and the entity list.
 use super::property::PropertyUi;
+use super::room_name_field::draw_room_name_field;
 use super::widgets::{
     panel_button, panel_combo, panel_input, panel_label, searchable_list, section,
 };
@@ -19,12 +20,16 @@ pub(super) fn draw_room_tools(
     room_labels: &[String],
     open: &mut Option<hollow_steps::room::RoomId>,
 ) {
+    draw_room_name_field(ui, editor, state);
     tool_panel::draw_tool_section(ui, editor, state);
     history_panel::draw_history_section(ui, editor, state);
     section(ui, "Room", |ui| {
         if panel_button(ui, "New room") {
-            // Asks to save first if there are unsaved changes; `draw_editor` acts on it.
-            state.requested = Some(hollow_steps::editor_guard::GuardedAction::NewRoom);
+            // Asks for the name first; `draw_editor` then asks to save if there are unsaved
+            // changes and starts the room.
+            state.name_prompt = Some(hollow_steps::room_name::NamePrompt::new(
+                editor.suggested_room_name(),
+            ));
         }
         searchable_list(
             ui,
@@ -79,7 +84,23 @@ pub(super) fn draw_room_tools(
                 }
             }
         }
+        if panel_button(ui, "Add exit and link...") {
+            // Places the exit and asks which room it leads to; Cancel takes it out again.
+            let edge = [
+                RoomEdge::Left,
+                RoomEdge::Right,
+                RoomEdge::Top,
+                RoomEdge::Bottom,
+            ][state.edge];
+            state.start_link_new_exit(editor, edge);
+        }
         if let Some(Selection::Exit(i) | Selection::Destination(i)) = state.selected {
+            if let Some(leads_to) = editor.exit_leads_to(i) {
+                panel_label(ui, &format!("Leads to {leads_to}"));
+            }
+            if panel_button(ui, "Link...") {
+                state.start_link(editor, i);
+            }
             if panel_button(ui, "Set exit target") {
                 let target = state
                     .target
@@ -101,6 +122,10 @@ pub(super) fn draw_room_tools(
                 state.selected = Some(Selection::Destination(i));
                 state.tool = EditorTool::Select;
             }
+        }
+        if let Some(Selection::Inbound { room, .. }) = state.selected {
+            panel_label(ui, &format!("Arrival from {}", editor.title_of(room)));
+            panel_label(ui, "Drag it to move it; Save also saves that room.");
         }
         if state.destination.is_some() && panel_button(ui, "Back to room") {
             state.destination = None;

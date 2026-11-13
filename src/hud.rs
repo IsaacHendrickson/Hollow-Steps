@@ -8,9 +8,10 @@ use hollow_steps::events::LocatedEvent;
 use hollow_steps::game::GameState;
 use hollow_steps::hud_bars::{layout_bars, BarColors, BarLayout, BarValues, HudConfig, Rgba};
 use hollow_steps::hud_damage::HudFeedback;
-use hollow_steps::hud_layout::{boss_caption, boss_fill, room_label};
+use hollow_steps::hud_layout::{boss_caption, boss_fill};
 use hollow_steps::particles::ParticleConfig;
 use hollow_steps::room::Room;
+use hollow_steps::room_name::room_title;
 use macroquad::prelude::*;
 
 use crate::effects::draw_particles;
@@ -115,7 +116,7 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
     );
 
     // Top right: where you are, and whether the way on is open.
-    let title = room_label(room.id);
+    let title = room_title(room.id, room.name.as_deref());
     let note = if room.exits_locked() {
         "Exits locked until the boss falls"
     } else {

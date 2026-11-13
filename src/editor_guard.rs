@@ -4,6 +4,7 @@
 //! session itself; `perform` carries out an approved action.
 use crate::game::GameState;
 use crate::room::RoomId;
+use crate::room_name::default_display_name;
 
 /// Something that would end or replace the current editor session.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -11,16 +12,25 @@ pub enum GuardedAction {
     /// F2 while the editor is open.
     Close,
     OpenRoom(RoomId),
+    /// A new room with the default name ("Room N").
     NewRoom,
+    /// A new room called what the "New room" window was given.
+    NewNamedRoom(String),
 }
 
 impl GuardedAction {
-    /// Finishes the sentence "Save your changes before you ...?".
+    /// Finishes the sentence "Save your changes before you ...?", naming a room by its
+    /// default display name.
     pub fn describe(&self) -> String {
+        self.describe_with(&default_display_name)
+    }
+
+    /// `describe`, naming a room by whatever `title` says (its own name, usually).
+    pub fn describe_with(&self, title: &dyn Fn(RoomId) -> String) -> String {
         match self {
             Self::Close => "close the editor".into(),
-            Self::OpenRoom(id) => format!("open room {id:?}"),
-            Self::NewRoom => "start a new room".into(),
+            Self::OpenRoom(id) => format!("open room {}", title(*id)),
+            Self::NewRoom | Self::NewNamedRoom(_) => "start a new room".into(),
         }
     }
 }
@@ -140,5 +150,9 @@ pub fn perform(game: &mut GameState, action: &GuardedAction) -> Result<(), Strin
             game.editor_mut().ok_or("editor is closed")?.new_room();
             Ok(())
         }
+        GuardedAction::NewNamedRoom(name) => game
+            .editor_mut()
+            .ok_or("editor is closed")?
+            .new_room_named(name),
     }
 }
