@@ -102,6 +102,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/timestep.rs`: fixed 120 Hz step accumulator (capped) and edge-input latch.
 - `src/tuning.rs`: player, strike (hitbox sizes, pogo speed) and enemy-knockback tunables from `data/player.ron` (an `assets/player.ron` replaces it whole), validation, staged save.
 - `src/tuning_fields.rs`: the editable `player.ron` numbers (`Field`, `FieldSpec`): one range per field shared by validation and the F4 window; re-exported from `tuning`.
+- `src/player_editor.rs`: pure `PlayerDraft` for editing `player.ron` in the editor (saved, edited and dirty copies of the `TuningConfig`, per-field and per-section reset, `set_field` against the shared `Field` table, the cross-field jump rule, the size-against-room-spawn check over `SpawnCheck`s, and `save`, which validates first and writes nothing when invalid); `EditorSession::spawn_checks` lists every room with the draft substituted.
 - `src/vitals.rs`: pure player vitals (health, trailing bar, mana, hold-to-heal) driven by the tick; no window, no `GameState`. Tunables in `data/vitals.ron` (an `assets/vitals.ron` replaces it whole); `VitalsField`/`FieldSpec` ranges shared by validation and the F4 window. Tests in `src/vitals/tests.rs`.
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary.
 - `src/editor_session.rs`: `EditorSession`, the open editor session (draft, definitions, room catalog, terrain look presets, unsaved flag), moved out of `editor.rs` (which re-exports it as `editor::EditorSession`).
@@ -119,6 +120,7 @@ Composition and front end:
 
 - `src/body_draw.rs`: Macroquad adapter: `draw_body` (ordered body parts for enemies, bosses and the player), the shared `body_tint` (hurt flash, warning tint, fade), legacy enemy boxes, and debug overlays.
 - `src/game/vitals_link.rs`: how `GameState` drives the vitals: input gating while a heal runs, healing and regain copied into `Health`, and the F4 / F5 accessors (`vitals`, `set_vitals_config`, `save_vitals`).
+- `src/game/player_link.rs`: how `GameState` owns the one `PlayerDraft` that F4 and the editor's Player panel share: `player_draft`, `set_tuning_field`, `spawn_checks`, `save_tuning`, and `sync_player_from_editor` (copies the session's draft into the game each editor frame and applies a valid one to the player and enemies without resetting them).
 - `src/game/test_room.rs`: Test room: swaps the editor's draft in as the playable room, parks the editor session and player, and restores them.
 - `src/game.rs`: top-level gameplay state and world composition. Add new
   gameplay systems here as separate modules or fields, keeping each system's
@@ -128,6 +130,7 @@ Composition and front end:
 - `src/editor_visuals.rs`: the editor canvas's enemy and boss pictures: `visual_previews` (pure: each placed enemy's or the boss's visual box and body from the editor's current definitions), the drawing of those pictures under the hitbox markers, and `draw_markers`; tests in `src/editor_visuals/tests.rs`.
 - `src/terrain_canvas.rs`: Macroquad drawing of the solids' outlines, handles and the drawing preview, and mouse-to-`TerrainTool` glue for the editor canvas (the solids themselves are drawn by the look preview; plain filled rectangles only when no look list was drawn).
 - `src/terrain_draw.rs`: Macroquad adapter that draws a `terrain_style` draw list, skipping shapes outside the view: `draw_shapes` in world space (the game, with the world camera set) and `draw_shapes_mapped` through a world-to-screen mapping and a zoom (the editor canvas).
+- `src/player_panel.rs`: the editor's Player panel (`PlayerUi`, `draw`; the Player button and the stats sections in `SECTIONS`) and `draw_field` / `parse_entry`, the one function that draws and judges a number, shared with the F4 window; tests in `player_panel/tests.rs`.
 - `src/tuning_panel.rs`: F4 egui window with a drag box per `player.ron` field and per `vitals.ron` field (typed out-of-range values are refused with a message), unsaved note, Save (writes `vitals.ron` only when its values changed), and headless layout/input checks in `tuning_panel/tests.rs`.
 - `src/scene.rs`: Macroquad drawing of the world (background layers first, then floor, terrain, exits, items, coins, enemies, boss, player), moved out of `main.rs`.
 - `src/postfx_pass.rs`: Macroquad adapter for the post-process pass: builds the material, draws the world target through it into a second target and returns the target the HUD is drawn on; an unbuilt shader or a switched-off pass returns the input untouched.

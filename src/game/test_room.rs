@@ -116,6 +116,8 @@ impl GameState {
         self.last_special_hit = run.last_special_hit;
         self.current = run.current;
         self.editor = Some(run.session);
+        // The run may have changed the tunables through F4; the session's copy follows.
+        self.attach_player_draft();
         Ok(())
     }
 }

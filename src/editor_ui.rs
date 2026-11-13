@@ -3,6 +3,7 @@
 //! of the edited room; `draw_editor` runs one editor frame.
 
 use crate::editor_panel::{BossPropertyUi, LookUi, PropertyUi};
+use crate::player_panel::Status;
 use crate::{body_draw, editor_panel, editor_visuals, terrain_canvas, terrain_draw};
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_guard::{perform, GuardStep, GuardedAction, UnsavedGuard};
@@ -50,6 +51,8 @@ pub(crate) struct EditorUi {
     pub(crate) history: History,
     /// The Room look section's drag state and the canvas preview's cached draw list.
     pub(crate) look: LookUi,
+    /// The Player panel: whether it is open, its Save request and what it last said.
+    pub(crate) player: crate::player_panel::PlayerUi,
 }
 
 impl EditorUi {
@@ -526,6 +529,14 @@ pub(crate) fn draw_editor(
         save = false;
     }
     egui_macroquad::draw();
+    // The game takes the Player panel's edits into effect; its Save goes through the game.
+    game.sync_player_from_editor();
+    if std::mem::take(&mut state.player.save_requested) {
+        state.player.status = match game.save_tuning() {
+            Ok(path) => Status::Saved(path.display().to_string()),
+            Err(error) => Status::Error(error),
+        };
+    }
     if test {
         // The main loop notices the switch and resets its clocks and camera. A refusal
         // is left in the editor's message.

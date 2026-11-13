@@ -15,6 +15,7 @@ mod editor_ui;
 mod editor_visuals;
 mod effects;
 mod hud;
+mod player_panel;
 mod postfx_pass;
 mod scene;
 mod startup;
