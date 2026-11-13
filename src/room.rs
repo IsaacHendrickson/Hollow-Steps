@@ -81,7 +81,7 @@ pub struct Room {
     /// Solid rectangles that block the player (platforms and walls).
     pub terrain: crate::terrain::Terrain,
     /// Palette and switches for how the solids look (drawing only).
-    pub terrain_style: crate::terrain_style::TerrainStyle,
+    pub terrain_style: crate::terrain_styles::RoomStyle,
     /// Parallax background layers, drawn first (back to front) behind everything else.
     pub background: Vec<crate::background::BackgroundLayer>,
     pub exits: Vec<Exit>,

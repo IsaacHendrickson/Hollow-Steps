@@ -1,5 +1,5 @@
-//! Macroquad drawing of the world: background layers, floor, terrain, exits, items, coins,
-//! enemies, the boss and the player. Call with the world camera set.
+//! Macroquad drawing of the world: background layers, the room's boundary and terrain, exits,
+//! items, coins, enemies, the boss and the player. Call with the world camera set.
 
 use hollow_steps::background::{self, Shape};
 use hollow_steps::boss_special::BossSpecials;
@@ -8,14 +8,14 @@ use hollow_steps::game::GameState;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player_body::PlayerBody;
 use hollow_steps::room::Room;
-use hollow_steps::terrain_style::{self, TerrainLook};
+use hollow_steps::terrain_style::{RoomInputs, TerrainLook};
 use macroquad::prelude::*;
 
 use crate::{body_draw, terrain_draw};
 
-/// Draws the world. `terrain_look` keeps the solids' draw list between frames. `camera_view` is
-/// the rectangle the camera shows before screen shake, which the background layers use to work
-/// out their parallax.
+/// Draws the world. `terrain_look` keeps the room's terrain draw list (boundary and solids)
+/// between frames. `camera_view` is the rectangle the camera shows before screen shake, which
+/// the background layers use to work out their parallax.
 pub fn draw_scene(
     game: &GameState,
     player_body: Option<&PlayerBody>,
@@ -30,38 +30,34 @@ pub fn draw_scene(
 
     clear_background(Color::from_rgba(16, 18, 31, 255));
     draw_background(room, camera_view);
-    draw_rectangle(
-        bounds.left,
-        bounds.floor_y,
-        bounds.right - bounds.left,
-        room.bounds.bottom() - bounds.floor_y,
-        Color::from_rgba(34, 37, 58, 255),
-    );
-    draw_line(
-        bounds.left,
-        bounds.floor_y,
-        bounds.right,
-        bounds.floor_y,
-        4.0,
-        Color::from_rgba(111, 122, 164, 255),
-    );
-    // The solids' look is rebuilt only when the room, its solids or its palette change.
-    let ground = terrain_style::ground_cover(room.bounds, bounds.floor_y);
-    let look = terrain_look.shapes(
-        room.id,
-        room.terrain.solids(),
-        Some(ground),
-        &room.terrain_style,
-    );
-    terrain_draw::draw_shapes(look, camera_view);
-    draw_rectangle_lines(
-        room.bounds.x,
-        room.bounds.y,
-        room.bounds.w,
-        room.bounds.h,
-        2.0,
-        Color::from_rgba(62, 70, 103, 255),
-    );
+    // The boundary and the solids come from one draw list, rebuilt only when the room, its
+    // solids or its look change.
+    let inputs = RoomInputs {
+        room: room.id,
+        bounds: room.bounds,
+        floor_y: bounds.floor_y,
+        exits: &room.exits,
+        solids: room.terrain.solids(),
+    };
+    let look = game
+        .terrain_styles()
+        .resolve_or_default(&room.terrain_style);
+    let terrain = terrain_look.room_shapes(&inputs, &look);
+    if !terrain.boundary {
+        // Without the boundary slabs the floor is the flat strip it always was.
+        draw_flat_floor(room, bounds.floor_y);
+    }
+    terrain_draw::draw_shapes(terrain.shapes, camera_view);
+    if !terrain.boundary {
+        draw_rectangle_lines(
+            room.bounds.x,
+            room.bounds.y,
+            room.bounds.w,
+            room.bounds.h,
+            2.0,
+            Color::from_rgba(62, 70, 103, 255),
+        );
+    }
     for exit in &room.exits {
         let zone = exit.zone(room.bounds);
         draw_rectangle(
@@ -175,6 +171,26 @@ pub fn draw_scene(
             },
         ),
     }
+}
+
+/// The floor strip drawn when the room has no boundary: a flat fill under the floor line and
+/// a light line along it.
+fn draw_flat_floor(room: &Room, floor_y: f32) {
+    draw_rectangle(
+        room.bounds.x,
+        floor_y,
+        room.bounds.w,
+        room.bounds.bottom() - floor_y,
+        Color::from_rgba(34, 37, 58, 255),
+    );
+    draw_line(
+        room.bounds.x,
+        floor_y,
+        room.bounds.right(),
+        floor_y,
+        4.0,
+        Color::from_rgba(111, 122, 164, 255),
+    );
 }
 
 /// Draws the room's background layers back to front, each moved by its parallax offset.

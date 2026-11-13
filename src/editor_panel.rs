@@ -13,6 +13,7 @@ mod death_field;
 mod entity;
 mod history_panel;
 mod key_values;
+mod look_panel;
 mod movement_field;
 #[cfg(test)]
 mod panel_tests;
@@ -28,6 +29,7 @@ mod widgets;
 pub(super) use boss::{draw_boss_panel, BossPropertyUi};
 use entity::{draw_definition_panel, pending_error};
 pub(super) use history_panel::apply_history;
+pub(super) use look_panel::LookUi;
 pub(super) use property::PropertyUi;
 use room_tools::draw_room_tools;
 pub(super) use tool_panel::choose_tool;

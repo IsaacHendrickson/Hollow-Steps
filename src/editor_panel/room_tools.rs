@@ -3,7 +3,7 @@ use super::property::PropertyUi;
 use super::widgets::{
     panel_button, panel_combo, panel_input, panel_label, searchable_list, section,
 };
-use super::{canvas_tools, history_panel, tool_panel};
+use super::{canvas_tools, history_panel, look_panel, tool_panel};
 use super::{EditorSession, EditorUi, Selection};
 use egui_macroquad::egui;
 use hollow_steps::editor_history::tracked;
@@ -112,6 +112,7 @@ pub(super) fn draw_room_tools(
         panel_label(ui, "Purple: arrival spawn");
     });
     canvas_tools::draw_room_size_section(ui, editor, &mut state.history);
+    look_panel::draw_look_section(ui, editor, state);
     canvas_tools::draw_view_section(ui, state);
     section(ui, "Entity", |ui| {
         searchable_list(

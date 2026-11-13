@@ -354,6 +354,16 @@ its last valid spot. Solids save to `layout.terrain` and undo/redo covers them (
 is one step). Terrain tools work in the room view, not the arrival-spawn view or the
 Entity properties panel.
 
+## Room look
+
+The **Room look** section (under Room size) chooses how the room's solids and the frame around it
+are drawn: a terrain preset, four color overrides with a Reset each, Moss, Draw boundary, and a
+Seed offset with Reroll. The canvas shows the result live, using the same code as the game, and
+it saves to `layout.terrain_style`. Each change is an undo step, except that a drag in the color
+picker or on the Seed offset box is one step. Test room (F6) plays the unsaved look. The
+presets and the style format are in `docs/terrain-look.md`; the rules are in
+`src/editor_look.rs` and the panel in `src/editor_panel/look_panel.rs`.
+
 ## Test room
 
 **Test room (F6)** (pinned above Save, or F6 with the editor open) plays the room as it is
@@ -385,8 +395,9 @@ canvas take no input, and further F2 / room requests are ignored.
 `History` (`src/editor_history.rs`) keeps whole `RoomDraft` snapshots: up to 100 undo
 steps (the oldest are dropped) and a redo stack. A snapshot is taken before each
 discrete change: placing, deleting, **Add exit**, **Set exit target**, **Delete
-selected**, and each accepted **Room size** edit. Dragging a marker on the canvas, or
-dragging a Room size field, is one step from press to release. Any new edit clears redo,
+selected**, each accepted **Room size** edit and each **Room look** change. Dragging a marker on
+the canvas, dragging a Room size field, or dragging in a room color's picker or on the Seed
+offset box, is one step from press to release. Any new edit clears redo,
 and opening or creating a room starts with an empty history.
 
 Undo is **Ctrl+Z**; redo is **Ctrl+Y** or **Ctrl+Shift+Z**. The keys work only while the
@@ -420,6 +431,7 @@ Run `cargo run`, press F2 and use a room with a few entities.
 - Place an enemy, drag it across the room and release: Ctrl+Z puts it back where it was
   in one step, another Ctrl+Z removes it, Ctrl+Y brings it back. Delete it with Del, undo.
   Add an exit, retarget it, undo twice. Drag Width, release, undo once.
+  Change a room color (drag in the picker), release, undo once: the color is back in one step.
 - Click a text box in the panel and press Ctrl+Z: the canvas does not change. Click the
   canvas and it does. After undo, make a new edit and confirm redo is gone.
 - Hover **Undo** and **Redo** and read the tooltip. Open another room: Undo is greyed out.
@@ -439,6 +451,20 @@ Run `cargo run`, press F2 and use a room with a few entities.
 - Right-click a solid, and select one and press Delete. Click **Delete selected**.
 - Save, press F5 or restart: the solids are loaded in the game and stop the player.
 - Open the Entity properties panel (or the arrival-spawn view): drawing is off there.
+
+### Manual check: room look
+
+- In **Room look** pick each preset: the canvas redraws at once with that preset's colors,
+  moss, speckles and frame. Pick the one already chosen: nothing changes.
+- Click a color button, drag in the picker, let go: the canvas follows, **Reset** lights up,
+  Ctrl+Z puts the color back in one step. Open a picker and close it without touching it: the
+  room is not marked unsaved and there is nothing to undo.
+- Change a color, then pick another preset: the color override is gone and the seed is kept.
+- Toggle **Moss** and **Draw boundary**; drag **Seed offset** and press **Reroll**.
+- Zoom and pan: the look stays glued to the room. Open an exit's arrival-spawn view: the other
+  room is drawn with its own look.
+- Save, press F5: the look is unchanged. A room at the default look has no `terrain_style` in
+  its file.
 
 ### Manual check: test room
 

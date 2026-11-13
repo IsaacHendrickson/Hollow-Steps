@@ -1,5 +1,5 @@
 //! Pure authored-room editing. Only the explicitly named load/save functions do I/O.
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use macroquad::math::{Rect, Vec2};
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,8 @@ use crate::item::{Item, WorldItem, ITEM_SIZE};
 use crate::player::WorldBounds;
 use crate::room::{EnemyPlacement, Exit, Room, RoomEdge, RoomEnemies, RoomId};
 use crate::terrain::Terrain;
+
+pub use crate::editor_session::EditorSession;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -54,12 +56,12 @@ pub struct RoomLayout {
     /// Parallax background layers, back to front; absent in older room files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub background: Vec<crate::background::BackgroundLayer>,
-    /// Palette and switches for the terrain's look; absent (the default look) in older room files.
+    /// The terrain's look: a preset plus the room's overrides; absent in older room files.
     #[serde(
         default,
-        skip_serializing_if = "crate::terrain_style::TerrainStyle::is_default"
+        skip_serializing_if = "crate::terrain_styles::RoomStyle::is_default"
     )]
-    pub terrain_style: crate::terrain_style::TerrainStyle,
+    pub terrain_style: crate::terrain_styles::RoomStyle,
 }
 
 impl RoomLayout {
@@ -75,7 +77,7 @@ impl RoomLayout {
                 .map(|r| (r.x, r.y, r.w, r.h))
                 .collect(),
             background: room.background.clone(),
-            terrain_style: room.terrain_style,
+            terrain_style: room.terrain_style.clone(),
             items: room
                 .items
                 .iter()
@@ -174,7 +176,7 @@ impl RoomLayout {
         room.floor_y = self.floor_y;
         room.terrain = Terrain::from_tuples(&self.terrain);
         room.background = self.background.clone();
-        room.terrain_style = self.terrain_style;
+        room.terrain_style = self.terrain_style.clone();
         room.spawn = self.spawn.into();
         room.items = self
             .items
@@ -588,184 +590,4 @@ pub fn load_extra_rooms(
         }
     }
     Ok(rooms)
-}
-
-#[derive(Debug)]
-pub struct EditorSession {
-    pub id: RoomId,
-    pub path: PathBuf,
-    pub draft: RoomDraft,
-    pub definitions: EnemyDefinitions,
-    pub content: crate::definition_editor::DefinitionDraft,
-    pub rooms: Vec<(RoomId, RoomLayout)>,
-    pub new: bool,
-    pub dirty: bool,
-    pub message: String,
-}
-
-impl EditorSession {
-    pub fn place(&mut self, placement: Placement, position: Vec2) -> Result<Selection, String> {
-        match placement {
-            Placement::Boss(name) => {
-                self.draft
-                    .place_boss(&name, position, &self.content.boss_definitions()?)
-            }
-            other => self.draft.place(other, position, &self.definitions),
-        }
-    }
-
-    pub fn move_selection(&mut self, selection: Selection, position: Vec2) -> Result<(), String> {
-        if selection == Selection::Boss {
-            self.draft
-                .move_boss(position, &self.content.boss_definitions()?)
-        } else {
-            self.draft.move_to(selection, position, &self.definitions)
-        }
-    }
-
-    pub fn update_boss(
-        &mut self,
-        path: &Path,
-        boss: crate::boss_definition::BossDefinition,
-    ) -> Result<(), String> {
-        let previous = self.content.bosses.get(path).ok_or("missing boss")?;
-        if previous == &boss {
-            return Ok(());
-        }
-        let previous_name = previous.name.clone();
-        let mut next = self.content.clone();
-        next.bosses.insert(path.to_owned(), boss);
-        let definitions = next.boss_definitions()?;
-        let mut draft = self.draft.clone();
-        let mut document = RoomEnemies {
-            enemies: Vec::new(),
-            boss: draft.boss.clone(),
-            layout: None,
-        };
-        // Also handle repeated unsaved renames of the current placement.
-        if let Some(p) = &mut document.boss {
-            if p.definition == previous_name {
-                p.definition = next.bosses[path].name.clone();
-            }
-        }
-        next.rename_placements(&mut document);
-        draft.boss = document.boss;
-        draft.validate_boss(&definitions)?;
-        self.content = next;
-        self.draft = draft;
-        self.dirty = true;
-        Ok(())
-    }
-
-    pub fn open(assets: &Path, room: &Room, rooms: &[Room]) -> Result<Self, String> {
-        let path = assets.join("rooms").join(room_filename(room.id));
-        let definitions = EnemyDefinitions::load(assets)?;
-        let document = read_ron(&path)?;
-        let authored = crate::room::load_rooms(assets)?;
-        let fallback = authored.iter().find(|r| r.id == room.id).unwrap_or(room);
-        // Read authored layouts rather than session pickups, moved enemies, or reload snapshots.
-        let catalog = rooms
-            .iter()
-            .map(|room| {
-                let document: RoomEnemies =
-                    read_ron(&assets.join("rooms").join(room_filename(room.id)))?;
-                Ok((
-                    room.id,
-                    document.layout.unwrap_or_else(|| {
-                        RoomLayout::from_room(
-                            authored.iter().find(|r| r.id == room.id).unwrap_or(room),
-                        )
-                    }),
-                ))
-            })
-            .collect::<Result<Vec<_>, String>>()?;
-        Ok(Self {
-            id: room.id,
-            path,
-            draft: RoomDraft::from_document(document, fallback),
-            definitions,
-            content: crate::definition_editor::DefinitionDraft::load(assets)?,
-            rooms: catalog,
-            new: false,
-            dirty: false,
-            message: String::new(),
-        })
-    }
-
-    pub fn catalog(&self) -> Vec<(RoomId, RoomLayout)> {
-        let mut rooms = self.rooms.clone();
-        rooms.retain(|(id, _)| *id != self.id);
-        rooms.push((self.id, self.draft.layout.clone()));
-        rooms
-    }
-
-    /// Keep preview definitions and unsaved placements in step with valid entity edits.
-    pub fn update_entity(
-        &mut self,
-        path: &Path,
-        entity: crate::enemy::EnemyDefinition,
-    ) -> Result<(), String> {
-        let old = self.content.entities.get(path).ok_or("missing entity")?;
-        if old == &entity {
-            return Ok(());
-        }
-        let old = self
-            .content
-            .entities
-            .insert(path.to_owned(), entity.clone())
-            .expect("entity");
-        match self.content.definitions() {
-            Ok(definitions) => {
-                for placement in &mut self.draft.enemies {
-                    if placement.definition == old.name {
-                        placement.definition = entity.name.clone();
-                    }
-                }
-                self.definitions = definitions;
-                self.dirty = true;
-                Ok(())
-            }
-            Err(error) => {
-                self.content.entities.insert(path.to_owned(), old);
-                Err(error)
-            }
-        }
-    }
-
-    /// Include unsaved placements when checking definition references.
-    pub fn delete_entity(&mut self, path: &Path) -> Result<(), String> {
-        let entity = self.content.entities.get(path).ok_or("missing entity")?;
-        for placement in &self.draft.enemies {
-            if placement.definition == entity.name
-                || self.content.entity_path(&placement.definition).as_deref() == Some(path)
-            {
-                return Err(format!(
-                    "{}: entity is referenced by the current room draft",
-                    self.path.display()
-                ));
-            }
-        }
-        self.content.delete_entity(path)
-    }
-
-    pub fn new_room(&mut self) {
-        let mut id = 0;
-        while self
-            .rooms
-            .iter()
-            .any(|(room, _)| *room == RoomId::Custom(id))
-            || self
-                .path
-                .with_file_name(room_filename(RoomId::Custom(id)))
-                .exists()
-        {
-            id += 1;
-        }
-        self.id = RoomId::Custom(id);
-        self.path.set_file_name(room_filename(self.id));
-        self.draft = RoomDraft::new_room(&self.draft.layout);
-        self.new = true;
-        self.dirty = true;
-        self.message = "New room draft; Save to create it".into();
-    }
 }

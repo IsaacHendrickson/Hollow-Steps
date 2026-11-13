@@ -170,25 +170,33 @@ fn size_label(rect: &Rect) -> String {
     format!("{:.0} x {:.0}", rect.w, rect.h)
 }
 
-/// Draws the solids of `layout`, then the selection handles, the erase highlight and the
-/// rectangle being drawn. Only the authored room is editable, so only it shows a selection.
+/// Draws the outlines of the solids of `layout`, then the selection handles, the erase
+/// highlight and the rectangle being drawn. Only the authored room is editable, so only it
+/// shows a selection. `styled` says the solids are already drawn with the room's look (the
+/// canvas preview): they are then left unfilled, and only the selected solid gets an outline,
+/// so the picture is what the game shows. Without it each solid is a plain filled rectangle.
 pub fn draw(
     state: &EditorUi,
     layout: &RoomLayout,
     canvas: &CanvasView,
     erase_target: Option<usize>,
+    styled: bool,
 ) {
     let editable = enabled(state);
     let selected = state.terrain.selected().filter(|_| editable);
     for (index, solid) in layout.terrain.iter().enumerate() {
         let r = canvas.rect(solid_rect(solid));
-        draw_rectangle(r.x, r.y, r.w, r.h, Color::from_rgba(70, 77, 112, 235));
+        if !styled {
+            draw_rectangle(r.x, r.y, r.w, r.h, Color::from_rgba(70, 77, 112, 235));
+        }
         let (width, color) = if selected == Some(index) {
             (3.0, WHITE)
         } else {
             (1.0, Color::from_rgba(150, 160, 205, 255))
         };
-        draw_rectangle_lines(r.x, r.y, r.w, r.h, width, color);
+        if !styled || selected == Some(index) {
+            draw_rectangle_lines(r.x, r.y, r.w, r.h, width, color);
+        }
         if erase_target == Some(index) {
             draw_rectangle(r.x, r.y, r.w, r.h, Color::new(1.0, 0.2, 0.2, 0.45));
             draw_rectangle_lines(r.x, r.y, r.w, r.h, 3.0, RED);

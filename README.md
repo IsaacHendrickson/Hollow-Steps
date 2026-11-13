@@ -100,7 +100,7 @@ read them. Open only the one you need:
 - [Enemy body templates and poses](docs/enemy-bodies.md)
 - [Boss architecture](docs/boss-architecture.md)
 - [Room design](docs/room-design.md)
-- [Terrain look: palette, exposed edges, determinism](docs/terrain-look.md)
+- [Terrain look: presets, exposed edges, boundary, determinism](docs/terrain-look.md)
 - [Gameplay ownership](docs/gameplay-ownership.md)
 - [Data-driven enemies](docs/data-driven-enemies.md)
 - [Room editor design, behavior presets, and editor manual checks](docs/room-editor.md)

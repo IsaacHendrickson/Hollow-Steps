@@ -7,8 +7,8 @@ use hollow_steps::editor_history::{redo_session, undo_session, HistoryKey};
 
 /// Shown on hover next to the Undo and Redo buttons.
 pub(super) const HISTORY_TOOLTIP: &str = "Undo and redo cover changes to the room: placing, \
-    moving, resizing and deleting things and solids, exits and room size. Entity, behavior and boss definition \
-    edits are not covered. Shortcuts: Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z, with the canvas focused.";
+    moving, resizing and deleting things and solids, exits, room size and the room look. Entity, behavior and boss \
+    definition edits are not covered. Shortcuts: Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z, with the canvas focused.";
 
 /// Undo and Redo buttons, enabled only when there is a step to take.
 pub(super) fn draw_history_section(
