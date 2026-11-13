@@ -85,6 +85,11 @@ impl GameState {
         // The Player panel's edits are what gets played, saved or not, if the player can be.
         self.sync_player_from_editor();
         let session = self.editor.as_mut().ok_or("open the editor first")?;
+        if session.link_active() {
+            let error = "finish or cancel the exit link before testing a room".to_owned();
+            session.message = error.clone();
+            return Err(error);
+        }
         // The room is judged first: a draft that is not a valid room says so before anything
         // is said about the player.
         let room = match build(session).and_then(|room| player_problem(session).map(|()| room)) {

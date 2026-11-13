@@ -13,6 +13,18 @@ use crate::player_look_editor::PlayerLookDraft;
 use crate::room::{Room, RoomEnemies, RoomId};
 use crate::terrain_styles::TerrainStyles;
 
+/// One room's draft with what goes with it: the unit the editor switches between while it
+/// links exits, and keeps (`EditorSession::parked`) for a room with unsaved changes.
+#[derive(Clone, Debug)]
+pub struct RoomWork {
+    pub id: RoomId,
+    pub path: PathBuf,
+    pub draft: RoomDraft,
+    /// A room that does not exist on disk yet.
+    pub new: bool,
+    pub dirty: bool,
+}
+
 #[derive(Debug)]
 pub struct EditorSession {
     pub id: RoomId,
@@ -32,6 +44,13 @@ pub struct EditorSession {
     pub new: bool,
     pub dirty: bool,
     pub message: String,
+    /// The room-name field's text while it differs from the room's name (see `editor_name`).
+    pub name_input: Option<String>,
+    /// Other rooms with unsaved changes (or not saved at all yet), kept in memory while
+    /// another room is open. Never holds the room being edited. Save writes them all.
+    pub parked: Vec<RoomWork>,
+    /// The exit-linking flow in progress, if any (see `exit_link`).
+    pub link: Option<crate::exit_link::ExitLink>,
 }
 
 impl EditorSession {
@@ -46,12 +65,23 @@ impl EditorSession {
     }
 
     pub fn move_selection(&mut self, selection: Selection, position: Vec2) -> Result<(), String> {
-        if selection == Selection::Boss {
-            self.draft
-                .move_boss(position, &self.content.boss_definitions()?)
-        } else {
-            self.draft.move_to(selection, position, &self.definitions)
+        match selection {
+            Selection::Boss => self
+                .draft
+                .move_boss(position, &self.content.boss_definitions()?),
+            Selection::Inbound { room, exit } => self.move_inbound_arrival(room, exit, position),
+            Selection::LinkArrival(exit) => self.link_set_arrival(exit, position),
+            _ => self.draft.move_to(selection, position, &self.definitions),
         }
+    }
+
+    /// A drag of `selection` reached `position`: moves it, and marks this room unsaved when
+    /// it is this room that changed. The arrivals of other rooms' exits and of a link not
+    /// made yet change something else, so they leave the flag alone.
+    pub fn drag_selection(&mut self, selection: Selection, position: Vec2) -> Result<(), String> {
+        self.move_selection(selection, position)?;
+        self.dirty |= selection.edits_current_room();
+        Ok(())
     }
 
     pub fn update_boss(
@@ -123,13 +153,85 @@ impl EditorSession {
             new: false,
             dirty: false,
             message: String::new(),
+            name_input: None,
+            parked: Vec::new(),
+            link: None,
         })
     }
 
+    /// Every room's layout as the editor has it: the saved ones, with each unsaved draft
+    /// (this session's and the parked ones) in place of its saved layout.
     pub fn catalog(&self) -> Vec<(RoomId, RoomLayout)> {
         let mut rooms = self.rooms.clone();
+        for work in &self.parked {
+            rooms.retain(|(id, _)| *id != work.id);
+            rooms.push((work.id, work.draft.layout.clone()));
+        }
         rooms.retain(|(id, _)| *id != self.id);
         rooms.push((self.id, self.draft.layout.clone()));
+        rooms
+    }
+
+    /// The room being edited, copied.
+    pub fn current_work(&self) -> RoomWork {
+        RoomWork {
+            id: self.id,
+            path: self.path.clone(),
+            draft: self.draft.clone(),
+            new: self.new,
+            dirty: self.dirty,
+        }
+    }
+
+    /// Edit `work` instead of the room being edited, and hand that room back.
+    pub fn swap_work(&mut self, work: RoomWork) -> RoomWork {
+        self.name_input = None;
+        RoomWork {
+            id: std::mem::replace(&mut self.id, work.id),
+            path: std::mem::replace(&mut self.path, work.path),
+            draft: std::mem::replace(&mut self.draft, work.draft),
+            new: std::mem::replace(&mut self.new, work.new),
+            dirty: std::mem::replace(&mut self.dirty, work.dirty),
+        }
+    }
+
+    /// What Save writes: the room being edited, then every parked room with changes.
+    pub fn works_to_save(&self) -> Vec<RoomWork> {
+        let mut works = vec![self.current_work()];
+        works.extend(
+            self.parked
+                .iter()
+                .filter(|work| work.dirty || work.new)
+                .cloned(),
+        );
+        works
+    }
+
+    /// Whether anything would be lost by closing the editor: this room or a parked one.
+    pub fn has_unsaved(&self) -> bool {
+        self.dirty || self.parked.iter().any(|work| work.dirty || work.new)
+    }
+
+    /// The rooms with unsaved changes, by name, the room being edited first.
+    pub fn unsaved_rooms(&self) -> Vec<String> {
+        let label = |id, new: bool| {
+            let title = self.title_of(id);
+            if new {
+                format!("{title} (new)")
+            } else {
+                title
+            }
+        };
+        let mut rooms = Vec::new();
+        if self.dirty || self.new {
+            rooms.push(label(self.id, self.new));
+        }
+        rooms.extend(
+            self.parked
+                .iter()
+                .filter(|work| work.dirty || work.new)
+                .map(|work| label(work.id, work.new)),
+        );
         rooms
     }
 
@@ -182,12 +284,41 @@ impl EditorSession {
         self.content.delete_entity(path)
     }
 
+    /// Starts a new room draft named "Room N" (the next free N).
     pub fn new_room(&mut self) {
+        let name = self.suggested_room_name();
+        self.new_room_named(&name)
+            .expect("the suggested name is valid and free");
+    }
+
+    /// Starts a new room draft called `name`. A name that breaks the rules is refused with
+    /// the reason and nothing changes.
+    pub fn new_room_named(&mut self, name: &str) -> Result<(), String> {
+        let id = self.free_room_id();
+        let name = self.check_room_name(id, name)?;
+        self.id = id;
+        self.path.set_file_name(room_filename(self.id));
+        self.draft = RoomDraft::new_room(&self.draft.layout);
+        self.draft.layout.name = Some(name);
+        self.name_input = None;
+        self.parked.clear();
+        self.link = None;
+        self.new = true;
+        self.dirty = true;
+        self.message = "New room draft; Save to create it".into();
+        Ok(())
+    }
+
+    /// The id a new room would get: the lowest custom number with no room, no file and no
+    /// unsaved room holding it (this session's or a parked one).
+    pub fn free_room_id(&self) -> RoomId {
         let mut id = 0;
         while self
             .rooms
             .iter()
             .any(|(room, _)| *room == RoomId::Custom(id))
+            || (self.new && self.id == RoomId::Custom(id))
+            || self.parked.iter().any(|work| work.id == RoomId::Custom(id))
             || self
                 .path
                 .with_file_name(room_filename(RoomId::Custom(id)))
@@ -195,11 +326,6 @@ impl EditorSession {
         {
             id += 1;
         }
-        self.id = RoomId::Custom(id);
-        self.path.set_file_name(room_filename(self.id));
-        self.draft = RoomDraft::new_room(&self.draft.layout);
-        self.new = true;
-        self.dirty = true;
-        self.message = "New room draft; Save to create it".into();
+        RoomId::Custom(id)
     }
 }

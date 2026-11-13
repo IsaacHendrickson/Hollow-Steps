@@ -76,6 +76,8 @@ impl Exit {
 #[derive(Debug)]
 pub struct Room {
     pub id: RoomId,
+    /// The room's own name (`name` in its file); `None` shows the default display name.
+    pub name: Option<String>,
     pub bounds: Rect,
     pub floor_y: f32,
     /// Solid rectangles that block the player (platforms and walls).
@@ -216,6 +218,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
     [
         Room {
             id: RoomId::First,
+            name: None,
             boss_special: None,
             coins: [360.0, 410.0, 460.0]
                 .map(|x| Coin {
@@ -249,6 +252,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
         },
         Room {
             id: RoomId::Second,
+            name: None,
             boss_special: None,
             coins: [300.0, 350.0, 400.0]
                 .map(|x| Coin {
@@ -282,6 +286,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
         },
         Room {
             id: RoomId::Boss,
+            name: None,
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
             terrain: Default::default(),

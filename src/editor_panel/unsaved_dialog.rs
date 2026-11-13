@@ -3,13 +3,17 @@
 use super::widgets::{panel_button, panel_label};
 use egui_macroquad::egui;
 use hollow_steps::editor_guard::{GuardChoice, UnsavedGuard};
+use hollow_steps::room::RoomId;
 
 /// Draws the dialog while the guard has one open and returns the button pressed this
-/// frame. A modal backdrop blocks the panel and canvas behind it. Escape or a click
-/// outside the window cancels, which keeps the session.
-pub(crate) fn draw_unsaved_dialog(
+/// frame, with rooms named by `title` (their own names, in the editor) and every room with
+/// unsaved changes listed in `unsaved`. A modal backdrop blocks the panel and canvas behind
+/// it. Escape or a click outside the window cancels, which keeps the session.
+pub(crate) fn draw_unsaved_dialog_titled(
     ctx: &egui::Context,
     guard: &UnsavedGuard,
+    title: &dyn Fn(RoomId) -> String,
+    unsaved: &[String],
 ) -> Option<GuardChoice> {
     let prompt = guard.prompt()?;
     let mut choice = None;
@@ -19,8 +23,14 @@ pub(crate) fn draw_unsaved_dialog(
         ui.heading("Unsaved changes");
         panel_label(
             ui,
-            &format!("Save your changes before you {}?", prompt.action.describe()),
+            &format!(
+                "Save your changes before you {}?",
+                prompt.action.describe_with(title)
+            ),
         );
+        if !unsaved.is_empty() {
+            panel_label(ui, &format!("Unsaved rooms: {}", unsaved.join(", ")));
+        }
         if !guard.unsaved().is_empty() {
             panel_label(ui, &format!("Unsaved: {}", guard.unsaved().join(", ")));
         }
@@ -46,11 +56,20 @@ pub(crate) fn draw_unsaved_dialog(
 }
 
 #[cfg(test)]
+fn draw_unsaved_dialog(ctx: &egui::Context, guard: &UnsavedGuard) -> Option<GuardChoice> {
+    draw_unsaved_dialog_titled(
+        ctx,
+        guard,
+        &hollow_steps::room_name::default_display_name,
+        &[],
+    )
+}
+
+#[cfg(test)]
 mod tests {
     use super::super::test_support::{click, drawn_text};
     use super::*;
     use hollow_steps::editor_guard::GuardedAction;
-    use hollow_steps::room::RoomId;
 
     fn frame(
         ctx: &egui::Context,
@@ -163,6 +182,39 @@ mod tests {
         assert_eq!(
             pressed(&ctx, &guard, egui::pos2(6.0, 6.0)),
             Some(GuardChoice::Cancel)
+        );
+    }
+
+    #[test]
+    fn every_unsaved_room_is_listed_by_name() {
+        let mut guard = UnsavedGuard::default();
+        guard.request(GuardedAction::Close, true);
+        let ctx = egui::Context::default();
+        let unsaved = ["First".to_owned(), "Cellar (new)".to_owned()];
+        let mut text = String::new();
+        for _ in 0..3 {
+            let output = ctx.run(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(960.0, 540.0),
+                    )),
+                    ..Default::default()
+                },
+                |ctx| {
+                    draw_unsaved_dialog_titled(
+                        ctx,
+                        &guard,
+                        &hollow_steps::room_name::default_display_name,
+                        &unsaved,
+                    );
+                },
+            );
+            text = drawn_text(&output);
+        }
+        assert!(
+            text.contains("Unsaved rooms: First, Cellar (new)"),
+            "{text}"
         );
     }
 

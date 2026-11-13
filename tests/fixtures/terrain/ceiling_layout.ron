@@ -1,0 +1,13 @@
+// Fixed ceiling fixture. Do not synchronize with editable assets.
+// Room top is y=100 (bounds do not start at 0,0). Platform x 300..420, y 150..170:
+// standing on it puts the head at y=102, two pixels under the room top.
+(
+    bounds: (0.0, 100.0, 960.0, 360.0),
+    floor_y: 460.0,
+    spawn: (50.0, 436.0),
+    terrain: [
+        (300.0, 150.0, 120.0, 20.0),
+    ],
+    items: [],
+    exits: [],
+)

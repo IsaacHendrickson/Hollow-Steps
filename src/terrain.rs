@@ -121,6 +121,19 @@ impl Terrain {
         displacement: Vec2,
         limits: Limits,
     ) -> Contacts {
+        self.move_body_below(center, size, displacement, limits, f32::NEG_INFINITY)
+    }
+
+    /// `move_body` that also stops a rising body's head at `top`, the room's top edge, inside
+    /// every substep (`Contacts::ceiling` is set like for a solid's underside).
+    pub fn move_body_below(
+        &self,
+        center: &mut Vec2,
+        size: Vec2,
+        displacement: Vec2,
+        limits: Limits,
+        top: f32,
+    ) -> Contacts {
         let mut contacts = Contacts::default();
         let displacement = Vec2::new(
             if displacement.x.is_finite() {
@@ -177,6 +190,10 @@ impl Terrain {
                 if step.y > 0.0 && center.y > floor_center {
                     center.y = floor_center;
                     contacts.floor = true;
+                }
+                if step.y < 0.0 && center.y < top + size.y / 2.0 {
+                    center.y = top + size.y / 2.0;
+                    contacts.ceiling = true;
                 }
             }
         }
@@ -246,6 +263,23 @@ mod tests {
         player.place_on_floor(300.0, bounds);
         player.update_with_terrain(dash, 0.2, bounds, &terrain);
         assert!(player.position().x <= 400.0 - 16.0 + 0.01);
+    }
+
+    #[test]
+    fn rising_body_stops_at_the_room_top_even_in_one_huge_step() {
+        let terrain = Terrain::from_tuples(&[(100.0, 300.0, 100.0, 4.0)]);
+        let mut pos = Vec2::new(500.0, 300.0);
+        let contacts =
+            terrain.move_body_below(&mut pos, SIZE, Vec2::new(0.0, -5_000.0), LIMITS, 120.0);
+        assert!(contacts.ceiling);
+        assert!((pos.y - (120.0 + 24.0)).abs() < 0.01);
+        // Falling and sideways moves are not held by the top, and plain move_body has none.
+        let mut pos = Vec2::new(500.0, 100.0);
+        let contacts = terrain.move_body_below(&mut pos, SIZE, Vec2::new(5.0, 10.0), LIMITS, 120.0);
+        assert!(!contacts.ceiling && pos.y == 110.0);
+        let mut pos = Vec2::new(500.0, 100.0);
+        terrain.move_body(&mut pos, SIZE, Vec2::new(0.0, -10.0), LIMITS);
+        assert_eq!(pos.y, 90.0);
     }
 
     #[test]

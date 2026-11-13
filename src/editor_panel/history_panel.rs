@@ -43,6 +43,10 @@ fn history_button(ui: &mut egui::Ui, text: &str, enabled: bool) -> bool {
 /// selection (and any arrival-spawn view) is dropped; a step that cannot be restored
 /// is reported in the editor message and the draft is left as it was.
 pub(crate) fn apply_history(editor: &mut EditorSession, state: &mut EditorUi, key: HistoryKey) {
+    if editor.link_active() {
+        // The room is not changed by undo while an exit link is open.
+        return;
+    }
     let result = match key {
         HistoryKey::Undo => undo_session(&mut state.history, editor),
         HistoryKey::Redo => redo_session(&mut state.history, editor),

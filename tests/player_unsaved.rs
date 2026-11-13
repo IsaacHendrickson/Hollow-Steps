@@ -1,7 +1,7 @@
 mod support;
 
 use hollow_steps::editor_guard::{
-    perform, save_all, unsaved_items, GuardChoice, GuardStep, GuardedAction, UnsavedGuard,
+    perform, save_all, unsaved_besides_rooms, GuardChoice, GuardStep, GuardedAction, UnsavedGuard,
 };
 use hollow_steps::player_body::{PlayerLook, PlayerPose};
 use hollow_steps::room::RoomId;
@@ -15,7 +15,7 @@ fn a_dirty_player_makes_a_clean_room_ask_and_the_dialog_lists_player() {
     let mut guard = UnsavedGuard::default();
 
     // Nothing unsaved: the close goes straight through and lists nothing.
-    assert!(unsaved_items(game.editor().unwrap()).is_empty());
+    assert!(unsaved_besides_rooms(game.editor().unwrap()).is_empty());
     assert_eq!(
         guard.request_for(GuardedAction::Close, game.editor()),
         GuardStep::Perform(GuardedAction::Close)
@@ -38,7 +38,7 @@ fn a_dirty_player_makes_a_clean_room_ask_and_the_dialog_lists_player() {
     let session = game.editor_mut().unwrap();
     session.player.reset_all();
     session.look.set_run_speed(80.0);
-    assert_eq!(unsaved_items(game.editor().unwrap()), ["Player"]);
+    assert_eq!(unsaved_besides_rooms(game.editor().unwrap()), ["Player"]);
     assert_eq!(
         guard.request_for(GuardedAction::NewRoom, game.editor()),
         GuardStep::Wait
@@ -46,15 +46,25 @@ fn a_dirty_player_makes_a_clean_room_ask_and_the_dialog_lists_player() {
     assert_eq!(guard.unsaved(), ["Player"]);
     guard.choose(GuardChoice::Cancel);
 
-    // With the room dirty too, both are listed.
+    // With the room dirty too, the rooms are listed by the session and the player here.
     let session = game.editor_mut().unwrap();
     session.dirty = true;
-    assert_eq!(
-        unsaved_items(game.editor().unwrap()),
-        ["Room and definitions", "Player"]
-    );
+    assert_eq!(unsaved_besides_rooms(game.editor().unwrap()), ["Player"]);
+    assert_eq!(game.editor().unwrap().unsaved_rooms().len(), 1);
     guard.request_for(GuardedAction::Close, game.editor());
-    assert_eq!(guard.unsaved(), ["Room and definitions", "Player"]);
+    assert_eq!(guard.unsaved(), ["Player"]);
+    guard.choose(GuardChoice::Cancel);
+
+    // A dirty room alone asks too, and lists no player.
+    let session = game.editor_mut().unwrap();
+    session.player.reset_all();
+    session.look.reset();
+    assert!(unsaved_besides_rooms(game.editor().unwrap()).is_empty());
+    assert_eq!(
+        guard.request_for(GuardedAction::Close, game.editor()),
+        GuardStep::Wait
+    );
+    assert!(guard.unsaved().is_empty());
     guard.choose(GuardChoice::Cancel);
 
     // A request without a list does not show an old one.
@@ -81,7 +91,7 @@ fn save_writes_the_player_and_only_what_is_dirty() {
         "the clean room was not saved: {}",
         session.message
     );
-    assert!(unsaved_items(session).is_empty());
+    assert!(unsaved_besides_rooms(session).is_empty());
 
     // A dirty room is saved too.
     let session = game.editor_mut().unwrap();

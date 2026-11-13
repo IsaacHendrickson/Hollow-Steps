@@ -11,6 +11,7 @@ use crate::player::WorldBounds;
 use crate::room::{EnemyPlacement, Exit, Room, RoomEdge, RoomEnemies, RoomId};
 use crate::terrain::Terrain;
 
+pub use crate::editor_selection::Selection;
 pub use crate::editor_session::EditorSession;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -45,6 +46,9 @@ impl ExitPlacement {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct RoomLayout {
+    /// The room's name; absent in older files and unnamed rooms.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     pub bounds: (f32, f32, f32, f32),
     pub floor_y: f32,
     pub spawn: (f32, f32),
@@ -67,6 +71,7 @@ pub struct RoomLayout {
 impl RoomLayout {
     pub fn from_room(room: &Room) -> Self {
         Self {
+            name: room.name.clone(),
             bounds: (room.bounds.x, room.bounds.y, room.bounds.w, room.bounds.h),
             floor_y: room.floor_y,
             spawn: room.spawn.into(),
@@ -109,7 +114,7 @@ impl RoomLayout {
             .with_top(self.bounds.1)
     }
 
-    fn contains_body(&self, center: (f32, f32), size: Vec2) -> bool {
+    pub(crate) fn contains_body(&self, center: (f32, f32), size: Vec2) -> bool {
         let p = Vec2::from(center);
         let r = self.rect();
         p.is_finite()
@@ -172,6 +177,7 @@ impl RoomLayout {
 
     pub fn apply(&self, room: &mut Room) -> Result<(), String> {
         self.validate_geometry()?;
+        room.name = self.name.clone();
         room.bounds = self.rect();
         room.floor_y = self.floor_y;
         room.terrain = Terrain::from_tuples(&self.terrain);
@@ -191,18 +197,6 @@ impl RoomLayout {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Selection {
-    Enemy(usize),
-    Boss,
-    Item(usize),
-    PatrolLeft(usize),
-    PatrolRight(usize),
-    Spawn,
-    Exit(usize),
-    Destination(usize),
-}
-
 #[derive(Clone, Debug)]
 pub enum Placement {
     Enemy(String),
@@ -220,6 +214,8 @@ pub struct RoomDraft {
 impl RoomDraft {
     pub fn new_room(template: &RoomLayout) -> Self {
         let mut layout = template.clone();
+        layout.name = None; // named by whoever creates it, not by the template
+        layout.terrain.clear(); // empty: only size, floor, spawn, background, look carry over
         layout.items.clear();
         layout.exits.clear();
         Self {
@@ -379,6 +375,10 @@ impl RoomDraft {
             Selection::Destination(i) => {
                 next.layout.exits.get_mut(i).ok_or("missing exit")?.spawn = position.into()
             }
+            // These change another room or a link under way: `EditorSession::move_selection`.
+            Selection::Inbound { .. } | Selection::LinkArrival(_) => {
+                return Err("that arrival is not part of this room".into())
+            }
         }
         next.validate_local(definitions)?;
         *self = next;
@@ -494,6 +494,7 @@ impl RoomDraft {
         self.validate_local(definitions)?;
         let mut room = Room {
             id,
+            name: None,
             bounds: self.layout.rect(),
             floor_y: self.layout.floor_y,
             terrain: Default::default(),

@@ -13,11 +13,15 @@ mod death_field;
 mod entity;
 mod history_panel;
 mod key_values;
+mod link_dialog;
+mod link_panel;
 mod look_panel;
 mod movement_field;
+mod name_dialog;
 #[cfg(test)]
 mod panel_tests;
 pub(crate) mod property;
+mod room_name_field;
 mod room_tools;
 mod states;
 #[cfg(test)]
@@ -29,11 +33,14 @@ pub(crate) mod widgets;
 pub(super) use boss::{draw_boss_panel, BossPropertyUi};
 use entity::{draw_definition_panel, pending_error};
 pub(super) use history_panel::apply_history;
+pub(super) use link_dialog::{draw_link_dialog, LinkChoice};
+use link_panel::draw_link_panel;
 pub(super) use look_panel::LookUi;
+pub(super) use name_dialog::{draw_name_dialog, NameChoice};
 pub(super) use property::PropertyUi;
 use room_tools::draw_room_tools;
 pub(super) use tool_panel::choose_tool;
-pub(super) use unsaved_dialog::draw_unsaved_dialog;
+pub(super) use unsaved_dialog::draw_unsaved_dialog_titled;
 use widgets::{panel_button, panel_label, probe};
 
 pub(super) struct PanelResponse {
@@ -58,11 +65,7 @@ pub(super) fn draw_panel(
         .into_iter()
         .map(|(name, _)| name)
         .collect::<Vec<_>>();
-    let room_labels = editor
-        .rooms
-        .iter()
-        .map(|(id, _)| format!("{id:?}"))
-        .collect::<Vec<_>>();
+    let room_labels = editor.room_labels();
     let names = &definitions;
     let mut save = false;
     let mut test = false;
@@ -77,8 +80,12 @@ pub(super) fn draw_panel(
             ui.spacing_mut().scroll = egui::style::ScrollStyle::solid();
             // Bottom-up layout reserves the footer before laying out the scroll viewport.
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                save = panel_button(ui, "Save");
-                test = panel_button(ui, "Test room (F6)");
+                // Nothing is written or played while an exit link is open; Cancel or
+                // Connect first.
+                ui.add_enabled_ui(!editor.link_active(), |ui| {
+                    save = panel_button(ui, "Save");
+                    test = panel_button(ui, "Test room (F6)");
+                });
                 ui.separator();
                 let scroll = egui::ScrollArea::vertical()
                     .id_salt("editor controls")
@@ -95,8 +102,21 @@ pub(super) fn draw_panel(
                             }
                             panel_label(
                                 ui,
-                                &format!("{:?}{}", editor.id, if editor.dirty { " *" } else { "" }),
+                                &format!(
+                                    "{}{}",
+                                    editor.room_title(),
+                                    if editor.dirty { " *" } else { "" }
+                                ),
                             );
+                            let unsaved = editor.unsaved_rooms();
+                            if unsaved.len() > 1 || (unsaved.len() == 1 && !editor.dirty) {
+                                panel_label(ui, &format!("Unsaved: {}", unsaved.join(", ")));
+                            }
+                            if editor.link_banner().is_some() {
+                                // B is open: only the link panel is shown.
+                                draw_link_panel(ui, editor, state);
+                                return;
+                            }
                             if panel_button(
                                 ui,
                                 if state.properties {
