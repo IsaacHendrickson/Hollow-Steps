@@ -16,6 +16,7 @@ use crate::room::{load_rooms, Room, RoomId};
 use crate::tuning::TuningConfig;
 use crate::vitals::{VitalsConfig, VitalsState};
 
+mod camera_bounds;
 #[cfg(test)]
 mod death_tests;
 mod editor_save;

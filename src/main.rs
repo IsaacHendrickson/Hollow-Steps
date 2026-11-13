@@ -194,7 +194,7 @@ async fn main() {
                 camera.update(
                     player.position(),
                     player.facing(),
-                    game.room().bounds,
+                    game.camera_bounds(),
                     view,
                     fixed_step.step_seconds(),
                 );
@@ -272,7 +272,7 @@ fn new_camera(game: &GameState, config: CameraConfig, view: Vec2) -> Camera {
         config,
         player.position(),
         player.facing(),
-        game.room().bounds,
+        game.camera_bounds(),
         view,
     )
 }
