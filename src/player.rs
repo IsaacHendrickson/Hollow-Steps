@@ -66,7 +66,7 @@ impl Default for PlayerConfig {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WorldBounds {
     pub left: f32,
-    /// Ceiling metadata used by enemy attacks; normal player movement is unchanged.
+    /// The room's top edge: a rising player's head stops here, and enemy attacks use it too.
     pub top: f32,
     pub right: f32,
     /// The y coordinate of the top of the floor.
@@ -434,27 +434,36 @@ impl Player {
     }
 
     /// Moves by `displacement`. Without solids this is plain addition; with
-    /// solids each axis is resolved separately in substeps.
+    /// solids each axis is resolved separately in substeps. Either way a rising
+    /// head stops at the room's top (`bounds.top`), as it does under a solid.
     fn displace(
         &mut self,
         displacement: Vec2,
         terrain: &Terrain,
         bounds: WorldBounds,
     ) -> crate::terrain::Contacts {
-        if terrain.is_empty() {
+        let contacts = if terrain.is_empty() {
             self.position += displacement;
-            return Default::default();
-        }
-        let contacts = terrain.move_body(
-            &mut self.position,
-            self.config.size,
-            displacement,
-            crate::terrain::Limits {
-                left: bounds.left,
-                right: bounds.right,
-                floor_y: bounds.floor_y,
-            },
-        );
+            let lowest_center = bounds.top + self.config.size.y / 2.0;
+            let mut contacts = crate::terrain::Contacts::default();
+            if displacement.y < 0.0 && self.position.y < lowest_center {
+                self.position.y = lowest_center;
+                contacts.ceiling = true;
+            }
+            contacts
+        } else {
+            terrain.move_body_below(
+                &mut self.position,
+                self.config.size,
+                displacement,
+                crate::terrain::Limits {
+                    left: bounds.left,
+                    right: bounds.right,
+                    floor_y: bounds.floor_y,
+                },
+                bounds.top,
+            )
+        };
         if contacts.wall {
             self.velocity.x = 0.0;
         }
@@ -484,6 +493,8 @@ impl Player {
     }
 }
 
+#[cfg(test)]
+mod ceiling_tests;
 #[cfg(test)]
 mod dash_tests;
 #[cfg(test)]
