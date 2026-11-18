@@ -2,6 +2,7 @@
 //! `update` share, and the accessors `main.rs` drives the menu through.
 
 use super::GameState;
+use crate::keybinds::{Action, Slot};
 use crate::pause_menu::{PauseItem, PauseMenu, PauseOutcome};
 
 impl GameState {
@@ -41,13 +42,31 @@ impl GameState {
         self.pause_menu.select(item);
     }
 
-    /// Presses the selected button (Enter).
+    /// Moves the highlight to the other key of the selected keybind row (Left/Right).
+    pub fn pause_step_slot(&mut self, steps: i32) {
+        self.pause_menu.step_slot(steps);
+    }
+
+    /// The mouse is resting on one key button of a keybind row.
+    pub fn pause_hover_slot(&mut self, action: Action, slot: Slot) {
+        self.pause_menu.select_slot(action, slot);
+    }
+
+    /// Presses the selected button (Enter). Reset keybinds is done here; only `Exit` is left
+    /// for the front end.
     pub fn pause_activate_selected(&mut self) -> PauseOutcome {
-        self.pause_menu.activate_selected()
+        let outcome = self.pause_menu.activate_selected();
+        self.finish_pause_press(outcome)
     }
 
     /// Presses `item` (a mouse click).
     pub fn pause_activate(&mut self, item: PauseItem) -> PauseOutcome {
-        self.pause_menu.activate(item)
+        let outcome = self.pause_menu.activate(item);
+        self.finish_pause_press(outcome)
+    }
+
+    /// Presses one key button of a keybind row (a mouse click): the menu waits for a new key.
+    pub fn pause_activate_slot(&mut self, action: Action, slot: Slot) -> PauseOutcome {
+        self.pause_menu.activate_slot(action, slot)
     }
 }

@@ -3,6 +3,7 @@ use hollow_steps::camera::{Camera, CameraConfig};
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_guard::{GuardStep, GuardedAction};
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
+use hollow_steps::keybinds::{self, Action, Keybinds};
 use hollow_steps::pause_menu::PauseOutcome;
 use hollow_steps::player::PlayerInput;
 use hollow_steps::player_body::PlayerBody;
@@ -57,6 +58,13 @@ async fn main() {
     let (mut post_pass, post_error) = postfx_pass::PostPass::load(&assets::assets_root(), view);
     if let Some(error) = post_error {
         reload_result = Some(Err(error));
+    }
+    // The saved keybinds live in the user's config folder; a file that cannot be used is shown
+    // like a failed reload and the shipped keys apply.
+    if let Some(path) = keybinds::default_path() {
+        if let Err(error) = game.use_keybinds_file(path) {
+            reload_result = Some(Err(error));
+        }
     }
     // The solids' draw list, rebuilt only when the room, its solids or its palette change.
     let mut terrain_look = TerrainLook::default();
@@ -187,7 +195,7 @@ async fn main() {
                 // Closes the inventory, else opens or closes the pause menu (or backs out of
                 // its Settings screen).
                 game.press_escape();
-            } else if is_key_pressed(KeyCode::I) {
+            } else if game.keybinds().triggered(Action::Inventory, is_key_pressed) {
                 game.toggle_inventory();
             }
         }
@@ -201,7 +209,7 @@ async fn main() {
         input_latch.record(if ui_wants_keyboard || game.pause_menu().is_open() {
             PlayerInput::default()
         } else {
-            read_player_input()
+            read_player_input(game.keybinds())
         });
         for _ in 0..fixed_step.advance(frame_seconds) {
             game.update(input_latch.take_tick(), fixed_step.step_seconds());
@@ -261,7 +269,7 @@ async fn main() {
         if game.inventory_open() {
             hud::draw_inventory(&game, view);
         }
-        hud::draw_pause_menu(game.pause_menu(), view);
+        hud::draw_pause_menu(game.pause_menu(), game.keybinds(), view);
         if let Some(result) = &reload_result {
             hud::draw_reload_result(
                 result,
@@ -307,24 +315,7 @@ fn new_camera(game: &GameState, config: CameraConfig, view: Vec2) -> Camera {
     )
 }
 
-fn read_player_input() -> PlayerInput {
-    let mut move_axis = 0.0;
-    if is_key_down(KeyCode::Right) || is_key_down(KeyCode::D) {
-        move_axis += 1.0;
-    }
-    if is_key_down(KeyCode::Left) || is_key_down(KeyCode::A) {
-        move_axis -= 1.0;
-    }
-
-    PlayerInput {
-        move_axis,
-        jump_pressed: is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Z),
-        pickup_pressed: is_key_pressed(KeyCode::Up),
-        jump_held: is_key_down(KeyCode::Space) || is_key_down(KeyCode::Z),
-        attack_pressed: is_key_pressed(KeyCode::X),
-        dash_pressed: is_key_pressed(KeyCode::LeftShift) || is_key_pressed(KeyCode::RightShift),
-        up_held: is_key_down(KeyCode::Up),
-        down_held: is_key_down(KeyCode::Down),
-        heal_held: is_key_down(KeyCode::C),
-    }
+/// This frame's keys as the player's intent, through the current keybinds.
+fn read_player_input(binds: &Keybinds) -> PlayerInput {
+    keybinds::player_input(binds, is_key_down, is_key_pressed)
 }

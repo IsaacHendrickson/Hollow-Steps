@@ -45,6 +45,12 @@ above; Windows needs no extra system libraries.
 
 ## Current controls
 
+These are the default keys. Press `Esc` for the pause menu and open **Settings** to
+change any of them (Left/Right picks a row's primary or alternate key, Delete empties an
+alternate, **Reset keybinds** restores the defaults); changes are saved and kept between
+runs. See [docs/keybinds.md](docs/keybinds.md). `Esc` also closes the pause menu, and the
+menu keys, `F2`, `F4`, `F5` and `F6` stay fixed.
+
 - `A`/`D` or the left/right arrow keys: move
 - `Space` or `Z`: jump; hold to rise higher, release for a shorter jump.
   Jump input is buffered for 0.12 seconds before landing; coyote time allows

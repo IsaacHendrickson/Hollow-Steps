@@ -11,6 +11,7 @@ use crate::enemy::EnemyDefinitions;
 use crate::events::{EventQueue, GameEvent, LocatedEvent};
 use crate::feel::{Feel, FeelConfig};
 use crate::item::WorldItem;
+use crate::keybinds::Keybinds;
 use crate::pause_menu::PauseMenu;
 use crate::player::{Player, PlayerInput, WorldBounds};
 use crate::player_editor::PlayerDraft;
@@ -30,6 +31,9 @@ mod feel_tests;
 mod flier_tests;
 #[cfg(test)]
 mod hud_loss_tests;
+mod keybind_link;
+#[cfg(test)]
+mod keybind_tests;
 #[cfg(test)]
 mod located_event_tests;
 mod pause_link;
@@ -71,6 +75,11 @@ pub struct GameState {
     inventory_open: bool,
     /// The pause menu; while it is open nothing in the world advances (see `pause_link`).
     pause_menu: PauseMenu,
+    /// The keys that do each action, and the file they are saved to after every change (none
+    /// until `use_keybinds_file`, so tests never touch a real config folder; see
+    /// `keybind_link`).
+    keybinds: Keybinds,
+    keybinds_path: Option<PathBuf>,
     special_attack_timer: f32,
     last_special_hit: Option<u64>,
     /// The room being tried out from the editor, if any.
@@ -118,6 +127,8 @@ impl GameState {
             coin_count: 0,
             inventory_open: false,
             pause_menu: PauseMenu::default(),
+            keybinds: Keybinds::default(),
+            keybinds_path: None,
             special_attack_timer: 0.0,
             last_special_hit: None,
             test_run: None,

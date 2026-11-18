@@ -1,11 +1,18 @@
 //! The pause menu: which screen is open, which button is selected and what a press does.
 //!
 //! Pure state and layout, no window. `GameState` owns one and stops the simulation while it is
-//! open; `main.rs` turns keys and the mouse into the calls below and draws the result.
+//! open; `main.rs` turns keys and the mouse into the calls below and draws the result. The
+//! Settings screen lists the keybinds: a row per action with its primary and alternate key, a
+//! Reset keybinds button and Back. The menu only tracks which key slot is waiting for a key;
+//! `GameState` owns the bindings themselves and changes them (`game::keybind_link`).
 
-use macroquad::math::{Rect, Vec2};
+use crate::keybinds::{Action, Slot};
 
-use crate::camera::{anchored, Anchor};
+mod layout;
+
+pub use layout::{
+    button_rects, item_at, panel_rect, slot_at, slot_rects, status_rect, title_baseline,
+};
 
 /// A button of the pause menu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -16,6 +23,10 @@ pub enum PauseItem {
     Exit,
     /// Leaves the settings screen.
     Back,
+    /// The keybind row of an action. Pressing it waits for a new key for the highlighted slot.
+    Bind(Action),
+    /// Puts every action back on its shipped keys.
+    ResetKeybinds,
 }
 
 impl PauseItem {
@@ -25,6 +36,8 @@ impl PauseItem {
             Self::Settings => "Settings",
             Self::Exit => "Exit",
             Self::Back => "Back",
+            Self::Bind(action) => action.label(),
+            Self::ResetKeybinds => "Reset keybinds",
         }
     }
 }
@@ -33,9 +46,22 @@ impl PauseItem {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PauseScreen {
     Main,
-    /// Blank for now: it only has a way back.
+    /// The keybinds, Reset keybinds and a way back.
     Settings,
 }
+
+/// The Settings screen's rows: a keybind row per action (in `Action::ALL` order), then Reset
+/// keybinds and Back.
+static SETTINGS_ITEMS: [PauseItem; Action::ALL.len() + 2] = {
+    let mut items = [PauseItem::Back; Action::ALL.len() + 2];
+    let mut row = 0;
+    while row < Action::ALL.len() {
+        items[row] = PauseItem::Bind(Action::ALL[row]);
+        row += 1;
+    }
+    items[Action::ALL.len()] = PauseItem::ResetKeybinds;
+    items
+};
 
 impl PauseScreen {
     pub fn title(self) -> &'static str {
@@ -49,7 +75,7 @@ impl PauseScreen {
     pub fn items(self) -> &'static [PauseItem] {
         match self {
             Self::Main => &[PauseItem::Unpause, PauseItem::Settings, PauseItem::Exit],
-            Self::Settings => &[PauseItem::Back],
+            Self::Settings => &SETTINGS_ITEMS,
         }
     }
 }
@@ -60,6 +86,8 @@ pub enum PauseOutcome {
     Continue,
     /// The program should end.
     Exit,
+    /// The keybinds should go back to the shipped keys (`GameState` does it and saves).
+    ResetKeybinds,
 }
 
 /// The pause menu. Closed until `escape` opens it.
@@ -68,6 +96,14 @@ pub struct PauseMenu {
     screen: Option<PauseScreen>,
     /// Index into the open screen's items.
     selected: usize,
+    /// Which key of a keybind row is highlighted (Left/Right or the mouse choose it).
+    slot: Slot,
+    /// The key slot that is waiting for its new key. While it is set, the selection is locked
+    /// and Escape cancels the wait instead of leaving the screen.
+    listening: Option<(Action, Slot)>,
+    /// A one-line message for the Settings screen: what a rebind swapped, why a key was
+    /// refused, or that saving failed.
+    note: Option<String>,
 }
 
 impl PauseMenu {
@@ -86,30 +122,97 @@ impl PauseMenu {
             .and_then(|screen| screen.items().get(self.selected).copied())
     }
 
-    /// The Escape key: opens the menu, closes it from the main screen, and goes back from
-    /// Settings to the main screen (with Settings selected).
+    /// The highlighted key of a keybind row (meaningful while a `Bind` row is selected).
+    pub fn slot(&self) -> Slot {
+        self.slot
+    }
+
+    /// The key slot waiting for its new key, if any.
+    pub fn listening(&self) -> Option<(Action, Slot)> {
+        self.listening
+    }
+
+    /// The Settings screen's message line, if there is a message.
+    pub fn note(&self) -> Option<&str> {
+        self.note.as_deref()
+    }
+
+    pub fn set_note(&mut self, note: Option<String>) {
+        self.note = note;
+    }
+
+    /// Stops waiting for a key (the key was bound, or the wait was cancelled).
+    pub fn stop_listening(&mut self) {
+        self.listening = None;
+    }
+
+    /// The Escape key: opens the menu, cancels a wait for a key, closes the menu from the main
+    /// screen, and goes back from Settings to the main screen (with Settings selected).
     pub fn escape(&mut self) {
+        if self.listening.take().is_some() {
+            self.note = None;
+            return;
+        }
         match self.screen {
             None => self.show(PauseScreen::Main, PauseItem::Unpause),
-            Some(PauseScreen::Main) => self.screen = None,
+            Some(PauseScreen::Main) => self.close(),
             Some(PauseScreen::Settings) => self.show(PauseScreen::Main, PauseItem::Settings),
         }
     }
 
     /// Moves the selection by `steps` buttons (negative is up), wrapping around the ends.
-    /// Does nothing while the menu is closed.
+    /// Does nothing while the menu is closed or waiting for a key.
     pub fn step(&mut self, steps: i32) {
         let Some(screen) = self.screen else { return };
+        if self.listening.is_some() {
+            return;
+        }
         let count = screen.items().len() as i32;
         self.selected = (self.selected as i32 + steps).rem_euclid(count) as usize;
     }
 
+    /// Moves the highlight to the other key of a keybind row (negative is toward the primary
+    /// key); it stops at the ends. Does nothing off a keybind row or while waiting for a key.
+    pub fn step_slot(&mut self, steps: i32) {
+        if self.listening.is_some() || !matches!(self.selected_item(), Some(PauseItem::Bind(_))) {
+            return;
+        }
+        let index = (self.slot.index() as i32 + steps).clamp(0, Slot::ALL.len() as i32 - 1);
+        self.slot = Slot::from_index(index as usize);
+    }
+
     /// Selects `item` (the mouse resting on it). An item the open screen does not have is
-    /// ignored.
+    /// ignored, and so is everything while the menu waits for a key.
     pub fn select(&mut self, item: PauseItem) {
+        if self.listening.is_some() {
+            return;
+        }
         if let Some(index) = self.index_of(item) {
             self.selected = index;
         }
+    }
+
+    /// Selects one key of a keybind row (the mouse resting on its button).
+    pub fn select_slot(&mut self, action: Action, slot: Slot) {
+        if self.listening.is_some() || self.index_of(PauseItem::Bind(action)).is_none() {
+            return;
+        }
+        self.select(PauseItem::Bind(action));
+        self.slot = slot;
+    }
+
+    /// Presses one key of a keybind row (a mouse click on its button): the menu waits for a
+    /// new key for it, even if it was waiting for another one.
+    pub fn activate_slot(&mut self, action: Action, slot: Slot) -> PauseOutcome {
+        let item = PauseItem::Bind(action);
+        let Some(index) = self.index_of(item) else {
+            return PauseOutcome::Continue;
+        };
+        self.selected = index;
+        self.slot = slot;
+        self.listening = Some((action, slot));
+        self.note = None;
+        PauseOutcome::Continue
     }
 
     /// Presses the selected button (Enter).
@@ -123,20 +226,38 @@ impl PauseMenu {
     /// Presses `item` (a mouse click). An item the open screen does not have, or any press
     /// while the menu is closed, does nothing.
     pub fn activate(&mut self, item: PauseItem) -> PauseOutcome {
-        if self.index_of(item).is_none() {
+        let Some(index) = self.index_of(item) else {
             return PauseOutcome::Continue;
-        }
+        };
         match item {
-            PauseItem::Unpause => self.screen = None,
+            PauseItem::Unpause => self.close(),
             PauseItem::Settings => self.show(PauseScreen::Settings, PauseItem::Back),
             PauseItem::Back => self.show(PauseScreen::Main, PauseItem::Settings),
             PauseItem::Exit => return PauseOutcome::Exit,
+            PauseItem::Bind(action) => {
+                self.selected = index;
+                self.listening = Some((action, self.slot));
+                self.note = None;
+            }
+            PauseItem::ResetKeybinds => {
+                self.selected = index;
+                self.listening = None;
+                self.note = None;
+                return PauseOutcome::ResetKeybinds;
+            }
         }
         PauseOutcome::Continue
     }
 
     fn index_of(&self, item: PauseItem) -> Option<usize> {
         self.screen?.items().iter().position(|&other| other == item)
+    }
+
+    fn close(&mut self) {
+        self.screen = None;
+        self.slot = Slot::default();
+        self.listening = None;
+        self.note = None;
     }
 
     fn show(&mut self, screen: PauseScreen, selected: PauseItem) {
@@ -146,55 +267,10 @@ impl PauseMenu {
             .iter()
             .position(|&item| item == selected)
             .unwrap_or(0);
+        self.slot = Slot::default();
+        self.listening = None;
+        self.note = None;
     }
-}
-
-const PANEL_WIDTH: f32 = 360.0;
-const TITLE_HEIGHT: f32 = 84.0;
-const BOTTOM_PADDING: f32 = 32.0;
-const BUTTON_SIZE: Vec2 = Vec2::new(280.0, 48.0);
-const BUTTON_GAP: f32 = 16.0;
-
-/// The menu panel on a `view`-sized screen: centered, and the same size on every screen so the
-/// menu does not jump when Settings opens.
-pub fn panel_rect(view: Vec2) -> Rect {
-    let rows = PauseScreen::Main.items().len() as f32;
-    let height = TITLE_HEIGHT + rows * BUTTON_SIZE.y + (rows - 1.0) * BUTTON_GAP + BOTTOM_PADDING;
-    let top_left = anchored(
-        view,
-        Anchor::Center,
-        Vec2::new(PANEL_WIDTH, height),
-        Vec2::ZERO,
-    );
-    Rect::new(top_left.x, top_left.y, PANEL_WIDTH, height)
-}
-
-/// Where the title baseline of the panel sits, as a distance below the panel's top edge.
-pub fn title_baseline() -> f32 {
-    TITLE_HEIGHT - 28.0
-}
-
-/// The buttons of `screen` with their rectangles, top to bottom, inside the panel.
-pub fn button_rects(screen: PauseScreen, view: Vec2) -> Vec<(PauseItem, Rect)> {
-    let panel = panel_rect(view);
-    let x = panel.x + (PANEL_WIDTH - BUTTON_SIZE.x) / 2.0;
-    screen
-        .items()
-        .iter()
-        .enumerate()
-        .map(|(row, &item)| {
-            let y = panel.y + TITLE_HEIGHT + row as f32 * (BUTTON_SIZE.y + BUTTON_GAP);
-            (item, Rect::new(x, y, BUTTON_SIZE.x, BUTTON_SIZE.y))
-        })
-        .collect()
-}
-
-/// The button of `screen` under `point` (virtual-screen coordinates), if any.
-pub fn item_at(screen: PauseScreen, view: Vec2, point: Vec2) -> Option<PauseItem> {
-    button_rects(screen, view)
-        .into_iter()
-        .find(|(_, rect)| rect.contains(point))
-        .map(|(item, _)| item)
 }
 
 #[cfg(test)]
