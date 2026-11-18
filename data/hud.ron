@@ -23,6 +23,13 @@
         // The mana bar: the empty bar and the mana in it.
         mana_empty: (22, 28, 48, 255),
         mana: (92, 150, 255, 255),
+        // Charms change a maximum. Both bars keep their length and measure against the base
+        // maximum (the number in the Player panel, without charms). A maximum above the base
+        // adds capacity after the base part, behind a divider line in `extension_edge`; a maximum
+        // below the base locks the end of the bar in `locked` (nothing can fill it). Both are
+        // optional: a file without them uses these colors.
+        extension_edge: (240, 236, 214, 255),
+        locked: (62, 62, 72, 255),
     ),
 
     // When the player takes damage the health bar (not the mana bar) shakes, and throws off the

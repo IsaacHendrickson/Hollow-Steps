@@ -6,7 +6,7 @@ use hollow_steps::boss_special::SpecialAttack;
 use hollow_steps::camera::{anchored, Anchor};
 use hollow_steps::events::LocatedEvent;
 use hollow_steps::game::GameState;
-use hollow_steps::hud_bars::{layout_bars, BarColors, BarLayout, BarValues, HudConfig, Rgba};
+use hollow_steps::hud_bars::{fillable_bar, layout_bars, HudConfig};
 use hollow_steps::hud_damage::HudFeedback;
 use hollow_steps::hud_layout::{boss_caption, boss_fill};
 use hollow_steps::keybinds::{hint_line, key_label, Action, Keybinds, Slot};
@@ -20,6 +20,7 @@ use hollow_steps::room_name::room_title;
 use macroquad::prelude::*;
 
 use crate::effects::draw_particles;
+use crate::hud_bars_draw::draw_bars;
 
 /// The gold coin is drawn 9 pixels in radius with its center 2 pixels below the counter row's
 /// anchor, so its top is 7 pixels above the anchor; lowering the row by that much leaves
@@ -58,8 +59,16 @@ impl Hud {
     }
 
     /// Reacts to a frame's events: damage shakes the health bar and throws off particles.
-    pub fn handle(&mut self, events: &[LocatedEvent], view: Vec2, max_health: f32) {
-        let bar = self.config.health_anchor(view);
+    /// `base_max_health` is the maximum health without charms: with the maximum below it the end
+    /// of the bar is locked, and the burst is measured against the part that can hold health.
+    pub fn handle(
+        &mut self,
+        events: &[LocatedEvent],
+        view: Vec2,
+        max_health: f32,
+        base_max_health: f32,
+    ) {
+        let bar = fillable_bar(self.config.health_anchor(view), max_health, base_max_health);
         self.feedback.handle(&self.config, bar, max_health, events);
     }
 
@@ -86,11 +95,7 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
 
     // Top left: the health and mana bars, then the coin and item counters under them.
     let config = &hud.config;
-    let layout = layout_bars(
-        config,
-        BarValues::from(game.vitals()),
-        config.health_anchor(view),
-    );
+    let layout = layout_bars(config, game.bar_values(), config.health_anchor(view));
     // The counters go under the bars where they rest; only the health bar shakes.
     let counters = anchored(
         view,
@@ -147,31 +152,6 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
         Color::from_rgba(170, 180, 210, 255),
     );
     draw_boss_hud(room, view);
-}
-
-/// Fills `rect` with `color`; a part with nothing in it (zero width) draws nothing.
-fn fill(rect: Rect, color: Rgba) {
-    if rect.w > 0.0 && rect.h > 0.0 {
-        let [red, green, blue, alpha] = color;
-        draw_rectangle(
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
-            Color::from_rgba(red, green, blue, alpha),
-        );
-    }
-}
-
-/// The bars, back to front: the empty health bar, the trailing bar, the pending heal and the
-/// current health; then the mana bar.
-fn draw_bars(layout: &BarLayout, colors: &BarColors) {
-    fill(layout.empty, colors.empty);
-    fill(layout.trailing, colors.trailing);
-    fill(layout.pending, colors.pending);
-    fill(layout.health, colors.health);
-    fill(layout.mana_empty, colors.mana_empty);
-    fill(layout.mana, colors.mana);
 }
 
 fn draw_boss_hud(room: &Room, view: Vec2) {

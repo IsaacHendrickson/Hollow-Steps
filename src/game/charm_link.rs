@@ -9,6 +9,7 @@
 //! a respawn or a room change does not touch them.
 use super::GameState;
 use crate::charms::{effective, CharmCatalog, CharmState, Toggle};
+use crate::hud_bars::BarValues;
 
 impl GameState {
     /// Every charm there is.
@@ -30,6 +31,12 @@ impl GameState {
     /// Maximum health without charms: `max_health` as `player.ron` and the Player panel have it.
     pub fn base_max_health(&self) -> f32 {
         f32::from(self.player_draft.edited().player.max_health)
+    }
+
+    /// What the health and mana bars show: the vitals, and the base maximums the bars measure a
+    /// charm's change against (more capacity after the base part, or a locked end).
+    pub fn bar_values(&self) -> BarValues {
+        BarValues::from(&self.vitals).with_base(self.base_max_health(), self.base_max_mana())
     }
 
     /// Equips the charm `id`, or takes it off if it is on. Equipping is refused (and nothing
