@@ -126,6 +126,7 @@ pub(super) fn draw_panel(
                                 },
                             ) {
                                 state.player.open = false;
+                                state.charms.open = false;
                                 state.properties = !state.properties;
                                 if state.properties {
                                     state.tool = EditorTool::Select;
@@ -178,7 +179,15 @@ pub(super) fn draw_panel(
                                     state.property = PropertyUi::for_entity(editor, path);
                                 }
                             }
-                            if crate::player_panel::draw(ui, editor, &mut state.player) {
+                            if crate::charm_panel::draw(
+                                ui,
+                                editor,
+                                &mut state.charms,
+                                &mut state.player.open,
+                            ) {
+                                // The Charms panel replaces the room tools, the properties and
+                                // the Player panel.
+                            } else if crate::player_panel::draw(ui, editor, &mut state.player) {
                                 // The Player panel replaces the room tools and properties.
                             } else if state.properties {
                                 if let Some(p) = &mut state.boss_property {

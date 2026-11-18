@@ -13,6 +13,7 @@ use hollow_steps::timestep::{FixedStep, InputLatch};
 use macroquad::prelude::*;
 mod body_draw;
 mod charm_input;
+mod charm_panel;
 mod editor_panel;
 mod editor_ui;
 mod editor_visuals;

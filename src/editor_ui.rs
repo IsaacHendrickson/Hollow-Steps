@@ -59,6 +59,8 @@ pub(crate) struct EditorUi {
     pub(crate) look: LookUi,
     /// The Player panel: whether it is open, its Save request and what it last said.
     pub(crate) player: crate::player_panel::PlayerUi,
+    /// The Charms panel: whether it is open, its Save request, undo history and last message.
+    pub(crate) charms: crate::charm_panel::CharmUi,
     /// Room A's window state while B is open in the exit-link flow.
     pub(crate) link_stash: Option<Box<linking::LinkStash>>,
     /// "New exit here" was pressed: the next click in the room places an exit.
@@ -357,7 +359,8 @@ pub(crate) fn draw_editor(
             is_key_pressed(KeyCode::Z),
             is_key_pressed(KeyCode::Y),
         ) {
-            if !state.player.apply_history(editor, key) {
+            if !state.player.apply_history(editor, key) && !state.charms.apply_history(editor, key)
+            {
                 editor_panel::apply_history(editor, state, key);
             }
         }
@@ -496,6 +499,21 @@ pub(crate) fn draw_editor(
     egui_macroquad::draw();
     // The game takes the Player panel's edits into effect; its Save goes through the game.
     game.sync_player_from_editor();
+    game.sync_charms_from_editor();
+    if std::mem::take(&mut state.charms.save_requested) {
+        state.charms.status = match game.save_charms() {
+            Ok(saved) => Status::Saved(if saved.taken_off.is_empty() {
+                saved.path.display().to_string()
+            } else {
+                format!(
+                    "{} (took off {}: the saved costs no longer fit the base max mana)",
+                    saved.path.display(),
+                    saved.taken_off.join(", ")
+                )
+            }),
+            Err(error) => Status::Error(error),
+        };
+    }
     if std::mem::take(&mut state.player.save_requested) {
         state.player.status = match game.save_player() {
             Ok(paths) => Status::Saved(

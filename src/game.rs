@@ -22,6 +22,7 @@ use crate::tuning::TuningConfig;
 use crate::vitals::{VitalsConfig, VitalsState};
 
 mod camera_bounds;
+mod charm_editor_link;
 mod charm_link;
 #[cfg(test)]
 mod charm_menu_tests;
@@ -60,6 +61,7 @@ mod vitals_link;
 mod vitals_tests;
 
 pub use crate::room::FLOOR_Y;
+pub use charm_editor_link::CharmsSaved;
 
 pub const VIEW_WIDTH: f32 = 960.0;
 pub const VIEW_HEIGHT: f32 = 540.0;
@@ -269,6 +271,7 @@ impl GameState {
         if self.editor.take().is_none() {
             self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
             self.attach_player_draft();
+            self.attach_charm_draft();
         }
         Ok(())
     }
@@ -288,6 +291,7 @@ impl GameState {
         self.player.place_at(room.spawn, room.world_bounds());
         self.editor = Some(editor);
         self.attach_player_draft();
+        self.attach_charm_draft();
         Ok(())
     }
 
