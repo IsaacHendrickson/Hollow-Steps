@@ -78,17 +78,11 @@ impl GameState {
     }
 
     /// Gives up the Player panel's unsaved edits: the stats go back to the saved values in
-    /// effect, in the game and in the open session, and the unsaved look is dropped.
+    /// effect, in the game and in the open session, and the unsaved look is dropped. Equipped
+    /// charms stay on.
     pub fn discard_player_edits(&mut self) {
         self.player_draft.reset_all();
-        let saved = *self.player_draft.saved();
-        self.player.set_config(saved.player);
-        for enemy in self.rooms.iter_mut().flat_map(|room| &mut room.enemies) {
-            enemy.set_tuning(saved.enemy);
-        }
-        self.vitals.set_config(*self.player_draft.saved_vitals());
-        self.vitals
-            .set_max_health(f32::from(saved.player.max_health));
+        self.apply_stats();
         if let Some(session) = &mut self.editor {
             session.player = self.player_draft;
             session.look.reset();
@@ -103,7 +97,7 @@ impl GameState {
     }
 
     /// Takes the open session's draft into effect: the player and every enemy use its values
-    /// from now on. Does nothing with the editor closed or when nothing changed.
+    /// from now on, with the equipped charms layered on top (`apply_stats`). Does nothing with the editor closed or when nothing changed.
     pub fn sync_player_from_editor(&mut self) {
         let Some(draft) = self.editor.as_ref().map(|session| session.player) else {
             return;
@@ -114,14 +108,7 @@ impl GameState {
         {
             return;
         }
-        let edited = *draft.edited();
-        self.player.set_config(edited.player);
-        for enemy in self.rooms.iter_mut().flat_map(|room| &mut room.enemies) {
-            enemy.set_tuning(edited.enemy);
-        }
-        self.vitals.set_config(*draft.edited_vitals());
-        self.vitals
-            .set_max_health(f32::from(edited.player.max_health));
         self.player_draft = draft;
+        self.apply_stats();
     }
 }

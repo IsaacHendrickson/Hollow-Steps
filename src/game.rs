@@ -4,6 +4,8 @@ use macroquad::math::{Rect, Vec2};
 
 #[cfg(test)]
 use crate::boss_special::SpecialAttack;
+use crate::charm_menu::CharmMenu;
+use crate::charms::{CharmCatalog, CharmState};
 use crate::coin::Coin;
 use crate::damage::DamageResolver;
 use crate::editor::{self, EditorSession};
@@ -20,6 +22,11 @@ use crate::tuning::TuningConfig;
 use crate::vitals::{VitalsConfig, VitalsState};
 
 mod camera_bounds;
+mod charm_link;
+#[cfg(test)]
+mod charm_menu_tests;
+#[cfg(test)]
+mod charm_tests;
 #[cfg(test)]
 mod death_tests;
 mod editor_save;
@@ -92,9 +99,14 @@ pub struct GameState {
     events: EventQueue,
     /// Hit-stop and screen shake, fed by the events each tick raises.
     feel: Feel,
-    /// Health trail, mana and healing; see `vitals_link`. Its tunables always equal the draft's
-    /// edited vitals.
+    /// Health trail, mana and healing; see `vitals_link`. Its tunables are the draft's edited
+    /// vitals with the equipped charms on top (`charm_link::apply_stats`).
     vitals: VitalsState,
+    /// Every charm, and which of them the run owns and wears; see `charm_link`.
+    charms: CharmCatalog,
+    charm_state: CharmState,
+    /// The cursor and the last refusal of the inventory's Charms section.
+    charm_menu: CharmMenu,
 }
 
 impl GameState {
@@ -109,6 +121,7 @@ impl GameState {
         let tuning = TuningConfig::load(assets)?;
         let feel = FeelConfig::load(assets)?;
         let vitals = VitalsConfig::load(assets)?;
+        let charms = CharmCatalog::load(assets, vitals.max_mana)?;
         let mut rooms = load_rooms(assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(assets)?;
         rooms.extend(editor::load_extra_rooms(assets, &definitions)?);
@@ -117,7 +130,7 @@ impl GameState {
         let mut player = Player::new(Vec2::new(180.0, 0.0), tuning.player);
         player.place_at(rooms[RoomId::First.index()].spawn, world_bounds);
 
-        Ok(Self {
+        let mut game = Self {
             player,
             terrain_styles: terrain_link::load(assets, &rooms)?, // before `rooms` moves
             rooms,
@@ -136,7 +149,12 @@ impl GameState {
             events: EventQueue::default(),
             feel: Feel::new(feel),
             vitals: vitals_link::fresh_vitals(vitals, tuning.player.max_health),
-        })
+            charm_state: CharmState::starting(&charms),
+            charm_menu: CharmMenu::default(),
+            charms,
+        };
+        game.apply_stats();
+        Ok(game)
     }
 
     /// Hit-stop and screen-shake state.
@@ -181,12 +199,7 @@ impl GameState {
     /// refused and nothing changes.
     pub fn set_tuning(&mut self, tuning: TuningConfig) -> Result<(), String> {
         self.player_draft.set_edited(tuning)?;
-        self.player.set_config(tuning.player);
-        self.vitals
-            .set_max_health(f32::from(tuning.player.max_health));
-        for enemy in self.rooms.iter_mut().flat_map(|room| &mut room.enemies) {
-            enemy.set_tuning(tuning.enemy);
-        }
+        self.apply_stats();
         Ok(())
     }
 
@@ -210,12 +223,14 @@ impl GameState {
         self.inventory_open
     }
 
-    /// Opens or closes the inventory. Ignored while the pause menu is open.
+    /// Opens or closes the inventory. Ignored while the pause menu is open. An old charm
+    /// refusal is not kept for the next time.
     pub fn toggle_inventory(&mut self) {
         if self.pause_menu.is_open() {
             return;
         }
         self.inventory_open = !self.inventory_open;
+        self.charm_menu.clear_message();
     }
 
     pub fn room(&self) -> &Room {
@@ -285,8 +300,9 @@ impl GameState {
     /// Changed boss definitions restart from their authored placement.
     ///
     /// The player and enemy tunables in `player.ron`, the hit-stop and shake values in
-    /// `feel.ron` and the vitals values in `vitals.ron` are re-read too; the player keeps its
-    /// state (health, mana and a heal in progress included). Nothing changes if any file fails
+    /// `feel.ron`, the vitals values in `vitals.ron` and the charms in `charms.ron` are re-read
+    /// too; the player keeps its state (health, mana and a heal in progress included) and the
+    /// charms it wears stay on, layered on the re-read numbers. Nothing changes if any file fails
     /// to load.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
         if self.test_run.is_some() {
@@ -295,6 +311,7 @@ impl GameState {
         let tuning = TuningConfig::load(&self.assets)?;
         let feel = FeelConfig::load(&self.assets)?;
         let vitals = VitalsConfig::load(&self.assets)?;
+        let charms = CharmCatalog::load(&self.assets, vitals.max_mana)?;
         let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
         let definitions = EnemyDefinitions::load(&self.assets)?;
         rooms.extend(editor::load_extra_rooms(&self.assets, &definitions)?);
@@ -343,8 +360,11 @@ impl GameState {
         self.terrain_styles = terrain_styles;
         self.player_draft.mark_saved();
         self.feel.set_config(feel);
-        self.vitals.set_config(vitals);
         self.player_draft.reload_vitals(vitals);
+        // Charms you hold that the file no longer lists are dropped; the rest stay on.
+        self.charms = charms;
+        self.charm_state.retain_known(&self.charms);
+        self.apply_stats();
         Ok(())
     }
 

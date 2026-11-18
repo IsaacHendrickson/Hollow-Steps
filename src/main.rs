@@ -12,11 +12,14 @@ use hollow_steps::terrain_style::TerrainLook;
 use hollow_steps::timestep::{FixedStep, InputLatch};
 use macroquad::prelude::*;
 mod body_draw;
+mod charm_input;
 mod editor_panel;
 mod editor_ui;
 mod editor_visuals;
 mod effects;
 mod hud;
+mod hud_bars_draw;
+mod hud_charms;
 mod pause_input;
 mod player_panel;
 mod postfx_pass;
@@ -199,6 +202,7 @@ async fn main() {
                 game.toggle_inventory();
             }
         }
+        charm_input::handle(&mut game, view, !ui_wants_keyboard);
         if pause_input::handle(&mut game, view, !ui_wants_keyboard) == PauseOutcome::Exit {
             // For now Exit ends the program; later it will return to the main menu.
             break;
@@ -242,7 +246,12 @@ async fn main() {
         }
         let events = game.take_located_events();
         effects.handle(&events);
-        hud.handle(&events, view, game.vitals().max_health());
+        hud.handle(
+            &events,
+            view,
+            game.vitals().max_health(),
+            game.base_max_health(),
+        );
 
         // Screen shake moves only the picture, not the camera that follows the player.
         let world_view = camera.view_rect_shaken(view, game.shake_offset());

@@ -1,0 +1,41 @@
+(
+    // Fixed charms for the tests, so tuning data/charms.ron never changes a test result.
+    charms: [
+        (
+            id: "heart",
+            name: "Heart Charm",
+            description: "More maximum health.",
+            mana_cost: 15.0,
+            effect: MaxHealth(10),
+            color: (214, 62, 72, 255),
+            owned_at_start: true,
+        ),
+        (
+            id: "swift",
+            name: "Swift Charm",
+            description: "Faster walking.",
+            mana_cost: 10.0,
+            effect: MoveSpeedPercent(15.0),
+            color: (96, 208, 170, 255),
+            owned_at_start: true,
+        ),
+        (
+            id: "sharp",
+            name: "Sharp Charm",
+            description: "Harder sword hits.",
+            mana_cost: 20.0,
+            effect: SwordDamage(5),
+            color: (236, 196, 84, 255),
+            owned_at_start: true,
+        ),
+        (
+            id: "ward",
+            name: "Ward Charm",
+            description: "Not owned at the start.",
+            mana_cost: 5.0,
+            effect: MaxHealth(20),
+            color: (120, 120, 230, 255),
+            owned_at_start: false,
+        ),
+    ],
+)

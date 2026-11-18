@@ -6,7 +6,7 @@ use hollow_steps::boss_special::SpecialAttack;
 use hollow_steps::camera::{anchored, Anchor};
 use hollow_steps::events::LocatedEvent;
 use hollow_steps::game::GameState;
-use hollow_steps::hud_bars::{layout_bars, BarColors, BarLayout, BarValues, HudConfig, Rgba};
+use hollow_steps::hud_bars::{fillable_bar, layout_bars, HudConfig};
 use hollow_steps::hud_damage::HudFeedback;
 use hollow_steps::hud_layout::{boss_caption, boss_fill};
 use hollow_steps::keybinds::{hint_line, key_label, Action, Keybinds, Slot};
@@ -20,6 +20,8 @@ use hollow_steps::room_name::room_title;
 use macroquad::prelude::*;
 
 use crate::effects::draw_particles;
+use crate::hud_bars_draw::draw_bars;
+use crate::hud_charms::draw_charms;
 
 /// The gold coin is drawn 9 pixels in radius with its center 2 pixels below the counter row's
 /// anchor, so its top is 7 pixels above the anchor; lowering the row by that much leaves
@@ -58,8 +60,16 @@ impl Hud {
     }
 
     /// Reacts to a frame's events: damage shakes the health bar and throws off particles.
-    pub fn handle(&mut self, events: &[LocatedEvent], view: Vec2, max_health: f32) {
-        let bar = self.config.health_anchor(view);
+    /// `base_max_health` is the maximum health without charms: with the maximum below it the end
+    /// of the bar is locked, and the burst is measured against the part that can hold health.
+    pub fn handle(
+        &mut self,
+        events: &[LocatedEvent],
+        view: Vec2,
+        max_health: f32,
+        base_max_health: f32,
+    ) {
+        let bar = fillable_bar(self.config.health_anchor(view), max_health, base_max_health);
         self.feedback.handle(&self.config, bar, max_health, events);
     }
 
@@ -86,11 +96,7 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
 
     // Top left: the health and mana bars, then the coin and item counters under them.
     let config = &hud.config;
-    let layout = layout_bars(
-        config,
-        BarValues::from(game.vitals()),
-        config.health_anchor(view),
-    );
+    let layout = layout_bars(config, game.bar_values(), config.health_anchor(view));
     // The counters go under the bars where they rest; only the health bar shakes.
     let counters = anchored(
         view,
@@ -147,31 +153,6 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
         Color::from_rgba(170, 180, 210, 255),
     );
     draw_boss_hud(room, view);
-}
-
-/// Fills `rect` with `color`; a part with nothing in it (zero width) draws nothing.
-fn fill(rect: Rect, color: Rgba) {
-    if rect.w > 0.0 && rect.h > 0.0 {
-        let [red, green, blue, alpha] = color;
-        draw_rectangle(
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
-            Color::from_rgba(red, green, blue, alpha),
-        );
-    }
-}
-
-/// The bars, back to front: the empty health bar, the trailing bar, the pending heal and the
-/// current health; then the mana bar.
-fn draw_bars(layout: &BarLayout, colors: &BarColors) {
-    fill(layout.empty, colors.empty);
-    fill(layout.trailing, colors.trailing);
-    fill(layout.pending, colors.pending);
-    fill(layout.health, colors.health);
-    fill(layout.mana_empty, colors.mana_empty);
-    fill(layout.mana, colors.mana);
 }
 
 fn draw_boss_hud(room: &Room, view: Vec2) {
@@ -241,47 +222,44 @@ pub fn draw_test_banner(view: Vec2) {
 
 pub fn draw_inventory(game: &GameState, view: Vec2) {
     draw_rectangle(0.0, 0.0, view.x, view.y, Color::from_rgba(0, 0, 0, 180));
-    let size = vec2(560.0, 310.0);
-    let panel = anchored(view, Anchor::Center, size, Vec2::ZERO);
+    // The panel is as tall as its content needs; the same layout places the mouse's rows.
+    let layout = game.inventory_layout(view);
+    let panel = layout.panel;
     draw_rectangle(
         panel.x,
         panel.y,
-        size.x,
-        size.y,
+        panel.w,
+        panel.h,
         Color::from_rgba(28, 32, 50, 255),
     );
-    draw_rectangle_lines(panel.x, panel.y, size.x, size.y, 2.0, GRAY);
-    let (x, top) = (panel.x + 32.0, panel.y);
-    draw_text("Inventory", x, top + 50.0, 36.0, WHITE);
+    draw_rectangle_lines(panel.x, panel.y, panel.w, panel.h, 2.0, GRAY);
+    draw_text("Inventory", layout.title.x, layout.title.y, 36.0, WHITE);
     draw_text(
         format!("Coins: {}", game.coin_count()),
-        x,
-        top + 94.0,
+        layout.coins.x,
+        layout.coins.y,
         26.0,
         GOLD,
     );
-    draw_text("Collected items", x, top + 140.0, 24.0, WHITE);
+    let header = layout.items_header;
+    draw_text("Collected items", header.x, header.y, 24.0, WHITE);
     let items = game.player().collected_items();
     if items.is_empty() {
-        draw_text("No items collected yet", x, top + 176.0, 22.0, LIGHTGRAY);
+        let at = layout.item(0);
+        draw_text("No items collected yet", at.x, at.y, 22.0, LIGHTGRAY);
     } else {
         for (index, item) in items.iter().enumerate() {
-            draw_text(
-                item.name(),
-                x,
-                top + 176.0 + index as f32 * 28.0,
-                22.0,
-                GOLD,
-            );
+            let at = layout.item(index);
+            draw_text(item.name(), at.x, at.y, 22.0, GOLD);
         }
     }
-    draw_text(
-        "Paused  |  I or Esc to return",
-        x,
-        top + 278.0,
-        22.0,
-        LIGHTGRAY,
-    );
+    draw_charms(game, &layout);
+    let hint = if game.owned_charms().is_empty() {
+        "Paused  |  I or Esc to return"
+    } else {
+        "Paused  |  Up/Down, Enter: equip  |  I or Esc to return"
+    };
+    draw_text(hint, layout.footer.x, layout.footer.y, 22.0, LIGHTGRAY);
 }
 
 /// The pause menu over the frozen picture: a dim veil, the panel, its title and the buttons of
@@ -442,7 +420,7 @@ fn draw_text_centered(text: &str, rect: Rect, font_size: u16, color: Color) {
 
 /// The baseline that centers a line of text on `center_y`. It is the same for every string at a
 /// font size, so a word with descenders (g, j, p) does not sit higher than one without.
-fn centered_baseline(center_y: f32, font_size: u16) -> f32 {
+pub(crate) fn centered_baseline(center_y: f32, font_size: u16) -> f32 {
     let reference = measure_text("Ag", None, font_size, 1.0);
     center_y - reference.height / 2.0 + reference.offset_y
 }
