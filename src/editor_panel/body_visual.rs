@@ -5,7 +5,7 @@ use super::EditorSession;
 use egui_macroquad::egui;
 
 /// The Body visual section: template choice, damage pose, scale, colors and template motion.
-pub(super) fn draw_body_visual(ui: &mut egui::Ui, editor: &mut EditorSession, p: &mut PropertyUi) {
+pub(crate) fn draw_body_visual(ui: &mut egui::Ui, editor: &mut EditorSession, p: &mut PropertyUi) {
     section(ui, "Body visual", |ui| {
         egui::ComboBox::from_id_salt("body template")
             .selected_text(p.body.as_ref().map_or("Box", |b| b.template.as_str()))
@@ -58,7 +58,8 @@ pub(super) fn draw_body_visual(ui: &mut egui::Ui, editor: &mut EditorSession, p:
             });
             ui.horizontal(|ui| {
                 ui.label("Visual scale");
-                ui.add(egui::DragValue::new(&mut body.scale));
+                let response = ui.add(egui::DragValue::new(&mut body.scale));
+                probe(ui, || (egui::Id::new("body scale"), response.rect));
             });
             for (label, color) in [
                 ("Primary", &mut body.primary),
@@ -87,7 +88,7 @@ pub(super) fn draw_body_visual(ui: &mut egui::Ui, editor: &mut EditorSession, p:
 }
 
 /// The Pose assets section: every pose's offsets, and creating a new pose.
-pub(super) fn draw_pose_assets(ui: &mut egui::Ui, editor: &mut EditorSession, p: &mut PropertyUi) {
+pub(crate) fn draw_pose_assets(ui: &mut egui::Ui, editor: &mut EditorSession, p: &mut PropertyUi) {
     section(ui, "Pose assets", |ui| {
         for (name, pose) in &mut editor.content.poses {
             let before = pose.clone();

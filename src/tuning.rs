@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 use macroquad::math::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::combat::StrikeConfig;
+use crate::combat::{MeleeConfig, StrikeConfig};
 use crate::player::PlayerConfig;
 pub use crate::tuning_fields::{Field, FieldSpec};
 
@@ -82,6 +82,11 @@ struct PlayerFile {
     dash_speed: f32,
     dash_duration: f32,
     dash_cooldown: f32,
+    // Added after the first files were written: a file without them gets today's values.
+    #[serde(default = "default_max_health")]
+    max_health: u16,
+    #[serde(default = "default_invincibility_seconds")]
+    invincibility_seconds: f32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -94,6 +99,34 @@ struct StrikeFile {
     down_width: f32,
     down_height: f32,
     pogo_speed: f32,
+    #[serde(default = "default_damage")]
+    damage: u16,
+    #[serde(default = "default_swing_seconds")]
+    swing_seconds: f32,
+    #[serde(default = "default_cooldown")]
+    cooldown: f32,
+}
+
+// What an older `player.ron` (written before these numbers were in it) means: the values the
+// game used when they were constants.
+fn default_max_health() -> u16 {
+    crate::health::MAX_HEALTH
+}
+
+fn default_invincibility_seconds() -> f32 {
+    crate::health::INVINCIBILITY_SECONDS
+}
+
+fn default_damage() -> u16 {
+    crate::combat::SWORD_DAMAGE
+}
+
+fn default_swing_seconds() -> f32 {
+    crate::combat::SWING_SECONDS
+}
+
+fn default_cooldown() -> f32 {
+    crate::combat::ATTACK_COOLDOWN
 }
 
 #[derive(Serialize, Deserialize)]
@@ -129,6 +162,13 @@ impl From<TuningFile> for TuningConfig {
                     down_height: strike.down_height,
                     pogo_speed: strike.pogo_speed,
                 },
+                melee: MeleeConfig {
+                    damage: strike.damage,
+                    swing_seconds: strike.swing_seconds,
+                    cooldown: strike.cooldown,
+                },
+                max_health: player.max_health,
+                invincibility_seconds: player.invincibility_seconds,
             },
             enemy: EnemyTuning {
                 default_health: enemy.default_health,
@@ -157,6 +197,8 @@ impl From<&TuningConfig> for TuningFile {
                 dash_speed: player.dash_speed,
                 dash_duration: player.dash_duration,
                 dash_cooldown: player.dash_cooldown,
+                max_health: player.max_health,
+                invincibility_seconds: player.invincibility_seconds,
             },
             strike: StrikeFile {
                 forward_width: strike.forward_width,
@@ -166,6 +208,9 @@ impl From<&TuningConfig> for TuningFile {
                 down_width: strike.down_width,
                 down_height: strike.down_height,
                 pogo_speed: strike.pogo_speed,
+                damage: player.melee.damage,
+                swing_seconds: player.melee.swing_seconds,
+                cooldown: player.melee.cooldown,
             },
             enemy: EnemyFile {
                 default_health: enemy.default_health,

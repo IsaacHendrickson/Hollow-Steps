@@ -308,7 +308,7 @@ impl VitalsField {
     }
 
     /// Writes the value without checking it; callers go through `VitalsConfig::with_field`.
-    fn set(self, config: &mut VitalsConfig, value: f32) {
+    pub(crate) fn set(self, config: &mut VitalsConfig, value: f32) {
         match self {
             Self::MaxMana => config.max_mana = value,
             Self::ManaStart => config.mana_start = value,
@@ -374,6 +374,20 @@ impl VitalsState {
         self.config = config;
         self.max_mana = config.max_mana;
         self.mana = self.mana.min(self.max_mana);
+    }
+
+    /// Swaps in a new health cap mid-game, with the rule `Health::set_limits` uses: raising it
+    /// raises health and the trailing bar by the same amount, lowering it cuts both down to the
+    /// cap. A player with no health left is not brought back.
+    pub fn set_max_health(&mut self, max_health: f32) {
+        if max_health > self.max_health && self.health > 0.0 {
+            let more = max_health - self.max_health;
+            self.health = (self.health + more).min(max_health);
+            self.trailing_health = (self.trailing_health + more).min(max_health);
+        }
+        self.max_health = max_health;
+        self.health = self.health.min(max_health);
+        self.trailing_health = self.trailing_health.min(max_health).max(self.health);
     }
 
     pub fn health(&self) -> f32 {

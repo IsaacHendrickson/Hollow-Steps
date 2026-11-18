@@ -1,0 +1,38 @@
+// The player's body: a hooded wanderer with a trailing scarf and a lantern in the front hand.
+(
+    pose_map: {"head": "head", "torso": "torso", "hand_l": "hand_l", "hand_r": "hand_r", "foot_l": "foot_l", "foot_r": "foot_r", "tail": "scarf"},
+    follow: (stiffness: 140.0, damping: 20.0),
+    follow_overrides: {
+        "scarf": (stiffness: 60.0, damping: 7.0),
+        "hand_r": (stiffness: 100.0, damping: 14.0),
+    },
+    idle: [
+        (point: "torso", amplitude: (0.0, 0.015), period_secs: 2.2, phase_offset_secs: 0.0),
+        (point: "scarf", amplitude: (0.02, 0.025), period_secs: 1.6, phase_offset_secs: 0.3),
+        (point: "hand_r", amplitude: (0.0, 0.02), period_secs: 2.2, phase_offset_secs: 0.5),
+    ],
+    points: {
+        "head": (rest: (0.03, -0.26)),
+        "torso": (rest: (0.0, 0.04)),
+        "hand_l": (rest: (-0.28, 0.12)),
+        "hand_r": (rest: (0.28, 0.14)),
+        "foot_l": (rest: (-0.14, 0.43)),
+        "foot_r": (rest: (0.14, 0.43)),
+        "scarf": (rest: (-0.4, 0.1)),
+    },
+    parts: [
+        (name: "scarf", shape: Line, from: Some("head"), to: Some("scarf"), size: (0.09, 0.09), rotation: 0.0, color_slot: accent),
+        (name: "leg_l", shape: Line, from: Some("torso"), to: Some("foot_l"), size: (0.1, 0.1), rotation: 0.0, color_slot: secondary),
+        (name: "leg_r", shape: Line, from: Some("torso"), to: Some("foot_r"), size: (0.1, 0.1), rotation: 0.0, color_slot: secondary),
+        (name: "arm_l", shape: Line, from: Some("torso"), to: Some("hand_l"), size: (0.08, 0.08), rotation: 0.0, color_slot: secondary),
+        (name: "cloak", shape: Ellipse, anchor: Some("torso"), offset: Some((-0.02, 0.06)), size: (0.58, 0.66), rotation: 0.0, color_slot: primary),
+        (name: "arm_r", shape: Line, from: Some("torso"), to: Some("hand_r"), size: (0.08, 0.08), rotation: 0.0, color_slot: secondary),
+        (name: "lantern", shape: Ellipse, anchor: Some("hand_r"), offset: Some((0.02, 0.07)), size: (0.17, 0.2), rotation: 0.0, color_slot: accent),
+        (name: "hood", shape: Ellipse, anchor: Some("head"), offset: Some((-0.01, 0.0)), size: (0.5, 0.44), rotation: 0.0, color_slot: primary),
+        (name: "face", shape: Ellipse, anchor: Some("head"), offset: Some((0.08, 0.02)), size: (0.27, 0.24), rotation: 0.0, color_slot: secondary),
+        (name: "eye_near", shape: Ellipse, anchor: Some("head"), offset: Some((0.16, 0.0)), size: (0.07, 0.09), rotation: 0.0, color_slot: eye),
+        (name: "eye_far", shape: Ellipse, anchor: Some("head"), offset: Some((0.06, 0.0)), size: (0.07, 0.09), rotation: 0.0, color_slot: eye),
+        (name: "foot_l", shape: Rect, anchor: Some("foot_l"), offset: Some((0.03, 0.0)), size: (0.2, 0.09), rotation: 0.0, color_slot: secondary),
+        (name: "foot_r", shape: Rect, anchor: Some("foot_r"), offset: Some((0.03, 0.0)), size: (0.2, 0.09), rotation: 0.0, color_slot: secondary),
+    ],
+)

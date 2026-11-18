@@ -12,6 +12,7 @@ use crate::events::{EventQueue, GameEvent, LocatedEvent};
 use crate::feel::{Feel, FeelConfig};
 use crate::item::WorldItem;
 use crate::player::{Player, PlayerInput, WorldBounds};
+use crate::player_editor::PlayerDraft;
 use crate::room::{load_rooms, Room, RoomId};
 use crate::tuning::TuningConfig;
 use crate::vitals::{VitalsConfig, VitalsState};
@@ -30,6 +31,9 @@ mod flier_tests;
 mod hud_loss_tests;
 #[cfg(test)]
 mod located_event_tests;
+mod player_link;
+#[cfg(test)]
+mod player_stats_tests;
 #[cfg(test)]
 mod strike_tests;
 mod terrain_link;
@@ -65,18 +69,17 @@ pub struct GameState {
     last_special_hit: Option<u64>,
     /// The room being tried out from the editor, if any.
     test_run: Option<test_room::TestRun>,
-    /// Player and enemy tunables in effect (the F4 window edits these).
-    tuning: TuningConfig,
-    /// The tunables as last loaded from or saved to `player.ron`.
-    saved_tuning: TuningConfig,
+    /// The player and enemy tunables and the vitals tunables: the values in effect (what the F4
+    /// window and the editor's Player panel edit) and the ones last loaded from or saved to
+    /// `player.ron` and `vitals.ron`.
+    player_draft: PlayerDraft,
     /// What has happened since `take_events` was last called, oldest first.
     events: EventQueue,
     /// Hit-stop and screen shake, fed by the events each tick raises.
     feel: Feel,
-    /// Health trail, mana and healing; see `vitals_link`.
+    /// Health trail, mana and healing; see `vitals_link`. Its tunables always equal the draft's
+    /// edited vitals.
     vitals: VitalsState,
-    /// The vitals tunables as last loaded from or saved to `vitals.ron`.
-    saved_vitals: VitalsConfig,
 }
 
 impl GameState {
@@ -111,12 +114,10 @@ impl GameState {
             special_attack_timer: 0.0,
             last_special_hit: None,
             test_run: None,
-            tuning,
-            saved_tuning: tuning,
+            player_draft: PlayerDraft::new(tuning).with_vitals(vitals),
             events: EventQueue::default(),
             feel: Feel::new(feel),
-            vitals: vitals_link::fresh_vitals(vitals),
-            saved_vitals: vitals,
+            vitals: vitals_link::fresh_vitals(vitals, tuning.player.max_health),
         })
     }
 
@@ -148,32 +149,27 @@ impl GameState {
 
     /// The player and enemy tunables in effect.
     pub fn tuning(&self) -> &TuningConfig {
-        &self.tuning
+        self.player_draft.edited()
     }
 
     /// True when the tunables in effect differ from `player.ron` (or the defaults).
     pub fn tuning_unsaved(&self) -> bool {
-        self.tuning != self.saved_tuning
+        self.player_draft.is_stats_dirty()
     }
 
     /// Puts new tunables into effect at once, mid-game. The player keeps its position,
-    /// velocity and timers; every enemy takes the new knockback values. Invalid tunables
-    /// are refused and nothing changes.
+    /// velocity and timers; every enemy takes the new knockback values. A new maximum health
+    /// raises or cuts the player's health (see `Health::set_limits`). Invalid tunables are
+    /// refused and nothing changes.
     pub fn set_tuning(&mut self, tuning: TuningConfig) -> Result<(), String> {
-        tuning.validate()?;
+        self.player_draft.set_edited(tuning)?;
         self.player.set_config(tuning.player);
-        self.tuning = tuning;
+        self.vitals
+            .set_max_health(f32::from(tuning.player.max_health));
         for enemy in self.rooms.iter_mut().flat_map(|room| &mut room.enemies) {
             enemy.set_tuning(tuning.enemy);
         }
         Ok(())
-    }
-
-    /// Writes the tunables in effect to `player.ron` in the assets folder and returns its path.
-    pub fn save_tuning(&mut self) -> Result<PathBuf, String> {
-        let path = crate::tuning::save(&self.assets, &self.tuning)?;
-        self.saved_tuning = self.tuning;
-        Ok(path)
     }
 
     pub fn player(&self) -> &Player {
@@ -235,6 +231,7 @@ impl GameState {
         }
         if self.editor.take().is_none() {
             self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
+            self.attach_player_draft();
         }
         Ok(())
     }
@@ -253,6 +250,7 @@ impl GameState {
         self.current = index;
         self.player.place_at(room.spawn, room.world_bounds());
         self.editor = Some(editor);
+        self.attach_player_draft();
         Ok(())
     }
 
@@ -321,10 +319,10 @@ impl GameState {
         }
         self.set_tuning(tuning)?;
         self.terrain_styles = terrain_styles;
-        self.saved_tuning = tuning;
+        self.player_draft.mark_saved();
         self.feel.set_config(feel);
         self.vitals.set_config(vitals);
-        self.saved_vitals = vitals;
+        self.player_draft.reload_vitals(vitals);
         Ok(())
     }
 
@@ -353,7 +351,7 @@ impl GameState {
     /// One tick of the world. `frozen` holds enemies and the boss still (hit-stop).
     fn step(&mut self, input: PlayerInput, delta_seconds: f32, frozen: bool) {
         let index = self.current;
-        let enemy_tuning = self.tuning.enemy;
+        let enemy_tuning = self.tuning().enemy;
         let bounds = self.rooms[index].world_bounds();
         let player_input = self.input_for_player(input);
         self.player.update_with_terrain(
@@ -409,6 +407,7 @@ impl GameState {
                     .spawned_with(enemy_tuning)
             }));
         if let Some(hitbox) = self.player.strike_hitbox() {
+            let sword_damage = self.player.config().melee.damage;
             let mut struck = false;
             for enemy in &mut room.enemies {
                 if enemy.touches(hitbox.center(), hitbox.size()) {
@@ -416,7 +415,7 @@ impl GameState {
                         .player
                         .attack()
                         .knockback_direction(self.player.position().x, enemy.position().x);
-                    if enemy.hit(self.player.attack().id(), direction) {
+                    if enemy.hit_for(self.player.attack().id(), direction, sword_damage) {
                         struck = true;
                         vitals_link::regain(&mut self.player, &mut self.vitals);
                         self.events.push_at(GameEvent::EnemyHit, enemy.position());
@@ -435,7 +434,7 @@ impl GameState {
                     // A boss that is already defeated is not a pogo target.
                     let was_defeated = boss.is_defeated();
                     struck |= !was_defeated;
-                    boss.damage_boss(u32::from(crate::combat::SWORD_DAMAGE));
+                    boss.damage_boss(u32::from(sword_damage));
                     self.last_special_hit = Some(swing_id);
                     if !was_defeated {
                         vitals_link::regain(&mut self.player, &mut self.vitals);

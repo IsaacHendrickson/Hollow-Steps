@@ -62,8 +62,9 @@ const GAME_HEIGHT: f32 = 540.0;
 /// Tall enough that every row is drawn and clickable without scrolling.
 const TALL: f32 = 1_400.0;
 /// Frames egui needs to size the scrolling list before every row is drawn; a longer list
-/// needs more (three were enough for 15 fields, 22 need five, the 33 with the vitals nine).
-const SETTLE_FRAMES: usize = 10;
+/// needs more (three were enough for 15 fields, 22 need five, the 33 with the vitals nine, the
+/// 38 with the health and attack numbers need about twelve).
+const SETTLE_FRAMES: usize = 14;
 
 /// One egui pass over the window in a 960-wide screen of the given height.
 fn frame_in(

@@ -4,3 +4,6 @@ use std::path::PathBuf;
 pub fn fixture_assets() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
 }
+
+#[allow(dead_code)]
+pub mod player_assets;

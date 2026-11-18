@@ -11,13 +11,13 @@ use std::path::PathBuf;
 use super::GameState;
 use crate::enemy_attack::DamageHit;
 use crate::events::HealthLoss;
-use crate::health::MAX_HEALTH;
 use crate::player::{Player, PlayerInput};
-use crate::vitals::{self, HealInput, VitalsConfig, VitalsState};
+use crate::vitals::{HealInput, VitalsConfig, VitalsState};
 
-/// Vitals at full health with `config`, as at the start of the game or after a respawn.
-pub(super) fn fresh_vitals(config: VitalsConfig) -> VitalsState {
-    VitalsState::new(config, f32::from(MAX_HEALTH))
+/// Vitals at full health (`max_health`, the player's `player.max_health`) with `config`, as at
+/// the start of the game or after a respawn.
+pub(super) fn fresh_vitals(config: VitalsConfig, max_health: u16) -> VitalsState {
+    VitalsState::new(config, f32::from(max_health))
 }
 
 /// Copies the vitals' health into the player's `Health` if it changed since `before`.
@@ -65,13 +65,14 @@ impl GameState {
 
     /// True when the vitals tunables in effect differ from `vitals.ron` (or the defaults).
     pub fn vitals_unsaved(&self) -> bool {
-        *self.vitals.config() != self.saved_vitals
+        self.player_draft.is_vitals_dirty()
     }
 
     /// Puts new vitals tunables into effect at once. Health, mana and a heal in progress are
     /// kept. Invalid values are refused and nothing changes.
     pub fn set_vitals_config(&mut self, config: VitalsConfig) -> Result<(), String> {
         config.validate()?;
+        self.player_draft.set_edited_vitals(config)?;
         self.vitals.set_config(config);
         Ok(())
     }
@@ -79,8 +80,9 @@ impl GameState {
     /// Writes the vitals tunables in effect to `vitals.ron` in the assets folder and returns
     /// its path.
     pub fn save_vitals(&mut self) -> Result<PathBuf, String> {
-        let path = vitals::save(&self.assets, self.vitals.config())?;
-        self.saved_vitals = *self.vitals.config();
+        self.sync_player_from_editor();
+        let path = self.player_draft.save_vitals(&self.assets)?;
+        self.attach_player_draft();
         Ok(path)
     }
 

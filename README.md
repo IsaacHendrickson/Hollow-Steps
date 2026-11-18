@@ -75,8 +75,10 @@ above; Windows needs no extra system libraries.
   Gameplay pauses while it is open; `Esc` also closes it.
 - `F2`: open/close the room editor (gameplay pauses).
 - `F4`: open/close the player tuning window (gameplay keeps running). Drag or type values for
-  move, jump, dash, size, strike boxes, pogo and enemy knockback, then the vitals (mana, health
-  trail, healing); they apply at once. `Save` writes `player.ron` in the
+  move, jump, dash, size, max health, immunity after a hit, sword damage, swing time and
+  cooldown, strike boxes, pogo and enemy knockback, then the vitals (mana per kill and cap,
+  health trail, healing); they apply at once. The editor's Player panel (`F2`, **Player**)
+  edits the same numbers. `Save` writes `player.ron` in the
   assets folder, which replaces the shipped `data/player.ron` defaults (delete it to go back),
   and `vitals.ron` too when a vitals value changed (same for `data/vitals.ron`).
 - `F5`: validate `player.ron`, `vitals.ron` (your health, mana and any heal in progress are kept), room files and their enemy, body template, behavior, and boss definitions, including

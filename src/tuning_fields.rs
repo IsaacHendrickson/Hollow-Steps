@@ -56,9 +56,14 @@ pub enum Field {
     JumpBufferSeconds,
     Width,
     Height,
+    MaxHealth,
+    InvincibilitySeconds,
     DashSpeed,
     DashDuration,
     DashCooldown,
+    StrikeDamage,
+    StrikeSwingSeconds,
+    StrikeCooldown,
     StrikeForwardWidth,
     StrikeForwardHeight,
     StrikeUpWidth,
@@ -95,7 +100,7 @@ const fn spec(
     }
 }
 
-const SPECS: [FieldSpec; 22] = [
+const SPECS: [FieldSpec; 27] = [
     spec(
         "player.move_speed",
         "Move speed",
@@ -168,6 +173,29 @@ const SPECS: [FieldSpec; 22] = [
     ),
     spec("player.width", "Width", "Size", "px", 8.0, 128.0, 0.5, 1),
     spec("player.height", "Height", "Size", "px", 8.0, 192.0, 0.5, 1),
+    FieldSpec {
+        integer: true,
+        ..spec(
+            "player.max_health",
+            "Max health",
+            "Health",
+            "health",
+            1.0,
+            990.0,
+            1.0,
+            0,
+        )
+    },
+    spec(
+        "player.invincibility_seconds",
+        "Invincible after a hit",
+        "Health",
+        "s",
+        0.0,
+        5.0,
+        0.01,
+        2,
+    ),
     spec(
         "player.dash_speed",
         "Dash speed",
@@ -192,6 +220,39 @@ const SPECS: [FieldSpec; 22] = [
         "player.dash_cooldown",
         "Dash cooldown",
         "Dash",
+        "s",
+        0.0,
+        3.0,
+        0.005,
+        3,
+    ),
+    FieldSpec {
+        integer: true,
+        ..spec(
+            "strike.damage",
+            "Sword damage",
+            "Melee",
+            "health",
+            1.0,
+            990.0,
+            1.0,
+            0,
+        )
+    },
+    spec(
+        "strike.swing_seconds",
+        "Swing time",
+        "Melee",
+        "s",
+        0.01,
+        1.0,
+        0.005,
+        3,
+    ),
+    spec(
+        "strike.cooldown",
+        "Attack cooldown",
+        "Melee",
         "s",
         0.0,
         3.0,
@@ -304,7 +365,7 @@ const SPECS: [FieldSpec; 22] = [
 ];
 
 impl Field {
-    pub const ALL: [Field; 22] = [
+    pub const ALL: [Field; 27] = [
         Field::MoveSpeed,
         Field::JumpSpeed,
         Field::Gravity,
@@ -314,9 +375,14 @@ impl Field {
         Field::JumpBufferSeconds,
         Field::Width,
         Field::Height,
+        Field::MaxHealth,
+        Field::InvincibilitySeconds,
         Field::DashSpeed,
         Field::DashDuration,
         Field::DashCooldown,
+        Field::StrikeDamage,
+        Field::StrikeSwingSeconds,
+        Field::StrikeCooldown,
         Field::StrikeForwardWidth,
         Field::StrikeForwardHeight,
         Field::StrikeUpWidth,
@@ -345,9 +411,14 @@ impl Field {
             Field::JumpBufferSeconds => player.jump_buffer_seconds,
             Field::Width => player.size.x,
             Field::Height => player.size.y,
+            Field::MaxHealth => f32::from(player.max_health),
+            Field::InvincibilitySeconds => player.invincibility_seconds,
             Field::DashSpeed => player.dash_speed,
             Field::DashDuration => player.dash_duration,
             Field::DashCooldown => player.dash_cooldown,
+            Field::StrikeDamage => f32::from(player.melee.damage),
+            Field::StrikeSwingSeconds => player.melee.swing_seconds,
+            Field::StrikeCooldown => player.melee.cooldown,
             Field::StrikeForwardWidth => player.strike.forward_width,
             Field::StrikeForwardHeight => player.strike.forward_height,
             Field::StrikeUpWidth => player.strike.up_width,
@@ -374,9 +445,14 @@ impl Field {
             Field::JumpBufferSeconds => player.jump_buffer_seconds = value,
             Field::Width => player.size.x = value,
             Field::Height => player.size.y = value,
+            Field::MaxHealth => player.max_health = value as u16,
+            Field::InvincibilitySeconds => player.invincibility_seconds = value,
             Field::DashSpeed => player.dash_speed = value,
             Field::DashDuration => player.dash_duration = value,
             Field::DashCooldown => player.dash_cooldown = value,
+            Field::StrikeDamage => player.melee.damage = value as u16,
+            Field::StrikeSwingSeconds => player.melee.swing_seconds = value,
+            Field::StrikeCooldown => player.melee.cooldown = value,
             Field::StrikeForwardWidth => player.strike.forward_width = value,
             Field::StrikeForwardHeight => player.strike.forward_height = value,
             Field::StrikeUpWidth => player.strike.up_width = value,

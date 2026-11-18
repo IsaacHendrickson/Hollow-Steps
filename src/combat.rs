@@ -1,5 +1,8 @@
 use macroquad::math::{Rect, Vec2};
 
+/// The shipped swing time, cooldown and sword damage. The game reads `MeleeConfig` (from
+/// `data/player.ron`: `strike.swing_seconds`, `strike.cooldown`, `strike.damage`); a test keeps
+/// these equal to that file, and `Attack::update` / `update_directed` use them.
 pub const SWING_SECONDS: f32 = 0.12;
 pub const ATTACK_COOLDOWN: f32 = 0.35;
 /// Health taken from an enemy or boss by one sword hit (see `health::HIT_DAMAGE`).
@@ -67,6 +70,25 @@ impl Default for StrikeConfig {
     }
 }
 
+/// What a sword swing does and how often: from `data/player.ron` (`strike.damage`,
+/// `strike.swing_seconds`, `strike.cooldown`). Kept apart from `StrikeConfig` (the hitbox sizes).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MeleeConfig {
+    /// Health taken from an enemy or boss by one hit.
+    pub damage: u16,
+    /// How long a swing's hitbox stays active.
+    pub swing_seconds: f32,
+    /// Minimum time between the starts of two swings.
+    pub cooldown: f32,
+}
+
+/// The shipped values from `data/player.ron`.
+impl Default for MeleeConfig {
+    fn default() -> Self {
+        crate::tuning::TuningConfig::default().player.melee
+    }
+}
+
 /// Simulation-only melee state. Each swing may damage each enemy once.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Attack {
@@ -93,6 +115,24 @@ impl Attack {
         strike: StrikeDirection,
         dt: f32,
     ) {
+        let shipped = MeleeConfig {
+            damage: SWORD_DAMAGE,
+            swing_seconds: SWING_SECONDS,
+            cooldown: ATTACK_COOLDOWN,
+        };
+        self.update_timed(pressed, facing, strike, dt, &shipped);
+    }
+
+    /// Like `update_directed`, with the swing time and cooldown of `melee` (the damage is applied
+    /// by the caller).
+    pub fn update_timed(
+        &mut self,
+        pressed: bool,
+        facing: f32,
+        strike: StrikeDirection,
+        dt: f32,
+        melee: &MeleeConfig,
+    ) {
         let dt = if dt.is_finite() { dt.max(0.0) } else { 0.0 };
         self.active_remaining = (self.active_remaining - dt).max(0.0);
         self.cooldown_remaining = (self.cooldown_remaining - dt).max(0.0);
@@ -101,8 +141,8 @@ impl Attack {
             self.direction = facing;
             self.strike = strike;
             self.pogo_spent = false;
-            self.active_remaining = SWING_SECONDS;
-            self.cooldown_remaining = ATTACK_COOLDOWN;
+            self.active_remaining = melee.swing_seconds;
+            self.cooldown_remaining = melee.cooldown;
         }
     }
 
