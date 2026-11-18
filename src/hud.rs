@@ -9,7 +9,12 @@ use hollow_steps::game::GameState;
 use hollow_steps::hud_bars::{layout_bars, BarColors, BarLayout, BarValues, HudConfig, Rgba};
 use hollow_steps::hud_damage::HudFeedback;
 use hollow_steps::hud_layout::{boss_caption, boss_fill};
+use hollow_steps::keybinds::{hint_line, key_label, Action, Keybinds, Slot};
 use hollow_steps::particles::ParticleConfig;
+use hollow_steps::pause_menu::{
+    button_rects, panel_rect, slot_rects, status_rect, title_baseline, PauseItem, PauseMenu,
+    PauseScreen,
+};
 use hollow_steps::room::Room;
 use hollow_steps::room_name::room_title;
 use macroquad::prelude::*;
@@ -132,10 +137,15 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
     }
 
     // Bottom left: controls, kept small.
-    let hint =
-        "A/D move   Space/Z jump   X attack   Up pickup   Shift dash   I inventory   F5 reload";
+    let hint = hint_line(game.keybinds());
     let at = anchored(view, Anchor::BottomLeft, Vec2::ZERO, vec2(margin, 14.0));
-    draw_text(hint, at.x, at.y, 18.0, Color::from_rgba(170, 180, 210, 255));
+    draw_text(
+        &hint,
+        at.x,
+        at.y,
+        18.0,
+        Color::from_rgba(170, 180, 210, 255),
+    );
     draw_boss_hud(room, view);
 }
 
@@ -272,6 +282,169 @@ pub fn draw_inventory(game: &GameState, view: Vec2) {
         22.0,
         LIGHTGRAY,
     );
+}
+
+/// The pause menu over the frozen picture: a dim veil, the panel, its title and the buttons of
+/// the open screen with the selected one lit. Draws nothing while the menu is closed. The
+/// layout comes from `pause_menu`, which the mouse hit-testing uses too.
+pub fn draw_pause_menu(menu: &PauseMenu, binds: &Keybinds, view: Vec2) {
+    let Some(screen) = menu.screen() else { return };
+    draw_rectangle(0.0, 0.0, view.x, view.y, Color::from_rgba(0, 0, 0, 180));
+    let panel = panel_rect(screen, view);
+    draw_rectangle(
+        panel.x,
+        panel.y,
+        panel.w,
+        panel.h,
+        Color::from_rgba(28, 32, 50, 255),
+    );
+    draw_rectangle_lines(panel.x, panel.y, panel.w, panel.h, 2.0, GRAY);
+    let title = screen.title();
+    let title_size = measure_text(title, None, 36, 1.0);
+    draw_text(
+        title,
+        panel.center().x - title_size.width / 2.0,
+        panel.y + title_baseline(),
+        36.0,
+        WHITE,
+    );
+    // The Settings screen lists many rows, so its text is smaller.
+    let font_size = match screen {
+        PauseScreen::Main => 28,
+        PauseScreen::Settings => 22,
+    };
+    for (item, rect) in button_rects(screen, view) {
+        let selected = menu.selected_item() == Some(item);
+        match item {
+            PauseItem::Bind(action) => {
+                draw_bind_row(menu, binds, action, rect, selected, font_size);
+            }
+            _ => {
+                draw_pause_button(rect, selected);
+                draw_text_centered(item.label(), rect, font_size, WHITE);
+            }
+        }
+    }
+    if screen == PauseScreen::Settings {
+        draw_settings_status(menu, view);
+    }
+}
+
+fn draw_pause_button(rect: Rect, selected: bool) {
+    let (fill, border) = if selected {
+        (Color::from_rgba(70, 78, 120, 255), GOLD)
+    } else {
+        (Color::from_rgba(44, 50, 78, 255), GRAY)
+    };
+    draw_rectangle(rect.x, rect.y, rect.w, rect.h, fill);
+    draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, border);
+}
+
+/// One keybind row: the action's name on the left and its primary and alternate key buttons on
+/// the right. The highlighted key button of the selected row is gold; the one waiting for a key
+/// is orange and says so.
+fn draw_bind_row(
+    menu: &PauseMenu,
+    binds: &Keybinds,
+    action: Action,
+    row: Rect,
+    selected: bool,
+    font_size: u16,
+) {
+    let label_color = if selected { GOLD } else { WHITE };
+    draw_text(
+        action.label(),
+        row.x + 8.0,
+        centered_baseline(row.center().y, font_size),
+        f32::from(font_size),
+        label_color,
+    );
+    for slot in Slot::ALL {
+        let rect = slot_rects(row)[slot.index()];
+        let waiting = menu.listening() == Some((action, slot));
+        if waiting {
+            draw_rectangle(
+                rect.x,
+                rect.y,
+                rect.w,
+                rect.h,
+                Color::from_rgba(96, 62, 40, 255),
+            );
+            draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, ORANGE);
+            draw_text_centered("Press a key", rect, font_size, WHITE);
+        } else {
+            draw_pause_button(rect, selected && menu.slot() == slot);
+            let key = binds.key(action, slot);
+            let color = if key.is_some() { WHITE } else { GRAY };
+            draw_text_centered(key_label(key), rect, font_size, color);
+        }
+    }
+}
+
+/// The Settings screen's message line: the message if there is one, else what to do next.
+fn draw_settings_status(menu: &PauseMenu, view: Vec2) {
+    let area = status_rect(view);
+    let (text, color) = match (menu.note(), menu.listening()) {
+        (Some(note), _) => (note.to_owned(), Color::from_rgba(240, 200, 120, 255)),
+        (None, Some((action, slot))) => {
+            let clear = if slot == Slot::Alternate {
+                ", Delete clears"
+            } else {
+                ""
+            };
+            (
+                format!("{}: press a key. Esc cancels{clear}.", action.label()),
+                WHITE,
+            )
+        }
+        (None, None) => (
+            "Enter or click to rebind a key. Left/Right switch keys.".to_owned(),
+            LIGHTGRAY,
+        ),
+    };
+    let text = fit_text(&text, area.w, 18);
+    draw_text(
+        &text,
+        area.x,
+        centered_baseline(area.center().y, 18),
+        18.0,
+        color,
+    );
+}
+
+/// `text` cut short with "..." so it is no wider than `max_width` at `font_size`.
+fn fit_text(text: &str, max_width: f32, font_size: u16) -> String {
+    let fits = |candidate: &str| measure_text(candidate, None, font_size, 1.0).width <= max_width;
+    if fits(text) {
+        return text.to_owned();
+    }
+    let mut shortened = text.to_owned();
+    while shortened.pop().is_some() {
+        let candidate = format!("{}...", shortened.trim_end());
+        if fits(&candidate) {
+            return candidate;
+        }
+    }
+    "...".to_owned()
+}
+
+/// `text` centered in `rect`.
+fn draw_text_centered(text: &str, rect: Rect, font_size: u16, color: Color) {
+    let width = measure_text(text, None, font_size, 1.0).width;
+    draw_text(
+        text,
+        rect.center().x - width / 2.0,
+        centered_baseline(rect.center().y, font_size),
+        f32::from(font_size),
+        color,
+    );
+}
+
+/// The baseline that centers a line of text on `center_y`. It is the same for every string at a
+/// font size, so a word with descenders (g, j, p) does not sit higher than one without.
+fn centered_baseline(center_y: f32, font_size: u16) -> f32 {
+    let reference = measure_text("Ag", None, font_size, 1.0);
+    center_y - reference.height / 2.0 + reference.offset_y
 }
 
 pub fn draw_reload_result(

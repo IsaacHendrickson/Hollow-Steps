@@ -3,6 +3,8 @@ use hollow_steps::camera::{Camera, CameraConfig};
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_guard::{GuardStep, GuardedAction};
 use hollow_steps::game::{GameState, VIEW_HEIGHT, VIEW_WIDTH};
+use hollow_steps::keybinds::{self, Action, Keybinds};
+use hollow_steps::pause_menu::PauseOutcome;
 use hollow_steps::player::PlayerInput;
 use hollow_steps::player_body::PlayerBody;
 use hollow_steps::search::SearchList;
@@ -15,6 +17,7 @@ mod editor_ui;
 mod editor_visuals;
 mod effects;
 mod hud;
+mod pause_input;
 mod player_panel;
 mod postfx_pass;
 mod scene;
@@ -56,6 +59,13 @@ async fn main() {
     if let Some(error) = post_error {
         reload_result = Some(Err(error));
     }
+    // The saved keybinds live in the user's config folder; a file that cannot be used is shown
+    // like a failed reload and the shipped keys apply.
+    if let Some(path) = keybinds::default_path() {
+        if let Err(error) = game.use_keybinds_file(path) {
+            reload_result = Some(Err(error));
+        }
+    }
     // The solids' draw list, rebuilt only when the room, its solids or its palette change.
     let mut terrain_look = TerrainLook::default();
     // The player's body; a load error is shown like a failed reload and keeps the plain box.
@@ -85,6 +95,8 @@ async fn main() {
 
     loop {
         let frame_seconds = get_frame_time();
+        // F2 does nothing while the pause menu is open: unpause first.
+        let f2_pressed = is_key_pressed(KeyCode::F2) && !game.pause_menu().is_open();
         if is_key_pressed(KeyCode::F3) {
             body_debug = !body_debug;
         }
@@ -93,17 +105,17 @@ async fn main() {
         if is_key_pressed(KeyCode::F6) && game.editor().is_some() && !editor_ui.guard.is_open() {
             let _ = game.start_test_room();
         }
-        if is_key_pressed(KeyCode::F2) && game.testing_room() {
+        if f2_pressed && game.testing_room() {
             // Back to the same editor session. Its UI state (undo history, selection, view)
             // stays as it was, unlike opening the editor fresh.
             let _ = game.end_test_room();
-        } else if is_key_pressed(KeyCode::F2)
+        } else if f2_pressed
             && game
                 .editor_mut()
                 .is_some_and(|session| editor_ui.cancel_link(session))
         {
             // F2 while an exit link is open is the link's Cancel; the editor stays open.
-        } else if is_key_pressed(KeyCode::F2) {
+        } else if f2_pressed {
             // Opening the editor never asks anything; closing it with unsaved changes (in
             // this room or in a room a link parked) opens the Save / Discard / Cancel
             // dialog instead.
@@ -178,22 +190,30 @@ async fn main() {
             );
             reload_scroll = 0;
         }
-        if !ui_wants_keyboard
-            && (is_key_pressed(KeyCode::I)
-                || (game.inventory_open() && is_key_pressed(KeyCode::Escape)))
-        {
-            game.toggle_inventory();
+        if !ui_wants_keyboard {
+            if is_key_pressed(KeyCode::Escape) {
+                // Closes the inventory, else opens or closes the pause menu (or backs out of
+                // its Settings screen).
+                game.press_escape();
+            } else if game.keybinds().triggered(Action::Inventory, is_key_pressed) {
+                game.toggle_inventory();
+            }
+        }
+        if pause_input::handle(&mut game, view, !ui_wants_keyboard) == PauseOutcome::Exit {
+            // For now Exit ends the program; later it will return to the main menu.
+            break;
         }
         // Edge input is latched until a tick consumes it; only the first tick of a frame
-        // sees it, while held input applies to every tick.
-        input_latch.record(if ui_wants_keyboard {
+        // sees it, while held input applies to every tick. Nothing reaches the player while
+        // the pause menu is open.
+        input_latch.record(if ui_wants_keyboard || game.pause_menu().is_open() {
             PlayerInput::default()
         } else {
-            read_player_input()
+            read_player_input(game.keybinds())
         });
         for _ in 0..fixed_step.advance(frame_seconds) {
             game.update(input_latch.take_tick(), fixed_step.step_seconds());
-            if !game.inventory_open() {
+            if !game.is_paused() {
                 effects.update(fixed_step.step_seconds());
                 hud.update(fixed_step.step_seconds());
                 if let Some(body) = &mut player_body {
@@ -249,6 +269,7 @@ async fn main() {
         if game.inventory_open() {
             hud::draw_inventory(&game, view);
         }
+        hud::draw_pause_menu(game.pause_menu(), game.keybinds(), view);
         if let Some(result) = &reload_result {
             hud::draw_reload_result(
                 result,
@@ -294,24 +315,7 @@ fn new_camera(game: &GameState, config: CameraConfig, view: Vec2) -> Camera {
     )
 }
 
-fn read_player_input() -> PlayerInput {
-    let mut move_axis = 0.0;
-    if is_key_down(KeyCode::Right) || is_key_down(KeyCode::D) {
-        move_axis += 1.0;
-    }
-    if is_key_down(KeyCode::Left) || is_key_down(KeyCode::A) {
-        move_axis -= 1.0;
-    }
-
-    PlayerInput {
-        move_axis,
-        jump_pressed: is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Z),
-        pickup_pressed: is_key_pressed(KeyCode::Up),
-        jump_held: is_key_down(KeyCode::Space) || is_key_down(KeyCode::Z),
-        attack_pressed: is_key_pressed(KeyCode::X),
-        dash_pressed: is_key_pressed(KeyCode::LeftShift) || is_key_pressed(KeyCode::RightShift),
-        up_held: is_key_down(KeyCode::Up),
-        down_held: is_key_down(KeyCode::Down),
-        heal_held: is_key_down(KeyCode::C),
-    }
+/// This frame's keys as the player's intent, through the current keybinds.
+fn read_player_input(binds: &Keybinds) -> PlayerInput {
+    keybinds::player_input(binds, is_key_down, is_key_pressed)
 }
