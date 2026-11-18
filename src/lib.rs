@@ -43,6 +43,7 @@ pub mod hud_damage;
 pub mod hud_layout;
 pub mod item;
 pub mod particles;
+pub mod pause_menu;
 pub mod player;
 pub mod player_body;
 pub mod player_editor;

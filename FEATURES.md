@@ -32,6 +32,7 @@ One line per feature: what; module(s); test file(s). Keep in sync with AGENTS.md
 - Grounded item pickup, persistent session inventory; `src/item.rs`; `tests/items.rs`, `tests/rooms.rs`
 - Coin pickups, persistent session balance; `src/coin.rs`; `src/coin.rs` unit tests
 - Inventory screen with paused gameplay; `src/game.rs`, `src/main.rs`; `src/game.rs` unit tests, manual
+- Pause menu: Escape opens it (an open inventory closes first) and Escape closes it again; the world, hit-stop, shake, effects and HUD feedback stand still like the inventory; buttons Unpause, Settings (a blank screen with a Back button, Escape also goes back) and Exit (ends the program for now, later the main menu); Up/Down or W/S and Enter, or the mouse (resting on a button selects it, a click presses it, through the letterbox); no input reaches the player while it is open, the inventory key and F2 are ignored, and it is not available in the editor; `src/pause_menu.rs`, `src/game/pause_link.rs`, `src/game.rs`, `src/pause_input.rs`, `src/hud.rs`, `src/main.rs`; `src/pause_menu/tests.rs`, `src/game/pause_tests.rs`, manual
 - Three rooms, directional exits, spawns, persistent contents; `src/room.rs`; `tests/rooms.rs`
 - Keyboard controls, world rendering, melee visual, health bars; `src/main.rs`; manual
 - F5 atomic reload of rooms and definitions with scrollable errors; `src/game.rs`, `src/room.rs`; `tests/reloading.rs`

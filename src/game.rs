@@ -11,6 +11,7 @@ use crate::enemy::EnemyDefinitions;
 use crate::events::{EventQueue, GameEvent, LocatedEvent};
 use crate::feel::{Feel, FeelConfig};
 use crate::item::WorldItem;
+use crate::pause_menu::PauseMenu;
 use crate::player::{Player, PlayerInput, WorldBounds};
 use crate::player_editor::PlayerDraft;
 use crate::room::{load_rooms, Room, RoomId};
@@ -31,6 +32,9 @@ mod flier_tests;
 mod hud_loss_tests;
 #[cfg(test)]
 mod located_event_tests;
+mod pause_link;
+#[cfg(test)]
+mod pause_tests;
 mod player_link;
 #[cfg(test)]
 mod player_stats_tests;
@@ -65,6 +69,8 @@ pub struct GameState {
     current: usize,
     coin_count: u32,
     inventory_open: bool,
+    /// The pause menu; while it is open nothing in the world advances (see `pause_link`).
+    pause_menu: PauseMenu,
     special_attack_timer: f32,
     last_special_hit: Option<u64>,
     /// The room being tried out from the editor, if any.
@@ -111,6 +117,7 @@ impl GameState {
             current: RoomId::First.index(),
             coin_count: 0,
             inventory_open: false,
+            pause_menu: PauseMenu::default(),
             special_attack_timer: 0.0,
             last_special_hit: None,
             test_run: None,
@@ -128,7 +135,7 @@ impl GameState {
 
     /// How far to shift the camera for screen shake. Zero while the game is paused.
     pub fn shake_offset(&self) -> Vec2 {
-        if self.inventory_open || self.editor.is_some() {
+        if self.is_paused() || self.editor.is_some() {
             Vec2::ZERO
         } else {
             self.feel.shake_offset()
@@ -192,7 +199,11 @@ impl GameState {
         self.inventory_open
     }
 
+    /// Opens or closes the inventory. Ignored while the pause menu is open.
     pub fn toggle_inventory(&mut self) {
+        if self.pause_menu.is_open() {
+            return;
+        }
         self.inventory_open = !self.inventory_open;
     }
 
@@ -327,12 +338,12 @@ impl GameState {
     }
 
     /// Advances the game by one fixed tick. Nothing moves, and no hit-stop or shake time
-    /// passes, while the inventory or the editor is open.
+    /// passes, while the inventory, the pause menu or the editor is open.
     ///
     /// Right after a hit, enemies and the boss stand still for the hit-stop time; the player
     /// and the camera carry on.
     pub fn update(&mut self, input: PlayerInput, delta_seconds: f32) {
-        if self.inventory_open || self.editor.is_some() {
+        if self.is_paused() || self.editor.is_some() {
             return;
         }
         let delta_seconds = if delta_seconds.is_finite() {

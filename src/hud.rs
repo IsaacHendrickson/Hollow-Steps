@@ -10,6 +10,7 @@ use hollow_steps::hud_bars::{layout_bars, BarColors, BarLayout, BarValues, HudCo
 use hollow_steps::hud_damage::HudFeedback;
 use hollow_steps::hud_layout::{boss_caption, boss_fill};
 use hollow_steps::particles::ParticleConfig;
+use hollow_steps::pause_menu::{button_rects, panel_rect, title_baseline, PauseMenu};
 use hollow_steps::room::Room;
 use hollow_steps::room_name::room_title;
 use macroquad::prelude::*;
@@ -272,6 +273,51 @@ pub fn draw_inventory(game: &GameState, view: Vec2) {
         22.0,
         LIGHTGRAY,
     );
+}
+
+/// The pause menu over the frozen picture: a dim veil, the panel, its title and the buttons of
+/// the open screen with the selected one lit. Draws nothing while the menu is closed. The
+/// layout comes from `pause_menu`, which the mouse hit-testing uses too.
+pub fn draw_pause_menu(menu: &PauseMenu, view: Vec2) {
+    let Some(screen) = menu.screen() else { return };
+    draw_rectangle(0.0, 0.0, view.x, view.y, Color::from_rgba(0, 0, 0, 180));
+    let panel = panel_rect(view);
+    draw_rectangle(
+        panel.x,
+        panel.y,
+        panel.w,
+        panel.h,
+        Color::from_rgba(28, 32, 50, 255),
+    );
+    draw_rectangle_lines(panel.x, panel.y, panel.w, panel.h, 2.0, GRAY);
+    let title = screen.title();
+    let title_size = measure_text(title, None, 36, 1.0);
+    draw_text(
+        title,
+        panel.center().x - title_size.width / 2.0,
+        panel.y + title_baseline(),
+        36.0,
+        WHITE,
+    );
+    for (item, rect) in button_rects(screen, view) {
+        let selected = menu.selected_item() == Some(item);
+        let (fill, border) = if selected {
+            (Color::from_rgba(70, 78, 120, 255), GOLD)
+        } else {
+            (Color::from_rgba(44, 50, 78, 255), GRAY)
+        };
+        draw_rectangle(rect.x, rect.y, rect.w, rect.h, fill);
+        draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, border);
+        let label = item.label();
+        let size = measure_text(label, None, 28, 1.0);
+        draw_text(
+            label,
+            rect.center().x - size.width / 2.0,
+            rect.center().y - size.height / 2.0 + size.offset_y,
+            28.0,
+            WHITE,
+        );
+    }
 }
 
 pub fn draw_reload_result(
