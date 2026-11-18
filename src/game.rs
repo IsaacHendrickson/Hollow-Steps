@@ -368,6 +368,10 @@ impl GameState {
         // Charms you hold that the file no longer lists are dropped; the rest stay on.
         self.charms = charms;
         self.charm_state.retain_known(&self.charms);
+        // An open Charms panel with nothing unsaved shows the re-read list; unsaved edits stay.
+        if !self.charms_unsaved() {
+            self.attach_charm_draft();
+        }
         self.apply_stats();
         Ok(())
     }

@@ -387,6 +387,11 @@ fn the_undo_keys_belong_to_the_panel_only_after_a_press_in_it() {
     assert!(state.focused);
     assert!(state.apply_history(editor, HistoryKey::Undo));
     assert_eq!(editor.charms.edited().len(), count);
+    assert!(
+        state.apply_history(editor, HistoryKey::Redo),
+        "Ctrl+Y is the panel's too"
+    );
+    assert_eq!(editor.charms.edited().len(), count + 1);
     // A press outside the panel (on the canvas) gives the keys back; the panel's edit stays.
     let outside = egui::pos2(PANEL_WIDTH + 200.0, 50.0);
     frame(&ctx, pointer(outside, Some(true)), editor, &mut state);
@@ -409,4 +414,40 @@ fn the_save_button_asks_for_a_save_and_the_status_is_shown() {
     state.status = Status::Saved("/tmp/charms.ron".into());
     let text = frame(&ctx, vec![], editor, &mut state);
     assert!(text.contains("Saved to /tmp/charms.ron"), "{text}");
+}
+
+#[test]
+fn closing_the_panel_gives_the_undo_keys_back_until_the_next_press_inside_it() {
+    let mut game = editing_game();
+    let editor = game.editor_mut().unwrap();
+    let (ctx, mut state) = open_panel(editor);
+    click(&ctx, button_id("New charm"), editor, &mut state);
+    assert!(state.focused);
+    click(&ctx, button_id("Close charms"), editor, &mut state);
+    assert!(!state.open && !state.focused);
+    assert!(
+        !state.apply_history(editor, HistoryKey::Undo),
+        "closed: not the panel's keys"
+    );
+    // Opened again, the keys stay the room's until something in the panel is pressed.
+    click(&ctx, button_id("Charms"), editor, &mut state);
+    assert!(state.open && !state.apply_history(editor, HistoryKey::Undo));
+    click(&ctx, button_id("Reset all"), editor, &mut state);
+    assert!(
+        state.apply_history(editor, HistoryKey::Undo),
+        "the press made it the panel's again"
+    );
+}
+
+#[test]
+fn undo_steps_survive_closing_and_reopening_the_panel() {
+    let mut game = editing_game();
+    let editor = game.editor_mut().unwrap();
+    let (ctx, mut state) = open_panel(editor);
+    let count = editor.charms.edited().len();
+    click(&ctx, button_id("New charm"), editor, &mut state);
+    click(&ctx, button_id("Close charms"), editor, &mut state);
+    click(&ctx, button_id("Charms"), editor, &mut state);
+    click(&ctx, button_id("Undo charm edit"), editor, &mut state);
+    assert_eq!(editor.charms.edited().len(), count);
 }

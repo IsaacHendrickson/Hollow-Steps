@@ -2,60 +2,14 @@
 //! and what a refused or discarded list leaves alone. Works on a private copy of the fixtures.
 mod support;
 
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use hollow_steps::charm_editor::EffectKind;
 use hollow_steps::charms::{CharmCatalog, Effect, Toggle};
 use hollow_steps::game::GameState;
+use support::player_assets::Assets;
 
-struct Assets(PathBuf);
-
-fn copy_dir(from: &Path, to: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for entry in std::fs::read_dir(from).unwrap() {
-        let entry = entry.unwrap();
-        if entry.file_type().unwrap().is_dir() {
-            copy_dir(&entry.path(), &to.join(entry.file_name()));
-        } else {
-            std::fs::copy(entry.path(), to.join(entry.file_name())).unwrap();
-        }
-    }
-}
-
-impl Assets {
-    fn new() -> Self {
-        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
-        let path = std::env::temp_dir().join(format!(
-            "hollow-steps-charm-edit-{}-{}",
-            std::process::id(),
-            NEXT_ID.fetch_add(1, Ordering::Relaxed)
-        ));
-        copy_dir(&support::fixture_assets(), &path);
-        Self(path)
-    }
-
-    /// A game with the editor open.
-    fn game(&self) -> GameState {
-        let mut game = GameState::try_new(&self.0).unwrap();
-        game.toggle_editor().unwrap();
-        game
-    }
-
-    fn charms_file(&self) -> PathBuf {
-        self.0.join("charms.ron")
-    }
-
-    /// What `charms.ron` says now (the fixtures ship one).
-    fn charms_text(&self) -> String {
-        std::fs::read_to_string(self.charms_file()).unwrap()
-    }
-}
-
-impl Drop for Assets {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).unwrap();
-    }
+/// What `charms.ron` says now (the fixtures ship one).
+fn charms_text(assets: &Assets) -> String {
+    std::fs::read_to_string(assets.file("charms.ron")).unwrap()
 }
 
 fn index_of(game: &GameState, id: &str) -> usize {
@@ -77,8 +31,8 @@ fn edit<R>(
 
 #[test]
 fn the_session_starts_with_the_games_list_and_is_clean() {
-    let assets = Assets::new();
-    let game = assets.game();
+    let assets = Assets::new(false);
+    let game = assets.editing();
     let draft = &game.editor().unwrap().charms;
     assert_eq!(draft.edited(), game.charm_catalog().charms());
     assert!(!draft.is_dirty() && !game.charms_unsaved());
@@ -86,8 +40,8 @@ fn the_session_starts_with_the_games_list_and_is_clean() {
 
 #[test]
 fn editing_an_equipped_charm_changes_the_players_stats_at_once() {
-    let assets = Assets::new();
-    let mut game = assets.game();
+    let assets = Assets::new(false);
+    let mut game = assets.editing();
     assert_eq!(game.toggle_charm("heart"), Toggle::Equipped);
     let Some(Effect::MaxHealth(bonus)) = game.charm_catalog().get("heart").map(|c| c.effect) else {
         panic!("the fixture's heart charm adds max health");
@@ -119,8 +73,8 @@ fn editing_an_equipped_charm_changes_the_players_stats_at_once() {
 
 #[test]
 fn an_unequipped_charm_edit_leaves_the_stats_alone_and_a_cost_edit_moves_max_mana() {
-    let assets = Assets::new();
-    let mut game = assets.game();
+    let assets = Assets::new(false);
+    let mut game = assets.editing();
     let base = game.player().config().max_health;
     let heart = index_of(&game, "heart");
     edit(&mut game, |d| d.set_effect_amount(heart, 50.0)).unwrap();
@@ -136,9 +90,9 @@ fn an_unequipped_charm_edit_leaves_the_stats_alone_and_a_cost_edit_moves_max_man
 
 #[test]
 fn a_list_with_a_problem_is_not_applied_and_save_writes_nothing() {
-    let assets = Assets::new();
-    let mut game = assets.game();
-    let written = assets.charms_text();
+    let assets = Assets::new(false);
+    let mut game = assets.editing();
+    let written = charms_text(&assets);
     game.toggle_charm("swift");
     let speed = game.player().config().move_speed;
     let swift = index_of(&game, "swift");
@@ -155,7 +109,7 @@ fn a_list_with_a_problem_is_not_applied_and_save_writes_nothing() {
     assert!(game.charm_problem().unwrap_err().contains("name"));
     let error = game.save_charms().unwrap_err();
     assert!(error.contains("name"), "{error}");
-    assert_eq!(assets.charms_text(), written);
+    assert_eq!(charms_text(&assets), written);
     assert!(game.charms_unsaved());
     // Fixing the name makes it playable and savable.
     edit(&mut game, |d| d.set_name(swift, "Swift Charm").unwrap());
@@ -166,20 +120,20 @@ fn a_list_with_a_problem_is_not_applied_and_save_writes_nothing() {
 
 #[test]
 fn a_cost_above_the_saved_base_max_mana_blocks_save() {
-    let assets = Assets::new();
-    let mut game = assets.game();
-    let written = assets.charms_text();
+    let assets = Assets::new(false);
+    let mut game = assets.editing();
+    let written = charms_text(&assets);
     let ward = index_of(&game, "ward");
     edit(&mut game, |d| d.set_mana_cost(ward, 101.0)).unwrap();
     let error = game.save_charms().unwrap_err();
     assert!(error.contains("base max mana (100)"), "{error}");
-    assert_eq!(assets.charms_text(), written);
+    assert_eq!(charms_text(&assets), written);
 }
 
 #[test]
 fn save_writes_the_file_and_the_list_runs_without_resetting_the_player() {
-    let assets = Assets::new();
-    let mut game = assets.game();
+    let assets = Assets::new(false);
+    let mut game = assets.editing();
     game.toggle_charm("swift");
     let (position, health) = (game.player().position(), game.player().health().current());
     let swift = index_of(&game, "swift");
@@ -189,7 +143,7 @@ fn save_writes_the_file_and_the_list_runs_without_resetting_the_player() {
         d.set_name(swift, "Wind Charm").unwrap();
     });
     let saved = game.save_charms().unwrap();
-    assert_eq!(saved.path, assets.charms_file());
+    assert_eq!(saved.path, assets.file("charms.ron"));
     assert!(saved.taken_off.is_empty());
     assert!(!game.charms_unsaved());
     let on_disk = CharmCatalog::load(&assets.0, 100.0).unwrap();
@@ -215,8 +169,8 @@ fn save_writes_the_file_and_the_list_runs_without_resetting_the_player() {
 
 #[test]
 fn deleting_an_equipped_charm_unequips_it_and_drops_it_once_saved() {
-    let assets = Assets::new();
-    let mut game = assets.game();
+    let assets = Assets::new(false);
+    let mut game = assets.editing();
     game.toggle_charm("heart");
     game.toggle_charm("sharp");
     let damage = game.player().config().melee.damage;
@@ -236,8 +190,8 @@ fn deleting_an_equipped_charm_unequips_it_and_drops_it_once_saved() {
 
 #[test]
 fn saved_costs_that_no_longer_fit_take_the_last_equipped_charm_off() {
-    let assets = Assets::new();
-    let mut game = assets.game();
+    let assets = Assets::new(false);
+    let mut game = assets.editing();
     for id in ["heart", "swift", "sharp"] {
         assert_eq!(game.toggle_charm(id), Toggle::Equipped);
     }
@@ -258,8 +212,8 @@ fn saved_costs_that_no_longer_fit_take_the_last_equipped_charm_off() {
 
 #[test]
 fn new_charms_and_kind_changes_are_saved_and_loaded() {
-    let assets = Assets::new();
-    let mut game = assets.game();
+    let assets = Assets::new(false);
+    let mut game = assets.editing();
     let new = edit(&mut game, |d| d.new_charm());
     edit(&mut game, |d| {
         d.set_effect_kind(new, EffectKind::SwordDamage).unwrap();
@@ -275,9 +229,9 @@ fn new_charms_and_kind_changes_are_saved_and_loaded() {
 
 #[test]
 fn discard_puts_the_saved_list_back_in_the_session_and_in_play() {
-    let assets = Assets::new();
-    let mut game = assets.game();
-    let written = assets.charms_text();
+    let assets = Assets::new(false);
+    let mut game = assets.editing();
+    let written = charms_text(&assets);
     game.toggle_charm("heart");
     let base = game.player().config().max_health;
     let heart = index_of(&game, "heart");
@@ -291,5 +245,5 @@ fn discard_puts_the_saved_list_back_in_the_session_and_in_play() {
     assert_eq!(game.player().config().max_health, base);
     assert!(!game.charms_unsaved());
     assert!(game.charm_state().is_equipped("heart"));
-    assert_eq!(assets.charms_text(), written);
+    assert_eq!(charms_text(&assets), written);
 }
