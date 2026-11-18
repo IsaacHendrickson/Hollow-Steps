@@ -1,6 +1,7 @@
 //! Undo and redo for the Player panel, by snapshots, apart from the room's own history.
 //!
-//! A snapshot holds what the panel edits: the stat numbers (`player.ron`), the look
+//! A snapshot holds what the panel edits: the stat numbers (`player.ron`), the vitals numbers
+//! (`vitals.ron`: mana per kill, healing and the trailing bar), the look
 //! (`player_body.ron`) and the look's body template (the Parts and motion values, a shared
 //! `Arc`, so a snapshot is cheap). Pose files are not in it. A drag, from the mouse press to
 //! the release, is one step; every other edit (a click, a typed number, a Reset) is one step.
@@ -15,6 +16,7 @@ use crate::body::BodyTemplate;
 use crate::editor::EditorSession;
 use crate::player_body::PlayerLook;
 use crate::tuning::TuningConfig;
+use crate::vitals::VitalsConfig;
 
 /// Most undo steps kept; the oldest are dropped first.
 pub const HISTORY_LIMIT: usize = 100;
@@ -23,6 +25,7 @@ pub const HISTORY_LIMIT: usize = 100;
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlayerSnapshot {
     stats: TuningConfig,
+    vitals: VitalsConfig,
     look: PlayerLook,
     /// The look's body template, by name, when the editor has it.
     template: Option<(String, Arc<BodyTemplate>)>,
@@ -34,6 +37,7 @@ impl PlayerSnapshot {
         let name = &look.visual.template;
         Self {
             stats: *session.player.edited(),
+            vitals: *session.player.edited_vitals(),
             template: session
                 .content
                 .bodies
@@ -48,6 +52,7 @@ impl PlayerSnapshot {
     pub fn restore(&self, session: &mut EditorSession) {
         // The numbers were in range when captured, so this cannot refuse them.
         let _ = session.player.set_edited(self.stats);
+        let _ = session.player.set_edited_vitals(self.vitals);
         session.look.restore_edited(self.look.clone());
         if let Some((name, template)) = &self.template {
             if session.content.bodies.get(name) != Some(template) {

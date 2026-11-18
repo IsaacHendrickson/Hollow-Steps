@@ -64,7 +64,7 @@ pub struct Prompt {
 }
 
 /// What a session has unsaved that its room list (`EditorSession::unsaved_rooms`) does not
-/// name, for the dialog to list: the Player panel's stats or look.
+/// name, for the dialog to list: the Player panel's stats, vitals or look.
 pub fn unsaved_besides_rooms(session: &EditorSession) -> Vec<&'static str> {
     if player_unsaved(session) {
         vec!["Player"]

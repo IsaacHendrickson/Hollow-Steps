@@ -3,6 +3,7 @@ use hollow_steps::game::GameState;
 
 mod dialog;
 mod look;
+mod stats;
 mod undo;
 
 /// The editor's side panel is this wide; every row has to fit in it.

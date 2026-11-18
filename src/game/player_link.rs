@@ -1,6 +1,6 @@
 //! How `GameState` holds the player draft (`crate::player_editor`): one draft of the
-//! `player.ron` numbers that the F4 window edits directly and the editor's Player panel edits
-//! through the session's working copy.
+//! `player.ron` and `vitals.ron` numbers that the F4 window edits directly and the editor's Player
+//! panel edits through the session's working copy.
 //!
 //! While the editor is open its session carries a copy of the draft for the panel to edit.
 //! The game takes that copy into effect once per editor frame (`sync_player_from_editor`), and
@@ -64,6 +64,9 @@ impl GameState {
             }
         }
         let mut written = vec![self.player_draft.save(&self.assets, &spawns)?];
+        if self.player_draft.is_vitals_dirty() {
+            written.push(self.player_draft.save_vitals(&self.assets)?);
+        }
         self.attach_player_draft();
         if let Some(session) = &mut self.editor {
             if session.look.is_dirty() {
@@ -83,6 +86,9 @@ impl GameState {
         for enemy in self.rooms.iter_mut().flat_map(|room| &mut room.enemies) {
             enemy.set_tuning(saved.enemy);
         }
+        self.vitals.set_config(*self.player_draft.saved_vitals());
+        self.vitals
+            .set_max_health(f32::from(saved.player.max_health));
         if let Some(session) = &mut self.editor {
             session.player = self.player_draft;
             session.look.reset();
@@ -102,7 +108,10 @@ impl GameState {
         let Some(draft) = self.editor.as_ref().map(|session| session.player) else {
             return;
         };
-        if draft == self.player_draft || draft.edited().validate().is_err() {
+        if draft == self.player_draft
+            || draft.edited().validate().is_err()
+            || draft.edited_vitals().validate().is_err()
+        {
             return;
         }
         let edited = *draft.edited();
@@ -110,6 +119,9 @@ impl GameState {
         for enemy in self.rooms.iter_mut().flat_map(|room| &mut room.enemies) {
             enemy.set_tuning(edited.enemy);
         }
+        self.vitals.set_config(*draft.edited_vitals());
+        self.vitals
+            .set_max_health(f32::from(edited.player.max_health));
         self.player_draft = draft;
     }
 }

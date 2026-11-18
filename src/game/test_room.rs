@@ -125,7 +125,10 @@ impl GameState {
         self.last_special_hit = None;
         let (spawn, bounds) = (self.room().spawn, self.world_bounds());
         self.player.respawn(spawn, bounds);
-        self.vitals = super::vitals_link::fresh_vitals(*self.vitals.config());
+        self.vitals = super::vitals_link::fresh_vitals(
+            *self.vitals.config(),
+            self.player.config().max_health,
+        );
         self.test_run = Some(run);
         Ok(())
     }

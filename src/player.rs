@@ -1,6 +1,6 @@
 use macroquad::math::Vec2;
 
-use crate::combat::{Attack, StrikeConfig, StrikeDirection};
+use crate::combat::{Attack, MeleeConfig, StrikeConfig, StrikeDirection};
 use crate::events::{EventQueue, GameEvent};
 use crate::health::Health;
 use crate::item::Item;
@@ -54,6 +54,20 @@ pub struct PlayerConfig {
     pub dash_cooldown: f32,
     /// Melee hitbox sizes per direction and the pogo bounce.
     pub strike: StrikeConfig,
+    /// What a swing does (damage) and how often (swing time, cooldown).
+    pub melee: MeleeConfig,
+    /// Most health the player can have; also the health at the start and after a respawn.
+    pub max_health: u16,
+    /// Seconds of immunity after the player takes a hit.
+    pub invincibility_seconds: f32,
+}
+
+impl PlayerConfig {
+    /// How far a dash goes when nothing stops it: `dash_speed` for `dash_duration`. A wall or
+    /// the room edge ends a dash early.
+    pub fn dash_distance(&self) -> f32 {
+        self.dash_speed * self.dash_duration
+    }
 }
 
 /// The shipped values from `data/player.ron`.
@@ -126,7 +140,7 @@ impl Player {
             dash_remaining: 0.0,
             dash_cooldown: 0.0,
             air_dash_used: false,
-            health: Health::default(),
+            health: Health::new(config.max_health, config.invincibility_seconds),
             attack: Attack::default(),
             coyote_remaining: 0.0,
             jump_buffer_remaining: 0.0,
@@ -151,6 +165,8 @@ impl Player {
     /// height change keeps the feet where they are so the player is never pushed into the floor.
     pub fn set_config(&mut self, config: PlayerConfig) {
         self.position.y += (self.config.size.y - config.size.y) / 2.0;
+        self.health
+            .set_limits(config.max_health, config.invincibility_seconds);
         self.config = config;
     }
 
@@ -303,8 +319,13 @@ impl Player {
         }
         let strike = StrikeDirection::from_aim(input.up_held, input.down_held, !self.grounded);
         let swing_before = self.attack.id();
-        self.attack
-            .update_directed(input.attack_pressed, self.facing, strike, delta_seconds);
+        self.attack.update_timed(
+            input.attack_pressed,
+            self.facing,
+            strike,
+            delta_seconds,
+            &self.config.melee,
+        );
         if self.attack.id() != swing_before {
             self.events.push(GameEvent::PlayerAttacked);
         }

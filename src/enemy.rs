@@ -337,7 +337,14 @@ impl Enemy {
         self
     }
 
+    /// A sword hit for the shipped `SWORD_DAMAGE`.
     pub fn hit(&mut self, attack_id: u64, direction: f32) -> bool {
+        self.hit_for(attack_id, direction, crate::combat::SWORD_DAMAGE)
+    }
+
+    /// A sword hit that takes `damage` health (the player's `melee.damage`). One swing hits an
+    /// enemy once; a dead enemy cannot be hit.
+    pub fn hit_for(&mut self, attack_id: u64, direction: f32, damage: u16) -> bool {
         if self.is_dead()
             || self.last_attack_id == Some(attack_id)
             || !direction.is_finite()
@@ -346,7 +353,7 @@ impl Enemy {
             return false;
         }
         self.last_attack_id = Some(attack_id);
-        self.health = self.health.saturating_sub(crate::combat::SWORD_DAMAGE);
+        self.health = self.health.saturating_sub(damage);
         if let Some(body) = &mut self.body {
             body.hurt(&self.poses);
         }

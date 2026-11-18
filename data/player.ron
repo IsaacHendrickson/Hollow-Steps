@@ -12,6 +12,8 @@
         dash_speed: 800.0,
         dash_duration: 0.2,
         dash_cooldown: 0.5,
+        max_health: 50,
+        invincibility_seconds: 1.0,
     ),
     strike: (
         forward_width: 38.0,
@@ -21,6 +23,9 @@
         down_width: 40.0,
         down_height: 38.0,
         pogo_speed: 450.0,
+        damage: 10,
+        swing_seconds: 0.12,
+        cooldown: 0.35,
     ),
     enemy: (
         default_health: 30,

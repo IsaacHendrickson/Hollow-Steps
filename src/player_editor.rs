@@ -6,6 +6,11 @@
 //! number is one `spec(..)` line there plus its `Field` variant and get/set arms. A test
 //! serializes the default file and fails when a number written to it has no table entry.
 //!
+//! The draft also carries the `vitals.ron` numbers (mana per kill, the mana cap, healing and the
+//! trailing health bar), which the Player panel shows beside the stats. They keep their own saved
+//! and edited copies, their own range table (`vitals::VitalsField`) and their own file, so the
+//! stats' `is_stats_dirty` / `save` are as they were and `is_dirty` is true for either.
+//!
 //! Three levels of checking, each with its own place:
 //! - one field: its range (`FieldSpec::check`), applied when a value is entered, so the draft
 //!   never holds a number outside its range;
@@ -23,6 +28,7 @@ use crate::editor::{EditorSession, RoomLayout};
 use crate::room::{Room, RoomId};
 use crate::terrain::Terrain;
 use crate::tuning::{self, Field, TuningConfig};
+use crate::vitals::{self, VitalsConfig, VitalsField};
 
 /// The highest a jump may rise while the jump key is held, in pixels. Without a limit the
 /// held-jump gravity can be tuned so low that the jump never ends.
@@ -72,11 +78,13 @@ pub struct Problem {
     pub message: String,
 }
 
-/// The `player.ron` numbers as saved and as edited.
+/// The `player.ron` and `vitals.ron` numbers as saved and as edited.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PlayerDraft {
     saved: TuningConfig,
     edited: TuningConfig,
+    saved_vitals: VitalsConfig,
+    edited_vitals: VitalsConfig,
 }
 
 impl Default for PlayerDraft {
@@ -86,12 +94,22 @@ impl Default for PlayerDraft {
 }
 
 impl PlayerDraft {
-    /// A clean draft: the edited values are the saved ones.
+    /// A clean draft: the edited values are the saved ones. The vitals are the shipped defaults
+    /// (`with_vitals` gives others).
     pub fn new(saved: TuningConfig) -> Self {
         Self {
             saved,
             edited: saved,
+            saved_vitals: VitalsConfig::default(),
+            edited_vitals: VitalsConfig::default(),
         }
+    }
+
+    /// The same draft with `vitals` as both its saved and its edited vitals.
+    pub fn with_vitals(mut self, vitals: VitalsConfig) -> Self {
+        self.saved_vitals = vitals;
+        self.edited_vitals = vitals;
+        self
     }
 
     pub fn saved(&self) -> &TuningConfig {
@@ -102,19 +120,48 @@ impl PlayerDraft {
         &self.edited
     }
 
-    /// True when the edited values differ from the saved ones.
+    pub fn saved_vitals(&self) -> &VitalsConfig {
+        &self.saved_vitals
+    }
+
+    pub fn edited_vitals(&self) -> &VitalsConfig {
+        &self.edited_vitals
+    }
+
+    /// True when the edited stats or the edited vitals differ from the saved ones.
     pub fn is_dirty(&self) -> bool {
+        self.is_stats_dirty() || self.is_vitals_dirty()
+    }
+
+    /// True when the edited `player.ron` numbers differ from the saved ones.
+    pub fn is_stats_dirty(&self) -> bool {
         self.edited != self.saved
+    }
+
+    /// True when the edited `vitals.ron` numbers differ from the saved ones.
+    pub fn is_vitals_dirty(&self) -> bool {
+        self.edited_vitals != self.saved_vitals
     }
 
     pub fn is_field_dirty(&self, field: Field) -> bool {
         field.get(&self.edited) != field.get(&self.saved)
     }
 
+    pub fn is_vitals_field_dirty(&self, field: VitalsField) -> bool {
+        field.get(&self.edited_vitals) != field.get(&self.saved_vitals)
+    }
+
     /// Sets one number. A value outside the field's range (or not a number) is refused with
     /// the reason and the draft is unchanged.
     pub fn set_field(&mut self, field: Field, value: f32) -> Result<(), String> {
         self.edited = self.edited.with_field(field, value)?;
+        Ok(())
+    }
+
+    /// Sets one vitals number. A value outside its range, or one that puts the starting mana
+    /// above the mana cap, is refused with the reason and the draft is unchanged.
+    pub fn set_vitals_field(&mut self, field: VitalsField, value: f32) -> Result<(), String> {
+        self.edited_vitals = self.edited_vitals.with_field(field, value)?;
         Ok(())
     }
 
@@ -125,20 +172,51 @@ impl PlayerDraft {
         Ok(())
     }
 
+    /// Replaces every edited vitals value at once; refused (and unchanged) if any is invalid.
+    pub fn set_edited_vitals(&mut self, edited: VitalsConfig) -> Result<(), String> {
+        edited.validate()?;
+        self.edited_vitals = edited;
+        Ok(())
+    }
+
     /// One field back to its saved value.
     pub fn reset_field(&mut self, field: Field) {
         let saved = field.get(&self.saved);
         field.set(&mut self.edited, saved);
     }
 
-    /// Every field back to its saved value.
-    pub fn reset_all(&mut self) {
-        self.edited = self.saved;
+    /// One vitals field back to its saved value. Refused (and unchanged) when that would put the
+    /// starting mana above the mana cap, as an edit would be: reset the mana cap first.
+    pub fn reset_vitals_field(&mut self, field: VitalsField) -> Result<(), String> {
+        let saved = field.get(&self.saved_vitals);
+        let mut next = self.edited_vitals;
+        field.set(&mut next, saved);
+        next.validate()?;
+        self.edited_vitals = next;
+        Ok(())
     }
 
-    /// The edited values are now the saved ones (they were just written).
+    /// Every field, stats and vitals, back to its saved value.
+    pub fn reset_all(&mut self) {
+        self.edited = self.saved;
+        self.edited_vitals = self.saved_vitals;
+    }
+
+    /// The edited stats are now the saved ones (they were just written). The vitals are not
+    /// touched: `vitals.ron` is a file of its own (`mark_vitals_saved`).
     pub fn mark_saved(&mut self) {
         self.saved = self.edited;
+    }
+
+    /// The edited vitals are now the saved ones (they were just written).
+    pub fn mark_vitals_saved(&mut self) {
+        self.saved_vitals = self.edited_vitals;
+    }
+
+    /// Both the saved and the edited vitals become `vitals` (they were just loaded).
+    pub fn reload_vitals(&mut self, vitals: VitalsConfig) {
+        self.saved_vitals = vitals;
+        self.edited_vitals = vitals;
     }
 
     /// Everything the draft's numbers get wrong beyond their own ranges, in a fixed order.
@@ -160,6 +238,7 @@ impl PlayerDraft {
     /// `Ok` when the draft may be saved or played.
     pub fn validate(&self, spawns: &[SpawnCheck]) -> Result<(), String> {
         self.edited.validate()?;
+        self.edited_vitals.validate()?;
         match self.problems(spawns).into_iter().next() {
             Some(problem) => Err(problem.message),
             None => Ok(()),
@@ -172,6 +251,14 @@ impl PlayerDraft {
         self.validate(spawns)?;
         let path = tuning::save(assets, &self.edited)?;
         self.mark_saved();
+        Ok(path)
+    }
+
+    /// Writes the edited vitals to `vitals.ron` in `assets`, staged like `save`, and marks them
+    /// saved. Invalid vitals write nothing.
+    pub fn save_vitals(&mut self, assets: &Path) -> Result<PathBuf, String> {
+        let path = vitals::save(assets, &self.edited_vitals)?;
+        self.mark_vitals_saved();
         Ok(path)
     }
 }

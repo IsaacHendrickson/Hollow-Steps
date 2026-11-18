@@ -7,6 +7,7 @@
 use std::cell::RefCell;
 
 mod look;
+mod vitals;
 
 use crate::editor_panel::widgets::{panel_button, panel_label, probe, section};
 use egui_macroquad::egui;
@@ -133,11 +134,31 @@ pub(crate) fn parse_entry(
     }
 }
 
-/// The panel's sections, in the order they are drawn. Every `Field` is in exactly one (a test
-/// checks), so a new number has to be given a place. The file has no player health, so
-/// "Health" and "Knockback" are the enemy defaults it holds.
-pub(crate) const SECTIONS: [(&str, &[Field]); 7] = [
+/// The panel's stat sections, in the order they are drawn. Every `Field` is in exactly one (a
+/// test checks), so a new number has to be given a place. "Enemy default health" and "Knockback
+/// (enemies)" are the enemy values `player.ron` holds; "Health" is the player's own.
+pub(crate) const SECTIONS: [(&str, &[Field]); 8] = [
+    ("Health", &[Field::MaxHealth, Field::InvincibilitySeconds]),
+    (
+        "Attack",
+        &[
+            Field::StrikeDamage,
+            Field::StrikeSwingSeconds,
+            Field::StrikeCooldown,
+            Field::StrikeForwardWidth,
+            Field::StrikeForwardHeight,
+            Field::StrikeUpWidth,
+            Field::StrikeUpHeight,
+            Field::StrikeDownWidth,
+            Field::StrikeDownHeight,
+            Field::PogoSpeed,
+        ],
+    ),
     ("Movement", &[Field::MoveSpeed]),
+    (
+        "Dash",
+        &[Field::DashSpeed, Field::DashDuration, Field::DashCooldown],
+    ),
     (
         "Jump",
         &[
@@ -149,29 +170,17 @@ pub(crate) const SECTIONS: [(&str, &[Field]); 7] = [
             Field::JumpBufferSeconds,
         ],
     ),
-    (
-        "Dash",
-        &[Field::DashSpeed, Field::DashDuration, Field::DashCooldown],
-    ),
-    (
-        "Attack",
-        &[
-            Field::StrikeForwardWidth,
-            Field::StrikeForwardHeight,
-            Field::StrikeUpWidth,
-            Field::StrikeUpHeight,
-            Field::StrikeDownWidth,
-            Field::StrikeDownHeight,
-            Field::PogoSpeed,
-        ],
-    ),
-    ("Health (enemy default)", &[Field::EnemyDefaultHealth]),
+    ("Size", &[Field::Width, Field::Height]),
+    ("Enemy default health", &[Field::EnemyDefaultHealth]),
     (
         "Knockback (enemies)",
         &[Field::EnemyKnockbackSpeed, Field::EnemyKnockbackSeconds],
     ),
-    ("Size", &[Field::Width, Field::Height]),
 ];
+
+/// The vitals sections (Mana, Health trail, Heal) are drawn after this many stat sections, so
+/// mana per kill sits beside health, attack, movement and dash instead of at the bottom.
+const VITALS_AFTER: usize = 4;
 
 /// Label column of the panel's rows; the editor's side panel is narrower than the F4 window.
 const LABEL_WIDTH: f32 = 150.0;
@@ -186,6 +195,8 @@ pub(crate) struct PlayerUi {
     pub(crate) status: Status,
     /// Why a typed value was refused, drawn under its field until the next edit.
     refused: Option<(Field, String)>,
+    /// The same for the vitals sections.
+    vitals_refused: vitals::Refused,
     /// The Look section's state, including what the canvas previews.
     pub(crate) look: look::LookUi,
     /// Undo and redo for what this panel edits, apart from the room's.
@@ -214,6 +225,7 @@ impl PlayerUi {
             HistoryKey::Redo => self.history.redo(editor),
         };
         self.refused = None;
+        self.vitals_refused = None;
     }
 
     /// What the editor canvas draws of the player: only while the panel is open and its Show
@@ -271,7 +283,10 @@ fn draw_stats(ui: &mut egui::Ui, editor: &mut EditorSession, state: &mut PlayerU
         },
     );
     let problems = editor.player.problems(&editor.spawn_checks());
-    for (name, fields) in SECTIONS {
+    for (index, (name, fields)) in SECTIONS.into_iter().enumerate() {
+        if index == VITALS_AFTER {
+            vitals::draw(ui, editor, &mut state.vitals_refused);
+        }
         section(ui, name, |ui| {
             for &field in fields {
                 let refused = state
@@ -310,12 +325,23 @@ fn draw_stats(ui: &mut egui::Ui, editor: &mut EditorSession, state: &mut PlayerU
                     state.refused = None;
                 }
             }
+            if name == "Dash" {
+                // Derived, so it is only shown: it moves with the speed and the duration.
+                panel_label(
+                    ui,
+                    &format!(
+                        "Dash length: {:.0} px (speed x duration; a wall ends it early)",
+                        editor.player.edited().player.dash_distance()
+                    ),
+                );
+            }
         });
     }
     look::draw(ui, editor, &mut state.look);
     ui.separator();
     if panel_button(ui, "Save player") {
         state.refused = None;
+        state.vitals_refused = None;
         state.save_requested = true;
     }
     if panel_button(ui, "Undo player edit") {
@@ -327,6 +353,7 @@ fn draw_stats(ui: &mut egui::Ui, editor: &mut EditorSession, state: &mut PlayerU
     if panel_button(ui, "Reset all") {
         editor.player.reset_all();
         state.refused = None;
+        state.vitals_refused = None;
         state.status = Status::Quiet;
     }
     match &state.status {
@@ -341,7 +368,10 @@ fn draw_stats(ui: &mut egui::Ui, editor: &mut EditorSession, state: &mut PlayerU
             );
         }
     }
-    ui.small("Stat changes apply in play at once. Save writes player.ron in the assets folder.");
+    ui.small(
+        "Changes apply in play at once. Save writes player.ron, and vitals.ron if its values \
+         changed, in the assets folder.",
+    );
 }
 
 #[cfg(test)]
