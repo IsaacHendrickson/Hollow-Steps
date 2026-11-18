@@ -144,6 +144,16 @@ fn saving_where_a_folder_cannot_be_made_fails_and_names_the_place() {
 }
 
 #[test]
+fn a_file_that_cannot_be_read_is_an_error_and_not_a_missing_file() {
+    let dir = TempDir::new();
+    // A folder where the file should be cannot be read as text on any platform, and is not
+    // "not found" either, so the player hears about it instead of silently getting defaults.
+    std::fs::create_dir(dir.file()).unwrap();
+    let error = load(&dir.file()).unwrap_err();
+    assert!(error.contains(FILE_NAME), "{error}");
+}
+
+#[test]
 fn a_bad_saved_file_is_an_error_that_names_the_file_and_is_left_alone() {
     let dir = TempDir::new();
     std::fs::write(dir.file(), r#"(bindings: {"jump": ["Banana"]})"#).unwrap();

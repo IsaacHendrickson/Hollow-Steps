@@ -266,11 +266,10 @@ fn a_save_that_fails_keeps_the_change_for_this_run_and_says_so() {
     let config = Config::new();
     std::fs::write(config.0.join("blocker"), "a file, not a folder").unwrap();
     let mut game = test_game();
-    // The file cannot even be read from there, which the start-up error says.
-    let error = game
-        .use_keybinds_file(config.0.join("blocker").join(keybinds::FILE_NAME))
-        .unwrap_err();
-    assert!(error.contains("blocker"), "{error}");
+    // Whether reading from under a file is an error or just "no file yet" depends on the
+    // operating system, so the start-up result is not asserted; either way the defaults apply
+    // and the path is kept, which is what the save below relies on.
+    let _ = game.use_keybinds_file(config.0.join("blocker").join(keybinds::FILE_NAME));
     assert!(game.keybinds().is_default());
     game.press_escape();
     game.pause_activate(PauseItem::Settings);
