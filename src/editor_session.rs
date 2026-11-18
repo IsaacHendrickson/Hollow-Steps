@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use macroquad::math::Vec2;
 
 use crate::behavior::read_ron;
+use crate::charm_editor::CharmDraft;
 use crate::editor::{room_filename, Placement, RoomDraft, RoomLayout, Selection};
 use crate::enemy::EnemyDefinitions;
 use crate::player_editor::PlayerDraft;
@@ -41,6 +42,9 @@ pub struct EditorSession {
     /// The Player panel's Look section: `player_body.ron` as edited. The body template and poses
     /// it names are edited in `content`, like any enemy's.
     pub look: PlayerLookDraft,
+    /// The Charms panel's working copy of `charms.ron`; `GameState` gives it the game's list when
+    /// the session opens and takes its values into effect each frame (`game::charm_editor_link`).
+    pub charms: CharmDraft,
     pub new: bool,
     pub dirty: bool,
     pub message: String,
@@ -150,6 +154,7 @@ impl EditorSession {
             styles: TerrainStyles::load(assets)?,
             player: PlayerDraft::default(),
             look: PlayerLookDraft::load(assets)?,
+            charms: CharmDraft::default(),
             new: false,
             dirty: false,
             message: String::new(),

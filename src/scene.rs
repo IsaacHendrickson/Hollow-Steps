@@ -1,5 +1,5 @@
 //! Macroquad drawing of the world: background layers, the room's boundary and terrain, exits,
-//! items, coins, enemies, the boss and the player. Call with the world camera set.
+//! items, charms, coins, enemies, the boss and the player. Call with the world camera set.
 
 use hollow_steps::background::{self, Shape};
 use hollow_steps::boss_special::BossSpecials;
@@ -8,6 +8,7 @@ use hollow_steps::game::GameState;
 use hollow_steps::item::ITEM_SIZE;
 use hollow_steps::player_body::PlayerBody;
 use hollow_steps::room::Room;
+use hollow_steps::room_charms::CHARM_SIZE;
 use hollow_steps::terrain_style::{RoomInputs, TerrainLook};
 use macroquad::prelude::*;
 
@@ -96,6 +97,34 @@ pub fn draw_scene(
             );
             draw_text(
                 format!("Up: pick up {}", item.item.name()),
+                top_left.x - 80.0,
+                top_left.y - 16.0,
+                20.0,
+                WHITE,
+            );
+        }
+    }
+    for charm in game.room_charms() {
+        let top_left = charm.position - CHARM_SIZE / 2.0;
+        let [r, g, b, a] = charm.color;
+        draw_rectangle(
+            top_left.x,
+            top_left.y,
+            CHARM_SIZE.x,
+            CHARM_SIZE.y,
+            Color::from_rgba(r, g, b, a),
+        );
+        draw_rectangle_lines(
+            top_left.x,
+            top_left.y,
+            CHARM_SIZE.x,
+            CHARM_SIZE.y,
+            if charm.in_reach { 3.0 } else { 1.0 },
+            WHITE,
+        );
+        if charm.in_reach {
+            draw_text(
+                format!("Up: pick up {}", charm.name),
                 top_left.x - 80.0,
                 top_left.y - 16.0,
                 20.0,

@@ -64,13 +64,17 @@ pub struct Prompt {
 }
 
 /// What a session has unsaved that its room list (`EditorSession::unsaved_rooms`) does not
-/// name, for the dialog to list: the Player panel's stats, vitals or look.
+/// name, for the dialog to list: the Player panel's stats, vitals or look, and the Charms
+/// panel's list.
 pub fn unsaved_besides_rooms(session: &EditorSession) -> Vec<&'static str> {
+    let mut items = Vec::new();
     if player_unsaved(session) {
-        vec!["Player"]
-    } else {
-        Vec::new()
+        items.push("Player");
     }
+    if session.charms.is_dirty() {
+        items.push("Charms");
+    }
+    items
 }
 
 fn player_unsaved(session: &EditorSession) -> bool {
@@ -103,9 +107,9 @@ impl UnsavedGuard {
         GuardStep::Wait
     }
 
-    /// `request` for an open session: it is dirty when a room (this one or a parked one) or
-    /// the player is, and the dialog lists the player when it is unsaved. `None` (no session)
-    /// acts at once.
+    /// `request` for an open session: it is dirty when a room (this one or a parked one), the
+    /// player or the charm list is, and the dialog lists the player and the charms when they
+    /// are unsaved. `None` (no session) acts at once.
     pub fn request_for(
         &mut self,
         action: GuardedAction,
@@ -179,14 +183,27 @@ impl UnsavedGuard {
     }
 }
 
-/// Saves what is unsaved in the open editor: the room and definitions, then the Player
-/// panel's stats and look (which may name poses the first save just wrote). Stops at the first
-/// failure, so nothing after it is written.
+/// Saves what is unsaved in the open editor: the charm list, the room and definitions, then
+/// the Player panel's stats and look (which may name poses the room save just wrote). The
+/// charms go first so a room can name a charm that was just made, unless the list deletes a
+/// charm that a saved room places: then the room goes first, to take it out. Stops at the
+/// first failure, so nothing after it is written.
 pub fn save_all(game: &mut GameState) -> Result<(), String> {
     let session = game.editor().ok_or("editor is closed")?;
-    let (room, player) = (session.has_unsaved(), player_unsaved(session));
+    let (charms, room, player) = (
+        session.charms.is_dirty(),
+        session.has_unsaved(),
+        player_unsaved(session),
+    );
+    let rooms_first = charms && game.charm_save_needs_rooms_first();
+    if charms && !rooms_first {
+        game.save_charms()?;
+    }
     if room {
         game.save_editor()?;
+    }
+    if charms && rooms_first {
+        game.save_charms()?;
     }
     if player {
         game.save_player()?;
@@ -197,8 +214,10 @@ pub fn save_all(game: &mut GameState) -> Result<(), String> {
 /// Carries out an approved action: closes the editor, opens a room in it, or starts a
 /// new room draft. The error (a room that will not load) is for the editor message.
 pub fn perform(game: &mut GameState, action: &GuardedAction) -> Result<(), String> {
-    // Whatever the Player panel still has unsaved was given up (a Save wrote it first).
+    // Whatever the Player and Charms panels still have unsaved was given up (a Save wrote it
+    // first).
     game.discard_player_edits();
+    game.discard_charm_edits();
     match action {
         GuardedAction::Close if game.editor().is_some() => game.toggle_editor(),
         GuardedAction::Close => Ok(()),

@@ -1,0 +1,42 @@
+(
+    // Replaces data/charms.ron (F5 re-reads it): the three starting charms, plus the Ward Charm,
+    // which lies in the first room to be found (it is not owned at the start).
+    charms: [
+        (
+            id: "heart",
+            name: "Heart Charm",
+            description: "A warm stone that makes you hardier.",
+            mana_cost: 15.0,
+            effect: MaxHealth(10),
+            color: (214, 62, 72, 255),
+            owned_at_start: true,
+        ),
+        (
+            id: "swift",
+            name: "Swift Charm",
+            description: "Light feathers sewn into a cord. You walk faster.",
+            mana_cost: 10.0,
+            effect: MoveSpeedPercent(15.0),
+            color: (96, 208, 170, 255),
+            owned_at_start: true,
+        ),
+        (
+            id: "sharp",
+            name: "Sharp Charm",
+            description: "A honed shard that adds an edge to every sword hit.",
+            mana_cost: 20.0,
+            effect: SwordDamage(5),
+            color: (236, 196, 84, 255),
+            owned_at_start: true,
+        ),
+        (
+            id: "ward",
+            name: "Ward Charm",
+            description: "A pebble from the first cave. It makes you a little hardier.",
+            mana_cost: 5.0,
+            effect: MaxHealth(5),
+            color: (120, 120, 230, 255),
+            owned_at_start: false,
+        ),
+    ],
+)

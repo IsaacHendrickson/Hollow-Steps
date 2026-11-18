@@ -93,6 +93,8 @@ pub struct Room {
     pub boss_special: Option<BossSpecials>,
     pub(crate) coins: Vec<Coin>,
     pub(crate) items: Vec<WorldItem>,
+    /// Charms lying in the room, until picked up (`room_charms`).
+    pub(crate) charms: Vec<crate::room_charms::WorldCharm>,
 }
 
 impl Room {
@@ -249,6 +251,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                     position: Vec2::new(500.0, FLOOR_Y - ITEM_SIZE.y / 2.0),
                 },
             ],
+            charms: vec![],
         },
         Room {
             id: RoomId::Second,
@@ -283,6 +286,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                 },
             ],
             items: vec![],
+            charms: vec![],
         },
         Room {
             id: RoomId::Boss,
@@ -304,6 +308,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                 spawn: Vec2::new(780.0, 376.0),
             }],
             items: vec![],
+            charms: vec![],
         },
     ]
 }

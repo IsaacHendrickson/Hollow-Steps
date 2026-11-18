@@ -16,6 +16,7 @@ impl GameState {
             return Err("finish or cancel the exit link before saving".into());
         }
         let works = session.works_to_save();
+        self.check_room_charms(&works)?;
         for work in works.iter().filter(|work| work.new) {
             if work.path.exists() {
                 return Err(format!(
@@ -117,6 +118,8 @@ impl GameState {
         session.parked.clear();
         session.message = format!("Saved {}", session.path.display());
         self.player.place_at(self.room().spawn, self.world_bounds());
+        // The rebuilt rooms place every charm their files do; the ones already found stay gone.
+        self.prune_owned_charm_placements();
         Ok(())
     }
 }

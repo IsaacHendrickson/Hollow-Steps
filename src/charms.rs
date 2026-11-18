@@ -13,7 +13,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::assets::read_override;
 use crate::tuning::TuningConfig;
@@ -40,7 +40,7 @@ const MANA_EPSILON: f32 = 1e-4;
 pub type Rgba = [u8; 4];
 
 /// What a charm does. One effect per charm.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Effect {
     /// This many more points of maximum health.
     MaxHealth(u16),
@@ -90,7 +90,7 @@ pub fn number_text(value: f32) -> String {
 }
 
 /// One charm as `data/charms.ron` lists it.
-#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Charm {
     /// Stable name for remembering ownership; unique, never shown.
@@ -174,6 +174,13 @@ impl Default for CharmCatalog {
 }
 
 impl CharmCatalog {
+    /// A catalog of `charms`, checked against `base_max_mana` like a file's would be.
+    pub fn new(charms: Vec<Charm>, base_max_mana: f32) -> Result<Self, String> {
+        let catalog = Self { charms };
+        catalog.validate(base_max_mana)?;
+        Ok(catalog)
+    }
+
     /// Parses and validates a file's text against `base_max_mana`.
     pub fn from_ron(text: &str, base_max_mana: f32) -> Result<Self, String> {
         let file: CharmFile = ron::from_str(text).map_err(|error| format!("charms: {error}"))?;
@@ -351,6 +358,33 @@ impl CharmState {
             Ok(()) => Toggle::Equipped,
             Err(message) => Toggle::Refused(message),
         }
+    }
+
+    /// Makes `id` owned. False if it already was.
+    pub fn grant(&mut self, id: &str) -> bool {
+        if self.is_owned(id) {
+            return false;
+        }
+        self.owned.push(id.to_owned());
+        true
+    }
+
+    /// Owns every charm of `catalog` marked `owned_at_start`.
+    pub fn grant_starting(&mut self, catalog: &CharmCatalog) {
+        for charm in catalog.charms().iter().filter(|charm| charm.owned_at_start) {
+            self.grant(&charm.id);
+        }
+    }
+
+    /// Takes off charms from the last equipped backwards until the rest cost no more than
+    /// `base_max_mana`. Returns the ids taken off, in that order.
+    pub fn trim_to_budget(&mut self, catalog: &CharmCatalog, base_max_mana: f32) -> Vec<String> {
+        let mut taken_off = Vec::new();
+        while self.mana_used(catalog) > base_max_mana + MANA_EPSILON {
+            let Some(id) = self.equipped.pop() else { break };
+            taken_off.push(id);
+        }
+        taken_off
     }
 
     /// Forgets every charm `catalog` no longer lists (after a reload).

@@ -22,6 +22,7 @@ use crate::tuning::TuningConfig;
 use crate::vitals::{VitalsConfig, VitalsState};
 
 mod camera_bounds;
+mod charm_editor_link;
 mod charm_link;
 #[cfg(test)]
 mod charm_menu_tests;
@@ -58,8 +59,10 @@ mod tests;
 mod vitals_link;
 #[cfg(test)]
 mod vitals_tests;
+mod world_charms;
 
 pub use crate::room::FLOOR_Y;
+pub use charm_editor_link::CharmsSaved;
 
 pub const VIEW_WIDTH: f32 = 960.0;
 pub const VIEW_HEIGHT: f32 = 540.0;
@@ -126,6 +129,7 @@ impl GameState {
         let definitions = EnemyDefinitions::load(assets)?;
         rooms.extend(editor::load_extra_rooms(assets, &definitions)?);
         Self::validate_destinations(&rooms, &definitions)?;
+        Self::validate_room_charms(&rooms, &charms)?;
         let world_bounds = rooms[RoomId::First.index()].world_bounds();
         let mut player = Player::new(Vec2::new(180.0, 0.0), tuning.player);
         player.place_at(rooms[RoomId::First.index()].spawn, world_bounds);
@@ -153,6 +157,7 @@ impl GameState {
             charm_menu: CharmMenu::default(),
             charms,
         };
+        game.prune_owned_charm_placements();
         game.apply_stats();
         Ok(game)
     }
@@ -269,6 +274,7 @@ impl GameState {
         if self.editor.take().is_none() {
             self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
             self.attach_player_draft();
+            self.attach_charm_draft();
         }
         Ok(())
     }
@@ -288,6 +294,7 @@ impl GameState {
         self.player.place_at(room.spawn, room.world_bounds());
         self.editor = Some(editor);
         self.attach_player_draft();
+        self.attach_charm_draft();
         Ok(())
     }
 
@@ -316,6 +323,7 @@ impl GameState {
         let definitions = EnemyDefinitions::load(&self.assets)?;
         rooms.extend(editor::load_extra_rooms(&self.assets, &definitions)?);
         Self::validate_destinations(&rooms, &definitions)?;
+        Self::validate_room_charms(&rooms, &charms)?;
         let terrain_styles = terrain_link::load(&self.assets, &rooms)?;
         for mut reloaded in rooms {
             if let Some(current) = self.rooms.iter_mut().find(|room| room.id == reloaded.id) {
@@ -364,6 +372,11 @@ impl GameState {
         // Charms you hold that the file no longer lists are dropped; the rest stay on.
         self.charms = charms;
         self.charm_state.retain_known(&self.charms);
+        // An open Charms panel with nothing unsaved shows the re-read list; unsaved edits stay.
+        if !self.charms_unsaved() {
+            self.attach_charm_draft();
+        }
+        self.prune_owned_charm_placements();
         self.apply_stats();
         Ok(())
     }
@@ -525,6 +538,8 @@ impl GameState {
                 let item = room.items.remove(index);
                 self.player.collect_item(item.item);
                 self.events.push(GameEvent::ItemPickedUp);
+            } else {
+                self.pick_up_charm();
             }
         }
 

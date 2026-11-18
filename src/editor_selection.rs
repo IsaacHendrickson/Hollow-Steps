@@ -6,6 +6,8 @@ pub enum Selection {
     Enemy(usize),
     Boss,
     Item(usize),
+    /// A charm lying in the room (`RoomLayout::charms`).
+    Charm(usize),
     PatrolLeft(usize),
     PatrolRight(usize),
     Spawn,
@@ -49,6 +51,7 @@ mod tests {
             Selection::Enemy(0),
             Selection::Boss,
             Selection::Item(0),
+            Selection::Charm(0),
             Selection::PatrolLeft(0),
             Selection::PatrolRight(0),
             Selection::Spawn,

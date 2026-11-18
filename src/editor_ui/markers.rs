@@ -1,8 +1,9 @@
-//! The markers the editor draws and hit-tests on the canvas: enemies, the boss, items, exits,
+//! The markers the editor draws and hit-tests on the canvas: enemies, the boss, items, charms, exits,
 //! the room spawn, the selected enemy's patrol handles, the arrival points of other rooms' exits
 //! that lead here, or the arrival point of one exit.
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::item::ITEM_SIZE;
+use hollow_steps::room_charms::CHARM_SIZE;
 use macroquad::prelude::*;
 
 pub(crate) fn editor_markers(
@@ -61,6 +62,14 @@ pub(crate) fn editor_markers(
             Selection::Item(i),
             body(item.position.into(), ITEM_SIZE),
             GOLD,
+        ));
+    }
+    for (i, charm) in editor.draft.layout.charms.iter().enumerate() {
+        let [r, g, b, _] = editor.charm_swatch(&charm.charm);
+        markers.push((
+            Selection::Charm(i),
+            body(charm.position.into(), CHARM_SIZE),
+            Color::from_rgba(r, g, b, 255),
         ));
     }
     for (i, exit) in editor.draft.layout.exits.iter().enumerate() {
