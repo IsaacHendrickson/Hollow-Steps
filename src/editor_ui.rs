@@ -264,7 +264,7 @@ pub(crate) fn draw_editor(
             if let Some((_, placement)) = state
                 .definition
                 .selected
-                .and_then(|i| editor.content.placement_catalog().get(i).cloned())
+                .and_then(|i| editor.placement_catalog().get(i).cloned())
             {
                 let at = state.grid.snap(world, origin);
                 match tracked(&mut state.history, editor, |e| e.place(placement, at)) {
@@ -573,6 +573,8 @@ pub(crate) fn draw_editor(
 mod arrival_labels;
 #[cfg(test)]
 mod arrival_tests;
+#[cfg(test)]
+mod charm_tests;
 mod linking;
 #[cfg(test)]
 mod linking_tests;

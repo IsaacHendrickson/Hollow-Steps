@@ -33,10 +33,15 @@ pub struct WorldItem {
 impl WorldItem {
     /// Grounded players can reach items within this distance of their body.
     pub fn can_pick_up(&self, player: &Player) -> bool {
-        let gap = ((self.position - player.position()).abs() - (ITEM_SIZE + player.size()) / 2.0)
-            .max(Vec2::ZERO);
-        player.is_grounded() && gap.length_squared() <= PICKUP_REACH * PICKUP_REACH
+        within_reach(self.position, ITEM_SIZE, player)
     }
+}
+
+/// The pickup rule: a grounded player whose body is within `PICKUP_REACH` of the rectangle
+/// of `size` centered on `position`. Items and charms share it.
+pub fn within_reach(position: Vec2, size: Vec2, player: &Player) -> bool {
+    let gap = ((position - player.position()).abs() - (size + player.size()) / 2.0).max(Vec2::ZERO);
+    player.is_grounded() && gap.length_squared() <= PICKUP_REACH * PICKUP_REACH
 }
 
 #[cfg(test)]

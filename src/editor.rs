@@ -1,14 +1,12 @@
 //! Pure authored-room editing. Only the explicitly named load/save functions do I/O.
-use std::path::Path;
-
 use macroquad::math::{Rect, Vec2};
 use serde::{Deserialize, Serialize};
 
-use crate::behavior::{read_ron, ron_files};
 use crate::enemy::EnemyDefinitions;
 use crate::item::{Item, WorldItem, ITEM_SIZE};
 use crate::player::WorldBounds;
 use crate::room::{EnemyPlacement, Exit, Room, RoomEdge, RoomEnemies, RoomId};
+use crate::room_charms::CharmPlacement;
 use crate::terrain::Terrain;
 
 pub use crate::editor_selection::Selection;
@@ -53,6 +51,9 @@ pub struct RoomLayout {
     pub floor_y: f32,
     pub spawn: (f32, f32),
     pub items: Vec<ItemPlacement>,
+    /// Charms lying in the room (charm id and position); absent in older room files.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub charms: Vec<CharmPlacement>,
     pub exits: Vec<ExitPlacement>,
     /// Solid `(x, y, width, height)` rectangles; absent in older room files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -91,6 +92,7 @@ impl RoomLayout {
                     position: item.position.into(),
                 })
                 .collect(),
+            charms: Self::charm_placements(room),
             exits: room
                 .exits
                 .iter()
@@ -154,6 +156,7 @@ impl RoomLayout {
                 return Err("item must not be inside terrain".into());
             }
         }
+        self.validate_charm_positions(&terrain)?;
         for exit in &self.exits {
             let span = match exit.edge {
                 RoomEdge::Left | RoomEdge::Right => h,
@@ -192,6 +195,7 @@ impl RoomLayout {
                 position: p.position.into(),
             })
             .collect();
+        room.charms = self.world_charms();
         room.exits = self.exits.iter().map(ExitPlacement::exit).collect();
         Ok(())
     }
@@ -202,6 +206,8 @@ pub enum Placement {
     Enemy(String),
     Boss(String),
     Item(Item),
+    /// A charm lying in the room, by its id in `charms.ron`.
+    Charm(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -217,6 +223,7 @@ impl RoomDraft {
         layout.name = None; // named by whoever creates it, not by the template
         layout.terrain.clear(); // empty: only size, floor, spawn, background, look carry over
         layout.items.clear();
+        layout.charms.clear();
         layout.exits.clear();
         Self {
             enemies: Vec::new(),
@@ -328,6 +335,7 @@ impl RoomDraft {
                 });
                 Selection::Item(index)
             }
+            Placement::Charm(charm) => next.layout.place_charm(charm, position),
             Placement::Boss(_) => return Err("boss placement needs boss definitions".into()),
         };
         next.validate_local(definitions)?;
@@ -362,6 +370,7 @@ impl RoomDraft {
             Selection::Item(i) => {
                 next.layout.items.get_mut(i).ok_or("missing item")?.position = position.into()
             }
+            Selection::Charm(i) => next.layout.move_charm(i, position)?,
             Selection::Spawn => next.layout.spawn = position.into(),
             Selection::Exit(i) => {
                 let exit = next.layout.exits.get_mut(i).ok_or("missing exit")?;
@@ -426,10 +435,13 @@ impl RoomDraft {
             Selection::Item(i) if i < self.layout.items.len() => {
                 self.layout.items.remove(i);
             }
+            Selection::Charm(i) if i < self.layout.charms.len() => {
+                self.layout.charms.remove(i);
+            }
             Selection::Exit(i) | Selection::Destination(i) if i < self.layout.exits.len() => {
                 self.layout.exits.remove(i);
             }
-            _ => return Err("select a boss, enemy, item, or exit to delete".into()),
+            _ => return Err("select a boss, enemy, item, charm, or exit to delete".into()),
         }
         Ok(())
     }
@@ -515,6 +527,7 @@ impl RoomDraft {
                 .collect::<Result<_, _>>()?,
             exits: Vec::new(),
             items: Vec::new(),
+            charms: Vec::new(),
             coins: Vec::new(),
             boss_special: None,
         };
@@ -523,72 +536,4 @@ impl RoomDraft {
     }
 }
 
-pub fn room_filename(id: RoomId) -> String {
-    match id {
-        RoomId::First => "first.ron".into(),
-        RoomId::Second => "second.ron".into(),
-        RoomId::Boss => "boss.ron".into(),
-        RoomId::Custom(id) => format!("room_{id}.ron"),
-    }
-}
-
-/// Compatibility save boundary, using the same staged writer as definition saves.
-pub fn save_room(
-    path: &Path,
-    draft: &RoomDraft,
-    definitions: &EnemyDefinitions,
-    rooms: &[(RoomId, RoomLayout)],
-    new: bool,
-) -> Result<(), String> {
-    let source = draft.serialize(definitions, rooms)?;
-    if new && path.exists() {
-        return Err("new room already exists".into());
-    }
-    if path.with_extension("ron.tmp").exists() {
-        return Err("room staging file already exists".into());
-    }
-    let assets = path
-        .parent()
-        .and_then(Path::parent)
-        .ok_or("invalid room path")?;
-    let content = crate::definition_editor::DefinitionDraft::load(assets)?;
-    let document = ron::from_str(&source).map_err(|e| e.to_string())?;
-    crate::definition_editor::write_files(&content.plan(&[(path.to_owned(), document)])?)
-}
-
-pub fn load_extra_rooms(
-    assets: &Path,
-    definitions: &EnemyDefinitions,
-) -> Result<Vec<Room>, String> {
-    let mut rooms = Vec::new();
-    let bosses = crate::boss_definition::BossDefinitions::load(assets)?;
-    for path in ron_files(&assets.join("rooms"))? {
-        let stem = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default();
-        if let Some(number) = stem.strip_prefix("room_") {
-            let id = number
-                .parse::<usize>()
-                .map_err(|_| format!("invalid room filename {stem}"))?;
-            if stem != format!("room_{id}") {
-                return Err(format!("noncanonical room filename {stem}"));
-            }
-            let document: RoomEnemies = read_ron(&path)?;
-            let layout = document
-                .layout
-                .ok_or_else(|| format!("{}: new room needs layout", path.display()))?;
-            let placement = document.boss.clone();
-            let mut room = RoomDraft {
-                enemies: document.enemies,
-                boss: document.boss,
-                layout,
-            }
-            .build(RoomId::Custom(id), definitions)?;
-            crate::room::place_boss(&mut room, placement.as_ref(), &bosses)
-                .map_err(|e| format!("{}: {e}", path.display()))?;
-            rooms.push(room);
-        }
-    }
-    Ok(rooms)
-}
+pub use crate::editor_files::{load_extra_rooms, room_filename, save_room};

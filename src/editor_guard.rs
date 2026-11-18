@@ -185,8 +185,9 @@ impl UnsavedGuard {
 
 /// Saves what is unsaved in the open editor: the charm list, the room and definitions, then
 /// the Player panel's stats and look (which may name poses the room save just wrote). The
-/// charms go first so a room can name a charm that was just made. Stops at the first failure,
-/// so nothing after it is written.
+/// charms go first so a room can name a charm that was just made, unless the list deletes a
+/// charm that a saved room places: then the room goes first, to take it out. Stops at the
+/// first failure, so nothing after it is written.
 pub fn save_all(game: &mut GameState) -> Result<(), String> {
     let session = game.editor().ok_or("editor is closed")?;
     let (charms, room, player) = (
@@ -194,11 +195,15 @@ pub fn save_all(game: &mut GameState) -> Result<(), String> {
         session.has_unsaved(),
         player_unsaved(session),
     );
-    if charms {
+    let rooms_first = charms && game.charm_save_needs_rooms_first();
+    if charms && !rooms_first {
         game.save_charms()?;
     }
     if room {
         game.save_editor()?;
+    }
+    if charms && rooms_first {
+        game.save_charms()?;
     }
     if player {
         game.save_player()?;

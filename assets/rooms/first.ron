@@ -38,6 +38,12 @@
                 position: (46.285713, 449.14285),
             ),
         ],
+        charms: [
+            (
+                charm: "ward",
+                position: (330.0, 452.0),
+            ),
+        ],
         exits: [
             (
                 edge: Right,

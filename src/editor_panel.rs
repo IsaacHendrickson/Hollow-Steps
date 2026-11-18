@@ -60,7 +60,6 @@ pub(super) fn draw_panel(
 ) -> PanelResponse {
     let entity_paths = editor.content.entities.keys().cloned().collect::<Vec<_>>();
     let definitions = editor
-        .content
         .placement_catalog()
         .into_iter()
         .map(|(name, _)| name)

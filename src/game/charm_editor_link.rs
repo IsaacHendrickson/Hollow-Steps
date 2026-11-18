@@ -8,7 +8,8 @@
 //! player is not reset, a charm the list no longer has is unequipped and dropped from the owned
 //! list, and the numbers in effect follow (`apply_stats`).
 //!
-//! The draft is checked against the base maximum mana of the *saved* `vitals.ron`.
+//! The draft is checked against the base maximum mana of the *saved* `vitals.ron`, and a charm
+//! that a saved room places cannot be deleted (`world_charms`).
 use std::path::PathBuf;
 
 use super::GameState;
@@ -77,6 +78,14 @@ impl GameState {
     /// list no longer has is unequipped and no longer owned; if the saved costs together no
     /// longer fit the base maximum mana, charms are taken off from the last equipped.
     pub fn save_charms(&mut self) -> Result<CharmsSaved, String> {
+        // A list with a problem is reported as itself, before anything about rooms.
+        self.charm_problem()?;
+        if let Some((charm, file)) = self.deleted_charm_in_saved_room()? {
+            return Err(format!(
+                "charm \"{charm}\" is placed in {file}: take it out of the room and save the \
+                 room before deleting the charm"
+            ));
+        }
         let base = self.charm_check_mana();
         let session = self.editor.as_mut().ok_or("editor is closed")?;
         let path = session.charms.save(&self.assets, base)?;
