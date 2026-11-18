@@ -1,0 +1,47 @@
+(
+    // Charms: small bonuses you equip in the inventory. Every equipped charm takes its
+    // `mana_cost` off your maximum mana, and a charm cannot be equipped if the equipped charms
+    // would then cost more than the base maximum mana (`max_mana` in vitals.ron). Charm bonuses
+    // are added on top of player.ron and vitals.ron at run time; they are never written into
+    // those files. An `assets/charms.ron` replaces this whole file; F5 re-reads it.
+    //
+    // Each charm has one effect:
+    //   MaxHealth(points)         more maximum health
+    //   MoveSpeedPercent(percent) faster walking, in percent of the base move speed
+    //   SwordDamage(points)       more damage per sword hit
+    // `id` is a stable name used to remember which charms you own and have equipped (never
+    // shown, letters, digits, `_` and `-`); `name` is shown (1 to 32 characters, no two alike
+    // ignoring case); `color` is the swatch, red, green, blue, alpha (0 to 255);
+    // `owned_at_start` charms are yours from the beginning of a run.
+    //
+    // These numbers are placeholders to tune.
+    charms: [
+        (
+            id: "heart",
+            name: "Heart Charm",
+            description: "A warm stone that makes you hardier.",
+            mana_cost: 15.0,
+            effect: MaxHealth(10),
+            color: (214, 62, 72, 255),
+            owned_at_start: true,
+        ),
+        (
+            id: "swift",
+            name: "Swift Charm",
+            description: "Light feathers sewn into a cord. You walk faster.",
+            mana_cost: 10.0,
+            effect: MoveSpeedPercent(15.0),
+            color: (96, 208, 170, 255),
+            owned_at_start: true,
+        ),
+        (
+            id: "sharp",
+            name: "Sharp Charm",
+            description: "A honed shard that adds an edge to every sword hit.",
+            mana_cost: 20.0,
+            effect: SwordDamage(5),
+            color: (236, 196, 84, 255),
+            owned_at_start: true,
+        ),
+    ],
+)

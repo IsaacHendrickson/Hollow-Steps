@@ -58,9 +58,11 @@ impl GameState {
         &self.vitals
     }
 
-    /// The vitals tunables in effect.
+    /// The vitals tunables in effect: the base numbers, as `vitals.ron`, F4 and the Player panel
+    /// have them. The running vitals use these with the equipped charms on top (maximum mana
+    /// lowered by their cost), which is `vitals().config()`.
     pub fn vitals_config(&self) -> &VitalsConfig {
-        self.vitals.config()
+        self.player_draft.edited_vitals()
     }
 
     /// True when the vitals tunables in effect differ from `vitals.ron` (or the defaults).
@@ -68,12 +70,12 @@ impl GameState {
         self.player_draft.is_vitals_dirty()
     }
 
-    /// Puts new vitals tunables into effect at once. Health, mana and a heal in progress are
-    /// kept. Invalid values are refused and nothing changes.
+    /// Puts new vitals tunables into effect at once, under the equipped charms. Health, mana and
+    /// a heal in progress are kept. Invalid values are refused and nothing changes.
     pub fn set_vitals_config(&mut self, config: VitalsConfig) -> Result<(), String> {
         config.validate()?;
         self.player_draft.set_edited_vitals(config)?;
-        self.vitals.set_config(config);
+        self.apply_stats();
         Ok(())
     }
 

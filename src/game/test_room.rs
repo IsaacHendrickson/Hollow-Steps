@@ -5,6 +5,7 @@
 use std::mem;
 
 use super::GameState;
+use crate::charms::CharmState;
 use crate::editor::EditorSession;
 use crate::player::Player;
 use crate::player_body::PlayerBody;
@@ -17,6 +18,8 @@ pub(super) struct TestRun {
     session: EditorSession,
     player: Player,
     vitals: VitalsState,
+    /// Charms equipped or taken off during the run are undone with it.
+    charm_state: CharmState,
     coin_count: u32,
     inventory_open: bool,
     special_attack_timer: f32,
@@ -112,6 +115,7 @@ impl GameState {
             session,
             player: self.player.clone(),
             vitals: self.vitals.clone(),
+            charm_state: self.charm_state.clone(),
             coin_count: self.coin_count,
             inventory_open: self.inventory_open,
             special_attack_timer: self.special_attack_timer,
@@ -150,9 +154,10 @@ impl GameState {
         }
         self.player = run.player;
         // Vitals values edited during the run stay; the run's health, mana and heal do not.
-        let config = *self.vitals.config();
+        // The charms are back as they were, and the numbers in effect follow them.
         self.vitals = run.vitals;
-        self.vitals.set_config(config);
+        self.charm_state = run.charm_state;
+        self.apply_stats();
         self.coin_count = run.coin_count;
         self.inventory_open = run.inventory_open;
         self.special_attack_timer = run.special_attack_timer;
