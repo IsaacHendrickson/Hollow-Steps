@@ -33,10 +33,10 @@ fn game() -> GameState {
 }
 
 /// A private copy of the fixtures, so saving and reloading never touch the repository.
-struct Scratch(PathBuf);
+pub(super) struct Scratch(pub(super) PathBuf);
 
 impl Scratch {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
         let path = std::env::temp_dir().join(format!(
             "hollow-steps-charms-{}-{}",
@@ -47,7 +47,7 @@ impl Scratch {
         Self(path)
     }
 
-    fn write(&self, name: &str, text: &str) {
+    pub(super) fn write(&self, name: &str, text: &str) {
         std::fs::write(self.0.join(name), text).unwrap();
     }
 }

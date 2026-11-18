@@ -21,6 +21,7 @@ use macroquad::prelude::*;
 
 use crate::effects::draw_particles;
 use crate::hud_bars_draw::draw_bars;
+use crate::hud_charms::draw_charms;
 
 /// The gold coin is drawn 9 pixels in radius with its center 2 pixels below the counter row's
 /// anchor, so its top is 7 pixels above the anchor; lowering the row by that much leaves
@@ -221,47 +222,44 @@ pub fn draw_test_banner(view: Vec2) {
 
 pub fn draw_inventory(game: &GameState, view: Vec2) {
     draw_rectangle(0.0, 0.0, view.x, view.y, Color::from_rgba(0, 0, 0, 180));
-    let size = vec2(560.0, 310.0);
-    let panel = anchored(view, Anchor::Center, size, Vec2::ZERO);
+    // The panel is as tall as its content needs; the same layout places the mouse's rows.
+    let layout = game.inventory_layout(view);
+    let panel = layout.panel;
     draw_rectangle(
         panel.x,
         panel.y,
-        size.x,
-        size.y,
+        panel.w,
+        panel.h,
         Color::from_rgba(28, 32, 50, 255),
     );
-    draw_rectangle_lines(panel.x, panel.y, size.x, size.y, 2.0, GRAY);
-    let (x, top) = (panel.x + 32.0, panel.y);
-    draw_text("Inventory", x, top + 50.0, 36.0, WHITE);
+    draw_rectangle_lines(panel.x, panel.y, panel.w, panel.h, 2.0, GRAY);
+    draw_text("Inventory", layout.title.x, layout.title.y, 36.0, WHITE);
     draw_text(
         format!("Coins: {}", game.coin_count()),
-        x,
-        top + 94.0,
+        layout.coins.x,
+        layout.coins.y,
         26.0,
         GOLD,
     );
-    draw_text("Collected items", x, top + 140.0, 24.0, WHITE);
+    let header = layout.items_header;
+    draw_text("Collected items", header.x, header.y, 24.0, WHITE);
     let items = game.player().collected_items();
     if items.is_empty() {
-        draw_text("No items collected yet", x, top + 176.0, 22.0, LIGHTGRAY);
+        let at = layout.item(0);
+        draw_text("No items collected yet", at.x, at.y, 22.0, LIGHTGRAY);
     } else {
         for (index, item) in items.iter().enumerate() {
-            draw_text(
-                item.name(),
-                x,
-                top + 176.0 + index as f32 * 28.0,
-                22.0,
-                GOLD,
-            );
+            let at = layout.item(index);
+            draw_text(item.name(), at.x, at.y, 22.0, GOLD);
         }
     }
-    draw_text(
-        "Paused  |  I or Esc to return",
-        x,
-        top + 278.0,
-        22.0,
-        LIGHTGRAY,
-    );
+    draw_charms(game, &layout);
+    let hint = if game.owned_charms().is_empty() {
+        "Paused  |  I or Esc to return"
+    } else {
+        "Paused  |  Up/Down, Enter: equip  |  I or Esc to return"
+    };
+    draw_text(hint, layout.footer.x, layout.footer.y, 22.0, LIGHTGRAY);
 }
 
 /// The pause menu over the frozen picture: a dim veil, the panel, its title and the buttons of
@@ -422,7 +420,7 @@ fn draw_text_centered(text: &str, rect: Rect, font_size: u16, color: Color) {
 
 /// The baseline that centers a line of text on `center_y`. It is the same for every string at a
 /// font size, so a word with descenders (g, j, p) does not sit higher than one without.
-fn centered_baseline(center_y: f32, font_size: u16) -> f32 {
+pub(crate) fn centered_baseline(center_y: f32, font_size: u16) -> f32 {
     let reference = measure_text("Ag", None, font_size, 1.0);
     center_y - reference.height / 2.0 + reference.offset_y
 }

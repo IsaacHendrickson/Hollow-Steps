@@ -4,6 +4,7 @@ use macroquad::math::{Rect, Vec2};
 
 #[cfg(test)]
 use crate::boss_special::SpecialAttack;
+use crate::charm_menu::CharmMenu;
 use crate::charms::{CharmCatalog, CharmState};
 use crate::coin::Coin;
 use crate::damage::DamageResolver;
@@ -22,6 +23,8 @@ use crate::vitals::{VitalsConfig, VitalsState};
 
 mod camera_bounds;
 mod charm_link;
+#[cfg(test)]
+mod charm_menu_tests;
 #[cfg(test)]
 mod charm_tests;
 #[cfg(test)]
@@ -102,6 +105,8 @@ pub struct GameState {
     /// Every charm, and which of them the run owns and wears; see `charm_link`.
     charms: CharmCatalog,
     charm_state: CharmState,
+    /// The cursor and the last refusal of the inventory's Charms section.
+    charm_menu: CharmMenu,
 }
 
 impl GameState {
@@ -145,6 +150,7 @@ impl GameState {
             feel: Feel::new(feel),
             vitals: vitals_link::fresh_vitals(vitals, tuning.player.max_health),
             charm_state: CharmState::starting(&charms),
+            charm_menu: CharmMenu::default(),
             charms,
         };
         game.apply_stats();
@@ -217,12 +223,14 @@ impl GameState {
         self.inventory_open
     }
 
-    /// Opens or closes the inventory. Ignored while the pause menu is open.
+    /// Opens or closes the inventory. Ignored while the pause menu is open. An old charm
+    /// refusal is not kept for the next time.
     pub fn toggle_inventory(&mut self) {
         if self.pause_menu.is_open() {
             return;
         }
         self.inventory_open = !self.inventory_open;
+        self.charm_menu.clear_message();
     }
 
     pub fn room(&self) -> &Room {

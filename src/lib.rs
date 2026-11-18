@@ -15,6 +15,7 @@ pub mod boss_definition;
 pub mod boss_editor;
 pub mod boss_special;
 pub mod camera;
+pub mod charm_menu;
 pub mod charms;
 pub mod coin;
 pub mod combat;
