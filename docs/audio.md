@@ -21,7 +21,7 @@ It is not on by default because of what turning it on does (checked against Macr
 - **Linux linking.** quad-snd links the system ALSA library (`-lasound`). `cargo check` and
   `cargo clippy --all-features` do not link and work without it, but `cargo build` and
   every test binary need `libasound2-dev` once the feature is on. The default build, the
-  tests and CI need no Linux dev packages today (see `room-editor.md` and `ci.yml`), and
+  tests and CI need no Linux dev packages today (see `room-editor-design.md` and `ci.yml`), and
   this keeps that true.
 - **Eleven extra crates** in `Cargo.lock` (quad-snd, quad-alsa-sys, audrey, hound, lewton,
   ogg, dasp_sample, dasp_frame, smallvec 0.6, maybe-uninit, audir-sles). All are
@@ -42,4 +42,4 @@ prints one line saying the build has no audio.
 Change `Cargo.toml` to `default = ["audio"]` under `[features]`, and add
 `sudo apt-get install -y libasound2-dev` before the build step of the Linux job in
 `.github/workflows/ci.yml`. Update the "no Linux dev packages" statements in
-`room-editor.md` and the CI comment in the same change.
+`room-editor-design.md` and the CI comment in the same change.

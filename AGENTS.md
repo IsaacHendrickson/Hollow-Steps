@@ -173,6 +173,8 @@ tests live in `tests/` and verify behavior through the public API.
 
 When you add, rename, or remove a module, change ONE line here (160 characters at most) and put anything longer in docs/modules.md or the matching docs/*.md.
 
+Limits, checked by `tests/docs_size.rs`: a module line here or a line of `FEATURES.md` over 200 characters fails the test, and so does this file over 24 KB (24576 bytes).
+
 ## Coordinate and simulation conventions
 
 - Positions are the center of an entity's rectangle.
