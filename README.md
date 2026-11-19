@@ -87,9 +87,12 @@ menu keys, `F2`, `F4`, `F5` and `F6` stay fixed.
   edits the same numbers. `Save` writes `player.ron` in the
   assets folder, which replaces the shipped `data/player.ron` defaults (delete it to go back),
   and `vitals.ron` too when a vitals value changed (same for `data/vitals.ron`).
-- `F5`: validate `player.ron`, `vitals.ron` (your health, mana and any heal in progress are kept), room files and their enemy, body template, behavior, and boss definitions, including
-  while the inventory is open. Errors appear on screen; fix the files and
-  press `F5` again to retry. Use the mouse wheel to scroll long errors.
+- `F5`: re-read `player.ron`, `vitals.ron` (your health, mana and any heal in progress are kept),
+  `feel.ron` and `charms.ron`, add new room files and, in rooms already loaded, swap in their
+  enemies, bosses, background layers and terrain look, including while the inventory is open; a
+  loaded room's terrain, exits, items, bounds and spawn need a restart or an editor Save. Errors
+  appear on screen and nothing is applied; fix the files and press `F5` again to retry. Use the
+  mouse wheel to scroll long errors.
 - Touch a gold coin to collect it automatically, including while airborne.
   Each coin adds one to the balance and stays collected through room travel
   and respawn for the current game session.
