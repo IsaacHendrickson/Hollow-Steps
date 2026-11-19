@@ -69,7 +69,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/health.rs`: player health, damage, invincibility, `set_limits`
 - `src/enemy.rs` (+ `enemy/`): enemy behavior, health, knockback, dying state, bodies
 - `src/pose.rs`: semantic pose assets, playback, validation
-- `src/body.rs`: validated RON body templates, point springs, palettes, transforms
+- `src/body.rs` (+ `body/`): validated RON body templates, point springs, palettes, transforms
 - `src/body_debug.rs`: pure body overlay primitives, nearest-entity selection
 - `src/visual_box.rs`: drawn box of an enemy or boss apart from its hitbox (gameplay reads only the hitbox)
 - `src/action_runtime.rs` (+ `action_runtime/`): shared action execution; read actions by reference, never clone

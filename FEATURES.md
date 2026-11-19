@@ -70,13 +70,13 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 
 ## Bodies and poses
 
-- RON humanoid/bird/animal body templates, palettes, scale, point maps, mirroring, box fallback; `src/body.rs`, `src/body_draw.rs`; `tests/bodies.rs`
-- Damped point following, idle motion, per-point springs, F5 motion preservation; `src/body.rs`, `data/body_motion_defaults.ron`; `tests/body_motion.rs`
+- RON humanoid/bird/animal body templates, palettes, scale, point maps, mirroring, box fallback; `src/body/template.rs`, `src/body_draw.rs`; `tests/bodies.rs`
+- Damped point following, idle motion, per-point springs, F5 motion preservation; `src/body/`, `data/body_motion_defaults.ron`; `tests/body_motion.rs`
 - Charger/Hopper/Shooter use distinct bodies, palettes, scales; `assets/entities/`; `tests/shipped_content.rs`, `tests/bodies.rs`
 - Semantic pose assets and per-template point mapping; `src/pose.rs`; `tests/poses.rs`
 - Attack phase pose commands with spring target cleanup; `src/behavior/action_info.rs`, `src/action_runtime/poses.rs`, `src/enemy_attack.rs`; `tests/poses.rs`
 - Telegraph-derived critically damped pose springs, blend ratio, strike stiffness, shot recoil; `src/pose.rs`, `data/pose_defaults.ron`; `tests/poses.rs`
-- Eight authored poses, attack bindings, timed hurt pose and white flash; `assets/poses/`, `src/body.rs`; `tests/poses.rs`
+- Eight authored poses, attack bindings, timed hurt pose and white flash; `assets/poses/`, `src/body/instance.rs`; `tests/poses.rs`
 - Player body: a hooded wanderer with idle, run, jump and attack poses; the hitbox is unchanged; `src/player_body.rs`; `tests/player_body.rs`, manual
 - Pose catalog/binding validation shared by load and staged saves; F5 reloads poses; `src/pose.rs`; `tests/poses.rs`, `tests/reloading.rs`
 - Fixture-only pose regression suite (semantics, lifecycle, facing, hurt timing, hot reload); `tests/poses.rs`, `tests/fixtures/`
@@ -113,7 +113,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Player health, damage and mana in the editor: `max_health`, sword damage, vitals; `src/player_editor.rs`; `tests/player_stats.rs`, manual
 - Blank-enemy creation and behavior assignment, editable Skittish distances/speed; `src/definition_editor/entities.rs`, `src/behavior/`; `tests/presets.rs`
 - Catalog-backed pose dropdowns for attack phases in rows and Key values; `src/editor_panel/widgets.rs`; `tests/poses.rs`
-- Body, pose, spring, hurt, blend and tint values all have data, validation, editor controls; `src/body.rs`, `src/pose.rs`, `data/`; `tests/poses.rs`
+- Body, pose, spring, hurt, blend and tint values all have data, validation, editor controls; `src/body/`, `src/pose.rs`, `data/`; `tests/poses.rs`
 
 ## Tests and CI
 
