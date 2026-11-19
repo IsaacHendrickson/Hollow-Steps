@@ -119,3 +119,4 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 
 - Fixture-based tests; only `tests/shipped_content.rs` reads `assets/` (load and validate); `tests/fixtures/`, `tests/support/mod.rs`
 - CI: fmt, test, Clippy on Linux and Windows for PRs and `main`; `.github/workflows/ci.yml`
+- MIT `LICENSE` and a minimum Rust version (`rust-version` in `Cargo.toml`, named in the README); no test

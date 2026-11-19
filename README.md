@@ -7,7 +7,7 @@ three bounded rooms, including a boss arena.
 
 ## Run it
 
-Install stable Rust. On Ubuntu/Debian, install Macroquad's X11, OpenGL, and
+Install stable Rust, version 1.97 or newer (`rust-version` in `Cargo.toml`). On Ubuntu/Debian, install Macroquad's X11, OpenGL, and
 ALSA development dependencies first:
 
 ```sh
