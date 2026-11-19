@@ -111,7 +111,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/charms.rs`: charm rules: `Charm`, `CharmCatalog`, `CharmState`, `effective`
 - `src/vitals.rs`: pure vitals (health, trailing bar, mana, hold-to-heal); `data/vitals.ron`
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary
-- `src/editor_files.rs`: room file names, staged room save, loading extra rooms
+- `src/editor_files.rs`: room file names (a bad `room_*.ron` name errors with the fix), staged room save, loading extra rooms
 - `src/room_charms.rs`: charms lying in rooms: placements, pickup rule, charm checks
 - `src/editor_charms.rs`: `placement_catalog` (with "Charm: <name>") and `charm_swatch`
 - `src/charm_editor.rs`: pure `CharmDraft` editing `charms.ron`, validate-first save
@@ -161,7 +161,7 @@ Composition and front end:
 - `src/hud_bars.rs` (+ `hud_bars/`): pure health and mana bar layout (`HudConfig`, `layout_bars`)
 - `src/hud_bars_draw.rs`: Macroquad drawing of those rectangles (`draw_bars`); no rules
 - `src/hud_damage.rs`: pure health-bar damage feedback: `BarShake`, `HudFeedback`
-- `src/hud_layout.rs`: pure HUD rules: boss bar fill and caption, room label
+- `src/hud_layout.rs`: pure HUD rules: boss bar fill and caption, room label (health and mana bars are in `hud_bars`)
 - `src/hud.rs`: Macroquad HUD, inventory, pause menu, reload panels (virtual-resolution space)
 - `src/charm_input.rs`: Macroquad adapter for the charm list while the inventory is open
 - `src/hud_charms.rs`: Macroquad drawing of the inventory's Charms section
