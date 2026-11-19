@@ -14,6 +14,19 @@ use crate::player::WorldBounds;
 pub const FLOOR_Y: f32 = 460.0;
 pub const EXIT_DEPTH: f32 = 32.0;
 
+/// The rectangle of a body centered at `position`.
+fn body_rect(position: Vec2, size: Vec2) -> Rect {
+    Rect::new(
+        position.x - size.x / 2.0,
+        position.y - size.y / 2.0,
+        size.x,
+        size.y,
+    )
+}
+
+/// Size of a door placed in the editor (width, height); its size can be changed there.
+pub const DOOR_SIZE: Vec2 = Vec2::new(48.0, 72.0);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RoomId {
     First,
@@ -50,10 +63,32 @@ pub struct Exit {
     pub target_room: RoomId,
     /// Player-center coordinate in the destination room.
     pub spawn: Vec2,
+    /// A door: a free rectangle in room coordinates, anywhere in the room, used by pressing
+    /// Up in front of it. `edge`, `offset` and `length` mean nothing for a door.
+    pub door: Option<Rect>,
 }
 
 impl Exit {
+    /// A door standing at `zone` (room coordinates) that leads to `target_room`.
+    pub fn doorway(zone: Rect, target_room: RoomId, spawn: Vec2) -> Self {
+        Self {
+            edge: RoomEdge::Bottom,
+            offset: 0.0,
+            length: 0.0,
+            target_room,
+            spawn,
+            door: Some(zone),
+        }
+    }
+
+    pub fn is_door(&self) -> bool {
+        self.door.is_some()
+    }
+
     pub fn zone(&self, bounds: Rect) -> Rect {
+        if let Some(zone) = self.door {
+            return zone;
+        }
         match self.edge {
             RoomEdge::Left => Rect::new(bounds.x, bounds.y + self.offset, EXIT_DEPTH, self.length),
             RoomEdge::Right => Rect::new(
@@ -102,19 +137,29 @@ impl Room {
         WorldBounds::new(self.bounds.x, self.bounds.right(), self.floor_y).with_top(self.bounds.y)
     }
 
+    /// The edge exit a body at `position` is walking into. Doors never trigger this way.
     pub fn exit_at(&self, position: Vec2, size: Vec2) -> Option<&Exit> {
         if self.exits_locked() {
             return None;
         }
-        let body = Rect::new(
-            position.x - size.x / 2.0,
-            position.y - size.y / 2.0,
-            size.x,
-            size.y,
-        );
+        let body = body_rect(position, size);
         self.exits
             .iter()
-            .find(|exit| exit.zone(self.bounds).overlaps(&body))
+            .find(|exit| !exit.is_door() && exit.zone(self.bounds).overlaps(&body))
+    }
+
+    /// The door a body at `position` stands in front of: its body reaches the door and its
+    /// center is within the door's width. `None` while the exits are locked.
+    pub fn door_at(&self, position: Vec2, size: Vec2) -> Option<&Exit> {
+        if self.exits_locked() {
+            return None;
+        }
+        let body = body_rect(position, size);
+        self.exits.iter().find(|exit| {
+            exit.door.is_some_and(|zone| {
+                zone.overlaps(&body) && (zone.x..=zone.right()).contains(&position.x)
+            })
+        })
     }
 
     pub fn exits_locked(&self) -> bool {
@@ -240,6 +285,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                 length: 96.0,
                 target_room: RoomId::Second,
                 spawn: Vec2::new(160.0, 376.0),
+                door: None,
             }],
             items: vec![
                 WorldItem {
@@ -276,6 +322,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                     length: 96.0,
                     target_room: RoomId::First,
                     spawn: Vec2::new(860.0, 436.0),
+                    door: None,
                 },
                 Exit {
                     edge: RoomEdge::Right,
@@ -283,6 +330,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                     length: 96.0,
                     target_room: RoomId::Boss,
                     spawn: Vec2::new(160.0, 436.0),
+                    door: None,
                 },
             ],
             items: vec![],
@@ -306,6 +354,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                 length: 96.0,
                 target_room: RoomId::Second,
                 spawn: Vec2::new(780.0, 376.0),
+                door: None,
             }],
             items: vec![],
             charms: vec![],
