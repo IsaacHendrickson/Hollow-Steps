@@ -5,7 +5,6 @@ mod support;
 
 use hollow_steps::editor::{RoomDraft, RoomLayout};
 use hollow_steps::enemy::EnemyDefinitions;
-use hollow_steps::game::GameState;
 use hollow_steps::room::{RoomEnemies, RoomId};
 use hollow_steps::terrain_style::{
     build, build_room, ground_cover, Look, RoomInputs, Shape, TerrainStyle, DEFAULT_ACCENT,
@@ -319,21 +318,6 @@ fn a_different_seed_offset_reshuffles_the_look_and_a_different_palette_recolors_
         base.len(),
         build(RoomId::First, &solids, None, &recolored).len()
     );
-}
-
-#[test]
-fn the_game_loads_a_rooms_palette() {
-    let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
-    // Shipped content: loading and validating only, no assertions about its layout. Every room
-    // has to name a preset the game knows (and may override colors) for the game to start.
-    let game = GameState::try_new(&assets).expect("shipped rooms must load and validate");
-    game.room().terrain_style.validate().unwrap();
-    let rooms = hollow_steps::room::load_rooms(&assets).expect("shipped rooms load");
-    for room in &rooms {
-        game.terrain_styles()
-            .resolve(&room.terrain_style)
-            .unwrap_or_else(|error| panic!("{:?}: {error}", room.id));
-    }
 }
 
 fn inputs(room: &hollow_steps::room::Room) -> RoomInputs<'_> {

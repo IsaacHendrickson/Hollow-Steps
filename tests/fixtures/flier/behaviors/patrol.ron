@@ -1,0 +1,7 @@
+// Fixed fixture for tests/flier_fixtures.rs. Do not synchronize with editable assets.
+(
+    initial_state: "patrol",
+    states: [
+        (name: "patrol", actions: [patrol(speed: 80.0)], transitions: []),
+    ],
+)

@@ -1,0 +1,21 @@
+(
+    // Fixed fixture for tests/flier_fixtures.rs. A body with no leg points: only the head, the two
+    // wing tips (`hand_l`, `hand_r`) and the tail can be posed. Do not synchronize with editable
+    // assets.
+    pose_map: {"head": "head", "hand_l": "wing_l", "hand_r": "wing_r", "tail": "tail"},
+    points: {
+        "head": (rest: (0.3, -0.1)),
+        "shoulder": (rest: (-0.1, -0.1)),
+        "wing_l": (rest: (-0.2, -0.4)),
+        "wing_r": (rest: (-0.3, -0.4)),
+        "tail": (rest: (-0.4, 0.1)),
+    },
+    parts: [
+        (name: "wing_far", shape: Line, from: Some("shoulder"), to: Some("wing_l"), size: (0.2, 0.2), rotation: 0.0, color_slot: secondary),
+        (name: "wing_near", shape: Line, from: Some("shoulder"), to: Some("wing_r"), size: (0.2, 0.2), rotation: 0.0, color_slot: secondary),
+        (name: "tail", shape: Triangle, anchor: Some("tail"), offset: Some((0.0, 0.0)), size: (0.3, 0.2), rotation: 180.0, color_slot: accent),
+        (name: "body", shape: Ellipse, anchor: Some("shoulder"), offset: Some((0.0, 0.1)), size: (0.6, 0.4), rotation: 0.0, color_slot: primary),
+        (name: "head", shape: Ellipse, anchor: Some("head"), offset: Some((0.0, 0.0)), size: (0.3, 0.3), rotation: 0.0, color_slot: primary),
+        (name: "beak", shape: Triangle, anchor: Some("head"), offset: Some((0.2, 0.0)), size: (0.2, 0.12), rotation: 0.0, color_slot: accent),
+    ],
+)

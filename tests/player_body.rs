@@ -1,5 +1,5 @@
 //! The player's body: look validation, pose choice, template/pose loading and facing mirror.
-//! Uses a template built here, not the shipped assets (`shipped_rooms.rs` covers those).
+//! Uses a template built here, not the shipped assets (`shipped_content.rs` covers those).
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};

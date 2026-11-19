@@ -293,9 +293,12 @@ Agents should be able to verify almost everything without a window.
   case (world edges, floor, zero or very large `delta_seconds`), and at least
   one case that must not happen (for example, jumping while airborne).
 - Tests must not depend on editable files in `assets/`. Use rooms built in
-  code or fixed fixtures under `tests/fixtures/`, including enemy and behavior
-  definitions. The sole exception is one dedicated shipped-content test that
-  checks loading and validation without asserting exact layouts or coordinates.
+  code or fixed fixtures under `tests/fixtures/`, including enemy, behavior,
+  body and pose definitions. The only place that reads `assets/` is
+  `tests/shipped_content.rs`: one test per area that loads and validates what
+  ships and asserts no numbers, names, layouts or coordinates (any new
+  shipped-content check goes there). A test of what an enemy, room or body
+  does uses a fixture, never the shipped file.
 - Prefer deterministic tests: fixed `delta_seconds`, stepped frame by frame,
   asserting on positions and velocities. No randomness or wall-clock time.
 - When fixing a bug, first add a test that reproduces it, then fix it.

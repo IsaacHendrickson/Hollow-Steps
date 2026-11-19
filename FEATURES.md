@@ -72,7 +72,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 
 - RON humanoid/bird/animal body templates, palettes, scale, point maps, mirroring, box fallback; `src/body.rs`, `src/body_draw.rs`; `tests/bodies.rs`
 - Damped point following, idle motion, per-point springs, F5 motion preservation; `src/body.rs`, `data/body_motion_defaults.ron`; `tests/body_motion.rs`
-- Charger/Hopper/Shooter use distinct bodies, palettes, scales; `assets/entities/`; `tests/shipped_rooms.rs`, `tests/bodies.rs`
+- Charger/Hopper/Shooter use distinct bodies, palettes, scales; `assets/entities/`; `tests/shipped_content.rs`, `tests/bodies.rs`
 - Semantic pose assets and per-template point mapping; `src/pose.rs`; `tests/poses.rs`
 - Attack phase pose commands with spring target cleanup; `src/behavior/action_info.rs`, `src/action_runtime/poses.rs`, `src/enemy_attack.rs`; `tests/poses.rs`
 - Telegraph-derived critically damped pose springs, blend ratio, strike stiffness, shot recoil; `src/pose.rs`, `data/pose_defaults.ron`; `tests/poses.rs`
@@ -117,5 +117,5 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 
 ## Tests and CI
 
-- Fixture-based behavioral tests plus one shipped-content smoke test; `tests/fixtures/`, `tests/support/mod.rs`; `tests/shipped_rooms.rs`
+- Fixture-based tests; only `tests/shipped_content.rs` reads `assets/` (load and validate); `tests/fixtures/`, `tests/support/mod.rs`
 - CI: fmt, test, Clippy on Linux and Windows for PRs and `main`; `.github/workflows/ci.yml`
