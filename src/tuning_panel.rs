@@ -136,6 +136,10 @@ fn vitals_row(ui: &mut egui::Ui, game: &mut GameState, status: &mut Status, fiel
 
 /// Saves `player.ron`, and `vitals.ron` too when its values differ from the saved ones.
 fn save_all(game: &mut GameState) -> Status {
+    // A vitals file the charms cannot live with is refused before `player.ron` is written too.
+    if let Err(error) = game.check_vitals_save() {
+        return Status::Error(error);
+    }
     let mut saved = Vec::new();
     match game.save_tuning() {
         Ok(path) => saved.push(path.display().to_string()),

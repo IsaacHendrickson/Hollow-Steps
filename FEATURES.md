@@ -103,6 +103,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Editor tools: Select, Place, Terrain, Erase (V, P, T, E), grid-snapped solids with handles; `src/editor_terrain.rs`; `tests/editor_terrain.rs`, manual
 - Behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation, usage warnings, Key values; `src/preset.rs`; `tests/presets.rs`
 - Player stats in the editor: Player panel with every `player.ron` number, validated, staged Save; `src/player_panel.rs`; `tests/player_editor.rs`, manual
+- Max mana guard: a vitals Save (Player panel, F4, Save all) below a saved charm's cost is refused; `src/player_editor.rs`; `tests/max_mana_guard.rs`, manual
 - Player look in the editor: Look section edits `player_body.ron` with a spawn-point preview; `src/player_look_editor.rs`; `tests/player_look.rs`, manual
 - Playing and undoing the edited player: Test room plays unsaved stats and look, own undo; `src/player_history.rs`; `tests/player_test_room.rs`, manual
 - Charm editor panel: every charm with every `charms.ron` field, validated, staged Save; `src/charm_panel.rs`; `tests/charm_editor.rs`, manual

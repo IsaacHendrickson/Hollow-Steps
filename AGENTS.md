@@ -105,7 +105,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/keybinds.rs` (+ `keybinds/`): rebindable controls as pure state; `docs/keybinds.md`
 - `src/tuning.rs`: player, melee, strike, knockback tunables (`data/player.ron`), staged save
 - `src/tuning_fields.rs`: editable `player.ron` numbers, one range per field
-- `src/player_editor.rs`: pure `PlayerDraft` editing `player.ron` and `vitals.ron`
+- `src/player_editor.rs`: pure `PlayerDraft` editing `player.ron` and `vitals.ron`; max mana must cover saved charm costs (`CharmCost`)
 - `src/player_history.rs`: the Player panel's own undo/redo
 - `src/player_look_editor.rs`: pure `PlayerLookDraft` editing `player_body.ron`, preview
 - `src/charms.rs`: charm rules: `Charm`, `CharmCatalog`, `CharmState`, `effective`

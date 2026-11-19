@@ -47,13 +47,18 @@ impl GameState {
         Ok(path)
     }
 
-    /// Saves what the Player panel edits: `player.ron`, and `player_body.ron` when the look
-    /// changed. Both are checked before either is written, so a refused look leaves
-    /// `player.ron` as it was too. Returns the files written.
+    /// Saves what the Player panel edits: `player.ron`, `vitals.ron` when its values changed and
+    /// `player_body.ron` when the look changed. All are checked before any is written, so a
+    /// refused look, or a max mana below a saved charm's cost, leaves `player.ron` as it was too.
+    /// Returns the files written.
     pub fn save_player(&mut self) -> Result<Vec<PathBuf>, String> {
         self.sync_player_from_editor();
         let spawns = self.spawn_checks();
         self.player_draft.validate(&spawns)?;
+        let costs = self.saved_charm_costs();
+        if self.player_draft.is_vitals_dirty() {
+            self.player_draft.validate_vitals(&costs)?;
+        }
         if let Some(session) = &self.editor {
             if session.look.is_dirty() {
                 session.look.check_savable(
@@ -65,7 +70,10 @@ impl GameState {
         }
         let mut written = vec![self.player_draft.save(&self.assets, &spawns)?];
         if self.player_draft.is_vitals_dirty() {
-            written.push(self.player_draft.save_vitals(&self.assets)?);
+            written.push(
+                self.player_draft
+                    .save_vitals_checked(&self.assets, &costs)?,
+            );
         }
         self.attach_player_draft();
         if let Some(session) = &mut self.editor {

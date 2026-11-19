@@ -530,6 +530,33 @@ fn save_leaves_vitals_ron_alone_when_only_player_values_changed() {
 }
 
 #[test]
+fn save_refuses_a_max_mana_below_a_charm_cost_and_writes_neither_file() {
+    let assets = Assets::new();
+    let mut game = assets.game();
+    let (ctx, mut panel) = open_panel(&mut game);
+    // A stats edit too: the refused Save leaves player.ron alone as well.
+    type_into(&ctx, Field::Gravity, "2000", &mut panel, &mut game);
+    type_into_vitals(&ctx, VitalsField::MaxMana, "15", &mut panel, &mut game);
+    assert_eq!(game.vitals_config().max_mana, 15.0);
+
+    click_save(&ctx, &mut panel, &mut game);
+
+    let Status::Error(message) = panel.status.clone() else {
+        panic!("the save was not refused: {:?}", panel.status);
+    };
+    assert!(
+        message.contains("Sharp Charm") && message.contains("20"),
+        "{message}"
+    );
+    assert!(!assets.0.join(FILE_NAME).exists());
+    assert!(!assets.0.join(VITALS_FILE_NAME).exists());
+    assert!(game.tuning_unsaved() && game.vitals_unsaved());
+    let shown = frame(&ctx, vec![], &mut panel, &mut game);
+    assert!(shown.contains("Sharp Charm"), "{shown}");
+    GameState::try_new(&assets.0).expect("the game still loads");
+}
+
+#[test]
 fn a_refused_vitals_value_shows_its_reason_and_changes_nothing() {
     let assets = Assets::new();
     let mut game = assets.game();
