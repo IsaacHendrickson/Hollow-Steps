@@ -161,7 +161,7 @@ Composition and front end:
 - `src/hud_bars.rs` (+ `hud_bars/`): pure health and mana bar layout (`HudConfig`, `layout_bars`)
 - `src/hud_bars_draw.rs`: Macroquad drawing of those rectangles (`draw_bars`); no rules
 - `src/hud_damage.rs`: pure health-bar damage feedback: `BarShake`, `HudFeedback`
-- `src/hud_layout.rs`: pure HUD rules: boss bar fill and caption, room label
+- `src/hud_layout.rs`: pure HUD rules: boss bar fill and caption, room label (health and mana bars are in `hud_bars`)
 - `src/hud.rs`: Macroquad HUD, inventory, pause menu, reload panels (virtual-resolution space)
 - `src/charm_input.rs`: Macroquad adapter for the charm list while the inventory is open
 - `src/hud_charms.rs`: Macroquad drawing of the inventory's Charms section

@@ -6,7 +6,6 @@ use hollow_steps::behavior::BehaviorDefinition;
 use hollow_steps::combat::SWORD_DAMAGE;
 use hollow_steps::enemy::{Enemy, EnemyDefinition, ENEMY_MAX_HEALTH};
 use hollow_steps::health::{Health, HIT_DAMAGE, MAX_HEALTH};
-use hollow_steps::hud_layout::masks_for;
 use hollow_steps::player::WorldBounds;
 
 const BOUNDS: WorldBounds = WorldBounds::new(0.0, 960.0, 460.0);
@@ -93,14 +92,4 @@ fn values_past_the_old_u8_limit_do_not_overflow() {
     let mut health = Health::default();
     assert!(health.take_damage_amount(u16::MAX));
     assert_eq!(health.current(), 0);
-}
-
-#[test]
-fn health_masks_count_whole_and_part_hits() {
-    assert_eq!(masks_for(MAX_HEALTH), 5);
-    assert_eq!(masks_for(0), 0);
-    assert_eq!(masks_for(1), 1, "a part-used hit still shows a mask");
-    assert_eq!(masks_for(HIT_DAMAGE), 1);
-    assert_eq!(masks_for(HIT_DAMAGE + 1), 2);
-    assert_eq!(masks_for(u16::MAX), u16::MAX.div_ceil(HIT_DAMAGE));
 }

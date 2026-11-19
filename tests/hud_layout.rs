@@ -1,31 +1,5 @@
 use hollow_steps::hud_layout::*;
 use hollow_steps::room::RoomId;
-use macroquad::math::vec2;
-
-#[test]
-fn pips_fill_from_the_left() {
-    assert_eq!(pip_states(3, 5), [true, true, true, false, false]);
-    assert_eq!(pip_states(5, 5), [true; 5]);
-}
-
-#[test]
-fn pips_at_the_edges() {
-    assert_eq!(pip_states(0, 5), [false; 5]);
-    assert_eq!(pip_states(9, 3), [true; 3]);
-    assert!(pip_states(2, 0).is_empty());
-}
-
-#[test]
-fn pip_centers_step_evenly_and_fit_the_row() {
-    let origin = vec2(10.0, 20.0);
-    let first = pip_center(origin, 0);
-    let second = pip_center(origin, 1);
-    assert_eq!(first, vec2(10.0 + PIP_RADIUS, 20.0 + PIP_RADIUS));
-    assert_eq!(second.x - first.x, PIP_RADIUS * 2.0 + PIP_GAP);
-    let row = pip_row_size(5);
-    assert_eq!(pip_center(origin, 4).x + PIP_RADIUS, origin.x + row.x);
-    assert_eq!(pip_row_size(0), vec2(0.0, 0.0));
-}
 
 #[test]
 fn boss_fill_is_clamped_and_safe() {
