@@ -1,0 +1,119 @@
+//! Size guard for the two docs every agent reads on every task.
+//!
+//! Reads only `AGENTS.md` and `FEATURES.md` in the repository root. A `FEATURES.md` line
+//! or an `AGENTS.md` module line over 200 characters fails with the file and line number,
+//! and so does an `AGENTS.md` over 24 KB. Longer text belongs in `docs/`.
+
+use std::fs;
+use std::path::Path;
+
+const MAX_LINE_CHARS: usize = 200;
+const MAX_AGENTS_BYTES: usize = 24 * 1024;
+const MODULE_LINE_PREFIX: &str = "- `src/";
+
+fn read_root_file(name: &str) -> String {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(name);
+    fs::read_to_string(&path).unwrap_or_else(|error| panic!("cannot read {name}: {error}"))
+}
+
+/// Line number (from 1) and length in characters of every line over `limit` that starts
+/// with `prefix` (every line when `prefix` is empty).
+fn long_lines(text: &str, prefix: &str, limit: usize) -> Vec<(usize, usize)> {
+    text.lines()
+        .enumerate()
+        .filter(|(_, line)| line.starts_with(prefix))
+        .map(|(index, line)| (index + 1, line.chars().count()))
+        .filter(|(_, length)| *length > limit)
+        .collect()
+}
+
+fn describe(file: &str, offenders: &[(usize, usize)]) -> String {
+    offenders
+        .iter()
+        .map(|(line, length)| {
+            format!("{file} line {line} is {length} characters (limit {MAX_LINE_CHARS})")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+fn features_lines_stay_short() {
+    let offenders = long_lines(&read_root_file("FEATURES.md"), "", MAX_LINE_CHARS);
+    assert!(
+        offenders.is_empty(),
+        "move the detail to docs/features-detail.md:\n{}",
+        describe("FEATURES.md", &offenders)
+    );
+}
+
+#[test]
+fn agents_module_lines_stay_short() {
+    let offenders = long_lines(
+        &read_root_file("AGENTS.md"),
+        MODULE_LINE_PREFIX,
+        MAX_LINE_CHARS,
+    );
+    assert!(
+        offenders.is_empty(),
+        "move the detail to docs/modules.md:\n{}",
+        describe("AGENTS.md", &offenders)
+    );
+}
+
+#[test]
+fn agents_md_stays_small() {
+    let size = read_root_file("AGENTS.md").len();
+    assert!(
+        size <= MAX_AGENTS_BYTES,
+        "AGENTS.md is {size} bytes (limit {MAX_AGENTS_BYTES}); move detail to docs/"
+    );
+}
+
+#[test]
+fn the_checker_names_the_line_and_looks_only_at_the_chosen_lines() {
+    let long = "x".repeat(MAX_LINE_CHARS + 1);
+    let exact = "x".repeat(MAX_LINE_CHARS);
+    let text = format!("- `src/a.rs`: fine\n{exact}\n- `src/b.rs`: {long}\nplain {long}\n");
+
+    let module_lines = long_lines(&text, MODULE_LINE_PREFIX, MAX_LINE_CHARS);
+    assert_eq!(
+        module_lines,
+        vec![(3, "- `src/b.rs`: ".len() + MAX_LINE_CHARS + 1)]
+    );
+
+    let every_line: Vec<usize> = long_lines(&text, "", MAX_LINE_CHARS)
+        .iter()
+        .map(|(line, _)| *line)
+        .collect();
+    assert_eq!(every_line, vec![3, 4]);
+}
+
+#[test]
+fn a_line_of_exactly_the_limit_passes_and_one_more_character_fails() {
+    let exact = "y".repeat(MAX_LINE_CHARS);
+    assert!(long_lines(&exact, "", MAX_LINE_CHARS).is_empty());
+    assert_eq!(
+        long_lines(&format!("{exact}y"), "", MAX_LINE_CHARS),
+        vec![(1, MAX_LINE_CHARS + 1)]
+    );
+}
+
+#[test]
+fn length_counts_characters_not_bytes() {
+    let wide = "é".repeat(MAX_LINE_CHARS);
+    assert!(wide.len() > MAX_LINE_CHARS);
+    assert!(long_lines(&wide, "", MAX_LINE_CHARS).is_empty());
+}
+
+#[test]
+fn windows_line_endings_do_not_count_toward_the_length() {
+    let exact = "z".repeat(MAX_LINE_CHARS);
+    assert!(long_lines(&format!("{exact}\r\nnext\r\n"), "", MAX_LINE_CHARS).is_empty());
+}
+
+#[test]
+fn the_error_message_names_file_line_and_length() {
+    let message = describe("FEATURES.md", &[(12, 213)]);
+    assert!(message.contains("FEATURES.md line 12 is 213 characters"));
+}

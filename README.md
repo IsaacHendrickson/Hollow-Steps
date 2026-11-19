@@ -111,7 +111,8 @@ read them. Open only the one you need:
 - [Terrain look: presets, exposed edges, boundary, determinism](docs/terrain-look.md)
 - [Gameplay ownership](docs/gameplay-ownership.md)
 - [Data-driven enemies](docs/data-driven-enemies.md)
-- [Room editor design, behavior presets, and editor manual checks](docs/room-editor.md)
+- [Room editor notes: design, canvas tools, undo, linking, manual checks (index)](docs/room-editor.md)
 
-Project rules and the module list are in [AGENTS.md](AGENTS.md); the feature
-list is in [FEATURES.md](FEATURES.md).
+Project rules and a one-line module list are in [AGENTS.md](AGENTS.md) (every
+module in full: [docs/modules.md](docs/modules.md)); the feature list is in
+[FEATURES.md](FEATURES.md) (full text: [docs/features-detail.md](docs/features-detail.md)).
