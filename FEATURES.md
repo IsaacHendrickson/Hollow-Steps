@@ -33,6 +33,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Charm bars: bars keep their length and show charm capacity as an extension or a locked end beside the base; `src/hud_bars.rs`; `src/hud_bars/tests.rs`, manual
 - Inventory charm menu: owned charms with swatch, cost, effect; equip by keys or mouse; `src/charm_menu.rs`; `src/charm_menu/tests.rs`, manual
 - Grounded item pickup, persistent session inventory; `src/item.rs`; `tests/items.rs`, `tests/rooms.rs`
+- Taken items stay gone after an editor Save (per run; a moved item is new; not in test rooms); `src/game/world_items.rs`; `src/game/item_tests.rs`, manual
 - Coin pickups, persistent session balance; `src/coin.rs`; `src/coin.rs` unit tests
 - Inventory screen with paused gameplay; `src/game.rs`, `src/main.rs`; `src/game.rs` unit tests, manual
 - Pause menu: Escape opens it, the world stands still, Unpause / Settings / Exit by keys and mouse; `src/pause_menu.rs`; `src/pause_menu/tests.rs`, manual
@@ -103,6 +104,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Editor tools: Select, Place, Terrain, Erase (V, P, T, E), grid-snapped solids with handles; `src/editor_terrain.rs`; `tests/editor_terrain.rs`, manual
 - Behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation, usage warnings, Key values; `src/preset.rs`; `tests/presets.rs`
 - Player stats in the editor: Player panel with every `player.ron` number, validated, staged Save; `src/player_panel.rs`; `tests/player_editor.rs`, manual
+- Max mana guard: a vitals Save (Player panel, F4, Save all) below a saved charm's cost is refused; `src/player_editor.rs`; `tests/max_mana_guard.rs`, manual
 - Player look in the editor: Look section edits `player_body.ron` with a spawn-point preview; `src/player_look_editor.rs`; `tests/player_look.rs`, manual
 - Playing and undoing the edited player: Test room plays unsaved stats and look, own undo; `src/player_history.rs`; `tests/player_test_room.rs`, manual
 - Charm editor panel: every charm with every `charms.ron` field, validated, staged Save; `src/charm_panel.rs`; `tests/charm_editor.rs`, manual

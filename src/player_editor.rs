@@ -19,11 +19,16 @@
 //!
 //! The last two can fail for a draft that is otherwise made of valid numbers, so the draft may
 //! hold them. They name the fields involved (for the message next to the field) and block Save.
+//!
+//! One more rule is about the vitals file and the charm file together: `vitals.ron`'s max mana
+//! must cover the cost of every charm in the charm list that is saved with it (`CharmCost`,
+//! `vitals_problem`). Without it a Save can write a file that the next start refuses to load.
 
 use std::path::{Path, PathBuf};
 
 use macroquad::math::Vec2;
 
+use crate::charms::{number_text, Charm};
 use crate::editor::{EditorSession, RoomLayout};
 use crate::room::{Room, RoomId};
 use crate::terrain::Terrain;
@@ -57,6 +62,27 @@ impl SpawnCheck {
             spawn: layout.spawn.into(),
             terrain: Terrain::from_tuples(&layout.terrain),
         }
+    }
+}
+
+/// What a charm costs in mana, for `PlayerDraft::vitals_problem`: the draft is given the charm
+/// list's costs the way it is given the rooms' spawns.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CharmCost {
+    pub name: String,
+    pub cost: f32,
+}
+
+impl CharmCost {
+    /// The cost of every charm in `charms`, in order.
+    pub fn from_charms(charms: &[Charm]) -> Vec<Self> {
+        charms
+            .iter()
+            .map(|charm| Self {
+                name: charm.name.clone(),
+                cost: charm.mana_cost,
+            })
+            .collect()
     }
 }
 
@@ -254,8 +280,52 @@ impl PlayerDraft {
         Ok(path)
     }
 
+    /// Why the edited max mana cannot be saved: it is below the cost of a charm in `costs`, the
+    /// charm list that will be on disk with it. Names the dearest charm (the first of equals), the
+    /// number that was compared and the lowest max mana that is allowed. `None` when every cost is
+    /// covered (a max mana equal to the highest cost is), and for an empty list. A raise of a
+    /// saved max mana always passes: the saved list loaded under the saved max mana.
+    pub fn vitals_problem(&self, costs: &[CharmCost]) -> Option<String> {
+        let max_mana = self.edited_vitals.max_mana;
+        let dearest = costs
+            .iter()
+            .reduce(|best, charm| if charm.cost > best.cost { charm } else { best })?;
+        (dearest.cost > max_mana).then(|| {
+            format!(
+                "max mana {} is below the mana cost of the {} ({}) in charms.ron: the lowest \
+                 allowed max mana is {}",
+                number_text(max_mana),
+                dearest.name,
+                number_text(dearest.cost),
+                number_text(dearest.cost),
+            )
+        })
+    }
+
+    /// `Ok` when the edited vitals may be saved next to the charm list `costs` describes.
+    pub fn validate_vitals(&self, costs: &[CharmCost]) -> Result<(), String> {
+        self.edited_vitals.validate()?;
+        match self.vitals_problem(costs) {
+            Some(problem) => Err(problem),
+            None => Ok(()),
+        }
+    }
+
     /// Writes the edited vitals to `vitals.ron` in `assets`, staged like `save`, and marks them
-    /// saved. Invalid vitals write nothing.
+    /// saved. Invalid vitals write nothing, and neither do vitals that `vitals_problem` refuses
+    /// for `costs`.
+    pub fn save_vitals_checked(
+        &mut self,
+        assets: &Path,
+        costs: &[CharmCost],
+    ) -> Result<PathBuf, String> {
+        self.validate_vitals(costs)?;
+        self.save_vitals(assets)
+    }
+
+    /// Writes the edited vitals to `vitals.ron` in `assets`, staged like `save`, and marks them
+    /// saved. Invalid vitals write nothing. This is the bare write: it does not know the charm
+    /// list, so the game saves through `save_vitals_checked`.
     pub fn save_vitals(&mut self, assets: &Path) -> Result<PathBuf, String> {
         let path = vitals::save(assets, &self.edited_vitals)?;
         self.mark_vitals_saved();

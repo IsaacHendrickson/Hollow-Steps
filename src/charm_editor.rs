@@ -432,7 +432,8 @@ impl CharmDraft {
                 add(
                     "mana_cost",
                     format!(
-                        "mana_cost must not be above the base max mana ({})",
+                        "mana_cost must not be above the base max mana ({}), the max_mana saved \
+                         in vitals.ron",
                         number_text(base_max_mana)
                     ),
                 );

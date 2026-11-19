@@ -55,9 +55,17 @@ which charms lie in which rooms. Opening it closes the Player panel and the othe
   `owned_at_start` charms); charms can be equipped anywhere (no special places).
 - Deleting a placed charm *and* placing a new charm in the same Save is refused: save the room
   without the new placement, then the charms, then place it again.
-- `vitals.ron` is saved separately: the Player panel does not check a lowered base max mana against
-  the saved charms' costs, so the next start or F5 then refuses the charm list until the cost
-  or the base is fixed.
+- Saving `vitals.ron` is checked against the charm list, so a Save cannot lock the game out. The
+  Player panel Save, the F4 Save and Save all refuse a max mana below the cost of any charm, naming
+  the dearest one and the lowest allowed max mana, and write nothing (not `player.ron` either). The
+  Player panel and F4 compare it with the charms in `charms.ron` as saved, so a charm deleted in
+  the Charms panel still counts until that list is saved; Save all compares it with the list it is
+  about to write, so the same deletion does not block it. A max mana equal to the highest cost is
+  allowed, and so is any raise. The Charms panel still checks a cost against the max mana saved in
+  `vitals.ron` (its message says so), not the unsaved one that equipping uses.
+- A hand edit can still break loading (a cost above the max mana in either file). The load error
+  and the F5 error then end with one hint line: lower the charm's `mana_cost` in
+  `assets/charms.ron`, or raise `max_mana` in `assets/vitals.ron` (or delete that file).
 
 ### Manual check: charms
 
@@ -65,7 +73,8 @@ which charms lie in which rooms. Opening it closes the Player panel and the othe
    cost; Save charms; close the editor, open the inventory and equip it. The health bar and mana
    bar follow the saved numbers.
 2. Type a cost above the base max mana: the field refuses it and says why. Make two names alike:
-   the message shows and Save charms writes nothing.
+   the message shows and Save charms writes nothing. In the Player panel set Max mana to 10 and
+   Save: refused, naming the Sharp Charm and 20, and no file changes; set 20: it saves.
 3. Edit a charm, then press F2: the dialog lists "Charms". Cancel keeps it; Discard puts the
    saved numbers back; Save writes them.
 4. Edit an equipped charm's amount and press **Test room (F6)**: the test plays the new number

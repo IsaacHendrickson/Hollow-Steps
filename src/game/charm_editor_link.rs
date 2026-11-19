@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use super::GameState;
 use crate::charm_editor::CharmDraft;
 use crate::charms::CharmCatalog;
+use crate::player_editor::CharmCost;
 
 /// What `GameState::save_charms` did.
 #[derive(Clone, Debug, PartialEq)]
@@ -31,6 +32,16 @@ impl GameState {
         match &self.editor {
             Some(session) => session.player.saved_vitals().max_mana,
             None => self.player_draft.saved_vitals().max_mana,
+        }
+    }
+
+    /// The mana cost of every charm in `charms.ron` as it is on disk now: the Charms panel's saved
+    /// list (also while a test room has the session parked) or, with the editor closed, the list
+    /// in play. Unsaved edits of the list are not in it.
+    pub(super) fn saved_charm_costs(&self) -> Vec<CharmCost> {
+        match self.editor.as_ref().or_else(|| self.parked_editor()) {
+            Some(session) => CharmCost::from_charms(session.charms.saved()),
+            None => CharmCost::from_charms(self.charms.charms()),
         }
     }
 

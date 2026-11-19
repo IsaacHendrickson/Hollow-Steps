@@ -105,7 +105,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/keybinds.rs` (+ `keybinds/`): rebindable controls as pure state; `docs/keybinds.md`
 - `src/tuning.rs`: player, melee, strike, knockback tunables (`data/player.ron`), staged save
 - `src/tuning_fields.rs`: editable `player.ron` numbers, one range per field
-- `src/player_editor.rs`: pure `PlayerDraft` editing `player.ron` and `vitals.ron`
+- `src/player_editor.rs`: pure `PlayerDraft` editing `player.ron` and `vitals.ron`; max mana must cover saved charm costs (`CharmCost`)
 - `src/player_history.rs`: the Player panel's own undo/redo
 - `src/player_look_editor.rs`: pure `PlayerLookDraft` editing `player_body.ron`, preview
 - `src/charms.rs`: charm rules: `Charm`, `CharmCatalog`, `CharmState`, `effective`
@@ -152,6 +152,7 @@ Composition and front end:
 - `src/charm_panel.rs` (+ `charm_panel/`): the editor's Charms panel
 - `src/game/charm_editor_link.rs`: `GameState` holds the Charms panel's edits: sync, save, discard
 - `src/game/world_charms.rs`: charms lying in rooms, in play and in Save: pickup, validation
+- `src/game/world_items.rs`: items in play and Save: pickup, taken items kept for the run (`TakenItems`), restored on rebuild
 - `src/player_panel.rs` (+ `player_panel/`): the editor's Player panel; `draw_field` is shared with F4
 - `src/tuning_panel.rs`: F4 egui window: a drag box per `player.ron` and `vitals.ron` field
 - `src/scene.rs`: Macroquad drawing of the world (background to player)

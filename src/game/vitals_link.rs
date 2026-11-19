@@ -79,11 +79,27 @@ impl GameState {
         Ok(())
     }
 
+    /// `Ok` when the vitals in effect may be written to `vitals.ron`: their max mana covers the
+    /// cost of every charm in the saved charm list (`PlayerDraft::vitals_problem`). Only a draft
+    /// with unsaved vitals is held to it. The F4 window and the Player panel ask this before
+    /// they write anything, so a refused vitals save leaves `player.ron` alone too.
+    pub fn check_vitals_save(&mut self) -> Result<(), String> {
+        self.sync_player_from_editor();
+        if !self.player_draft.is_vitals_dirty() {
+            return Ok(());
+        }
+        self.player_draft.validate_vitals(&self.saved_charm_costs())
+    }
+
     /// Writes the vitals tunables in effect to `vitals.ron` in the assets folder and returns
-    /// its path.
+    /// its path. Refused, writing nothing, when the max mana is below a saved charm's cost
+    /// (`check_vitals_save`).
     pub fn save_vitals(&mut self) -> Result<PathBuf, String> {
         self.sync_player_from_editor();
-        let path = self.player_draft.save_vitals(&self.assets)?;
+        let costs = self.saved_charm_costs();
+        let path = self
+            .player_draft
+            .save_vitals_checked(&self.assets, &costs)?;
         self.attach_player_draft();
         Ok(path)
     }

@@ -36,6 +36,24 @@ pub const MAX_SPEED_PERCENT: f32 = 200.0;
 /// A sum of mana costs this close to the budget still fits (float noise).
 const MANA_EPSILON: f32 = 1e-4;
 
+/// The start of the message for a mana cost outside 0 to the base max mana. `with_cost_hint`
+/// recognizes an error by it.
+const COST_RANGE: &str = "mana_cost must be between 0 and the base max mana";
+
+/// What to do when the files disagree about mana, as the last line of the load error.
+const COST_HINT: &str = "Hint: lower the charm's mana_cost in assets/charms.ron, or raise \
+                         max_mana in assets/vitals.ron (or delete that file).";
+
+/// `error` with `COST_HINT` on a line of its own when it is about a cost the max mana cannot
+/// cover; any other error is unchanged.
+fn with_cost_hint(error: String) -> String {
+    if error.contains(COST_RANGE) {
+        format!("{error}\n{COST_HINT}")
+    } else {
+        error
+    }
+}
+
 /// Red, green, blue, alpha.
 pub type Rgba = [u8; 4];
 
@@ -139,10 +157,7 @@ impl Charm {
             ));
         }
         if !self.mana_cost.is_finite() || !(0.0..=base_max_mana).contains(&self.mana_cost) {
-            return error(format!(
-                "mana_cost must be between 0 and the base max mana ({})",
-                number_text(base_max_mana)
-            ));
+            return error(format!("{COST_RANGE} ({})", number_text(base_max_mana)));
         }
         if let Err(problem) = self.effect.validate() {
             return error(problem);
@@ -194,6 +209,9 @@ impl CharmCatalog {
     /// The `charms.ron` in `assets` if there is one (it replaces the defaults whole), otherwise
     /// the embedded `data/charms.ron`. A file that exists but cannot be read or is invalid is an
     /// error naming it, never a fallback.
+    ///
+    /// A cost the max mana cannot cover (a hand edit of either file) ends the error with one hint
+    /// line saying which file to change.
     pub fn load(assets: &Path, base_max_mana: f32) -> Result<Self, String> {
         match read_override(assets, FILE_NAME)? {
             Some(text) => Self::from_ron(&text, base_max_mana)
@@ -201,6 +219,7 @@ impl CharmCatalog {
             None => Self::from_ron(DEFAULTS, base_max_mana)
                 .map_err(|error| format!("data/charms.ron: {error}")),
         }
+        .map_err(with_cost_hint)
     }
 
     /// Each charm valid, ids unique, names unique ignoring case.

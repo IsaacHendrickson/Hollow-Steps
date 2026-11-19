@@ -4,6 +4,7 @@
 //! session itself; `perform` carries out an approved action.
 use crate::editor::EditorSession;
 use crate::game::GameState;
+use crate::player_editor::CharmCost;
 use crate::room::RoomId;
 use crate::room_name::default_display_name;
 
@@ -187,7 +188,8 @@ impl UnsavedGuard {
 /// the Player panel's stats and look (which may name poses the room save just wrote). The
 /// charms go first so a room can name a charm that was just made, unless the list deletes a
 /// charm that a saved room places: then the room goes first, to take it out. Stops at the
-/// first failure, so nothing after it is written.
+/// first failure, so nothing after it is written. A max mana below the cost of a charm in the list
+/// that will be saved is refused before the first write.
 pub fn save_all(game: &mut GameState) -> Result<(), String> {
     let session = game.editor().ok_or("editor is closed")?;
     let (charms, room, player) = (
@@ -195,6 +197,18 @@ pub fn save_all(game: &mut GameState) -> Result<(), String> {
         session.has_unsaved(),
         player_unsaved(session),
     );
+    // The vitals are held to the charm list that will be on disk once this Save all has written
+    // the charms, and that is decided before anything is written.
+    if session.player.is_vitals_dirty() {
+        let list = if charms {
+            session.charms.edited()
+        } else {
+            session.charms.saved()
+        };
+        session
+            .player
+            .validate_vitals(&CharmCost::from_charms(list))?;
+    }
     let rooms_first = charms && game.charm_save_needs_rooms_first();
     if charms && !rooms_first {
         game.save_charms()?;

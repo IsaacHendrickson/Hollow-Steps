@@ -82,6 +82,11 @@ impl GameState {
         self.test_run.is_some()
     }
 
+    /// The editor session while a test room is running: it is parked, not closed.
+    pub(super) fn parked_editor(&self) -> Option<&EditorSession> {
+        self.test_run.as_ref().map(|run| &run.session)
+    }
+
     /// Plays the open editor's draft with the player at its spawn and the editor closed.
     /// Exits do nothing during a test (they would lead into saved rooms). If the draft is
     /// not a valid room the error is also left in the editor message, and nothing changes.
