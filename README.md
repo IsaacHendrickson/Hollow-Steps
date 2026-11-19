@@ -113,5 +113,6 @@ read them. Open only the one you need:
 - [Data-driven enemies](docs/data-driven-enemies.md)
 - [Room editor design, behavior presets, and editor manual checks](docs/room-editor.md)
 
-Project rules and the module list are in [AGENTS.md](AGENTS.md); the feature
-list is in [FEATURES.md](FEATURES.md).
+Project rules and a one-line module list are in [AGENTS.md](AGENTS.md) (every
+module in full: [docs/modules.md](docs/modules.md)); the feature list is in
+[FEATURES.md](FEATURES.md).
