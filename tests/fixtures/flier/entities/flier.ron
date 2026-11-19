@@ -1,0 +1,37 @@
+// Fixed fixture for tests/flier_fixtures.rs: a small flier written for the tests. Do not
+// synchronize with editable assets.
+(
+    name: "flier",
+    health: 10,
+    size: (32.0, 40.0),
+    contact_damage: 10,
+    behavior: "patrol",
+    movement: Flying(
+        hover_height: 48.0,
+        bob_amplitude: 4.0,
+        bob_speed: 0.5,
+        flap: Some((
+            up_pose: "fly_up",
+            down_pose: "fly_down",
+            hover_rate: 3.0,
+            rate_per_speed: 0.02,
+            max_rate: 7.0,
+        )),
+    ),
+    body: Some((
+        hurt: (
+            pose: Some("hurt"),
+            duration_secs: 0.15,
+            blend_secs: 0.03,
+            flash_secs: 0.08,
+            tint: (1.0, 1.0, 1.0),
+            tint_strength: 1.0,
+        ),
+        template: "flier",
+        primary: (0.4, 0.4, 0.6, 1.0),
+        secondary: (0.2, 0.2, 0.4, 1.0),
+        accent: (0.9, 0.7, 0.2, 1.0),
+        eye: (1.0, 1.0, 1.0, 1.0),
+        scale: 1.0,
+    )),
+)
