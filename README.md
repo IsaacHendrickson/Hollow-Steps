@@ -115,4 +115,4 @@ read them. Open only the one you need:
 
 Project rules and a one-line module list are in [AGENTS.md](AGENTS.md) (every
 module in full: [docs/modules.md](docs/modules.md)); the feature list is in
-[FEATURES.md](FEATURES.md).
+[FEATURES.md](FEATURES.md) (full text: [docs/features-detail.md](docs/features-detail.md)).
