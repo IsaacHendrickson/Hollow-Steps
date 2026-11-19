@@ -111,7 +111,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/charms.rs`: charm rules: `Charm`, `CharmCatalog`, `CharmState`, `effective`
 - `src/vitals.rs`: pure vitals (health, trailing bar, mana, hold-to-heal); `data/vitals.ron`
 - `src/editor.rs`: pure room editing, validation, serialization, and file save boundary
-- `src/editor_files.rs`: room file names, staged room save, loading extra rooms
+- `src/editor_files.rs`: room file names (a bad `room_*.ron` name errors with the fix), staged room save, loading extra rooms
 - `src/room_charms.rs`: charms lying in rooms: placements, pickup rule, charm checks
 - `src/editor_charms.rs`: `placement_catalog` (with "Charm: <name>") and `charm_swatch`
 - `src/charm_editor.rs`: pure `CharmDraft` editing `charms.ron`, validate-first save
