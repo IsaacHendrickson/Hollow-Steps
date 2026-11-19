@@ -33,6 +33,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Charm bars: bars keep their length and show charm capacity as an extension or a locked end beside the base; `src/hud_bars.rs`; `src/hud_bars/tests.rs`, manual
 - Inventory charm menu: owned charms with swatch, cost, effect; equip by keys or mouse; `src/charm_menu.rs`; `src/charm_menu/tests.rs`, manual
 - Grounded item pickup, persistent session inventory; `src/item.rs`; `tests/items.rs`, `tests/rooms.rs`
+- Taken items stay gone after an editor Save (per run; a moved item is new; not in test rooms); `src/game/world_items.rs`; `src/game/item_tests.rs`, manual
 - Coin pickups, persistent session balance; `src/coin.rs`; `src/coin.rs` unit tests
 - Inventory screen with paused gameplay; `src/game.rs`, `src/main.rs`; `src/game.rs` unit tests, manual
 - Pause menu: Escape opens it, the world stands still, Unpause / Settings / Exit by keys and mouse; `src/pause_menu.rs`; `src/pause_menu/tests.rs`, manual

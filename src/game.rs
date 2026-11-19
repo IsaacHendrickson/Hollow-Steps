@@ -12,7 +12,7 @@ use crate::editor::{self, EditorSession};
 use crate::enemy::EnemyDefinitions;
 use crate::events::{EventQueue, GameEvent, LocatedEvent};
 use crate::feel::{Feel, FeelConfig};
-use crate::item::WorldItem;
+use crate::item::{TakenItems, WorldItem};
 use crate::keybinds::Keybinds;
 use crate::pause_menu::PauseMenu;
 use crate::player::{Player, PlayerInput, WorldBounds};
@@ -39,6 +39,8 @@ mod feel_tests;
 mod flier_tests;
 #[cfg(test)]
 mod hud_loss_tests;
+#[cfg(test)]
+mod item_tests;
 mod keybind_link;
 #[cfg(test)]
 mod keybind_tests;
@@ -60,6 +62,7 @@ mod vitals_link;
 #[cfg(test)]
 mod vitals_tests;
 mod world_charms;
+mod world_items;
 
 pub use crate::room::FLOOR_Y;
 pub use charm_editor_link::CharmsSaved;
@@ -110,6 +113,8 @@ pub struct GameState {
     charm_state: CharmState,
     /// The cursor and the last refusal of the inventory's Charms section.
     charm_menu: CharmMenu,
+    /// The items taken during the run; see `world_items`.
+    taken_items: TakenItems,
 }
 
 impl GameState {
@@ -155,6 +160,7 @@ impl GameState {
             vitals: vitals_link::fresh_vitals(vitals, tuning.player.max_health),
             charm_state: CharmState::starting(&charms),
             charm_menu: CharmMenu::default(),
+            taken_items: TakenItems::default(),
             charms,
         };
         game.prune_owned_charm_placements();
@@ -527,20 +533,9 @@ impl GameState {
             return;
         }
         // Up with X is an upward strike, not a pickup.
-        if input.pickup_pressed && !(input.attack_pressed && input.up_held) {
-            let index = self.current;
-            let room = &mut self.rooms[index];
-            if let Some(index) = room
-                .items
-                .iter()
-                .position(|item| item.can_pick_up(&self.player))
-            {
-                let item = room.items.remove(index);
-                self.player.collect_item(item.item);
-                self.events.push(GameEvent::ItemPickedUp);
-            } else {
-                self.pick_up_charm();
-            }
+        if input.pickup_pressed && !(input.attack_pressed && input.up_held) && !self.pick_up_item()
+        {
+            self.pick_up_charm();
         }
 
         let index = self.current;

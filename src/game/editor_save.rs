@@ -120,6 +120,8 @@ impl GameState {
         self.player.place_at(self.room().spawn, self.world_bounds());
         // The rebuilt rooms place every charm their files do; the ones already found stay gone.
         self.prune_owned_charm_placements();
+        // So are the items already taken: the rebuilt rooms place every item their files do.
+        self.restore_taken_items(&saved);
         Ok(())
     }
 }

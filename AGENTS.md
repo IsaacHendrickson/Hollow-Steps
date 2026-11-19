@@ -152,6 +152,7 @@ Composition and front end:
 - `src/charm_panel.rs` (+ `charm_panel/`): the editor's Charms panel
 - `src/game/charm_editor_link.rs`: `GameState` holds the Charms panel's edits: sync, save, discard
 - `src/game/world_charms.rs`: charms lying in rooms, in play and in Save: pickup, validation
+- `src/game/world_items.rs`: items in play and Save: pickup, taken items kept for the run (`TakenItems`), restored on rebuild
 - `src/player_panel.rs` (+ `player_panel/`): the editor's Player panel; `draw_field` is shared with F4
 - `src/tuning_panel.rs`: F4 egui window: a drag box per `player.ron` and `vitals.ron` field
 - `src/scene.rs`: Macroquad drawing of the world (background to player)

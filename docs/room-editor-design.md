@@ -64,8 +64,11 @@ leaving the room (see "Arrivals of other rooms' exits" in docs/room-editor-links
 the footer and preserve the draft, running room, and previous file.
 Closing with F2, opening another room, or choosing New room discards unsaved
 changes. A star next to the room ID marks unsaved changes. Saving resets that
-room's editable enemies/items and places the player at its spawn, while keeping
-inventory, coins, and unchanged boss progress. Editing a boss definition or placement
+room's editable enemies and places the player at its spawn, while keeping
+inventory, coins, charms, the items already picked up this run, and unchanged boss
+progress. A picked-up item is remembered as (room, kind, position) for the run and
+removed again when the room is rebuilt; an item moved or added in the editor is a new
+item and appears, and a test room's pickups are not remembered. Editing a boss definition or placement
 restarts affected encounters with the saved content. F5 retains its existing enemy-only reload
 behavior for already loaded rooms; restart or use editor Save to apply layouts.
 
