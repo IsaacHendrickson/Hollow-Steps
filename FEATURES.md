@@ -86,9 +86,9 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 ## Room and definition editor
 
 - F2 paused room editor: placement, move, delete, entity list, spawn/exit editing, atomic RON saves, custom rooms; `src/editor.rs`; `tests/editor.rs`
-- Entity/behavior side panel, state/link editing, shared-name updates, staged RON saves; `src/definition_editor.rs`; `tests/definition_editor.rs`
+- Entity/behavior side panel, state/link editing, shared-name updates, staged RON saves; `src/definition_editor/`; `tests/definition_editor.rs`
 - Responsive scrollable panel, pinned Save, ordered action/transition rows, type catalogs, RON editing; `src/editor_panel.rs`; `tests/definition_editor.rs`
-- Save conflict detection, full validation, LF writes, recoverable staging, repeat renames; `src/definition_editor.rs`; `tests/definition_editor.rs`
+- Save conflict detection, full validation, LF writes, recoverable staging, repeat renames; `src/definition_editor/plan.rs`; `tests/definition_editor.rs`
 - Searchable lists with stable selection, Unicode prefix-first matching, counts, management buttons; `src/search.rs`; `tests/definition_editor.rs`
 - Patrol handles, exit/arrival deletion, item catalog, no-exit warnings, transactional saves, Windows-safe names; `src/editor.rs`; `tests/editor.rs`
 - egui panel: collapsing sections, filtered dropdowns, tooltip truncation, solid scrollbars, canvas input capture; `src/editor_panel.rs`; headless tests, manual
@@ -111,7 +111,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Charm editing in the session: unsaved Charms in the guard, Test room, own undo/redo; `src/charm_history.rs`; `tests/charm_unsaved.rs`, manual
 - Charms in rooms: `layout.charms`, placed in the editor, picked up once, owned for the run; `src/room_charms.rs`; `tests/world_charms.rs`, manual
 - Player health, damage and mana in the editor: `max_health`, sword damage, vitals; `src/player_editor.rs`; `tests/player_stats.rs`, manual
-- Blank-enemy creation and behavior assignment, editable Skittish distances/speed; `src/definition_editor.rs`, `src/behavior/`; `tests/presets.rs`
+- Blank-enemy creation and behavior assignment, editable Skittish distances/speed; `src/definition_editor/entities.rs`, `src/behavior/`; `tests/presets.rs`
 - Catalog-backed pose dropdowns for attack phases in rows and Key values; `src/editor_panel/widgets.rs`; `tests/poses.rs`
 - Body, pose, spring, hurt, blend and tint values all have data, validation, editor controls; `src/body.rs`, `src/pose.rs`, `data/`; `tests/poses.rs`
 

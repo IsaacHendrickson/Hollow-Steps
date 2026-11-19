@@ -68,7 +68,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/editor_tools.rs`: the editor tool enum (Select, Place, Terrain, Erase), its key map, and the terrain tool's selection and drag state.
 - `src/editor_view.rs`: pure editor canvas math: zoom/pan transform, grid snapping, window regions, footer wrapping.
 - `src/room_size.rs`: validated room bounds/floor edits for the editor.
-- `src/definition_editor.rs`: pure entity/behavior edits, save planning, and staged file writes.
+- `src/definition_editor.rs` (+ `definition_editor/`): pure entity/behavior edits, save planning, and staged file writes. The parent re-exports every public item, so `hollow_steps::definition_editor::*` paths are unchanged. `draft.rs`: `DefinitionDraft`, `load` and read-only queries; `plan.rs`: `plan`, `prepare`, `commit`, `SavePlan`, snapshot checks, `write_files`, `serialize`; `entities.rs`: entity and behavior edits, `entity_from_fields`, `validate_entity_field`; `states.rs`: state edits, `ActionInput`, `TransitionInput`, `StateInputs`, `remove_row`, `move_row`.
 - `src/search.rs`: pure editor list filtering and stable selection.
 
 Composition and front end:

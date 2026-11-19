@@ -128,7 +128,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/editor_tools.rs`: editor tool enum (Select, Place, Terrain, Erase), key map, terrain drag state
 - `src/editor_view.rs`: pure editor canvas math: zoom/pan, grid snapping, window regions
 - `src/room_size.rs`: validated room bounds/floor edits for the editor
-- `src/definition_editor.rs`: pure entity/behavior edits, save planning, staged writes
+- `src/definition_editor.rs` (+ `definition_editor/`): pure entity/behavior edits, save planning, staged writes
 - `src/search.rs`: pure editor list filtering and stable selection
 
 Composition and front end:
