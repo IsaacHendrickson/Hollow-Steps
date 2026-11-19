@@ -52,13 +52,13 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Flying enemies: `movement` Ground or Flying (hover, bob, wing flap), no gravity or terrain; `src/enemy/movement.rs`, `src/enemy/flap.rs`; `tests/flying.rs`
 - Hitbox and visual size apart: `size` is the hitbox, optional `visual_size` the drawn box; `src/visual_box.rs`; `tests/visual_size.rs`, manual
 - RON enemy definitions and placements, sequential actions, conditional transitions, validation; `src/behavior.rs`; `tests/behavior.rs`, `tests/definitions.rs`
-- Shared lunge, jump, slam, projectile fan, radial blast, warning and recovery actions; `src/enemy_attack.rs`, `src/behavior/`; `tests/attack_actions.rs`
-- Lunge samples player direction once, suspends gravity, stops at walls, keeps authored trajectories; `src/enemy_attack.rs`; `tests/attack_actions.rs`
-- Rect/circle attack boxes, immunity-gated damage and knockback; `src/enemy_attack.rs`, `src/player.rs`; `tests/attack_actions.rs`
+- Shared lunge, jump, slam, projectile fan, radial blast, warning and recovery actions; `src/enemy_attack/`, `src/behavior/`; `tests/attack_actions.rs`
+- Lunge samples player direction once, suspends gravity, stops at walls, keeps authored trajectories; `src/enemy_attack/runtime.rs`; `tests/attack_actions.rs`
+- Rect/circle attack boxes, immunity-gated damage and knockback; `src/enemy_attack/attack_box.rs`, `src/player.rs`; `tests/attack_actions.rs`
 - One hit per tick: strongest of enemy contact/blast/attack and boss action/contact damage; `src/damage.rs`, `src/game.rs`; `src/damage.rs` unit tests
 - Jump-to-player, hover, slam, random area blasts with arena clamping and editor parameters; `src/action_runtime/movement.rs`; `tests/arena_actions.rs`
-- Warning tint strength (0.25) and 30% AttackBox outline; `src/enemy_attack.rs`, `src/body_draw.rs`; `tests/attack_actions.rs`
-- Compile-time guard keeping hitbox/attack motion independent of body state; `src/enemy_attack.rs`; `tests/pose_geometry.rs`
+- Warning tint strength (0.25) and 30% AttackBox outline; `src/enemy_attack/options.rs`, `src/body_draw.rs`; `tests/attack_actions.rs`
+- Compile-time guard keeping hitbox/attack motion independent of body state; `src/enemy_attack/`; `tests/pose_geometry.rs`
 
 ## Bosses
 
@@ -74,7 +74,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Damped point following, idle motion, per-point springs, F5 motion preservation; `src/body/`, `data/body_motion_defaults.ron`; `tests/body_motion.rs`
 - Charger/Hopper/Shooter use distinct bodies, palettes, scales; `assets/entities/`; `tests/shipped_content.rs`, `tests/bodies.rs`
 - Semantic pose assets and per-template point mapping; `src/pose.rs`; `tests/poses.rs`
-- Attack phase pose commands with spring target cleanup; `src/behavior/action_info.rs`, `src/action_runtime/poses.rs`, `src/enemy_attack.rs`; `tests/poses.rs`
+- Attack phase pose commands with spring target cleanup; `src/behavior/action_info.rs`, `src/action_runtime/poses.rs`, `src/enemy_attack/runtime.rs`; `tests/poses.rs`
 - Telegraph-derived critically damped pose springs, blend ratio, strike stiffness, shot recoil; `src/pose.rs`, `data/pose_defaults.ron`; `tests/poses.rs`
 - Eight authored poses, attack bindings, timed hurt pose and white flash; `assets/poses/`, `src/body/instance.rs`; `tests/poses.rs`
 - Player body: a hooded wanderer with idle, run, jump and attack poses; the hitbox is unchanged; `src/player_body.rs`; `tests/player_body.rs`, manual

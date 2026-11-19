@@ -75,7 +75,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/action_runtime.rs` (+ `action_runtime/`): shared action execution; read actions by reference, never clone
 - `src/assets.rs`: assets folder resolution, load-failure text, `read_override` for `data/*.ron`
 - `src/behavior.rs` (+ `behavior/`): data-driven action sequences, state transitions, RON validation
-- `src/enemy_attack.rs`: shared attack geometry, timed enemy attacks, projectiles
+- `src/enemy_attack.rs` (+ `enemy_attack/`): shared attack geometry, timed enemy attacks, projectiles
 - `src/preset.rs`: validated RON behavior preset catalog.
 - `src/action_parameters.rs`: labeled scalar editor fields for the action registry
 - `src/behavior_values.rs`: numeric behavior controls, transactional validated edits
