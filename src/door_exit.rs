@@ -16,7 +16,7 @@ use crate::terrain::Terrain;
 
 /// The smallest width and height a door can have.
 pub const MIN_DOOR_SIDE: f32 = 16.0;
-/// Half the player's height: a door's bottom sits at the feet of the player it is made for.
+/// Half the player's height: the spawn point is the player's center.
 const PLAYER_HALF_HEIGHT: f32 = 24.0;
 
 impl Serialize for ExitPlacement {
@@ -157,17 +157,32 @@ impl ExitPlacement {
     }
 }
 
+/// The y a door `width` wide from `left` can stand on, given the player's `feet` at the spawn:
+/// the top of the highest solid at or below the feet that the door's width reaches, or the floor.
+fn ground_below(layout: &RoomLayout, left: f32, width: f32, feet: f32) -> f32 {
+    Terrain::from_tuples(&layout.terrain)
+        .solids()
+        .iter()
+        .filter(|solid| solid.x < left + width && solid.right() > left && solid.y >= feet - 0.5)
+        .map(|solid| solid.y)
+        .fold(layout.floor_y, f32::min)
+}
+
 impl RoomDraft {
-    /// Adds a door standing at the room's spawn point, leading to `target_room` and arriving
-    /// at `spawn`. Refused, with the draft unchanged, when it would not fit there.
+    /// Adds a door standing on the ground under the room's spawn point (the spawn can be in
+    /// mid-air), leading to `target_room` and arriving at `spawn`. The ground is the top of the
+    /// highest solid below the spawn within the door's width, or else the floor. Refused, with
+    /// the draft unchanged, when it would not fit there.
     pub fn add_door(&mut self, target_room: RoomId, spawn: Vec2) -> Result<Selection, String> {
         let mut next = self.clone();
         let (px, py) = next.layout.spawn;
-        let bottom = py + PLAYER_HALF_HEIGHT;
         let (w, h) = (DOOR_SIZE.x, DOOR_SIZE.y);
+        let room = next.layout.rect();
+        let left = (px - w / 2.0).clamp(room.x, (room.right() - w).max(room.x));
+        let bottom = ground_below(&next.layout, left, w, py + PLAYER_HALF_HEIGHT);
         let index = next.layout.exits.len();
         next.layout.exits.push(ExitPlacement {
-            door: Some((px - w / 2.0, bottom - h, w, h)),
+            door: Some((left, bottom - h, w, h)),
             ..ExitPlacement::edge_exit(RoomEdge::Bottom, 0.0, 0.0, target_room, spawn.into())
         });
         next.layout.validate_geometry()?;
@@ -190,7 +205,7 @@ impl RoomDraft {
 }
 
 impl EditorSession {
-    /// Places a new door at the spawn point and opens the room chooser for it, like
+    /// Places a new door on the ground under the spawn point and opens the room chooser, like
     /// `begin_link_new_exit`; Cancel takes the door out again. Returns the door's index.
     pub fn begin_link_new_door(&mut self) -> Result<usize, String> {
         if self.link.is_some() {

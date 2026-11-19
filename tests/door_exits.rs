@@ -165,3 +165,66 @@ fn a_door_link_cannot_start_while_another_link_is_open() {
         "no second door was added"
     );
 }
+
+/// Like the shipped first room: the player spawns high above the floor, at `spawn_x`.
+fn door_in_room_with_mid_air_spawn(
+    temp: &TempAssets,
+    spawn_x: f32,
+    shard: Option<f32>,
+) -> GameState {
+    let mut game = temp.game();
+    game.edit_room(RoomId::First).unwrap();
+    let session = game.editor_mut().unwrap();
+    session.draft.layout.spawn = (spawn_x, 273.0);
+    // The fixture room has its own items; this puts one exactly where the player will stand.
+    session.draft.layout.items.clear();
+    if let Some(x) = shard {
+        session
+            .draft
+            .layout
+            .items
+            .push(hollow_steps::editor::ItemPlacement {
+                item: hollow_steps::item::Item::AmberShard,
+                position: (x, 450.0),
+            });
+    }
+    session
+        .draft
+        .add_door(RoomId::Second, Vec2::new(160.0, 376.0))
+        .unwrap();
+    game.save_editor().unwrap();
+    game.toggle_editor().unwrap();
+    // The player falls to the floor and stands in front of the door.
+    for _ in 0..600 {
+        game.update(PlayerInput::default(), DT);
+    }
+    assert!(game.player().is_grounded());
+    game
+}
+
+#[test]
+fn a_door_added_in_a_room_with_a_mid_air_spawn_can_be_used_from_the_ground() {
+    let temp = TempAssets::new();
+    let mut game = door_in_room_with_mid_air_spawn(&temp, 252.0, None);
+    assert!(game.door_in_reach().is_some(), "the prompt shows");
+    game.update(up(), DT);
+    assert_eq!(game.room().id, RoomId::Second);
+}
+
+#[test]
+fn an_item_lying_in_front_of_the_door_is_taken_first_and_then_the_door_opens() {
+    let temp = TempAssets::new();
+    let mut game = door_in_room_with_mid_air_spawn(&temp, 252.0, Some(252.0));
+    assert!(game.door_in_reach().is_none(), "Up would pick the shard up");
+
+    game.update(up(), DT);
+    assert_eq!(game.room().id, RoomId::First);
+    assert_eq!(game.player().collected_items().len(), 1);
+    assert!(
+        game.door_in_reach().is_some(),
+        "now the door's prompt shows"
+    );
+
+    game.update(up(), DT);
+    assert_eq!(game.room().id, RoomId::Second);
+}

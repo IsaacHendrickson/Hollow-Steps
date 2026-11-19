@@ -14,8 +14,10 @@ cannot disagree: `GameState::door_in_reach` (`src/game/world_doors.rs`), built o
   center is within the door's width (edges count).
 - The room's exits are unlocked (a boss room's doors stay shut until the boss falls) and it is
   not a test room (its exits would lead into saved rooms).
-- The Up press goes to an item or charm in reach first; Up together with the attack key is an
-  upward strike, never a door.
+- The Up press goes to an item or charm in reach first (pickup reach is 24 px around the
+  body), so while one is in reach there is no door prompt, only the item's own "Up: pick up";
+  once it is taken the door's prompt appears. Up together with the attack key is an upward
+  strike, never a door.
 - Walking into a door does nothing; `Room::exit_at` ignores doors.
 
 ## Where the player arrives
@@ -37,7 +39,10 @@ solid (standing on top of one is fine). A door does not cut an opening in the ro
 ## Editor
 
 - **Add door** (uses the "Exit target" list, like Add exit) and **Add door and link...** (opens
-  the room chooser, Cancel removes the door) put a door at the room's spawn point.
+  the room chooser, Cancel removes the door) put a door standing on the ground under the
+  room's spawn point: on the highest solid below it within the door's width, else the floor.
+  (The spawn point itself can be in mid-air; a door there would be out of reach.) Drag it
+  where it belongs; a door only works from the ground, so its bottom must reach the ground.
 - A door is drawn orange on the canvas; drag it like any exit (it moves by its center).
 - Selecting a door shows **Door width** and **Door height** (a drag is one undo step; the
   bottom edge and center line stay put).
@@ -50,9 +55,10 @@ first, then link to it); moving or deleting a linked door later does not update 
 ## Manual check
 
 1. F2, **Add door and link...**, choose Second, select one of its exits, Connect, Save.
-2. In the first room walk onto the door: nothing happens, an "Up: enter" prompt appears.
+2. In the first room walk onto the door: nothing happens, an "Up: enter" prompt appears (not
+   while an item is within reach of you: take it first).
 3. Press Up: you arrive in Second in front of the exit you chose. Jump while standing at the
    door: no prompt in the air. Stand just beside the door: no prompt.
 4. Select the door in the editor, change width and height, drag it onto a platform, Undo.
 5. Start a boss fight in a room with a door: the door is red and Up does nothing until the
-   boss falls. In a test room (F6) doors do nothing.
+   boss falls. In a test room (F6) doors do nothing and show no prompt, like every exit there.

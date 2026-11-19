@@ -120,7 +120,7 @@ fn up_with_the_attack_key_strikes_upward_and_does_not_open_the_door() {
 }
 
 #[test]
-fn an_item_in_reach_takes_the_up_press_before_the_door() {
+fn an_item_in_reach_takes_the_up_press_before_the_door_and_the_prompt_waits() {
     let mut game = game_with_door();
     game.rooms[0].items.push(WorldItem {
         item: Item::AmberShard,
@@ -128,6 +128,10 @@ fn an_item_in_reach_takes_the_up_press_before_the_door() {
     });
     stand_at(&mut game, 404.0);
     let before = game.player.collected_items().len();
+    assert!(
+        game.door_in_reach().is_none(),
+        "no \"Up: enter\" while Up would pick the item up"
+    );
 
     game.update(up(), DT);
     assert_eq!(
@@ -136,6 +140,10 @@ fn an_item_in_reach_takes_the_up_press_before_the_door() {
         "the item was picked up instead"
     );
     assert_eq!(game.player.collected_items().len(), before + 1);
+    assert!(
+        game.door_in_reach().is_some(),
+        "the door's prompt appears once it is taken"
+    );
 
     game.update(up(), DT);
     assert_eq!(
@@ -143,6 +151,26 @@ fn an_item_in_reach_takes_the_up_press_before_the_door() {
         RoomId::Second,
         "the next press opens the door"
     );
+}
+
+#[test]
+fn a_charm_in_reach_also_makes_the_door_wait() {
+    let mut game = game_with_door();
+    let id = game.charms.charms()[0].id.clone();
+    game.rooms[0].charms.push(crate::room_charms::WorldCharm {
+        charm: id,
+        position: vec2(404.0, 440.0),
+    });
+    stand_at(&mut game, 404.0);
+    assert!(game.charm_in_reach().is_some(), "the charm is within reach");
+    assert!(game.door_in_reach().is_none());
+    game.update(up(), DT);
+    assert_eq!(
+        game.room().id,
+        RoomId::First,
+        "the charm was taken, not the door"
+    );
+    assert!(game.door_in_reach().is_some());
 }
 
 #[test]
@@ -209,4 +237,26 @@ fn edge_exits_still_work_by_walking_into_them() {
     stand_at(&mut game, right_edge - 20.0);
     game.update(PlayerInput::default(), DT);
     assert_eq!(game.room().id, RoomId::Second);
+}
+
+#[test]
+fn the_prompt_and_travel_agree_with_an_item_lying_in_front_of_the_door() {
+    let mut x = 300.0;
+    while x <= 520.0 {
+        // A fresh room each time: the press at the item would otherwise take it for good.
+        let mut game = game_with_door();
+        game.rooms[0].items.push(WorldItem {
+            item: Item::AmberShard,
+            position: vec2(404.0, 460.0 - ITEM_SIZE.y / 2.0),
+        });
+        stand_at(&mut game, x);
+        let prompt = game.door_in_reach().is_some();
+        game.update(up(), DT);
+        assert_eq!(
+            prompt,
+            game.room().id == RoomId::Second,
+            "x = {x}: prompt and travel disagree"
+        );
+        x += 4.0;
+    }
 }

@@ -11,7 +11,7 @@ use hollow_steps::editor_tools::EditorTool;
 const MAX_DOOR_SIDE: f32 = 2000.0;
 
 /// "Add door" and "Add door and link...": like the two exit buttons above them, but the exit
-/// is a door standing at the room's spawn point (drag it where it belongs).
+/// is a door standing on the ground under the room's spawn point (drag it where it belongs).
 pub(super) fn draw_add_door(ui: &mut egui::Ui, editor: &mut EditorSession, state: &mut EditorUi) {
     if panel_button(ui, "Add door") {
         let target = state

@@ -174,19 +174,60 @@ fn a_door_may_stand_on_a_platform_but_not_inside_one() {
 
 // ---- adding, moving and resizing ----
 
+/// The bottom edge `add_door` gave the first door of `draft`.
+fn door_bottom(draft: &RoomDraft) -> f32 {
+    let (_, y, _, h) = draft.layout.exits[0].door.unwrap();
+    y + h
+}
+
 #[test]
-fn add_door_stands_a_door_at_the_spawn_point_and_selects_it() {
+fn add_door_stands_a_door_on_the_floor_under_the_spawn_point_and_selects_it() {
     let mut draft = draft();
-    let (px, py) = draft.layout.spawn;
+    let (px, _) = draft.layout.spawn;
     let selection = draft.add_door(RoomId::Second, vec2(160.0, 376.0)).unwrap();
     assert_eq!(selection, Selection::Exit(0));
     let exit = &draft.layout.exits[0];
     assert_eq!(exit.target_room, RoomId::Second);
     assert_eq!(exit.spawn, (160.0, 376.0));
-    let (x, y, w, h) = exit.door.unwrap();
+    let (x, _, w, h) = exit.door.unwrap();
     assert_eq!((w, h), (DOOR_SIZE.x, DOOR_SIZE.y));
     assert_eq!(x + w / 2.0, px, "centered on the spawn point");
-    assert_eq!(y + h, py + 24.0, "its bottom is at the player's feet");
+    assert_eq!(door_bottom(&draft), draft.layout.floor_y);
+}
+
+#[test]
+fn a_spawn_point_in_mid_air_does_not_leave_the_door_hanging_there() {
+    // The shipped first room spawns the player at y = 273 with its floor at 460: a door
+    // placed at the spawn would hang 160 px above anything the player can stand on.
+    let mut draft = draft();
+    draft.layout.spawn = (252.0, 273.14285);
+    draft.add_door(RoomId::Second, Vec2::ZERO).unwrap();
+    assert_eq!(door_bottom(&draft), draft.layout.floor_y);
+    assert_eq!(draft.layout.exits[0].door.unwrap().0 + 24.0, 252.0);
+}
+
+#[test]
+fn a_door_stands_on_a_platform_below_the_spawn_but_not_one_beside_or_above_it() {
+    let platform = |x: f32, y: f32| (x, y, 120.0, 20.0);
+    for (terrain, expected_bottom, why) in [
+        (platform(200.0, 400.0), 400.0, "under the door"),
+        (platform(0.0, 400.0), 460.0, "beside it, out of its width"),
+        (platform(200.0, 100.0), 460.0, "above the spawn"),
+    ] {
+        let mut draft = draft();
+        draft.layout.spawn = (252.0, 273.0);
+        draft.layout.terrain.push(terrain);
+        draft.add_door(RoomId::Second, Vec2::ZERO).unwrap();
+        assert_eq!(door_bottom(&draft), expected_bottom, "{why}");
+    }
+}
+
+#[test]
+fn a_door_for_a_spawn_next_to_a_wall_is_kept_inside_the_room() {
+    let mut draft = draft();
+    draft.layout.spawn = (20.0, 436.0);
+    draft.add_door(RoomId::Second, Vec2::ZERO).unwrap();
+    assert_eq!(draft.layout.exits[0].door.unwrap().0, 0.0);
 }
 
 #[test]
