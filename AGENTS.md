@@ -69,13 +69,13 @@ Gameplay modules (pure rules, no rendering):
 - `src/health.rs`: player health, damage, invincibility, `set_limits`
 - `src/enemy.rs` (+ `enemy/`): enemy behavior, health, knockback, dying state, bodies
 - `src/pose.rs`: semantic pose assets, playback, validation
-- `src/body.rs`: validated RON body templates, point springs, palettes, transforms
+- `src/body.rs` (+ `body/`): validated RON body templates, point springs, palettes, transforms
 - `src/body_debug.rs`: pure body overlay primitives, nearest-entity selection
 - `src/visual_box.rs`: drawn box of an enemy or boss apart from its hitbox (gameplay reads only the hitbox)
 - `src/action_runtime.rs` (+ `action_runtime/`): shared action execution; read actions by reference, never clone
 - `src/assets.rs`: assets folder resolution, load-failure text, `read_override` for `data/*.ron`
 - `src/behavior.rs` (+ `behavior/`): data-driven action sequences, state transitions, RON validation
-- `src/enemy_attack.rs`: shared attack geometry, timed enemy attacks, projectiles
+- `src/enemy_attack.rs` (+ `enemy_attack/`): shared attack geometry, timed enemy attacks, projectiles
 - `src/preset.rs`: validated RON behavior preset catalog.
 - `src/action_parameters.rs`: labeled scalar editor fields for the action registry
 - `src/behavior_values.rs`: numeric behavior controls, transactional validated edits
@@ -128,7 +128,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/editor_tools.rs`: editor tool enum (Select, Place, Terrain, Erase), key map, terrain drag state
 - `src/editor_view.rs`: pure editor canvas math: zoom/pan, grid snapping, window regions
 - `src/room_size.rs`: validated room bounds/floor edits for the editor
-- `src/definition_editor.rs`: pure entity/behavior edits, save planning, staged writes
+- `src/definition_editor.rs` (+ `definition_editor/`): pure entity/behavior edits, save planning, staged writes
 - `src/search.rs`: pure editor list filtering and stable selection
 
 Composition and front end:

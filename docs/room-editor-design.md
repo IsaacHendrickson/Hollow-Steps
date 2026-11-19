@@ -179,7 +179,7 @@ Other actions are `move_toward_player(speed: ...)` and
 The pinned **Save** button validates all definitions, room placements,
 and exit destinations before any write. Syntax and validation errors appear in
 the panel; correct the edit and retry. Saving keeps the existing RON schemas.
-Definition parsing, state edits, and save planning live in `definition_editor.rs`
+Definition parsing, state edits, and save planning live in `definition_editor/`
 and are tested without a window, including save/reload and invalid-save checks.
 
 ### Behavior presets
