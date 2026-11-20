@@ -98,6 +98,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/run.rs`: run loop rules: `RunConfig` (`data/run.ron`, incl. `shop`), `RunOutcome`, `RunResult`, `RunPhase`, `Profile::bank`; `docs/run-and-profile.md`
 - `src/run/screen.rs`: pure result screen text and layout, HUD and inventory coin captions (`run::result_lines`, `hud_counter`)
 - `src/upgrades.rs`: permanent upgrades (`data/upgrades.ron`): `UpgradeCatalog`, `buy`, `permanent_effects`; levels live in the profile
+- `src/upgrade_editor.rs`: pure `UpgradeDraft` editing `upgrades.ron`, field table, validate-first save; `docs/upgrade-editor.md`
+- `src/snapshot_history.rs`: generic snapshot undo/redo for a panel's own list (the Upgrades panel's)
 - `src/shop_menu.rs` (+ `shop_menu/`): hub upgrade shop as pure state and layout; `game/shop_link.rs` owns it; `shop_input`, `hud_shop`, `scene_shop` draw it
 - `src/room.rs`: rooms (with `terrain_style` and lying `charms`), exits, room transitions
 - `src/door_exit.rs`: door exits (a free rectangle, Up to enter): room-file form, checks, editor add/move/resize; `docs/door-exits.md`
@@ -157,6 +159,7 @@ Composition and front end:
 - `src/terrain_draw.rs`: Macroquad adapter drawing a terrain draw list (world or editor canvas)
 - `src/charm_panel.rs` (+ `charm_panel/`): the editor's Charms panel
 - `src/game/charm_editor_link.rs`: `GameState` holds the Charms panel's edits: sync, save, discard
+- `src/upgrade_panel.rs` (+ `upgrade_panel/`): the editor's Upgrades panel; `src/game/upgrade_editor_link.rs` holds its edits: sync, save, discard
 - `src/game/world_charms.rs`: charms lying in rooms, in play and in Save: pickup, validation
 - `src/game/run_link.rs`: `GameState` owns the hub-and-run loop: phase, profile, start/end a run, result screen, `continue_after_result`
 - `src/game/world_load.rs`: the one world loader (rooms, terrain looks) for start-up, F5 and a run's reset

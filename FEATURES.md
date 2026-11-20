@@ -112,6 +112,8 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Playing and undoing the edited player: Test room plays unsaved stats and look, own undo; `src/player_history.rs`; `tests/player_test_room.rs`, manual
 - Charm editor panel: every charm with every `charms.ron` field, validated, staged Save; `src/charm_panel.rs`; `tests/charm_editor.rs`, manual
 - Charm editing in the session: unsaved Charms in the guard, Test room, own undo/redo; `src/charm_history.rs`; `tests/charm_unsaved.rs`, manual
+- Upgrade editor panel: every upgrade with every `upgrades.ron` field, validated, staged Save, max totals; `src/upgrade_panel.rs`; `tests/upgrade_editor.rs`, manual
+- Upgrade editing in the session: unsaved Upgrades in the guard, Test room, own undo/redo; `src/snapshot_history.rs`; `tests/upgrade_test_room.rs`, manual
 - Charms in rooms: `layout.charms`, placed in the editor, picked up once, owned for the run; `src/room_charms.rs`; `tests/world_charms.rs`, manual
 - Player health, damage and mana in the editor: `max_health`, sword damage, vitals; `src/player_editor.rs`; `tests/player_stats.rs`, manual
 - Blank-enemy creation and behavior assignment, editable Skittish distances/speed; `src/definition_editor/entities.rs`, `src/behavior/`; `tests/presets.rs`
