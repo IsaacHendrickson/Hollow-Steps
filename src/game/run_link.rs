@@ -29,7 +29,7 @@ use crate::run::{RunConfig, RunOutcome, RunPhase, RunResult};
 #[derive(Debug)]
 pub(super) struct RunState {
     config: RunConfig,
-    profile: Profile,
+    pub(super) profile: Profile,
     /// The file the profile is saved to; none until `use_profile_file`, so tests never touch a
     /// real config folder and nothing is saved before the file has been read.
     profile_path: Option<PathBuf>,
@@ -119,6 +119,8 @@ impl GameState {
         let (profile, problem) = profile::load(&path);
         self.run.profile = profile;
         self.run.profile_path = Some(path);
+        // The upgrades the profile holds are in effect from the start.
+        self.apply_stats();
         problem.map_or(Ok(()), Err)
     }
 
@@ -126,10 +128,11 @@ impl GameState {
     /// the new profile for this session and returns the reason.
     pub fn set_profile(&mut self, profile: Profile) -> Result<(), String> {
         self.run.profile = profile;
+        self.apply_stats();
         self.save_profile()
     }
 
-    fn save_profile(&self) -> Result<(), String> {
+    pub(super) fn save_profile(&self) -> Result<(), String> {
         match &self.run.profile_path {
             Some(path) => profile::save(path, &self.run.profile),
             None => Ok(()),

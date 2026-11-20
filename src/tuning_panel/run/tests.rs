@@ -83,6 +83,7 @@ fn the_tier_is_set_and_saved_and_coins_and_clears_stay() {
         coins: 40,
         tier: 0,
         cleared: 2,
+        ..Profile::default()
     })
     .unwrap();
 
@@ -92,6 +93,7 @@ fn the_tier_is_set_and_saved_and_coins_and_clears_stay() {
         coins: 40,
         tier: 7,
         cleared: 2,
+        ..Profile::default()
     };
     assert_eq!(*game.profile(), expected);
     assert_eq!(saved(&scratch), expected);
@@ -118,6 +120,7 @@ fn reset_profile_zeroes_everything_and_saves_it() {
         coins: 99,
         tier: 5,
         cleared: 3,
+        ..Profile::default()
     })
     .unwrap();
 

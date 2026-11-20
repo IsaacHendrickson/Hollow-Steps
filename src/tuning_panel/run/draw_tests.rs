@@ -102,6 +102,7 @@ fn with_a_hub_the_section_shows_the_tier_box_the_banked_numbers_and_the_reset_bu
         coins: 12,
         tier: 3,
         cleared: 2,
+        ..Profile::default()
     })
     .unwrap();
 
@@ -139,6 +140,7 @@ fn clicking_reset_profile_zeroes_and_saves_the_profile_and_says_so() {
         coins: 50,
         tier: 4,
         cleared: 4,
+        ..Profile::default()
     })
     .unwrap();
     let (ctx, mut panel, _) = open_panel(&mut game);

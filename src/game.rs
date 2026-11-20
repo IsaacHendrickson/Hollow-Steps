@@ -20,6 +20,7 @@ use crate::player_editor::PlayerDraft;
 use crate::room::{Room, RoomId};
 use crate::run::RunConfig;
 use crate::tuning::TuningConfig;
+use crate::upgrades::UpgradeCatalog;
 use crate::vitals::{VitalsConfig, VitalsState};
 
 mod camera_bounds;
@@ -68,6 +69,8 @@ mod terrain_link;
 mod test_room;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod upgrade_tests;
 mod vitals_link;
 #[cfg(test)]
 mod vitals_tests;
@@ -125,6 +128,9 @@ pub struct GameState {
     charm_state: CharmState,
     /// The cursor and the last refusal of the inventory's Charms section.
     charm_menu: CharmMenu,
+    /// Every permanent upgrade the hub shop sells; the levels bought are in the profile. See
+    /// `shop_link`.
+    upgrades: UpgradeCatalog,
     /// The items taken during the run; see `world_items`.
     taken_items: TakenItems,
     /// The hub-and-run loop: its settings, the profile and where the player is in the loop; see
@@ -146,6 +152,7 @@ impl GameState {
         let vitals = VitalsConfig::load(assets)?;
         let charms = CharmCatalog::load(assets, vitals.max_mana)?;
         let run_config = RunConfig::load(assets)?;
+        let upgrades = UpgradeCatalog::load(assets)?;
         let (rooms, terrain_styles) = world_load::load_world(assets, &charms)?;
         let (run, current) = run_link::RunState::start(run_config, &rooms)?;
         let mut player = Player::new(Vec2::new(180.0, 0.0), tuning.player);
@@ -174,6 +181,7 @@ impl GameState {
             charm_menu: CharmMenu::default(),
             taken_items: TakenItems::default(),
             charms,
+            upgrades,
             run,
         };
         game.prune_owned_charm_placements();
@@ -326,8 +334,8 @@ impl GameState {
     /// Changed boss definitions restart from their authored placement.
     ///
     /// The player and enemy tunables in `player.ron`, the hit-stop and shake values in
-    /// `feel.ron`, the vitals values in `vitals.ron` and the charms in `charms.ron` are re-read
-    /// too; the player keeps its state (health, mana and a heal in progress included) and the
+    /// `feel.ron`, the vitals values in `vitals.ron`, the charms in `charms.ron` and the upgrades
+    /// in `upgrades.ron` are re-read too; the player keeps its state (health, mana and a heal in progress included) and the
     /// charms it wears stay on, layered on the re-read numbers. Nothing changes if any file fails
     /// to load.
     pub fn reload_rooms(&mut self) -> Result<(), String> {
@@ -338,6 +346,7 @@ impl GameState {
         let feel = FeelConfig::load(&self.assets)?;
         let vitals = VitalsConfig::load(&self.assets)?;
         let charms = CharmCatalog::load(&self.assets, vitals.max_mana)?;
+        let upgrades = UpgradeCatalog::load(&self.assets)?;
         let (rooms, terrain_styles) = world_load::load_world(&self.assets, &charms)?;
         for mut reloaded in rooms {
             if let Some(current) = self.rooms.iter_mut().find(|room| room.id == reloaded.id) {
@@ -385,6 +394,7 @@ impl GameState {
         self.player_draft.reload_vitals(vitals);
         // Charms you hold that the file no longer lists are dropped; the rest stay on.
         self.charms = charms;
+        self.upgrades = upgrades;
         self.charm_state.retain_known(&self.charms);
         // An open Charms panel with nothing unsaved shows the re-read list; unsaved edits stay.
         if !self.charms_unsaved() {

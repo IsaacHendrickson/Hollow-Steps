@@ -42,13 +42,14 @@ fn only_a_clear_raises_the_tier_and_the_cleared_count() {
         coins: 5,
         tier: 1,
         cleared: 4,
+        ..Profile::default()
     };
     for (outcome, tier, cleared) in [
         (RunOutcome::Cleared, 2, 5),
         (RunOutcome::Died, 1, 4),
         (RunOutcome::Abandoned, 1, 4),
     ] {
-        let mut profile = start;
+        let mut profile = start.clone();
         let result = bank(&mut profile, 10, 100.0, outcome);
         assert_eq!(
             (profile.tier, profile.cleared),
@@ -76,6 +77,7 @@ fn banking_saturates_instead_of_overflowing() {
         coins: u32::MAX - 3,
         tier: u32::MAX,
         cleared: u32::MAX,
+        ..Profile::default()
     };
     let result = bank(&mut profile, 100, 100.0, RunOutcome::Cleared);
     assert_eq!(profile.coins, u32::MAX);

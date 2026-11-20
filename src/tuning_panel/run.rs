@@ -22,7 +22,7 @@ pub struct RunDebug {
 pub fn set_tier(game: &mut GameState, tier: u32) -> Result<(), String> {
     let profile = Profile {
         tier: tier.min(MAX_TIER),
-        ..*game.profile()
+        ..game.profile().clone()
     };
     game.set_profile(profile)
 }
@@ -41,7 +41,7 @@ impl RunDebug {
             ui.label("run.ron names no hub room, so there are no runs.");
             return;
         }
-        let profile = *game.profile();
+        let profile = game.profile().clone();
         ui.label(format!(
             "Banked coins {}  |  dungeons cleared {}",
             profile.coins, profile.cleared

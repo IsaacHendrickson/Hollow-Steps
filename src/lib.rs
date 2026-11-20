@@ -74,5 +74,6 @@ pub mod terrain_styles;
 pub mod timestep;
 pub mod tuning;
 mod tuning_fields;
+pub mod upgrades;
 pub mod visual_box;
 pub mod vitals;
