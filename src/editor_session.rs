@@ -13,6 +13,7 @@ use crate::player_editor::PlayerDraft;
 use crate::player_look_editor::PlayerLookDraft;
 use crate::room::{Room, RoomEnemies, RoomId};
 use crate::terrain_styles::TerrainStyles;
+use crate::upgrade_editor::UpgradeDraft;
 
 /// One room's draft with what goes with it: the unit the editor switches between while it
 /// links exits, and keeps (`EditorSession::parked`) for a room with unsaved changes.
@@ -45,6 +46,10 @@ pub struct EditorSession {
     /// The Charms panel's working copy of `charms.ron`; `GameState` gives it the game's list when
     /// the session opens and takes its values into effect each frame (`game::charm_editor_link`).
     pub charms: CharmDraft,
+    /// The Upgrades panel's working copy of `upgrades.ron`; `GameState` gives it the game's list
+    /// when the session opens and takes its values into effect each frame
+    /// (`game::upgrade_editor_link`).
+    pub upgrades: UpgradeDraft,
     pub new: bool,
     pub dirty: bool,
     pub message: String,
@@ -155,6 +160,7 @@ impl EditorSession {
             player: PlayerDraft::default(),
             look: PlayerLookDraft::load(assets)?,
             charms: CharmDraft::default(),
+            upgrades: UpgradeDraft::default(),
             new: false,
             dirty: false,
             message: String::new(),

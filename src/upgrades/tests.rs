@@ -362,3 +362,119 @@ fn a_broken_assets_file_is_an_error_naming_it_never_a_fallback() {
     std::fs::write(dir.0.join(FILE_NAME), file_with(r#"id: "a", name: "A""#)).unwrap();
     assert!(UpgradeCatalog::load(&dir.0).is_err());
 }
+
+// ---- the totals line -----------------------------------------------------------------------
+
+#[test]
+fn max_totals_add_every_level_of_every_upgrade_by_kind() {
+    // Three levels each: 10 x 3 health, 5 x 3 percent, 3 x 3 damage.
+    let totals = max_totals(&catalog());
+    assert_eq!(totals.max_health, 30);
+    close(totals.move_speed_percent, 15.0);
+    assert_eq!(totals.sword_damage, 9);
+    assert_eq!(
+        totals.text(),
+        "All upgrades at maximum: +30 max health, +15% move speed, +9 sword damage"
+    );
+}
+
+#[test]
+fn max_totals_of_two_upgrades_of_one_kind_add_up_and_an_empty_list_is_zero() {
+    let two = UpgradeCatalog::from_ron(
+        r#"(upgrades: [
+            (id: "a", name: "A", description: "", effect: MoveSpeedPercent(2.5), costs: [1, 2]),
+            (id: "b", name: "B", description: "", effect: MoveSpeedPercent(7.5), costs: [1]),
+            (id: "c", name: "C", description: "", effect: MaxHealth(4), costs: [1, 2, 3, 4]),
+        ])"#,
+    )
+    .unwrap();
+    let totals = max_totals(&two);
+    close(totals.move_speed_percent, 2.5 * 2.0 + 7.5);
+    assert_eq!((totals.max_health, totals.sword_damage), (16, 0));
+    assert_eq!(
+        totals.text(),
+        "All upgrades at maximum: +16 max health, +12.5% move speed, +0 sword damage"
+    );
+    let none = UpgradeCatalog::from_ron("(upgrades: [])").unwrap();
+    assert_eq!(max_totals(&none), MaxTotals::default());
+    assert_eq!(
+        max_totals(&none).text(),
+        "All upgrades at maximum: +0 max health, +0% move speed, +0 sword damage"
+    );
+}
+
+#[test]
+fn max_totals_are_what_buying_every_level_actually_gives() {
+    // The line is a promise about the game: the effects of a fully bought catalog add up to it.
+    let catalog = catalog();
+    let mut profile = rich(u32::MAX);
+    for upgrade in catalog.upgrades() {
+        while buy(&mut profile, &catalog, &upgrade.id) == Purchase::Bought {}
+    }
+    let (tuning, _) = effective_with(
+        &TuningConfig::default(),
+        &VitalsConfig::default(),
+        &[],
+        &permanent_effects(&profile, &catalog),
+    );
+    let base = TuningConfig::default().player;
+    let totals = max_totals(&catalog);
+    assert_eq!(
+        tuning.player.max_health,
+        base.max_health + totals.max_health as u16
+    );
+    close(
+        tuning.player.move_speed,
+        base.move_speed * (1.0 + totals.move_speed_percent / 100.0),
+    );
+    assert_eq!(
+        tuning.player.melee.damage,
+        base.melee.damage + totals.sword_damage as u16
+    );
+}
+
+#[test]
+fn max_totals_ignore_a_speed_that_is_not_a_number_and_do_not_overflow() {
+    let upgrade = |effect| Upgrade {
+        id: "x".into(),
+        name: "X".into(),
+        description: String::new(),
+        effect,
+        costs: vec![1; MAX_LEVELS],
+    };
+    let list = [
+        upgrade(Effect::MoveSpeedPercent(f32::NAN)),
+        upgrade(Effect::MaxHealth(u16::MAX)),
+        upgrade(Effect::MaxHealth(u16::MAX)),
+    ];
+    let totals = max_totals_of(&list);
+    assert_eq!(totals.move_speed_percent, 0.0);
+    assert_eq!(totals.max_health, u32::from(u16::MAX) * 20);
+}
+
+#[test]
+fn a_catalog_made_from_a_list_is_validated_like_a_file() {
+    let list = catalog().upgrades().to_vec();
+    assert_eq!(UpgradeCatalog::new(list.clone()).unwrap(), catalog());
+    let mut twice = list.clone();
+    twice.push(list[0].clone());
+    assert!(UpgradeCatalog::new(twice)
+        .unwrap_err()
+        .contains("used twice"));
+    let mut free = list;
+    free[1].costs[0] = 0;
+    assert!(UpgradeCatalog::new(free).is_err());
+}
+
+#[test]
+fn a_price_must_be_at_most_the_ceiling() {
+    let with = |price: u32| {
+        UpgradeCatalog::from_ron(&file_with(&format!(
+            r#"id: "a", name: "A", description: "", effect: MaxHealth(5), costs: [10, {price}]"#
+        )))
+    };
+    assert!(with(MAX_COST).is_ok());
+    let error = with(MAX_COST + 1).unwrap_err();
+    assert!(error.contains("level 2 must be at most 1000000"), "{error}");
+    assert!(with(u32::MAX).is_err());
+}

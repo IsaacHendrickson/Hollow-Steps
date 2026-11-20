@@ -16,7 +16,9 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::assets::read_override;
-use crate::charms::{is_valid_id, Effect, MAX_DESCRIPTION_CHARS, MAX_ID_CHARS, MAX_NAME_CHARS};
+use crate::charms::{
+    is_valid_id, number_text, Effect, MAX_DESCRIPTION_CHARS, MAX_ID_CHARS, MAX_NAME_CHARS,
+};
 use crate::profile::Profile;
 
 /// Name of the optional file in the assets folder that replaces the embedded defaults.
@@ -26,6 +28,10 @@ const DEFAULTS: &str = include_str!("../data/upgrades.ron");
 
 /// The most levels one upgrade may have (and so the most prices it lists).
 pub const MAX_LEVELS: usize = 10;
+
+/// The highest price a level may have. The editor's drag box ends here, and it holds every whole
+/// number exactly, so a file the editor opens is never changed just by showing it.
+pub const MAX_COST: u32 = 1_000_000;
 
 /// One upgrade as `data/upgrades.ron` lists it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -38,7 +44,7 @@ pub struct Upgrade {
     pub description: String,
     /// What one level gives, checked with `Effect::validate`.
     pub effect: Effect,
-    /// The price of level 1, level 2, and so on: 1 to 10 prices, each above 0.
+    /// The price of level 1, level 2, and so on: 1 to 10 prices, each from 1 to `MAX_COST`.
     pub costs: Vec<u32>,
 }
 
@@ -83,6 +89,12 @@ impl Upgrade {
         if let Some(level) = self.costs.iter().position(|cost| *cost == 0) {
             return error(format!("the price of level {} must be above 0", level + 1));
         }
+        if let Some(level) = self.costs.iter().position(|cost| *cost > MAX_COST) {
+            return error(format!(
+                "the price of level {} must be at most {MAX_COST}",
+                level + 1
+            ));
+        }
         Ok(())
     }
 }
@@ -111,9 +123,12 @@ impl UpgradeCatalog {
     pub fn from_ron(text: &str) -> Result<Self, String> {
         let file: UpgradeFile =
             ron::from_str(text).map_err(|error| format!("upgrades: {error}"))?;
-        let catalog = Self {
-            upgrades: file.upgrades,
-        };
+        Self::new(file.upgrades)
+    }
+
+    /// A catalog of `upgrades` in that order, validated (the editor makes one from its list).
+    pub fn new(upgrades: Vec<Upgrade>) -> Result<Self, String> {
+        let catalog = Self { upgrades };
         catalog.validate()?;
         Ok(catalog)
     }
@@ -217,6 +232,56 @@ pub fn permanent_effects(profile: &Profile, catalog: &UpgradeCatalog) -> Vec<Eff
             std::iter::repeat_n(upgrade.effect, owned as usize)
         })
         .collect()
+}
+
+/// What every upgrade gives when each one is bought to its last level, added up by kind.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct MaxTotals {
+    pub max_health: u32,
+    pub move_speed_percent: f32,
+    pub sword_damage: u32,
+}
+
+impl MaxTotals {
+    /// The line the editor shows, for example
+    /// `All upgrades at maximum: +30 max health, +15% move speed, +9 sword damage`.
+    pub fn text(&self) -> String {
+        format!(
+            "All upgrades at maximum: +{} max health, +{}% move speed, +{} sword damage",
+            self.max_health,
+            number_text(self.move_speed_percent),
+            self.sword_damage
+        )
+    }
+}
+
+/// The totals of `catalog`: each upgrade's effect times its number of levels, summed by kind.
+/// Sums saturate and ignore a speed amount that is not a number.
+pub fn max_totals(catalog: &UpgradeCatalog) -> MaxTotals {
+    max_totals_of(catalog.upgrades())
+}
+
+/// `max_totals` for a plain list (the editor's list, which may not be valid yet).
+pub fn max_totals_of(upgrades: &[Upgrade]) -> MaxTotals {
+    let mut totals = MaxTotals::default();
+    for upgrade in upgrades {
+        let levels = upgrade.max_level();
+        match upgrade.effect {
+            Effect::MaxHealth(points) => {
+                let more = u32::from(points).saturating_mul(levels);
+                totals.max_health = totals.max_health.saturating_add(more);
+            }
+            Effect::SwordDamage(points) => {
+                let more = u32::from(points).saturating_mul(levels);
+                totals.sword_damage = totals.sword_damage.saturating_add(more);
+            }
+            Effect::MoveSpeedPercent(percent) if percent.is_finite() => {
+                totals.move_speed_percent += percent * levels as f32;
+            }
+            Effect::MoveSpeedPercent(_) => {}
+        }
+    }
+    totals
 }
 
 #[cfg(test)]

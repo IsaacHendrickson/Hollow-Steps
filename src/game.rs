@@ -73,6 +73,7 @@ mod terrain_link;
 mod test_room;
 #[cfg(test)]
 mod tests;
+mod upgrade_editor_link;
 #[cfg(test)]
 mod upgrade_tests;
 mod vitals_link;
@@ -308,7 +309,7 @@ impl GameState {
             self.shop.close();
             self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
             self.attach_player_draft();
-            self.attach_charm_draft();
+            self.attach_catalog_drafts();
         }
         Ok(())
     }
@@ -328,7 +329,7 @@ impl GameState {
         self.player.place_at(room.spawn, room.world_bounds());
         self.editor = Some(editor);
         self.attach_player_draft();
-        self.attach_charm_draft();
+        self.attach_catalog_drafts();
         Ok(())
     }
 
@@ -403,10 +404,8 @@ impl GameState {
         self.charms = charms;
         self.upgrades = upgrades;
         self.charm_state.retain_known(&self.charms);
-        // An open Charms panel with nothing unsaved shows the re-read list; unsaved edits stay.
-        if !self.charms_unsaved() {
-            self.attach_charm_draft();
-        }
+        // An open Charms or Upgrades panel with nothing unsaved shows the re-read list.
+        self.refresh_catalog_drafts();
         self.prune_owned_charm_placements();
         self.apply_stats();
         Ok(())

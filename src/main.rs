@@ -34,6 +34,7 @@ mod startup;
 mod terrain_canvas;
 mod terrain_draw;
 mod tuning_panel;
+mod upgrade_panel;
 use editor_ui::{draw_editor, EditorUi};
 use startup::{present, screen_camera};
 
