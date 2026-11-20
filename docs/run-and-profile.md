@@ -85,7 +85,8 @@ in progress.
 
 ## The hub invariant
 
-**The player is in the Hub phase exactly when the current room is the hub room.**
+**Outside the result screen, the player is in the Hub phase exactly when the current room is the hub
+room.** (On the result screen after Abandoned by an exit, the room is the hub and the phase is Result.)
 
 - Hub to any other room by an exit: a run starts (state reset as in the table).
 - Any room to the hub by an exit during a run: the run is Abandoned and banks as above.
@@ -112,5 +113,7 @@ per-dungeon settings, and a hard stop of the program (power loss, a crash) not b
 
 `src/profile.rs` (the profile and its file), `src/run.rs` (`RunConfig`, `RunOutcome`,
 `RunResult`, `RunPhase`, `Profile::bank`), `src/game/run_link.rs` (`GameState` owns the phase and
-the profile), `src/game/world_load.rs` (the one world loader), `src/hud_run.rs` (result screen,
-hub and run counters), `src/tuning_panel/run.rs` (F4 debug section).
+the profile), `src/game/world_load.rs` (the one world loader), `src/player/run_reset.rs` and
+`src/vitals/fill.rs` (the player and vitals reset), `src/hud_run.rs` (result screen, hub and run
+counters), `src/tuning_panel/run.rs` (F4 debug section). Tests: `src/game/run_tests.rs` (the loop),
+`src/game/run_profile_tests.rs` (profile, test rooms, editor, no hub).

@@ -253,7 +253,8 @@ impl PauseMenu {
         self.screen?.items().iter().position(|&other| other == item)
     }
 
-    fn close(&mut self) {
+    /// Closes the menu from outside (the result screen takes over); the same as pressing Unpause.
+    pub fn close(&mut self) {
         self.screen = None;
         self.slot = Slot::default();
         self.listening = None;

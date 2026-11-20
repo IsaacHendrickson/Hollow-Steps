@@ -120,6 +120,8 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 
 - Profile: coins, tier and clears kept in `profile.ron` (config folder), staged save, bad file kept as `.bak`; `src/profile.rs`; `src/profile/tests.rs`
 - Run rules: `data/run.ron` (hub, start and final boss room, coin share), outcomes, banking, saturating; `src/run.rs`; `src/run/tests.rs`
+- Run loop: hub exit starts a run; death, final boss or Abandon ends it; frozen result, Enter returns; `src/game/run_link.rs`; `src/game/run_tests.rs`
+- Run loop edges: profile save and bad file, test-room sandbox, editor moves, no hub; `src/game/run_link.rs`; `src/game/run_profile_tests.rs`
 
 ## Tests and CI
 

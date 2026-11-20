@@ -154,6 +154,8 @@ Composition and front end:
 - `src/charm_panel.rs` (+ `charm_panel/`): the editor's Charms panel
 - `src/game/charm_editor_link.rs`: `GameState` holds the Charms panel's edits: sync, save, discard
 - `src/game/world_charms.rs`: charms lying in rooms, in play and in Save: pickup, validation
+- `src/game/run_link.rs`: `GameState` owns the hub-and-run loop: phase, profile, start/end a run, result screen, `continue_after_result`
+- `src/game/world_load.rs`: the one world loader (rooms, terrain looks) for start-up, F5 and a run's reset
 - `src/game/world_items.rs`: items in play and Save: pickup, taken items kept for the run (`TakenItems`), restored on rebuild
 - `src/player_panel.rs` (+ `player_panel/`): the editor's Player panel; `draw_field` is shared with F4
 - `src/tuning_panel.rs`: F4 egui window: a drag box per `player.ron` and `vitals.ron` field
