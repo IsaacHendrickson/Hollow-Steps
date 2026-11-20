@@ -1,15 +1,18 @@
-//! The F4 window's "Run (debug)" section: the difficulty tier and a Reset profile button, for
-//! trying the hub-and-run loop without playing a dungeon to the end. Both change the saved
-//! profile (`profile.ron`) at once.
+//! The F4 window's "Run (debug)" section: the banked coins, the difficulty tier and a Reset
+//! profile button, for trying the hub, its upgrade shop and the run loop without playing a
+//! dungeon to the end. All three change the saved profile (`profile.ron`) at once.
 //!
-//! The logic is `set_tier` and `reset_profile`, which only call `GameState::set_profile`; the
-//! widgets just feed them. Nothing here changes how a run plays.
+//! The logic is `set_coins`, `set_tier` and `reset_profile`, which only call
+//! `GameState::set_profile`; the widgets just feed them. Nothing here changes how a run plays.
 use egui_macroquad::egui;
 use hollow_steps::game::GameState;
 use hollow_steps::profile::Profile;
 
 /// The highest tier the debug box allows.
 pub const MAX_TIER: u32 = 99;
+
+/// The most banked coins the debug box sets: a limit for a drag box, far above any upgrade price.
+pub const MAX_COINS: u32 = 999_999;
 
 /// What the section last did, shown under its buttons.
 #[derive(Debug, Default)]
@@ -27,7 +30,17 @@ pub fn set_tier(game: &mut GameState, tier: u32) -> Result<(), String> {
     game.set_profile(profile)
 }
 
-/// Puts coins, tier and cleared back to zero and saves the profile.
+/// Sets the banked coins (at most `MAX_COINS`) and saves the profile. Tier, clears and the
+/// upgrades bought stay. A failed save keeps the coins for this session and returns why.
+pub fn set_coins(game: &mut GameState, coins: u32) -> Result<(), String> {
+    let profile = Profile {
+        coins: coins.min(MAX_COINS),
+        ..game.profile().clone()
+    };
+    game.set_profile(profile)
+}
+
+/// Puts coins, tier, cleared and the upgrades bought back to nothing and saves the profile.
 pub fn reset_profile(game: &mut GameState) -> Result<(), String> {
     game.set_profile(Profile::default())
 }
@@ -46,6 +59,20 @@ impl RunDebug {
             "Banked coins {}  |  dungeons cleared {}",
             profile.coins, profile.cleared
         ));
+        let mut coins = profile.coins;
+        ui.horizontal(|ui| {
+            ui.add_sized([super::LABEL_WIDTH, 20.0], egui::Label::new("Coins"));
+            let drag = ui.add(
+                egui::DragValue::new(&mut coins)
+                    .range(0..=MAX_COINS)
+                    .speed(1.0),
+            );
+            #[cfg(test)]
+            ui.data_mut(|data| data.insert_temp(egui::Id::new("coins box"), drag.rect));
+            if drag.changed() {
+                self.last = Some(set_coins(game, coins).map(|()| "Coins saved"));
+            }
+        });
         let mut tier = profile.tier;
         ui.horizontal(|ui| {
             ui.add_sized(

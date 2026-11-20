@@ -88,7 +88,7 @@ menu keys, `F2`, `F4`, `F5` and `F6` stay fixed.
   assets folder, which replaces the shipped `data/player.ron` defaults (delete it to go back),
   and `vitals.ron` too when a vitals value changed (same for `data/vitals.ron`).
 - `F5`: re-read `player.ron`, `vitals.ron` (your health, mana and any heal in progress are kept),
-  `feel.ron` and `charms.ron`, add new room files and, in rooms already loaded, swap in their
+  `feel.ron`, `charms.ron` and `upgrades.ron`, add new room files and, in rooms already loaded, swap in their
   enemies, bosses, background layers and terrain look, including while the inventory is open; a
   loaded room's terrain, exits, items, bounds and spawn need a restart or an editor Save. Errors
   appear on screen and nothing is applied; fix the files and press `F5` again to retry. Use the
@@ -98,7 +98,8 @@ menu keys, `F2`, `F4`, `F5` and `F6` stay fixed.
   and respawn for the current game session.
 - `Up` (without `X`): pick up a nearby item while standing on the floor. The Amber Shard
   and Dash items highlight and show a prompt when in reach; collected items leave
-  the world and stay in the player's inventory for the current game session.
+  the world and stay in the player's inventory for the current game session. In the hub, the
+  same key opens the upgrade shop when you stand at its stall (see Hub and runs).
 - Walk into the right exit of the first room to enter the second room; its
   left exit leads back. The second room's right exit leads to the Ash Warden.
   Its arena exit stays red and locked until the boss is defeated.
@@ -115,11 +116,22 @@ to the hub.
 
 What is kept between runs is the **profile**: coins banked (all of a run's coins by default,
 `coin_keep_percent` in `run.ron` changes the share), the difficulty tier and the dungeons
-cleared. It lives in `profile.ron` in the config folder, next to `keybinds.ron`
+cleared, plus the **upgrade levels** you have bought. It lives in `profile.ron` in the config folder, next to `keybinds.ron`
 (`%APPDATA%\HollowSteps`, `~/Library/Application Support/HollowSteps`,
 `$XDG_CONFIG_HOME/hollow-steps` or `~/.config/hollow-steps`; `HOLLOW_STEPS_CONFIG` overrides). A
 file that cannot be read is kept as `profile.ron.bak`, a fresh profile is used and the reason is
-shown on screen. The `F4` window's **Run (debug)** section sets the tier and resets the profile.
+shown on screen. The `F4` window's **Run (debug)** section sets the banked coins and the tier and
+resets the profile (which also takes the bought upgrades away).
+
+**The upgrade shop.** In the hub, stand at the stall (it shows an "Up: shop" prompt) and press `Up`
+to spend banked coins on permanent upgrades: Vitality (+10 max health per level), Swift Feet (+5%
+move speed) and Keen Edge (+3 sword damage), each with a few levels that get dearer. The world
+stands still while the shop is open. `Up`/`Down` (or `W`/`S`) choose a row, `Enter` or a click buys
+the next level, resting the mouse on a row selects it, and `Esc` closes it. A purchase is saved at
+once and takes effect at once, without refilling your health; levels stay through deaths and
+restarts and add to any equipped charm. The shop does not open in a run or in an editor test room.
+The upgrades and their prices are in `assets/upgrades.ron` (replaces `data/upgrades.ron` whole;
+`F5` re-reads it) and the stall's place is `shop` in `run.ron`.
 
 `run.ron` holds the run rules, not player feel: take it out of `assets/` (or delete `hub_room`
 from it) and the game plays as it did before, with death respawning in the room. **`F5` does not

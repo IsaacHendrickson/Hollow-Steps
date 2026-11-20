@@ -125,7 +125,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Run loop: hub exit starts a run; death, final boss or Abandon ends it; frozen result, Enter returns; `src/game/run_link.rs`; `src/game/run_tests.rs`
 - Pause menu in a run: Abandon run with confirm (Keep playing default, Esc back); `src/pause_menu.rs`; `src/pause_menu/run_tests.rs`, `src/game/run_pause_tests.rs`
 - Result screen and counters: text, layout, HUD and inventory captions; `src/run/screen.rs`, `src/hud_run.rs`; `src/run/screen/tests.rs`, manual
-- Shipped hub (`assets/run.ron`, `room_0.ron`) and F4 Run (debug): tier box, Reset profile; `src/tuning_panel/run.rs`; `src/tuning_panel/run/tests.rs`, `tests/shipped_content.rs`
+- Shipped hub and shop (`assets/run.ron`); F4 Run (debug): Coins, tier, Reset; `src/tuning_panel/run.rs`; `run/tests.rs`, `tests/shipped_content.rs`
 - Run loop edges: profile save and bad file, test-room sandbox, editor moves, no hub; `src/game/run_link.rs`; `src/game/run_profile_tests.rs`
 - Permanent upgrades: levels bought and saved in the profile, layered on stats; `src/upgrades.rs`; `src/upgrades/tests.rs`, `src/game/upgrade_tests.rs`
 - Upgrade shop: Up at the hub stall opens it, buy levels with banked coins; `src/shop_menu.rs`; `src/shop_menu/tests.rs`, `src/game/shop_tests.rs`
