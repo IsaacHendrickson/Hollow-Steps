@@ -19,14 +19,17 @@ pub struct ItemPlacement {
     pub position: (f32, f32),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields)]
+/// An exit in a room file. Serialized by hand in `door_exit`: an edge exit holds `edge`,
+/// `offset` and `length`, a door holds `door` instead.
+#[derive(Clone, Debug, PartialEq)]
 pub struct ExitPlacement {
     pub edge: RoomEdge,
     pub offset: f32,
     pub length: f32,
     pub target_room: RoomId,
     pub spawn: (f32, f32),
+    /// A door's `(x, y, width, height)` in room coordinates; the edge fields mean nothing then.
+    pub door: Option<(f32, f32, f32, f32)>,
 }
 
 impl ExitPlacement {
@@ -37,6 +40,7 @@ impl ExitPlacement {
             length: self.length,
             target_room: self.target_room,
             spawn: self.spawn.into(),
+            door: self.door.map(|(x, y, w, h)| Rect::new(x, y, w, h)),
         }
     }
 }
@@ -102,6 +106,7 @@ impl RoomLayout {
                     length: exit.length,
                     target_room: exit.target_room,
                     spawn: exit.spawn.into(),
+                    door: exit.door.map(|zone| (zone.x, zone.y, zone.w, zone.h)),
                 })
                 .collect(),
         }
@@ -158,6 +163,10 @@ impl RoomLayout {
         }
         self.validate_charm_positions(&terrain)?;
         for exit in &self.exits {
+            if exit.is_door() {
+                exit.check_door(self, &terrain)?;
+                continue;
+            }
             let span = match exit.edge {
                 RoomEdge::Left | RoomEdge::Right => h,
                 _ => w,
@@ -276,13 +285,15 @@ impl RoomDraft {
                     exit.target_room
                 ));
             }
+            // A door needs Up, so arriving in front of one is no immediate return trip.
             if target.1.exits.iter().any(|e| {
-                e.exit().zone(target.1.rect()).overlaps(&Rect::new(
-                    exit.spawn.0 - 16.0,
-                    exit.spawn.1 - 24.0,
-                    32.0,
-                    48.0,
-                ))
+                !e.is_door()
+                    && e.exit().zone(target.1.rect()).overlaps(&Rect::new(
+                        exit.spawn.0 - 16.0,
+                        exit.spawn.1 - 24.0,
+                        32.0,
+                        48.0,
+                    ))
             }) {
                 return Err("exit destination overlaps an exit (immediate return trip)".into());
             }
@@ -374,12 +385,16 @@ impl RoomDraft {
             Selection::Spawn => next.layout.spawn = position.into(),
             Selection::Exit(i) => {
                 let exit = next.layout.exits.get_mut(i).ok_or("missing exit")?;
-                exit.offset = match exit.edge {
-                    RoomEdge::Left | RoomEdge::Right => {
-                        position.y - next.layout.bounds.1 - exit.length / 2.0
-                    }
-                    _ => position.x - next.layout.bounds.0 - exit.length / 2.0,
-                };
+                if exit.is_door() {
+                    exit.move_door_to(position);
+                } else {
+                    exit.offset = match exit.edge {
+                        RoomEdge::Left | RoomEdge::Right => {
+                            position.y - next.layout.bounds.1 - exit.length / 2.0
+                        }
+                        _ => position.x - next.layout.bounds.0 - exit.length / 2.0,
+                    };
+                }
             }
             Selection::Destination(i) => {
                 next.layout.exits.get_mut(i).ok_or("missing exit")?.spawn = position.into()
@@ -401,13 +416,13 @@ impl RoomDraft {
         }
         .min(96.0);
         let index = self.layout.exits.len();
-        self.layout.exits.push(ExitPlacement {
+        self.layout.exits.push(ExitPlacement::edge_exit(
             edge,
-            offset: 0.0,
+            0.0,
             length,
             target_room,
-            spawn: spawn.into(),
-        });
+            spawn.into(),
+        ));
         Selection::Exit(index)
     }
 

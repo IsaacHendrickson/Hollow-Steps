@@ -31,6 +31,8 @@ mod charm_menu_tests;
 mod charm_tests;
 #[cfg(test)]
 mod death_tests;
+#[cfg(test)]
+mod door_tests;
 mod editor_save;
 #[cfg(test)]
 mod event_tests;
@@ -70,6 +72,7 @@ mod vitals_link;
 #[cfg(test)]
 mod vitals_tests;
 mod world_charms;
+mod world_doors;
 mod world_items;
 mod world_load;
 
@@ -538,11 +541,9 @@ impl GameState {
         if self.settle_combat(events_before, spawn, bounds) {
             return;
         }
-        // Up with X is an upward strike, not a pickup.
-        if input.pickup_pressed && !(input.attack_pressed && input.up_held) && !self.pick_up_item()
-        {
-            self.pick_up_charm();
-        }
+        // Up with X is an upward strike, not a pickup or a door.
+        let interact = input.pickup_pressed && !(input.attack_pressed && input.up_held);
+        let picked_up = interact && (self.pick_up_item() || self.pick_up_charm());
 
         let index = self.current;
         let coins = &mut self.rooms[index].coins;
@@ -556,10 +557,17 @@ impl GameState {
             }
         });
 
+        // An item in reach takes the Up press first; otherwise it opens the door in front.
+        let door = if interact && !picked_up {
+            self.door_in_reach().copied()
+        } else {
+            None
+        };
         if let Some(exit) = self
             .room()
             .exit_at(self.player.position(), self.player.size())
             .copied()
+            .or(door)
             // A test room is a sandbox: its exits would lead into saved rooms.
             .filter(|_| self.test_run.is_none())
         {

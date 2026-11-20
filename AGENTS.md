@@ -98,6 +98,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/run.rs`: run loop rules: `RunConfig` (`data/run.ron`), `RunOutcome`, `RunResult`, `RunPhase`, `Profile::bank`; `docs/run-and-profile.md`
 - `src/run/screen.rs`: pure result screen text and layout, HUD and inventory coin captions (`run::result_lines`, `hud_counter`)
 - `src/room.rs`: rooms (with `terrain_style` and lying `charms`), exits, room transitions
+- `src/door_exit.rs`: door exits (a free rectangle, Up to enter): room-file form, checks, editor add/move/resize; `docs/door-exits.md`
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
 - `src/terrain_style.rs` (+ `terrain_style/`): procedural look of solids as a draw list, never collision
 - `src/terrain_styles.rs`: terrain look presets (`data/terrain_styles.ron`), `RoomStyle`
@@ -157,6 +158,7 @@ Composition and front end:
 - `src/game/world_charms.rs`: charms lying in rooms, in play and in Save: pickup, validation
 - `src/game/run_link.rs`: `GameState` owns the hub-and-run loop: phase, profile, start/end a run, result screen, `continue_after_result`
 - `src/game/world_load.rs`: the one world loader (rooms, terrain looks) for start-up, F5 and a run's reset
+- `src/game/world_doors.rs`: `door_in_reach`, the one rule for entering a door and for showing its prompt
 - `src/game/world_items.rs`: items in play and Save: pickup, taken items kept for the run (`TakenItems`), restored on rebuild
 - `src/player_panel.rs` (+ `player_panel/`): the editor's Player panel; `draw_field` is shared with F4
 - `src/tuning_panel.rs`: F4 egui window: a drag box per `player.ron` and `vitals.ron` field

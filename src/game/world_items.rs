@@ -14,6 +14,14 @@ use crate::events::GameEvent;
 use crate::room::RoomId;
 
 impl GameState {
+    /// Whether an item is within reach: the pickup key would take it.
+    pub(super) fn item_in_reach(&self) -> bool {
+        self.rooms[self.current]
+            .items
+            .iter()
+            .any(|item| item.can_pick_up(&self.player))
+    }
+
     /// Picks up the first item within reach, if any: it goes into the inventory and leaves the
     /// room, and (outside a test room) the run remembers it. Returns whether one was picked up.
     pub(super) fn pick_up_item(&mut self) -> bool {

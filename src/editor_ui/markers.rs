@@ -76,7 +76,7 @@ pub(crate) fn editor_markers(
         markers.push((
             Selection::Exit(i),
             exit.exit().zone(editor.draft.layout.rect()),
-            GREEN,
+            if exit.is_door() { ORANGE } else { GREEN },
         ));
     }
     markers.push((

@@ -427,6 +427,7 @@ fn entering_the_hub_during_a_run_abandons_it() {
         length: 96.0,
         target_room: HUB,
         spawn: Vec2::new(180.0, 436.0),
+        door: None,
     });
     game.player.place_on_floor(60.0, game.world_bounds());
 
@@ -439,6 +440,58 @@ fn entering_the_hub_during_a_run_abandons_it() {
     game.continue_after_result();
     assert_eq!(game.run_phase(), Some(RunPhase::Hub));
     assert_phase_matches_room(&game);
+}
+
+/// A door in the room being played, on the floor from x = 380 to 428, leading to `target`.
+fn put_door_in_current_room(game: &mut GameState, target: RoomId) {
+    let door = Rect::new(380.0, 388.0, 48.0, 72.0);
+    let index = game.current;
+    game.rooms[index]
+        .exits
+        .push(Exit::doorway(door, target, Vec2::new(180.0, 436.0)));
+    game.player.place_on_floor(404.0, game.world_bounds());
+    game.update(input(), 0.01);
+    assert!(
+        game.door_in_reach().is_some(),
+        "the player stands in front of the door"
+    );
+}
+
+fn up() -> PlayerInput {
+    PlayerInput {
+        pickup_pressed: true,
+        ..input()
+    }
+}
+
+#[test]
+fn a_door_out_of_the_hub_starts_a_run_like_an_edge_exit() {
+    let scratch = world(100.0);
+    let mut game = game_in(&scratch);
+    put_door_in_current_room(&mut game, RoomId::First);
+
+    game.update(up(), 0.01);
+
+    assert!(game.run_in_progress());
+    assert_eq!(game.room().id, RoomId::First);
+    assert_phase_matches_room(&game);
+}
+
+#[test]
+fn a_door_into_the_hub_during_a_run_abandons_it_like_an_edge_exit() {
+    let scratch = world(100.0);
+    let mut game = game_in(&scratch);
+    start_run(&mut game);
+    game.rooms[RoomId::First.index()].coins.clear();
+    game.coin_count = 6;
+    put_door_in_current_room(&mut game, HUB);
+
+    game.update(up(), 0.01);
+
+    assert_eq!(game.room().id, HUB);
+    let result = game.run_result().expect("the result shows");
+    assert_eq!(result.outcome, RunOutcome::Abandoned);
+    assert_eq!(game.profile().coins, 6);
 }
 
 #[test]
