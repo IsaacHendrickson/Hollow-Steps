@@ -19,6 +19,7 @@ pub(super) fn exit(edge: RoomEdge, offset: f32, length: f32) -> Exit {
         length,
         target_room: RoomId::Second,
         spawn: Vec2::ZERO,
+        door: None,
     }
 }
 
@@ -269,5 +270,27 @@ fn the_same_inputs_give_the_same_slabs_in_the_same_order() {
     assert_eq!(
         boundary_slabs(bounds(), 430.0, T, &exits),
         boundary_slabs(bounds(), 430.0, T, &exits)
+    );
+}
+
+#[test]
+fn a_door_cuts_no_opening_in_the_walls_even_when_it_touches_one() {
+    let bounds = bounds();
+    let without = boundary_slabs(bounds, bounds.bottom(), 16.0, &[]);
+    // Flush against the left wall, and standing on the floor line.
+    let door = Exit::doorway(
+        Rect::new(bounds.x, bounds.bottom() - 72.0, 48.0, 72.0),
+        RoomId::Second,
+        Vec2::ZERO,
+    );
+    assert_eq!(
+        boundary_slabs(bounds, bounds.bottom(), 16.0, &[door]),
+        without
+    );
+    // An edge exit at the same place does cut one.
+    let edge = exit(RoomEdge::Left, bounds.h - 72.0, 72.0);
+    assert_ne!(
+        boundary_slabs(bounds, bounds.bottom(), 16.0, &[edge]),
+        without
     );
 }

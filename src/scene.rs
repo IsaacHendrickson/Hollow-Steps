@@ -61,6 +61,10 @@ pub fn draw_scene(
     }
     for exit in &room.exits {
         let zone = exit.zone(room.bounds);
+        if exit.is_door() {
+            draw_door(zone, room.exits_locked());
+            continue;
+        }
         draw_rectangle(
             zone.x,
             zone.y,
@@ -75,6 +79,10 @@ pub fn draw_scene(
         if room.exits_locked() {
             draw_rectangle_lines(zone.x, zone.y, zone.w, zone.h, 3.0, RED);
         }
+    }
+    // Shown by the same rule that lets Up open the door (`GameState::door_in_reach`).
+    if let Some(door) = game.door_in_reach() {
+        draw_door_prompt(door.zone(room.bounds), room.bounds);
     }
     for item in game.items() {
         let nearby = item.can_pick_up(player);
@@ -295,4 +303,45 @@ fn draw_boss_special(boss: &BossSpecials, floor_y: f32) {
         // A boss with a body fades out over the flash; without one there is nothing to draw.
         body_draw::draw_boss_body(boss);
     }
+}
+
+/// A door: a panel inside a frame, red while the room's exits are locked.
+fn draw_door(zone: Rect, locked: bool) {
+    let (frame, panel) = if locked {
+        (RED, Color::from_rgba(220, 65, 70, 120))
+    } else {
+        (
+            Color::from_rgba(214, 168, 92, 255),
+            Color::from_rgba(120, 84, 40, 230),
+        )
+    };
+    draw_rectangle(zone.x, zone.y, zone.w, zone.h, panel);
+    draw_rectangle_lines(zone.x, zone.y, zone.w, zone.h, 3.0, frame);
+}
+
+/// The prompt over a door the player can enter: an upward arrow and "Up: enter", above the
+/// door, or below it when the room has no space above.
+fn draw_door_prompt(zone: Rect, room: Rect) {
+    const LABEL: &str = "Up: enter";
+    const SIZE: u16 = 20;
+    let above = zone.y - 44.0 >= room.y;
+    let x = zone.center().x;
+    let (tip, base) = if above {
+        (zone.y - 20.0, zone.y - 6.0)
+    } else {
+        (zone.bottom() + 6.0, zone.bottom() + 20.0)
+    };
+    draw_triangle(
+        vec2(x, tip),
+        vec2(x - 8.0, base),
+        vec2(x + 8.0, base),
+        WHITE,
+    );
+    let width = measure_text(LABEL, None, SIZE, 1.0).width;
+    let baseline = if above {
+        zone.y - 28.0
+    } else {
+        zone.bottom() + 40.0
+    };
+    draw_text(LABEL, x - width / 2.0, baseline, f32::from(SIZE), WHITE);
 }

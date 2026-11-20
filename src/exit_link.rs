@@ -137,7 +137,7 @@ impl EditorSession {
         Ok(exit)
     }
 
-    fn start_link(
+    pub(crate) fn start_link(
         &mut self,
         exit: usize,
         placed: bool,

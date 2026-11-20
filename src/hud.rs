@@ -131,7 +131,7 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
     let note = if room.exits_locked() {
         "Exits locked until the boss falls"
     } else {
-        "Walk into a green exit"
+        "Walk into a green exit, or press Up at a door"
     };
     for (text, size, top, color) in [
         (title.as_str(), 28.0, 38.0, WHITE),

@@ -36,10 +36,11 @@ pub fn arrival_error(layout: &RoomLayout, center: Vec2) -> Option<&'static str> 
         PLAYER_SIZE.y,
     );
     let rect = layout.rect();
+    // A door needs Up, so standing in one is fine; walking into an edge exit is not.
     if layout
         .exits
         .iter()
-        .any(|exit| exit.exit().zone(rect).overlaps(&body))
+        .any(|exit| !exit.is_door() && exit.exit().zone(rect).overlaps(&body))
     {
         return Some("inside an exit");
     }
@@ -51,6 +52,9 @@ pub fn arrival_next_to(layout: &RoomLayout, exit: usize) -> Result<Vec2, String>
     let placement = layout.exits.get(exit).ok_or("missing exit")?;
     let zone = placement.exit().zone(layout.rect());
     let half = PLAYER_SIZE / 2.0;
+    if placement.is_door() {
+        return arrival_in_front_of(layout, zone);
+    }
     let (inward, along, reach, span) = match placement.edge {
         RoomEdge::Left => (Vec2::X, Vec2::Y, zone.w / 2.0 + half.x, zone.h),
         RoomEdge::Right => (-Vec2::X, Vec2::Y, zone.w / 2.0 + half.x, zone.h),
@@ -81,6 +85,18 @@ pub fn arrival_next_to(layout: &RoomLayout, exit: usize) -> Result<Vec2, String>
         }
     }
     Err("there is no free spot for the player next to that exit".into())
+}
+
+/// The free arrival point in front of a door: standing on the door's bottom edge, centered on
+/// it, or the nearest free spot to either side.
+fn arrival_in_front_of(layout: &RoomLayout, zone: macroquad::math::Rect) -> Result<Vec2, String> {
+    let standing = Vec2::new(zone.center().x, zone.bottom() - PLAYER_SIZE.y / 2.0);
+    (0..)
+        .map(|k: i32| ((k + 1) / 2) as f32 * STEP * if k % 2 == 0 { 1.0 } else { -1.0 })
+        .take_while(|offset| offset.abs() <= zone.w / 2.0 + 4.0 * STEP)
+        .map(|lateral| standing + Vec2::X * lateral)
+        .find(|point| arrival_error(layout, *point).is_none())
+        .ok_or_else(|| "there is no free spot for the player in front of that door".into())
 }
 
 /// The edge, offset and length of an exit placed by a click at `position` (room

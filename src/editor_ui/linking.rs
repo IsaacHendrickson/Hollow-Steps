@@ -74,6 +74,19 @@ impl EditorUi {
         }
     }
 
+    /// "Add door and link...": places a door and opens the room chooser for it.
+    pub(crate) fn start_link_new_door(&mut self, editor: &mut EditorSession) {
+        editor.message.clear();
+        match editor.begin_link_new_door() {
+            Ok(exit) => {
+                self.selected = Some(Selection::Exit(exit));
+                self.tool = EditorTool::Select;
+                self.destination = None;
+            }
+            Err(error) => editor.message = error,
+        }
+    }
+
     /// A window of the flow decided something this frame.
     pub(crate) fn apply_link_choice(&mut self, editor: &mut EditorSession, choice: LinkChoice) {
         match choice {

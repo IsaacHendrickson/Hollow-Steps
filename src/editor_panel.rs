@@ -10,6 +10,7 @@ pub(crate) mod body_visual;
 mod boss;
 mod canvas_tools;
 mod death_field;
+mod door_panel;
 mod entity;
 mod history_panel;
 mod key_values;

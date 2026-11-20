@@ -50,8 +50,10 @@ pub fn boundary_slabs(bounds: Rect, floor_y: f32, thickness: f32, exits: &[Exit]
             bounds.bottom() - floor + t,
         ),
     ];
+    // A door stands in front of a wall; only exits on an edge open it.
     let doorways: Vec<Rect> = exits
         .iter()
+        .filter(|exit| !exit.is_door())
         .map(|exit| doorway(exit, bounds, t))
         .filter(|hole| {
             [hole.x, hole.y, hole.w, hole.h]

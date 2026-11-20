@@ -14,7 +14,7 @@ use crate::charms::CharmCatalog;
 use crate::editor_session::RoomWork;
 use crate::events::GameEvent;
 use crate::room::{Room, RoomEnemies};
-use crate::room_charms::LyingCharm;
+use crate::room_charms::{LyingCharm, WorldCharm};
 use crate::room_name::default_display_name;
 
 impl GameState {
@@ -61,15 +61,17 @@ impl GameState {
         }
     }
 
+    /// The first charm within reach of the player, if any: the one the pickup key would take.
+    pub(super) fn charm_in_reach(&self) -> Option<&WorldCharm> {
+        self.rooms[self.current].charms.iter().find(|lying| {
+            self.charms.get(&lying.charm).is_some() && lying.can_pick_up(&self.player)
+        })
+    }
+
     /// Picks up the first charm within reach, if any: it becomes owned and no room places it
     /// any more. Returns whether one was picked up.
     pub(super) fn pick_up_charm(&mut self) -> bool {
-        let player = &self.player;
-        let Some(lying) = self.rooms[self.current]
-            .charms
-            .iter()
-            .find(|lying| self.charms.get(&lying.charm).is_some() && lying.can_pick_up(player))
-        else {
+        let Some(lying) = self.charm_in_reach() else {
             return false;
         };
         let id = lying.charm.clone();
