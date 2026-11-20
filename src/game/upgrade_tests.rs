@@ -1,7 +1,7 @@
 //! Permanent upgrades through `GameState`: that the levels in the profile are in effect (from the
 //! start of the game and the moment the profile changes), that they stack with charms, that the
-//! base numbers and their files never see them, and what the bars measure charms against. The
-//! rules themselves are tested in `crate::upgrades`.
+//! base numbers and their files never see them, and that the bars show bought health like a
+//! charm's (a shorter base part, the added health at the end). The rules themselves are tested in `crate::upgrades`.
 //!
 //! The world is a private copy of `tests/fixtures` with a hub (`run_tests::world`) and an
 //! `upgrades.ron` written here, so no number of the shipped file matters.
@@ -9,6 +9,7 @@ use super::charm_tests::Scratch;
 use super::run_tests::{game_in, profile_path, world};
 use super::*;
 use crate::charms::Toggle;
+use crate::hud_bars::{layout_bars, HudConfig};
 use crate::profile::{self, Profile};
 use crate::tuning::TuningConfig;
 use crate::vitals::VitalsConfig;
@@ -165,23 +166,74 @@ fn the_base_numbers_and_their_files_never_see_the_upgrades() {
 }
 
 #[test]
-fn the_bars_count_upgrade_health_as_part_of_the_base() {
+fn bought_health_shows_on_the_bar_like_a_charms_added_health() {
     let scratch = scratch_with(&bought(2, 0, 0));
     let mut game = game_in(&scratch);
     let base = f32::from(game.tuning().player.max_health);
+    let anchor = Rect::new(20.0, 20.0, 200.0, 20.0);
+    let layout_of =
+        |game: &GameState| layout_bars(&HudConfig::default(), game.bar_values(), anchor);
 
-    // Upgrades alone: the bar is longer, but nothing is "extra" or "locked".
+    // The baseline stays the number from player.ron; the bought 20 are above it.
     let values = game.bar_values();
     close(values.max_health, base + 20.0);
-    close(values.base_max_health, base + 20.0);
-    close(game.base_max_health(), base + 20.0);
+    close(values.base_max_health, base);
+    close(game.base_max_health(), base);
 
-    // A charm on top is the only thing that shows as an extension after the divider.
+    // So the original bar gets shorter and the bought health follows it at the end, behind the
+    // divider, exactly as a charm's added health does.
+    let layout = layout_of(&game);
+    close(layout.health_base.w, anchor.w * base / (base + 20.0));
+    close(layout.health_extension.w, anchor.w * 20.0 / (base + 20.0));
+    close(layout.health_extension.x, layout.health_base.right());
+    close(layout.health_extension.right(), anchor.right());
+    assert!(layout.health_edge.w > 0.0, "the divider is drawn");
+
+    // A charm on top grows the same added part at the end.
     assert_eq!(game.toggle_charm("heart"), Toggle::Equipped);
-    let values = game.bar_values();
-    close(values.max_health, base + 30.0);
-    close(values.base_max_health, base + 20.0);
-    assert_eq!(values.base_max_mana, game.base_max_mana());
+    close(game.bar_values().max_health, base + 30.0);
+    let layout = layout_of(&game);
+    close(layout.health_base.w, anchor.w * base / (base + 30.0));
+    close(layout.health_extension.w, anchor.w * 30.0 / (base + 30.0));
+    assert_eq!(game.bar_values().base_max_mana, game.base_max_mana());
+}
+
+#[test]
+fn bought_health_and_a_charms_health_look_the_same_on_the_bar() {
+    // 10 bought (one level) and 10 from the heart charm give the same bar.
+    let bought_scratch = scratch_with(&bought(1, 0, 0));
+    let bought_game = game_in(&bought_scratch);
+    let charm_scratch = scratch_with(&Profile::default());
+    let mut charm_game = game_in(&charm_scratch);
+    assert_eq!(charm_game.toggle_charm("heart"), Toggle::Equipped);
+
+    let anchor = Rect::new(20.0, 20.0, 200.0, 20.0);
+    let layout = |game: &GameState| layout_bars(&HudConfig::default(), game.bar_values(), anchor);
+    let (bought_bars, charm_bars) = (layout(&bought_game), layout(&charm_game));
+    assert!(bought_bars.health_extension.w > 0.0);
+    for (bought, charm) in [
+        (bought_bars.health_base, charm_bars.health_base),
+        (bought_bars.health_extension, charm_bars.health_extension),
+        (bought_bars.health_edge, charm_bars.health_edge),
+        (bought_bars.health_locked, charm_bars.health_locked),
+        (bought_bars.health, charm_bars.health),
+    ] {
+        assert_eq!(bought, charm);
+    }
+    // The charm also costs mana, which locks the end of the mana bar; an upgrade costs none.
+    assert_eq!(bought_bars.mana_locked.w, 0.0);
+    assert!(charm_bars.mana_locked.w > 0.0);
+}
+
+#[test]
+fn without_upgrades_the_whole_bar_is_the_base_part() {
+    let scratch = scratch_with(&Profile::default());
+    let game = game_in(&scratch);
+    let anchor = Rect::new(20.0, 20.0, 200.0, 20.0);
+    let layout = layout_bars(&HudConfig::default(), game.bar_values(), anchor);
+    close(layout.health_base.w, anchor.w);
+    close(layout.health_extension.w, 0.0);
+    close(layout.health_edge.w, 0.0);
 }
 
 #[test]

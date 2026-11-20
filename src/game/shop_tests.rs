@@ -8,6 +8,7 @@
 use super::charm_tests::Scratch;
 use super::run_tests::{game_in, input, kill, profile_path, start_run, swing, walk, world, HUB};
 use super::*;
+use crate::hud_bars::{layout_bars, HudConfig};
 use crate::profile::{self, Profile};
 use crate::shop_menu::SHOP_SIZE;
 use crate::upgrades::Purchase;
@@ -373,10 +374,45 @@ fn buying_to_the_maximum_charges_every_level_and_then_refuses() {
     assert!(matches!(game.shop_press(), Some(Purchase::Refused(_))));
     assert_eq!(game.profile().coins, 10);
     assert!(game.shop_menu().note().unwrap().text.contains("maximum"));
-    // The bars count the bought health as part of the base.
+    // The bought health is above the baseline, so the bar shows it as added capacity.
     let values = game.bar_values();
     assert!((values.max_health - (base + 30.0)).abs() < 1e-3);
-    assert!((values.base_max_health - (base + 30.0)).abs() < 1e-3);
+    assert!((values.base_max_health - base).abs() < 1e-3);
+}
+
+#[test]
+fn every_purchase_makes_the_original_part_of_the_bar_shorter_and_the_added_part_longer() {
+    let scratch = shop_world();
+    let mut game = game_with_coins(&scratch, 200);
+    open_shop(&mut game);
+    let anchor = Rect::new(20.0, 20.0, 200.0, 20.0);
+    let parts = |game: &GameState| {
+        let layout = layout_bars(&HudConfig::default(), game.bar_values(), anchor);
+        (layout.health_base.w, layout.health_extension.w)
+    };
+    let (mut base_part, mut added_part) = parts(&game);
+    assert!(
+        (base_part - anchor.w).abs() < 1e-3 && added_part == 0.0,
+        "nothing bought"
+    );
+
+    for level in 1..=3 {
+        assert_eq!(game.shop_press(), Some(Purchase::Bought));
+        let (now_base, now_added) = parts(&game);
+        assert!(
+            now_base < base_part,
+            "level {level}: {now_base} !< {base_part}"
+        );
+        assert!(
+            now_added > added_part,
+            "level {level}: {now_added} !> {added_part}"
+        );
+        assert!(
+            (now_base + now_added - anchor.w).abs() < 1e-3,
+            "the bar keeps its length"
+        );
+        (base_part, added_part) = (now_base, now_added);
+    }
 }
 
 #[test]

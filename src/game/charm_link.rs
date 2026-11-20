@@ -26,23 +26,19 @@ impl GameState {
         &self.charm_state
     }
 
-    /// Maximum mana without charms: `max_mana` as `vitals.ron` and the Player panel have it.
-    /// A charm's cost is held against this, not against the lowered maximum.
+    /// Maximum mana at the baseline: `max_mana` as `vitals.ron` and the Player panel have it.
+    /// A charm's cost is held against this, not against the lowered maximum, and the mana bar
+    /// measures any change to the maximum against it, as the health bar does.
     pub fn base_max_mana(&self) -> f32 {
         self.player_draft.edited_vitals().max_mana
     }
 
-    /// Maximum health without charms: `max_health` as `player.ron` and the Player panel have it,
-    /// plus the health the permanent upgrades give. The bars measure a charm's change against
-    /// this, so the divider and the locked end show only what charms do.
+    /// Maximum health at the baseline: `max_health` as `player.ron` and the Player panel have it,
+    /// before the permanent upgrades and the charms. The bars measure what either of them adds
+    /// or takes away against this, so bought health shows like a charm's: the base part gets
+    /// shorter and the added health follows it at the end, behind the divider.
     pub fn base_max_health(&self) -> f32 {
-        let (tuning, _) = effective_with(
-            self.player_draft.edited(),
-            self.player_draft.edited_vitals(),
-            &[],
-            &self.permanent_effects(),
-        );
-        f32::from(tuning.player.max_health)
+        f32::from(self.player_draft.edited().player.max_health)
     }
 
     /// The effect of every upgrade level bought. Only a game with a hub has them: with none the
@@ -55,8 +51,9 @@ impl GameState {
         }
     }
 
-    /// What the health and mana bars show: the vitals, and the base maximums the bars measure a
-    /// charm's change against (more capacity after the base part, or a locked end).
+    /// What the health and mana bars show: the vitals, and the baseline maximums the bars measure
+    /// a change against, whether a charm or a permanent upgrade made it (more capacity after the
+    /// base part, or a locked end).
     pub fn bar_values(&self) -> BarValues {
         BarValues::from(&self.vitals).with_base(self.base_max_health(), self.base_max_mana())
     }

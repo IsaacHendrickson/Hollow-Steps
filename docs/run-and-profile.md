@@ -114,9 +114,10 @@ Banked coins buy **permanent upgrades**, bought once in the hub and kept in the 
 - **Layers.** The numbers in effect are the base (`player.ron` and `vitals.ron`) plus the
   permanent upgrades plus the equipped charms, put together only by `GameState::apply_stats`
   (`charms::effective_with`). The base files are never written with bonuses, so F4 and the editor's
-  Player panel still show and save the base. Upgrades cost no mana. Permanent max health counts as
-  part of the base for the health bar, so the bar's divider and its locked end show only what
-  charms change.
+  Player panel still show and save the base. Upgrades cost no mana. The bars measure against the
+  baseline, so bought health looks like a charm's: the original part of the bar gets shorter and
+  the health added by upgrades and charms follows it at the end, behind the divider. (The mana bar
+  works the same way; no upgrade changes mana yet.)
 - **With no hub** (the embedded `run.ron`) the profile is not used and no upgrade is in effect:
   the game plays as before.
 - **F5** re-reads `upgrades.ron` with the other data files (a broken file changes nothing and
