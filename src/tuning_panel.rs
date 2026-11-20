@@ -1,5 +1,5 @@
 //! The F4 player-tuning window: a drag box for every number in `player.ron`, then one for every
-//! number in `vitals.ron`.
+//! number in `vitals.ron`, then the Run (debug) section (`run`).
 //!
 //! Presentation only. The ranges, validation and file writing live in `hollow_steps::tuning`,
 //! `hollow_steps::vitals` and `GameState`; this module turns widget changes into
@@ -18,11 +18,14 @@ use crate::player_panel::parse_entry;
 #[cfg(test)]
 use std::cell::RefCell;
 
+mod run;
+
 /// State of the F4 window; the values themselves live in `GameState`.
 #[derive(Debug, Default)]
 pub struct TuningPanel {
     open: bool,
     status: Status,
+    run: run::RunDebug,
 }
 
 /// Pixels of label column, so the drag boxes line up.
@@ -38,7 +41,7 @@ impl TuningPanel {
         if !self.open {
             return;
         }
-        let Self { open, status } = self;
+        let Self { open, status, run } = self;
         let list_height = (ctx.screen_rect().height() - 190.0).max(120.0);
         egui::Window::new("Player tuning (F4)")
             .open(open)
@@ -70,6 +73,8 @@ impl TuningPanel {
                             }
                             vitals_row(ui, game, status, field);
                         }
+                        ui.add_space(4.0);
+                        run.draw(ui, game);
                     });
                 ui.separator();
                 footer(ui, game, status);

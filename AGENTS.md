@@ -94,6 +94,9 @@ Gameplay modules (pure rules, no rendering):
 - `src/player_body.rs`: the player's look (`data/player_body.ron`), pose choice, `BodyInstance`
 - `src/item.rs`: world items and pickup (`within_reach`, shared with charms)
 - `src/coin.rs`: collectible coins.
+- `src/profile.rs`: the saved profile (coins, tier, cleared): `profile.ron` in the config folder, staged save, bad file kept as `.bak`
+- `src/run.rs`: run loop rules: `RunConfig` (`data/run.ron`), `RunOutcome`, `RunResult`, `RunPhase`, `Profile::bank`; `docs/run-and-profile.md`
+- `src/run/screen.rs`: pure result screen text and layout, HUD and inventory coin captions (`run::result_lines`, `hud_counter`)
 - `src/room.rs`: rooms (with `terrain_style` and lying `charms`), exits, room transitions
 - `src/door_exit.rs`: door exits (a free rectangle, Up to enter): room-file form, checks, editor add/move/resize; `docs/door-exits.md`
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
@@ -153,10 +156,13 @@ Composition and front end:
 - `src/charm_panel.rs` (+ `charm_panel/`): the editor's Charms panel
 - `src/game/charm_editor_link.rs`: `GameState` holds the Charms panel's edits: sync, save, discard
 - `src/game/world_charms.rs`: charms lying in rooms, in play and in Save: pickup, validation
+- `src/game/run_link.rs`: `GameState` owns the hub-and-run loop: phase, profile, start/end a run, result screen, `continue_after_result`
+- `src/game/world_load.rs`: the one world loader (rooms, terrain looks) for start-up, F5 and a run's reset
 - `src/game/world_doors.rs`: `door_in_reach`, the one rule for entering a door and for showing its prompt
 - `src/game/world_items.rs`: items in play and Save: pickup, taken items kept for the run (`TakenItems`), restored on rebuild
 - `src/player_panel.rs` (+ `player_panel/`): the editor's Player panel; `draw_field` is shared with F4
 - `src/tuning_panel.rs`: F4 egui window: a drag box per `player.ron` and `vitals.ron` field
+- `src/tuning_panel/run.rs`: F4 Run (debug) section: difficulty tier box and Reset profile, saved at once
 - `src/scene.rs`: Macroquad drawing of the world (background to player)
 - `src/postfx_pass.rs`: Macroquad post-process pass (material, world target, HUD target)
 - `src/effects.rs`: Macroquad event-driven effects: particles and sounds (`docs/audio.md`)
@@ -164,6 +170,7 @@ Composition and front end:
 - `src/hud_bars_draw.rs`: Macroquad drawing of those rectangles (`draw_bars`); no rules
 - `src/hud_damage.rs`: pure health-bar damage feedback: `BarShake`, `HudFeedback`
 - `src/hud_layout.rs`: pure HUD rules: boss bar fill and caption, room label (health and mana bars are in `hud_bars`)
+- `src/hud_run.rs`: Macroquad result screen and the Enter or click that leaves it; HUD and inventory coin counters
 - `src/hud.rs`: Macroquad HUD, inventory, pause menu, reload panels (virtual-resolution space)
 - `src/charm_input.rs`: Macroquad adapter for the charm list while the inventory is open
 - `src/hud_charms.rs`: Macroquad drawing of the inventory's Charms section

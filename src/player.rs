@@ -520,6 +520,7 @@ mod ceiling_tests;
 mod dash_tests;
 #[cfg(test)]
 mod event_tests;
+mod run_reset;
 #[cfg(test)]
 mod strike_tests;
 #[cfg(test)]

@@ -118,6 +118,16 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Catalog-backed pose dropdowns for attack phases in rows and Key values; `src/editor_panel/widgets.rs`; `tests/poses.rs`
 - Body, pose, spring, hurt, blend and tint values all have data, validation, editor controls; `src/body/`, `src/pose.rs`, `data/`; `tests/poses.rs`
 
+## Hub and runs
+
+- Profile: coins, tier and clears kept in `profile.ron` (config folder), staged save, bad file kept as `.bak`; `src/profile.rs`; `src/profile/tests.rs`
+- Run rules: `data/run.ron` (hub, start and final boss room, coin share), outcomes, banking, saturating; `src/run.rs`; `src/run/tests.rs`
+- Run loop: hub exit starts a run; death, final boss or Abandon ends it; frozen result, Enter returns; `src/game/run_link.rs`; `src/game/run_tests.rs`
+- Pause menu in a run: Abandon run with confirm (Keep playing default, Esc back); `src/pause_menu.rs`; `src/pause_menu/run_tests.rs`, `src/game/run_pause_tests.rs`
+- Result screen and counters: text, layout, HUD and inventory captions; `src/run/screen.rs`, `src/hud_run.rs`; `src/run/screen/tests.rs`, manual
+- Shipped hub (`assets/run.ron`, `room_0.ron`) and F4 Run (debug): tier box, Reset profile; `src/tuning_panel/run.rs`; `src/tuning_panel/run/tests.rs`, `tests/shipped_content.rs`
+- Run loop edges: profile save and bad file, test-room sandbox, editor moves, no hub; `src/game/run_link.rs`; `src/game/run_profile_tests.rs`
+
 ## Tests and CI
 
 - Fixture-based tests; only `tests/shipped_content.rs` reads `assets/` (load and validate); `tests/fixtures/`, `tests/support/mod.rs`

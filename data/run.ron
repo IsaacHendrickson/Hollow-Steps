@@ -1,0 +1,9 @@
+// The run loop's rules. The shipped game turns it on with assets/run.ron (a hub room); this
+// embedded default has no hub, so the game plays as it always did: death respawns in place.
+// An assets/run.ron replaces this file whole. `Custom(0)` is the room in assets/rooms/room_0.ron.
+(
+    // hub_room: Custom(0),        // a safe room; leaving it through an exit starts a run
+    start_room: First,             // where the game begins when there is no hub
+    final_boss_room: Boss,         // defeating the boss of this room clears the dungeon
+    coin_keep_percent: 100.0,      // share of a run's coins banked when it ends (0 to 100)
+)

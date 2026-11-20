@@ -11,22 +11,24 @@ impl GameState {
         &self.pause_menu
     }
 
-    /// True while the world stands still for the inventory or the pause menu. The editor stops
-    /// the world too, but it is not "paused": it has its own loop.
+    /// True while the world stands still for the inventory, the pause menu or a run's result
+    /// screen. The editor stops the world too, but it is not "paused": it has its own loop.
     pub fn is_paused(&self) -> bool {
-        self.inventory_open || self.pause_menu.is_open()
+        self.inventory_open || self.pause_menu.is_open() || self.showing_result()
     }
 
     /// The Escape key during play. It closes the inventory if that is open; otherwise it opens
     /// the pause menu, closes it, or goes back from Settings. Ignored while the editor is open
-    /// (the editor has no pause menu).
+    /// (the editor has no pause menu) and on the result screen (only Enter leaves it).
     pub fn press_escape(&mut self) {
-        if self.editor.is_some() {
+        if self.editor.is_some() || self.showing_result() {
             return;
         }
         if self.inventory_open {
             self.inventory_open = false;
         } else {
+            // A run in progress adds Abandon run to the main screen.
+            self.pause_menu.set_in_run(self.run_in_progress());
             self.pause_menu.escape();
         }
     }

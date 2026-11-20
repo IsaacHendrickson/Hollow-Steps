@@ -570,5 +570,7 @@ impl VitalsState {
     }
 }
 
+mod fill;
+
 #[cfg(test)]
 mod tests;

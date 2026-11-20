@@ -16,7 +16,7 @@ mod store;
 pub use input::{hint_line, player_input};
 pub use keys::{first_pressed, is_bindable, key_from_name, key_name, BINDABLE};
 pub use notes::{error_note, key_label, swap_note};
-pub use store::{config_dir, default_path, load, remove, save, Platform, FILE_NAME};
+pub use store::{config_dir, default_dir, default_path, load, remove, save, Platform, FILE_NAME};
 
 /// Something the player does with a key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

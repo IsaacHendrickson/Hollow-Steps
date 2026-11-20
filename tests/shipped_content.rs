@@ -78,3 +78,15 @@ fn shipped_terrain_presets_and_room_palettes_load_and_validate() {
             .unwrap_or_else(|error| panic!("{:?}: {error}", room.id));
     }
 }
+
+#[test]
+fn shipped_run_rules_and_hub_room_load_and_validate() {
+    let assets = assets();
+    let config = hollow_steps::run::RunConfig::load(&assets).expect("shipped run.ron must load");
+    // Startup loads every room and checks the run rules against them: the hub, the start room and
+    // the final boss room must all exist.
+    let game = GameState::try_new(&assets).expect("shipped rooms and run rules must fit together");
+    if let Some(hub) = config.hub_room {
+        assert_eq!(game.room().id, hub, "the game starts in the hub");
+    }
+}

@@ -1,0 +1,20 @@
+(
+    enemies: [],
+    boss: None,
+    layout: Some((
+        name: Some("Hub"),
+        bounds: (0.0, 0.0, 960.0, 460.0),
+        floor_y: 460.0,
+        spawn: (180.0, 436.0),
+        items: [],
+        exits: [
+            (
+                edge: Right,
+                offset: 364.0,
+                length: 96.0,
+                target_room: First,
+                spawn: (252.0, 273.14285),
+            ),
+        ],
+    )),
+)

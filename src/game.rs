@@ -17,7 +17,8 @@ use crate::keybinds::Keybinds;
 use crate::pause_menu::PauseMenu;
 use crate::player::{Player, PlayerInput, WorldBounds};
 use crate::player_editor::PlayerDraft;
-use crate::room::{load_rooms, Room, RoomId};
+use crate::room::{Room, RoomId};
+use crate::run::RunConfig;
 use crate::tuning::TuningConfig;
 use crate::vitals::{VitalsConfig, VitalsState};
 
@@ -54,6 +55,13 @@ mod pause_tests;
 mod player_link;
 #[cfg(test)]
 mod player_stats_tests;
+mod run_link;
+#[cfg(test)]
+mod run_pause_tests;
+#[cfg(test)]
+mod run_profile_tests;
+#[cfg(test)]
+mod run_tests;
 #[cfg(test)]
 mod strike_tests;
 mod terrain_link;
@@ -66,6 +74,7 @@ mod vitals_tests;
 mod world_charms;
 mod world_doors;
 mod world_items;
+mod world_load;
 
 pub use crate::room::FLOOR_Y;
 pub use charm_editor_link::CharmsSaved;
@@ -118,6 +127,9 @@ pub struct GameState {
     charm_menu: CharmMenu,
     /// The items taken during the run; see `world_items`.
     taken_items: TakenItems,
+    /// The hub-and-run loop: its settings, the profile and where the player is in the loop; see
+    /// `run_link`. Inert while `run.ron` names no hub.
+    run: run_link::RunState,
 }
 
 impl GameState {
@@ -133,22 +145,19 @@ impl GameState {
         let feel = FeelConfig::load(assets)?;
         let vitals = VitalsConfig::load(assets)?;
         let charms = CharmCatalog::load(assets, vitals.max_mana)?;
-        let mut rooms = load_rooms(assets)?.into_iter().collect::<Vec<_>>();
-        let definitions = EnemyDefinitions::load(assets)?;
-        rooms.extend(editor::load_extra_rooms(assets, &definitions)?);
-        Self::validate_destinations(&rooms, &definitions)?;
-        Self::validate_room_charms(&rooms, &charms)?;
-        let world_bounds = rooms[RoomId::First.index()].world_bounds();
+        let run_config = RunConfig::load(assets)?;
+        let (rooms, terrain_styles) = world_load::load_world(assets, &charms)?;
+        let (run, current) = run_link::RunState::start(run_config, &rooms)?;
         let mut player = Player::new(Vec2::new(180.0, 0.0), tuning.player);
-        player.place_at(rooms[RoomId::First.index()].spawn, world_bounds);
+        player.place_at(rooms[current].spawn, rooms[current].world_bounds());
 
         let mut game = Self {
             player,
-            terrain_styles: terrain_link::load(assets, &rooms)?, // before `rooms` moves
+            terrain_styles,
             rooms,
             editor: None,
             assets: assets.to_owned(),
-            current: RoomId::First.index(),
+            current,
             coin_count: 0,
             inventory_open: false,
             pause_menu: PauseMenu::default(),
@@ -165,6 +174,7 @@ impl GameState {
             charm_menu: CharmMenu::default(),
             taken_items: TakenItems::default(),
             charms,
+            run,
         };
         game.prune_owned_charm_placements();
         game.apply_stats();
@@ -237,10 +247,10 @@ impl GameState {
         self.inventory_open
     }
 
-    /// Opens or closes the inventory. Ignored while the pause menu is open. An old charm
-    /// refusal is not kept for the next time.
+    /// Opens or closes the inventory. Ignored while the pause menu is open or a run's result
+    /// shows. An old charm refusal is not kept for the next time.
     pub fn toggle_inventory(&mut self) {
-        if self.pause_menu.is_open() {
+        if self.pause_menu.is_open() || self.showing_result() {
             return;
         }
         self.inventory_open = !self.inventory_open;
@@ -328,12 +338,7 @@ impl GameState {
         let feel = FeelConfig::load(&self.assets)?;
         let vitals = VitalsConfig::load(&self.assets)?;
         let charms = CharmCatalog::load(&self.assets, vitals.max_mana)?;
-        let mut rooms = load_rooms(&self.assets)?.into_iter().collect::<Vec<_>>();
-        let definitions = EnemyDefinitions::load(&self.assets)?;
-        rooms.extend(editor::load_extra_rooms(&self.assets, &definitions)?);
-        Self::validate_destinations(&rooms, &definitions)?;
-        Self::validate_room_charms(&rooms, &charms)?;
-        let terrain_styles = terrain_link::load(&self.assets, &rooms)?;
+        let (rooms, terrain_styles) = world_load::load_world(&self.assets, &charms)?;
         for mut reloaded in rooms {
             if let Some(current) = self.rooms.iter_mut().find(|room| room.id == reloaded.id) {
                 // Prefer exact placements before matching moved placements by name/occurrence.
@@ -399,6 +404,7 @@ impl GameState {
         if self.is_paused() || self.editor.is_some() {
             return;
         }
+        self.reconcile_run();
         let delta_seconds = if delta_seconds.is_finite() {
             delta_seconds.max(0.0)
         } else {
@@ -414,6 +420,7 @@ impl GameState {
 
     /// One tick of the world. `frozen` holds enemies and the boss still (hit-stop).
     fn step(&mut self, input: PlayerInput, delta_seconds: f32, frozen: bool) {
+        let events_before = self.events.len();
         let index = self.current;
         let enemy_tuning = self.tuning().enemy;
         let bounds = self.rooms[index].world_bounds();
@@ -530,9 +537,8 @@ impl GameState {
             self.events
                 .push_player_damaged(self.player.position(), loss);
         }
-        if self.player.health().current() == 0 {
-            self.player.respawn(room.spawn, bounds);
-            self.vitals.respawn();
+        let spawn = room.spawn;
+        if self.settle_combat(events_before, spawn, bounds) {
             return;
         }
         // Up with X is an upward strike, not a pickup or a door.
@@ -565,15 +571,7 @@ impl GameState {
             // A test room is a sandbox: its exits would lead into saved rooms.
             .filter(|_| self.test_run.is_none())
         {
-            if let Some(target) = self
-                .rooms
-                .iter()
-                .position(|room| room.id == exit.target_room)
-            {
-                self.current = target;
-                self.player.place_at(exit.spawn, self.world_bounds());
-                self.events.push(GameEvent::RoomEntered);
-            }
+            self.use_exit(exit);
         }
     }
 }

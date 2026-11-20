@@ -4,7 +4,8 @@
 //! open; `main.rs` turns keys and the mouse into the calls below and draws the result. The
 //! Settings screen lists the keybinds: a row per action with its primary and alternate key, a
 //! Reset keybinds button and Back. The menu only tracks which key slot is waiting for a key;
-//! `GameState` owns the bindings themselves and changes them (`game::keybind_link`).
+//! `GameState` owns the bindings themselves and changes them (`game::keybind_link`). During a run
+//! the main screen also lists Abandon run, which asks for confirmation first.
 
 use crate::keybinds::{Action, Slot};
 
@@ -27,6 +28,12 @@ pub enum PauseItem {
     Bind(Action),
     /// Puts every action back on its shipped keys.
     ResetKeybinds,
+    /// Main screen of a run: asks whether to give the run up.
+    AbandonRun,
+    /// Confirm screen: gives the run up.
+    ConfirmAbandon,
+    /// Confirm screen: back to the main screen.
+    KeepPlaying,
 }
 
 impl PauseItem {
@@ -38,6 +45,8 @@ impl PauseItem {
             Self::Back => "Back",
             Self::Bind(action) => action.label(),
             Self::ResetKeybinds => "Reset keybinds",
+            Self::AbandonRun | Self::ConfirmAbandon => "Abandon run",
+            Self::KeepPlaying => "Keep playing",
         }
     }
 }
@@ -46,8 +55,12 @@ impl PauseItem {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PauseScreen {
     Main,
+    /// The main screen during a run: Abandon run sits between Settings and Exit.
+    RunMain,
     /// The keybinds, Reset keybinds and a way back.
     Settings,
+    /// Asks whether to abandon the run.
+    Confirm,
 }
 
 /// The Settings screen's rows: a keybind row per action (in `Action::ALL` order), then Reset
@@ -66,8 +79,9 @@ static SETTINGS_ITEMS: [PauseItem; Action::ALL.len() + 2] = {
 impl PauseScreen {
     pub fn title(self) -> &'static str {
         match self {
-            Self::Main => "Paused",
+            Self::Main | Self::RunMain => "Paused",
             Self::Settings => "Settings",
+            Self::Confirm => "Abandon this run?",
         }
     }
 
@@ -75,7 +89,14 @@ impl PauseScreen {
     pub fn items(self) -> &'static [PauseItem] {
         match self {
             Self::Main => &[PauseItem::Unpause, PauseItem::Settings, PauseItem::Exit],
+            Self::RunMain => &[
+                PauseItem::Unpause,
+                PauseItem::Settings,
+                PauseItem::AbandonRun,
+                PauseItem::Exit,
+            ],
             Self::Settings => &SETTINGS_ITEMS,
+            Self::Confirm => &[PauseItem::ConfirmAbandon, PauseItem::KeepPlaying],
         }
     }
 }
@@ -88,6 +109,8 @@ pub enum PauseOutcome {
     Exit,
     /// The keybinds should go back to the shipped keys (`GameState` does it and saves).
     ResetKeybinds,
+    /// The run should be given up (`GameState` does it and shows the result).
+    AbandonRun,
 }
 
 /// The pause menu. Closed until `escape` opens it.
@@ -104,6 +127,9 @@ pub struct PauseMenu {
     /// A one-line message for the Settings screen: what a rebind swapped, why a key was
     /// refused, or that saving failed.
     note: Option<String>,
+    /// A run is going, so the main screen lists Abandon run. Set before the menu opens
+    /// (`set_in_run`) and forgotten when it closes.
+    in_run: bool,
 }
 
 impl PauseMenu {
@@ -141,22 +167,37 @@ impl PauseMenu {
         self.note = note;
     }
 
+    /// Chooses which main screen the menu shows: with Abandon run while a run is going.
+    pub fn set_in_run(&mut self, in_run: bool) {
+        self.in_run = in_run;
+    }
+
+    fn main_screen(&self) -> PauseScreen {
+        if self.in_run {
+            PauseScreen::RunMain
+        } else {
+            PauseScreen::Main
+        }
+    }
+
     /// Stops waiting for a key (the key was bound, or the wait was cancelled).
     pub fn stop_listening(&mut self) {
         self.listening = None;
     }
 
     /// The Escape key: opens the menu, cancels a wait for a key, closes the menu from the main
-    /// screen, and goes back from Settings to the main screen (with Settings selected).
+    /// screen, goes back from Settings to the main screen (with Settings selected) and from the
+    /// confirm screen to the main screen (with Abandon run selected).
     pub fn escape(&mut self) {
         if self.listening.take().is_some() {
             self.note = None;
             return;
         }
         match self.screen {
-            None => self.show(PauseScreen::Main, PauseItem::Unpause),
-            Some(PauseScreen::Main) => self.close(),
-            Some(PauseScreen::Settings) => self.show(PauseScreen::Main, PauseItem::Settings),
+            None => self.show(self.main_screen(), PauseItem::Unpause),
+            Some(PauseScreen::Main | PauseScreen::RunMain) => self.close(),
+            Some(PauseScreen::Settings) => self.show(self.main_screen(), PauseItem::Settings),
+            Some(PauseScreen::Confirm) => self.show(PauseScreen::RunMain, PauseItem::AbandonRun),
         }
     }
 
@@ -232,8 +273,15 @@ impl PauseMenu {
         match item {
             PauseItem::Unpause => self.close(),
             PauseItem::Settings => self.show(PauseScreen::Settings, PauseItem::Back),
-            PauseItem::Back => self.show(PauseScreen::Main, PauseItem::Settings),
+            PauseItem::Back => self.show(self.main_screen(), PauseItem::Settings),
             PauseItem::Exit => return PauseOutcome::Exit,
+            // The safe button starts selected, so a stray Enter keeps the run.
+            PauseItem::AbandonRun => self.show(PauseScreen::Confirm, PauseItem::KeepPlaying),
+            PauseItem::KeepPlaying => self.show(PauseScreen::RunMain, PauseItem::AbandonRun),
+            PauseItem::ConfirmAbandon => {
+                self.close();
+                return PauseOutcome::AbandonRun;
+            }
             PauseItem::Bind(action) => {
                 self.selected = index;
                 self.listening = Some((action, self.slot));
@@ -253,8 +301,10 @@ impl PauseMenu {
         self.screen?.items().iter().position(|&other| other == item)
     }
 
-    fn close(&mut self) {
+    /// Closes the menu from outside (the result screen takes over); the same as pressing Unpause.
+    pub fn close(&mut self) {
         self.screen = None;
+        self.in_run = false;
         self.slot = Slot::default();
         self.listening = None;
         self.note = None;
@@ -273,5 +323,7 @@ impl PauseMenu {
     }
 }
 
+#[cfg(test)]
+mod run_tests;
 #[cfg(test)]
 mod tests;

@@ -29,11 +29,11 @@ const SLOT_WIDTH: f32 = 170.0;
 const SLOT_GAP: f32 = 10.0;
 
 /// The panel of `screen` on a `view`-sized screen, centered. The Settings panel is bigger than
-/// the main one.
+/// the button screens (main, run main, confirm).
 pub fn panel_rect(screen: PauseScreen, view: Vec2) -> Rect {
     let rows = screen.items().len() as f32;
     let (width, height) = match screen {
-        PauseScreen::Main => (
+        PauseScreen::Main | PauseScreen::RunMain | PauseScreen::Confirm => (
             PANEL_WIDTH,
             TITLE_HEIGHT + rows * BUTTON_SIZE.y + (rows - 1.0) * BUTTON_GAP + BOTTOM_PADDING,
         ),
@@ -61,7 +61,7 @@ pub fn title_baseline() -> f32 {
 pub fn button_rects(screen: PauseScreen, view: Vec2) -> Vec<(PauseItem, Rect)> {
     let panel = panel_rect(screen, view);
     match screen {
-        PauseScreen::Main => {
+        PauseScreen::Main | PauseScreen::RunMain | PauseScreen::Confirm => {
             let x = panel.x + (PANEL_WIDTH - BUTTON_SIZE.x) / 2.0;
             screen
                 .items()
