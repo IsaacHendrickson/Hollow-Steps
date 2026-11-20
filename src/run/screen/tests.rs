@@ -17,6 +17,7 @@ fn profile() -> Profile {
         coins: 25,
         tier: 2,
         cleared: 1,
+        ..Profile::default()
     }
 }
 

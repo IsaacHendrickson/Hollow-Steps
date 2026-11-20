@@ -253,16 +253,17 @@ pub struct BarValues {
     pub pending_heal: f32,
     pub mana: f32,
     pub max_mana: f32,
-    /// Maximum health without charms (the value from the Player panel). The bar's scale follows
-    /// the larger of this and `max_health`; see `layout_bars`.
+    /// Maximum health at the baseline (the value from the Player panel), before charms and
+    /// permanent upgrades. The bar's scale follows the larger of this and `max_health`; see
+    /// `layout_bars`.
     pub base_max_health: f32,
-    /// Maximum mana without charms.
+    /// Maximum mana at the baseline.
     pub base_max_mana: f32,
 }
 
 impl BarValues {
     /// The same values measured against base maximums: what the bars show for maximums that
-    /// charms have raised or lowered.
+    /// charms or permanent upgrades have raised or lowered.
     pub fn with_base(mut self, base_max_health: f32, base_max_mana: f32) -> Self {
         self.base_max_health = base_max_health;
         self.base_max_mana = base_max_mana;
@@ -446,8 +447,9 @@ fn sections(bar: Rect, scale: Scale) -> [Rect; 4] {
 ///
 /// The bars keep their length (`anchor.w`) whatever the maximums are. A value's width is its
 /// value times `anchor.w / max(base maximum, maximum)`, from the left end. With the maximum
-/// above the base (a charm added capacity) the base part comes first and the added capacity
-/// follows it at the end, behind a divider line; with the maximum below the base (a charm took
+/// above the base (a charm or a permanent upgrade added capacity) the base part comes first and
+/// the added capacity follows it at the end, behind a divider line, so the base part gets shorter
+/// as capacity is added; with the maximum below the base (a charm took
 /// capacity away) the base scale stays and the lost capacity at the end is locked, and nothing
 /// fills it. With the maximum equal to the base the layout is the plain proportional one. Both
 /// bars follow the same rule, each against its own base. The mana bar is as long as the health

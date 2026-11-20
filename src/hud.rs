@@ -61,8 +61,9 @@ impl Hud {
     }
 
     /// Reacts to a frame's events: damage shakes the health bar and throws off particles.
-    /// `base_max_health` is the maximum health without charms: with the maximum below it the end
-    /// of the bar is locked, and the burst is measured against the part that can hold health.
+    /// `base_max_health` is the maximum health at the baseline, before charms and permanent
+    /// upgrades: with the maximum below it the end of the bar is locked, and the burst is measured
+    /// against the part that can hold health.
     pub fn handle(
         &mut self,
         events: &[LocatedEvent],

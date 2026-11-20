@@ -94,9 +94,11 @@ Gameplay modules (pure rules, no rendering):
 - `src/player_body.rs`: the player's look (`data/player_body.ron`), pose choice, `BodyInstance`
 - `src/item.rs`: world items and pickup (`within_reach`, shared with charms)
 - `src/coin.rs`: collectible coins.
-- `src/profile.rs`: the saved profile (coins, tier, cleared): `profile.ron` in the config folder, staged save, bad file kept as `.bak`
-- `src/run.rs`: run loop rules: `RunConfig` (`data/run.ron`), `RunOutcome`, `RunResult`, `RunPhase`, `Profile::bank`; `docs/run-and-profile.md`
+- `src/profile.rs`: the saved profile (coins, tier, cleared, upgrades): `profile.ron` in the config folder, staged save, bad file kept as `.bak`
+- `src/run.rs`: run loop rules: `RunConfig` (`data/run.ron`, incl. `shop`), `RunOutcome`, `RunResult`, `RunPhase`, `Profile::bank`; `docs/run-and-profile.md`
 - `src/run/screen.rs`: pure result screen text and layout, HUD and inventory coin captions (`run::result_lines`, `hud_counter`)
+- `src/upgrades.rs`: permanent upgrades (`data/upgrades.ron`): `UpgradeCatalog`, `buy`, `permanent_effects`; levels live in the profile
+- `src/shop_menu.rs` (+ `shop_menu/`): hub upgrade shop as pure state and layout; `game/shop_link.rs` owns it; `shop_input`, `hud_shop`, `scene_shop` draw it
 - `src/room.rs`: rooms (with `terrain_style` and lying `charms`), exits, room transitions
 - `src/door_exit.rs`: door exits (a free rectangle, Up to enter): room-file form, checks, editor add/move/resize; `docs/door-exits.md`
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
@@ -162,7 +164,7 @@ Composition and front end:
 - `src/game/world_items.rs`: items in play and Save: pickup, taken items kept for the run (`TakenItems`), restored on rebuild
 - `src/player_panel.rs` (+ `player_panel/`): the editor's Player panel; `draw_field` is shared with F4
 - `src/tuning_panel.rs`: F4 egui window: a drag box per `player.ron` and `vitals.ron` field
-- `src/tuning_panel/run.rs`: F4 Run (debug) section: difficulty tier box and Reset profile, saved at once
+- `src/tuning_panel/run.rs`: F4 Run (debug) section: Coins and tier boxes and Reset profile, saved at once
 - `src/scene.rs`: Macroquad drawing of the world (background to player)
 - `src/postfx_pass.rs`: Macroquad post-process pass (material, world target, HUD target)
 - `src/effects.rs`: Macroquad event-driven effects: particles and sounds (`docs/audio.md`)

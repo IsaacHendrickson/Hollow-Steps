@@ -10,14 +10,20 @@
 //!     coins: 120,
 //!     tier: 2,
 //!     cleared: 2,
+//!     upgrades: {"vitality": 2},
 //! )
 //! ```
+//!
+//! `upgrades` (the levels bought at the hub shop, by upgrade id) is optional, so files written
+//! before it existed still load, and it is left out of the file while empty. An id the upgrade
+//! catalog no longer lists stays in the file and has no effect.
 //!
 //! A missing file is a fresh profile. A file that cannot be used (it does not parse, has an
 //! unknown version, or cannot be read) is moved to `profile.ron.bak`, replacing an older one, so
 //! it is never lost or overwritten; the game starts on a fresh profile and the load says why.
 //! Nothing is saved before `load` has run: `GameState` only learns the path through it.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -26,12 +32,14 @@ pub const FILE_NAME: &str = "profile.ron";
 /// The file format this game reads and writes.
 pub const VERSION: u32 = 1;
 
-/// What is kept forever: coins banked, the difficulty tier and how many dungeons were cleared.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// What is kept forever: coins banked, the difficulty tier, how many dungeons were cleared and
+/// the level of each permanent upgrade bought (`upgrades`, by id).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Profile {
     pub coins: u32,
     pub tier: u32,
     pub cleared: u32,
+    pub upgrades: BTreeMap<String, u32>,
 }
 
 /// The file's fields. Unknown fields are refused, so a typo is found instead of ignored (the bad
@@ -43,6 +51,8 @@ struct File {
     coins: u32,
     tier: u32,
     cleared: u32,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    upgrades: BTreeMap<String, u32>,
 }
 
 /// Just the version, read first so a file from a newer game says "unknown version" rather than
@@ -60,6 +70,7 @@ impl Profile {
             coins: self.coins,
             tier: self.tier,
             cleared: self.cleared,
+            upgrades: self.upgrades.clone(),
         })
     }
 
@@ -77,6 +88,7 @@ impl Profile {
             coins: file.coins,
             tier: file.tier,
             cleared: file.cleared,
+            upgrades: file.upgrades,
         })
     }
 }

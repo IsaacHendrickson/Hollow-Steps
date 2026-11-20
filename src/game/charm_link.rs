@@ -11,8 +11,9 @@ use macroquad::math::Vec2;
 
 use super::GameState;
 use crate::charm_menu::{self, CharmMenu, InventoryLayout};
-use crate::charms::{effective, Charm, CharmCatalog, CharmState, Toggle};
+use crate::charms::{effective_with, Charm, CharmCatalog, CharmState, Effect, Toggle};
 use crate::hud_bars::BarValues;
+use crate::upgrades::permanent_effects;
 
 impl GameState {
     /// Every charm there is.
@@ -25,19 +26,34 @@ impl GameState {
         &self.charm_state
     }
 
-    /// Maximum mana without charms: `max_mana` as `vitals.ron` and the Player panel have it.
-    /// A charm's cost is held against this, not against the lowered maximum.
+    /// Maximum mana at the baseline: `max_mana` as `vitals.ron` and the Player panel have it.
+    /// A charm's cost is held against this, not against the lowered maximum, and the mana bar
+    /// measures any change to the maximum against it, as the health bar does.
     pub fn base_max_mana(&self) -> f32 {
         self.player_draft.edited_vitals().max_mana
     }
 
-    /// Maximum health without charms: `max_health` as `player.ron` and the Player panel have it.
+    /// Maximum health at the baseline: `max_health` as `player.ron` and the Player panel have it,
+    /// before the permanent upgrades and the charms. The bars measure what either of them adds
+    /// or takes away against this, so bought health shows like a charm's: the base part gets
+    /// shorter and the added health follows it at the end, behind the divider.
     pub fn base_max_health(&self) -> f32 {
         f32::from(self.player_draft.edited().player.max_health)
     }
 
-    /// What the health and mana bars show: the vitals, and the base maximums the bars measure a
-    /// charm's change against (more capacity after the base part, or a locked end).
+    /// The effect of every upgrade level bought. Only a game with a hub has them: with none the
+    /// profile is never used, so the game plays as it always did.
+    fn permanent_effects(&self) -> Vec<Effect> {
+        if self.run_config().has_hub() {
+            permanent_effects(self.profile(), &self.upgrades)
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// What the health and mana bars show: the vitals, and the baseline maximums the bars measure
+    /// a change against, whether a charm or a permanent upgrade made it (more capacity after the
+    /// base part, or a locked end).
     pub fn bar_values(&self) -> BarValues {
         BarValues::from(&self.vitals).with_base(self.base_max_health(), self.base_max_mana())
     }
@@ -137,18 +153,20 @@ impl GameState {
         self.charm_press()
     }
 
-    /// Puts the base numbers plus the equipped charms into effect: the player's movement, health
-    /// and sword, the vitals' mana, and every enemy's knockback. The one place that does it.
+    /// Puts the base numbers plus the permanent upgrades and the equipped charms into effect: the
+    /// player's movement, health and sword, the vitals' mana, and every enemy's knockback. The one
+    /// place that does it.
     ///
     /// The player keeps its position, velocity and timers. A raised maximum health adds the same
     /// health, a lowered one cuts the excess (`Health::set_limits`,
     /// `VitalsState::set_max_health`); mana is cut to a lower maximum and never refilled.
     pub(super) fn apply_stats(&mut self) {
         let equipped = self.charm_state.equipped_charms(&self.charms);
-        let (tuning, vitals) = effective(
+        let (tuning, vitals) = effective_with(
             self.player_draft.edited(),
             self.player_draft.edited_vitals(),
             &equipped,
+            &self.permanent_effects(),
         );
         self.player.set_config(tuning.player);
         self.vitals.set_config(vitals);

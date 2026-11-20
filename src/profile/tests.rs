@@ -34,6 +34,7 @@ fn profile() -> Profile {
         coins: 120,
         tier: 2,
         cleared: 3,
+        ..Profile::default()
     }
 }
 
@@ -200,4 +201,78 @@ fn the_default_path_is_the_profile_file_in_the_keybinds_folder() {
         }
         (binds, profile) => assert_eq!(binds.is_none(), profile.is_none()),
     }
+}
+
+// ---- upgrades --------------------------------------------------------------------------
+
+fn bought() -> Profile {
+    let mut profile = profile();
+    profile.upgrades.insert("vitality".into(), 2);
+    profile.upgrades.insert("swift_feet".into(), 1);
+    profile
+}
+
+#[test]
+fn bought_upgrades_survive_a_ron_round_trip_and_a_save_and_reload() {
+    let text = bought().to_ron().unwrap();
+    assert!(
+        text.contains("vitality"),
+        "the levels are in the file: {text}"
+    );
+    assert_eq!(Profile::from_ron(&text).unwrap(), bought());
+
+    let dir = TempDir::new();
+    save(&dir.file(), &bought()).unwrap();
+    assert_eq!(load(&dir.file()), (bought(), None));
+}
+
+#[test]
+fn a_version_one_file_without_upgrades_loads_with_none() {
+    // What the game wrote before upgrades existed: the version stays 1.
+    let old = "(version: 1, coins: 9, tier: 1, cleared: 1)";
+    let loaded = Profile::from_ron(old).unwrap();
+    assert_eq!(loaded.coins, 9);
+    assert!(loaded.upgrades.is_empty());
+
+    let dir = TempDir::new();
+    std::fs::write(dir.file(), old).unwrap();
+    let (profile, message) = load(&dir.file());
+    assert_eq!((profile.coins, message), (9, None), "no message, no backup");
+    assert!(!backup_path(&dir.file()).exists());
+}
+
+#[test]
+fn a_profile_without_upgrades_is_written_the_way_it_always_was() {
+    let text = profile().to_ron().unwrap();
+    assert!(!text.contains("upgrades"), "left out while empty: {text}");
+}
+
+#[test]
+fn an_id_nobody_lists_any_more_is_kept_by_a_save() {
+    let mut profile = profile();
+    profile.upgrades.insert("removed_long_ago".into(), 3);
+    let dir = TempDir::new();
+    save(&dir.file(), &profile).unwrap();
+    let (loaded, _) = load(&dir.file());
+    assert_eq!(loaded.upgrades.get("removed_long_ago"), Some(&3));
+    // And a save of what was loaded writes it again.
+    save(&dir.file(), &loaded).unwrap();
+    assert_eq!(load(&dir.file()).0, profile);
+}
+
+#[test]
+fn a_misspelled_upgrades_field_is_still_refused() {
+    let dir = TempDir::new();
+    std::fs::write(
+        dir.file(),
+        "(version: 1, coins: 1, tier: 0, cleared: 0, upgrade: {})",
+    )
+    .unwrap();
+    let (loaded, message) = load(&dir.file());
+    assert_eq!(loaded, Profile::default());
+    assert!(message.unwrap().contains("upgrade"));
+    assert!(
+        backup_path(&dir.file()).exists(),
+        "the file is kept as .bak"
+    );
 }

@@ -1,5 +1,5 @@
 //! The Run (debug) section drawn inside the F4 window: what it shows with and without a hub, and
-//! that its widgets reach `set_tier` and `reset_profile`.
+//! that its widgets reach `set_coins`, `set_tier` and `reset_profile`.
 use super::tests::{saved, Scratch};
 use super::*;
 use crate::tuning_panel::TuningPanel;
@@ -102,6 +102,7 @@ fn with_a_hub_the_section_shows_the_tier_box_the_banked_numbers_and_the_reset_bu
         coins: 12,
         tier: 3,
         cleared: 2,
+        ..Profile::default()
     })
     .unwrap();
 
@@ -109,6 +110,8 @@ fn with_a_hub_the_section_shows_the_tier_box_the_banked_numbers_and_the_reset_bu
 
     assert!(text.contains("Run (debug)"), "{text}");
     assert!(text.contains("Difficulty tier"));
+    assert!(text.contains("Coins"));
+    rect_of(&ctx, "coins box");
     assert!(text.contains("Reset profile"));
     assert!(text.contains("Banked coins 12"));
     assert!(text.contains("dungeons cleared 2"));
@@ -126,9 +129,11 @@ fn with_no_hub_the_section_only_says_there_are_no_runs() {
     assert!(text.contains("Run (debug)"));
     assert!(text.contains("no hub room"), "{text}");
     assert!(!text.contains("Reset profile"));
-    assert!(ctx
-        .data(|data| data.get_temp::<egui::Rect>(egui::Id::new("tier box")))
-        .is_none());
+    for name in ["tier box", "coins box"] {
+        assert!(ctx
+            .data(|data| data.get_temp::<egui::Rect>(egui::Id::new(name)))
+            .is_none());
+    }
 }
 
 #[test]
@@ -139,6 +144,7 @@ fn clicking_reset_profile_zeroes_and_saves_the_profile_and_says_so() {
         coins: 50,
         tier: 4,
         cleared: 4,
+        ..Profile::default()
     })
     .unwrap();
     let (ctx, mut panel, _) = open_panel(&mut game);
@@ -227,4 +233,61 @@ fn a_failed_save_is_shown_under_the_buttons() {
         "the error names the file\n{text}"
     );
     assert_eq!(game.profile().coins, 0);
+}
+
+#[test]
+fn typing_coins_in_the_box_sets_and_saves_them_and_the_tier_stays() {
+    let scratch = Scratch::new(true);
+    let mut game = scratch.game();
+    game.set_profile(Profile {
+        tier: 5,
+        ..Profile::default()
+    })
+    .unwrap();
+    let (ctx, mut panel, _) = open_panel(&mut game);
+
+    click(
+        &ctx,
+        rect_of(&ctx, "coins box").center(),
+        &mut panel,
+        &mut game,
+    );
+    frame(
+        &ctx,
+        vec![egui::Event::Text("500".into())],
+        &mut panel,
+        &mut game,
+    );
+    frame(&ctx, press_enter(), &mut panel, &mut game);
+    let text = frame(&ctx, vec![], &mut panel, &mut game);
+
+    assert_eq!(game.profile().coins, 500);
+    assert_eq!(game.profile().tier, 5);
+    assert_eq!(saved(&scratch).coins, 500);
+    assert!(text.contains("Coins saved"), "{text}");
+    assert!(text.contains("Banked coins 500"), "{text}");
+}
+
+#[test]
+fn typed_coins_past_the_limit_are_held_at_the_limit() {
+    let scratch = Scratch::new(true);
+    let mut game = scratch.game();
+    let (ctx, mut panel, _) = open_panel(&mut game);
+
+    click(
+        &ctx,
+        rect_of(&ctx, "coins box").center(),
+        &mut panel,
+        &mut game,
+    );
+    frame(
+        &ctx,
+        vec![egui::Event::Text("99999999".into())],
+        &mut panel,
+        &mut game,
+    );
+    frame(&ctx, press_enter(), &mut panel, &mut game);
+    frame(&ctx, vec![], &mut panel, &mut game);
+
+    assert_eq!(game.profile().coins, MAX_COINS);
 }

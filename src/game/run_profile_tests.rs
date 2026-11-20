@@ -39,6 +39,7 @@ fn a_saved_profile_is_read_when_the_game_starts() {
         coins: 12,
         tier: 2,
         cleared: 3,
+        ..Profile::default()
     };
     profile::save(&profile_path(&scratch), &saved).unwrap();
     let game = game_in(&scratch);
@@ -95,8 +96,9 @@ fn set_profile_replaces_and_saves_it() {
         coins: 1,
         tier: 4,
         cleared: 0,
+        ..Profile::default()
     };
-    game.set_profile(profile).unwrap();
+    game.set_profile(profile.clone()).unwrap();
     assert_eq!(*game.profile(), profile);
     assert_eq!(profile::load(&profile_path(&scratch)).0, profile);
 }

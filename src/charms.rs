@@ -107,6 +107,15 @@ pub fn number_text(value: f32) -> String {
     format!("{}", (value * 10.0).round() / 10.0)
 }
 
+/// An id is 1 to `MAX_ID_CHARS` letters, digits, `_` or `-`. Charms and upgrades share the rule.
+pub fn is_valid_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.chars().count() <= MAX_ID_CHARS
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
 /// One charm as `data/charms.ron` lists it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -130,13 +139,7 @@ impl Charm {
     pub fn validate(&self, base_max_mana: f32) -> Result<(), String> {
         let label = format!("charm \"{}\"", self.id);
         let error = |what: String| Err(format!("{label}: {what}"));
-        if self.id.is_empty()
-            || self.id.chars().count() > MAX_ID_CHARS
-            || !self
-                .id
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-        {
+        if !is_valid_id(&self.id) {
             return Err(format!(
                 "charm id \"{}\" must be 1 to {MAX_ID_CHARS} letters, digits, `_` or `-`",
                 self.id
@@ -423,18 +426,31 @@ pub fn effective(
     vitals: &VitalsConfig,
     equipped: &[&Charm],
 ) -> (TuningConfig, VitalsConfig) {
+    effective_with(base, vitals, equipped, &[])
+}
+
+/// `effective` with the permanent upgrades' effects (`upgrades::permanent_effects`) added to the
+/// equipped charms' ones. They add up the same way and meet the same caps, and cost no mana.
+pub fn effective_with(
+    base: &TuningConfig,
+    vitals: &VitalsConfig,
+    equipped: &[&Charm],
+    permanent: &[Effect],
+) -> (TuningConfig, VitalsConfig) {
     let (mut health, mut damage, mut percent, mut cost) = (0u32, 0u32, 0.0f32, 0.0f32);
+    let mut add = |effect: Effect| match effect {
+        Effect::MaxHealth(points) => health = health.saturating_add(u32::from(points)),
+        Effect::SwordDamage(points) => damage = damage.saturating_add(u32::from(points)),
+        Effect::MoveSpeedPercent(more) if more.is_finite() => percent += more,
+        Effect::MoveSpeedPercent(_) => {}
+    };
     for charm in equipped {
         if charm.mana_cost.is_finite() {
             cost += charm.mana_cost;
         }
-        match charm.effect {
-            Effect::MaxHealth(points) => health = health.saturating_add(u32::from(points)),
-            Effect::SwordDamage(points) => damage = damage.saturating_add(u32::from(points)),
-            Effect::MoveSpeedPercent(more) if more.is_finite() => percent += more,
-            Effect::MoveSpeedPercent(_) => {}
-        }
+        add(charm.effect);
     }
+    permanent.iter().for_each(|effect| add(*effect));
     let cap = |base: u16, more: u32| (u32::from(base) + more).min(u32::from(u16::MAX)) as u16;
     let mut tuning = *base;
     tuning.player.max_health = cap(base.player.max_health, health);

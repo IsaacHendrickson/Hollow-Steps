@@ -12,7 +12,7 @@ use hollow_steps::room_charms::CHARM_SIZE;
 use hollow_steps::terrain_style::{RoomInputs, TerrainLook};
 use macroquad::prelude::*;
 
-use crate::{body_draw, terrain_draw};
+use crate::{body_draw, scene_shop, terrain_draw};
 
 /// Draws the world. `terrain_look` keeps the room's terrain draw list (boundary and solids)
 /// between frames. `camera_view` is the rectangle the camera shows before screen shake, which
@@ -84,6 +84,7 @@ pub fn draw_scene(
     if let Some(door) = game.door_in_reach() {
         draw_door_prompt(door.zone(room.bounds), room.bounds);
     }
+    scene_shop::draw_shop(game);
     for item in game.items() {
         let nearby = item.can_pick_up(player);
         let top_left = item.position - ITEM_SIZE / 2.0;

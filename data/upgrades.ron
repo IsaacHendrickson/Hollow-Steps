@@ -1,0 +1,41 @@
+(
+    // Permanent upgrades: bought with banked coins at the shop in the hub, and kept between runs
+    // (the levels are saved in profile.ron). Each level adds the upgrade's effect once, on top of
+    // player.ron, vitals.ron and the equipped charms; the bonuses are never written into those
+    // files. An `assets/upgrades.ron` replaces this whole file; F5 re-reads it.
+    //
+    // `effect` is what ONE level gives, the same kinds a charm has:
+    //   MaxHealth(points)         more maximum health
+    //   MoveSpeedPercent(percent) faster walking, in percent of the base move speed
+    //   SwordDamage(points)       more damage per sword hit
+    // `costs` lists the price of level 1, level 2, ...: 1 to 10 prices, each above 0. The number
+    // of prices is the number of levels. `id` is a stable name the profile remembers levels by
+    // (letters, digits, `_` and `-`, never shown); `name` is shown (1 to 32 characters, no two
+    // alike ignoring case). Taking an upgrade out of this file keeps its saved levels but they
+    // have no effect.
+    //
+    // These numbers are placeholders to tune.
+    upgrades: [
+        (
+            id: "vitality",
+            name: "Vitality",
+            description: "Hardier flesh: more maximum health with every level.",
+            effect: MaxHealth(10),
+            costs: [30, 60, 100],
+        ),
+        (
+            id: "swift_feet",
+            name: "Swift Feet",
+            description: "Lighter steps: you walk faster with every level.",
+            effect: MoveSpeedPercent(5.0),
+            costs: [40, 80, 140],
+        ),
+        (
+            id: "keen_edge",
+            name: "Keen Edge",
+            description: "A finer edge: every sword hit does more damage per level.",
+            effect: SwordDamage(3),
+            costs: [50, 100, 180],
+        ),
+    ],
+)

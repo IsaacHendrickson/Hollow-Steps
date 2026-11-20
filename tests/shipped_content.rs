@@ -63,6 +63,13 @@ fn shipped_charms_load_and_validate() {
 }
 
 #[test]
+fn shipped_upgrades_load_and_validate() {
+    // Load only: which upgrades there are and what they cost is the owner's to change.
+    hollow_steps::upgrades::UpgradeCatalog::load(&assets())
+        .expect("shipped upgrades.ron must load and validate");
+}
+
+#[test]
 fn shipped_terrain_presets_and_room_palettes_load_and_validate() {
     let assets = assets();
     hollow_steps::terrain_styles::TerrainStyles::load(&assets)
