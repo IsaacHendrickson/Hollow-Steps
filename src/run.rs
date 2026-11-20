@@ -16,6 +16,11 @@ use crate::assets::read_override;
 use crate::profile::Profile;
 use crate::room::RoomId;
 
+pub use screen::{
+    hud_counter, inventory_coins, result_layout, result_lines, result_title, Counter, ResultLayout,
+    RETURN_HINT,
+};
+
 pub const FILE_NAME: &str = "run.ron";
 const DEFAULTS: &str = include_str!("../data/run.ron");
 /// The share of a run's coins that is banked when the file does not say.
@@ -194,6 +199,8 @@ impl Profile {
         }
     }
 }
+
+mod screen;
 
 #[cfg(test)]
 mod tests;

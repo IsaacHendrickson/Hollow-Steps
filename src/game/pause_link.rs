@@ -27,6 +27,8 @@ impl GameState {
         if self.inventory_open {
             self.inventory_open = false;
         } else {
+            // A run in progress adds Abandon run to the main screen.
+            self.pause_menu.set_in_run(self.run_in_progress());
             self.pause_menu.escape();
         }
     }

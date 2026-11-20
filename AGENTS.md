@@ -96,6 +96,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/coin.rs`: collectible coins.
 - `src/profile.rs`: the saved profile (coins, tier, cleared): `profile.ron` in the config folder, staged save, bad file kept as `.bak`
 - `src/run.rs`: run loop rules: `RunConfig` (`data/run.ron`), `RunOutcome`, `RunResult`, `RunPhase`, `Profile::bank`; `docs/run-and-profile.md`
+- `src/run/screen.rs`: pure result screen text and layout, HUD and inventory coin captions (`run::result_lines`, `hud_counter`)
 - `src/room.rs`: rooms (with `terrain_style` and lying `charms`), exits, room transitions
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
 - `src/terrain_style.rs` (+ `terrain_style/`): procedural look of solids as a draw list, never collision
@@ -166,6 +167,7 @@ Composition and front end:
 - `src/hud_bars_draw.rs`: Macroquad drawing of those rectangles (`draw_bars`); no rules
 - `src/hud_damage.rs`: pure health-bar damage feedback: `BarShake`, `HudFeedback`
 - `src/hud_layout.rs`: pure HUD rules: boss bar fill and caption, room label (health and mana bars are in `hud_bars`)
+- `src/hud_run.rs`: Macroquad result screen and the Enter or click that leaves it; HUD and inventory coin counters
 - `src/hud.rs`: Macroquad HUD, inventory, pause menu, reload panels (virtual-resolution space)
 - `src/charm_input.rs`: Macroquad adapter for the charm list while the inventory is open
 - `src/hud_charms.rs`: Macroquad drawing of the inventory's Charms section

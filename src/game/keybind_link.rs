@@ -99,11 +99,15 @@ impl GameState {
     }
 
     /// Does what a pause menu press asked of the game itself and returns what is left for the
-    /// front end (only `Exit`).
+    /// front end (only `Exit`). Abandon run is done here too: the result screen shows.
     pub(super) fn finish_pause_press(&mut self, outcome: PauseOutcome) -> PauseOutcome {
         match outcome {
             PauseOutcome::ResetKeybinds => {
                 self.reset_keybinds();
+                PauseOutcome::Continue
+            }
+            PauseOutcome::AbandonRun => {
+                self.abandon_run();
                 PauseOutcome::Continue
             }
             other => other,

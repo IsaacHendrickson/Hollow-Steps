@@ -103,6 +103,24 @@ room.** (On the result screen after Abandoned by an exit, the room is the hub an
   death there respawns as before, no run starts or ends, a boss defeated there clears nothing, the
   profile is never touched, and its exits do nothing.
 
+## What the player sees
+
+- **Pause menu.** Only during a run (not in the hub, not in a test room, not with no hub) the main
+  screen lists Unpause, Settings, Abandon run, Exit. Abandon run opens a confirm screen (Abandon
+  run / Keep playing, with Keep playing selected so a stray Enter keeps the run); Escape goes back
+  one screen. `PauseOutcome::AbandonRun` is handled by `GameState` like Reset keybinds, so the front
+  end only ever sees `Exit`.
+- **Result screen.** Title (Dungeon cleared / You died / Run abandoned), coins earned, coins
+  banked, total banked, and after a clear "Difficulty tier a -> b". A message about a profile that
+  did not save shows under the lines. Enter or a left click leaves it. The text and layout are pure
+  (`run/screen.rs`); `hud_run.rs` draws them and `main.rs` only passes on the keys and the click.
+- **Counters.** With no hub the HUD counter is the coin count as always. In the hub it shows the
+  banked coins with the tier; in a run, this run's coins. The inventory shows both.
+- **Exit and the close button.** Both call `abandon_run_on_exit()` first, which ends a test room
+  and banks a run in progress as Abandoned. The close button is intercepted with macroquad's
+  `prevent_quit` / `is_quit_requested`, set only after start-up so the load-error screen can still
+  be closed.
+
 ## Known limits
 
 Upgrades (the next task), a delay before the result screen, saving a run in progress, placing hub
@@ -114,6 +132,6 @@ per-dungeon settings, and a hard stop of the program (power loss, a crash) not b
 `src/profile.rs` (the profile and its file), `src/run.rs` (`RunConfig`, `RunOutcome`,
 `RunResult`, `RunPhase`, `Profile::bank`), `src/game/run_link.rs` (`GameState` owns the phase and
 the profile), `src/game/world_load.rs` (the one world loader), `src/player/run_reset.rs` and
-`src/vitals/fill.rs` (the player and vitals reset), `src/hud_run.rs` (result screen, hub and run
-counters), `src/tuning_panel/run.rs` (F4 debug section). Tests: `src/game/run_tests.rs` (the loop),
+`src/vitals/fill.rs` (the player and vitals reset), `src/run/screen.rs` (result screen text and layout, counter captions), `src/hud_run.rs` (drawing
+them and the key or click that leaves the result screen), `src/tuning_panel/run.rs` (F4 debug section). Tests: `src/game/run_tests.rs` (the loop),
 `src/game/run_profile_tests.rs` (profile, test rooms, editor, no hub).

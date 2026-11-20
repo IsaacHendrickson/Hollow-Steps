@@ -228,6 +228,6 @@ fn with_no_hub_the_game_plays_as_before() {
     assert!(!game.is_paused());
 }
 
-fn fixtures_path() -> PathBuf {
+pub(super) fn fixtures_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
 }

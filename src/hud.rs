@@ -22,6 +22,7 @@ use macroquad::prelude::*;
 use crate::effects::draw_particles;
 use crate::hud_bars_draw::draw_bars;
 use crate::hud_charms::draw_charms;
+use crate::hud_run;
 
 /// The gold coin is drawn 9 pixels in radius with its center 2 pixels below the counter row's
 /// anchor, so its top is 7 pixels above the anchor; lowering the row by that much leaves
@@ -111,13 +112,15 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
     draw_bars(&shaken, &config.colors);
     draw_circle(counters.x + 9.0, counters.y + 2.0, 9.0, GOLD);
     draw_circle_lines(counters.x + 9.0, counters.y + 2.0, 6.0, 1.5, YELLOW);
+    let counter = hud_run::counter(game);
     draw_text(
-        game.coin_count().to_string(),
+        counter.coins.to_string(),
         counters.x + 26.0,
         counters.y + 10.0,
         28.0,
         WHITE,
     );
+    hud_run::draw_caption(&counter, counters);
     draw_text(
         format!("Items {}", player.collected_items().len()),
         counters.x + 90.0,
@@ -234,13 +237,7 @@ pub fn draw_inventory(game: &GameState, view: Vec2) {
     );
     draw_rectangle_lines(panel.x, panel.y, panel.w, panel.h, 2.0, GRAY);
     draw_text("Inventory", layout.title.x, layout.title.y, 36.0, WHITE);
-    draw_text(
-        format!("Coins: {}", game.coin_count()),
-        layout.coins.x,
-        layout.coins.y,
-        26.0,
-        GOLD,
-    );
+    hud_run::draw_inventory_coins(game, &layout);
     let header = layout.items_header;
     draw_text("Collected items", header.x, header.y, 24.0, WHITE);
     let items = game.player().collected_items();
@@ -288,7 +285,7 @@ pub fn draw_pause_menu(menu: &PauseMenu, binds: &Keybinds, view: Vec2) {
     );
     // The Settings screen lists many rows, so its text is smaller.
     let font_size = match screen {
-        PauseScreen::Main => 28,
+        PauseScreen::Main | PauseScreen::RunMain | PauseScreen::Confirm => 28,
         PauseScreen::Settings => 22,
     };
     for (item, rect) in button_rects(screen, view) {

@@ -7,6 +7,7 @@ use hollow_steps::keybinds::{self, Action, Keybinds};
 use hollow_steps::pause_menu::PauseOutcome;
 use hollow_steps::player::PlayerInput;
 use hollow_steps::player_body::PlayerBody;
+use hollow_steps::profile;
 use hollow_steps::search::SearchList;
 use hollow_steps::terrain_style::TerrainLook;
 use hollow_steps::timestep::{FixedStep, InputLatch};
@@ -21,6 +22,7 @@ mod effects;
 mod hud;
 mod hud_bars_draw;
 mod hud_charms;
+mod hud_run;
 mod pause_input;
 mod player_panel;
 mod postfx_pass;
@@ -70,6 +72,14 @@ async fn main() {
             reload_result = Some(Err(error));
         }
     }
+    // The saved profile (banked coins, tier, clears) lives next to the keybinds; a file that
+    // cannot be used is set aside as profile.ron.bak, a fresh profile is used, and the reason
+    // is shown like a failed reload.
+    if let Some(path) = profile::default_path() {
+        if let Err(error) = game.use_profile_file(path) {
+            reload_result = Some(Err(error));
+        }
+    }
     // The solids' draw list, rebuilt only when the room, its solids or its palette change.
     let mut terrain_look = TerrainLook::default();
     // The player's body; a load error is shown like a failed reload and keeps the plain box.
@@ -97,7 +107,17 @@ async fn main() {
     // Whether the editor was open last frame (a test room parks it, so it counts as closed).
     let mut was_editing = false;
 
+    // The window's close button is handled here, so a run in progress is banked first. This is
+    // set only now: the start-up error screen must stay closable.
+    prevent_quit();
+    // True while a window of the egui tools has the mouse, so a click does not reach the game.
+    let mut ui_wants_pointer = false;
+
     loop {
+        if is_quit_requested() {
+            game.abandon_run_on_exit();
+            break;
+        }
         let frame_seconds = get_frame_time();
         // F2 does nothing while the pause menu is open: unpause first.
         let f2_pressed = is_key_pressed(KeyCode::F2) && !game.pause_menu().is_open();
@@ -205,8 +225,19 @@ async fn main() {
         }
         charm_input::handle(&mut game, view, !ui_wants_keyboard);
         if pause_input::handle(&mut game, view, !ui_wants_keyboard) == PauseOutcome::Exit {
-            // For now Exit ends the program; later it will return to the main menu.
+            // For now Exit ends the program; later it will return to the main menu. A run in
+            // progress is banked as abandoned first.
+            game.abandon_run_on_exit();
             break;
+        }
+        if hud_run::handle_result_input(&mut game, !ui_wants_keyboard, !ui_wants_pointer) {
+            // Back in the hub: the world changed under the effects and the camera.
+            effects.clear();
+            hud.clear();
+            fixed_step.reset();
+            input_latch.clear();
+            camera = new_camera(&game, camera_config, view);
+            camera_room = game.room().id;
         }
         // Edge input is latched until a tick consumes it; only the first tick of a frame
         // sees it, while held input applies to every tick. Nothing reaches the player while
@@ -280,6 +311,7 @@ async fn main() {
             hud::draw_inventory(&game, view);
         }
         hud::draw_pause_menu(game.pause_menu(), game.keybinds(), view);
+        hud_run::draw_result(&game, view);
         if let Some(result) = &reload_result {
             hud::draw_reload_result(
                 result,
@@ -295,6 +327,7 @@ async fn main() {
             tuning_panel::scroll_from_wheel(ctx, mouse_wheel());
             tuning_panel.draw(ctx, &mut game);
             ui_wants_keyboard = ctx.wants_keyboard_input();
+            ui_wants_pointer = ctx.wants_pointer_input();
         });
         egui_macroquad::draw();
         if body_debug {

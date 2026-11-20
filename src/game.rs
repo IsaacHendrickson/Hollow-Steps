@@ -55,6 +55,8 @@ mod player_link;
 mod player_stats_tests;
 mod run_link;
 #[cfg(test)]
+mod run_pause_tests;
+#[cfg(test)]
 mod run_profile_tests;
 #[cfg(test)]
 mod run_tests;
