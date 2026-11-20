@@ -98,9 +98,8 @@ fn offsets(upgrades: usize, visible: usize) -> Offsets {
     let empty_note = HEADER_BASELINE + EMPTY_NOTE_GAP;
     let mut description = [empty_note; DESCRIPTION_LINES];
     let mut message = [empty_note; MESSAGE_LINES];
-    let last_line;
-    if upgrades == 0 {
-        last_line = empty_note;
+    let last_line = if upgrades == 0 {
+        empty_note
     } else {
         let rows = visible.max(1) as f32;
         let list_bottom = LIST_TOP + rows * ROW_HEIGHT + (rows - 1.0) * ROW_GAP;
@@ -111,8 +110,8 @@ fn offsets(upgrades: usize, visible: usize) -> Offsets {
         for (line, baseline) in message.iter_mut().enumerate() {
             *baseline = first_message + line as f32 * DETAIL_STEP;
         }
-        last_line = message[MESSAGE_LINES - 1];
-    }
+        message[MESSAGE_LINES - 1]
+    };
     let footer = last_line + FOOTER_GAP;
     Offsets {
         empty_note,
