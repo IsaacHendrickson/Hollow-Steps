@@ -103,6 +103,30 @@ menu keys, `F2`, `F4`, `F5` and `F6` stay fixed.
   left exit leads back. The second room's right exit leads to the Ash Warden.
   Its arena exit stays red and locked until the boss is defeated.
 
+## Hub and runs
+
+With the shipped `assets/run.ron` the game starts in the **Hub**, a safe room. Walking out of it
+through its right exit starts a **run**: every room is rebuilt from its file, and your charms,
+items, coins, health and mana go back to how a new run begins. A run ends when you die, when the
+Ash Warden falls (the dungeon is cleared and the difficulty tier goes up by one) or when you give
+up (`Esc`, **Abandon run**, confirm; walking back into the hub does the same, and so do Exit and
+the window's close button). A result screen shows what the run banked; `Enter` or a click returns
+to the hub.
+
+What is kept between runs is the **profile**: coins banked (all of a run's coins by default,
+`coin_keep_percent` in `run.ron` changes the share), the difficulty tier and the dungeons
+cleared. It lives in `profile.ron` in the config folder, next to `keybinds.ron`
+(`%APPDATA%\HollowSteps`, `~/Library/Application Support/HollowSteps`,
+`$XDG_CONFIG_HOME/hollow-steps` or `~/.config/hollow-steps`; `HOLLOW_STEPS_CONFIG` overrides). A
+file that cannot be read is kept as `profile.ron.bak`, a fresh profile is used and the reason is
+shown on screen. The `F4` window's **Run (debug)** section sets the tier and resets the profile.
+
+`run.ron` holds the run rules, not player feel: take it out of `assets/` (or delete `hub_room`
+from it) and the game plays as it did before, with death respawning in the room. **`F5` does not
+re-read `run.ron`**: restart the game after editing it. A test room from the editor is a sandbox:
+death there still respawns, and no run starts or ends. Design note:
+[docs/run-and-profile.md](docs/run-and-profile.md).
+
 ## Reference docs
 
 Design and reference notes live in `docs/` so everyday tasks do not have to

@@ -160,6 +160,7 @@ Composition and front end:
 - `src/game/world_items.rs`: items in play and Save: pickup, taken items kept for the run (`TakenItems`), restored on rebuild
 - `src/player_panel.rs` (+ `player_panel/`): the editor's Player panel; `draw_field` is shared with F4
 - `src/tuning_panel.rs`: F4 egui window: a drag box per `player.ron` and `vitals.ron` field
+- `src/tuning_panel/run.rs`: F4 Run (debug) section: difficulty tier box and Reset profile, saved at once
 - `src/scene.rs`: Macroquad drawing of the world (background to player)
 - `src/postfx_pass.rs`: Macroquad post-process pass (material, world target, HUD target)
 - `src/effects.rs`: Macroquad event-driven effects: particles and sounds (`docs/audio.md`)

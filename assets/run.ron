@@ -1,0 +1,9 @@
+// The run loop's rules for the shipped game. This file replaces data/run.ron whole, and F5 does
+// not re-read it: restart the game after editing it.
+// `Custom(0)` is the hub, assets/rooms/room_0.ron. Leaving the hub through an exit starts a run.
+(
+    hub_room: Custom(0),           // a safe room; leaving it through an exit starts a run
+    start_room: First,             // the room the hub's exit leads to
+    final_boss_room: Boss,         // defeating the boss of this room clears the dungeon
+    coin_keep_percent: 100.0,      // share of a run's coins banked when it ends (0 to 100)
+)
