@@ -10,6 +10,7 @@
 //! `data/run.ron` is embedded; an `assets/run.ron` replaces it whole (`assets::read_override`).
 //! With no `hub_room` (the embedded default) none of this runs and the game plays as before.
 
+use macroquad::math::{Rect, Vec2};
 use serde::Deserialize;
 
 use crate::assets::read_override;
@@ -55,6 +56,10 @@ pub struct RunConfig {
     /// How many percent of a run's coins are banked when it ends, 0 to 100.
     #[serde(default = "keep_everything")]
     pub coin_keep_percent: f32,
+    /// Where the upgrade shop stands in the hub room (the center of its marker). In the hub, Up
+    /// within pickup reach opens it. `None`: no shop. Needs a hub, and must lie inside it.
+    #[serde(default)]
+    pub shop: Option<(f32, f32)>,
 }
 
 impl Default for RunConfig {
@@ -87,7 +92,8 @@ impl RunConfig {
         }
     }
 
-    /// The coin share is a finite number from 0 to 100, and the hub is not the start room.
+    /// The coin share is a finite number from 0 to 100, the hub is not the start room, and a
+    /// shop has finite coordinates and a hub to stand in (`check_shop` checks where).
     pub fn validate(&self) -> Result<(), String> {
         if !self.coin_keep_percent.is_finite() || !(0.0..=100.0).contains(&self.coin_keep_percent) {
             return Err(format!(
@@ -99,6 +105,37 @@ impl RunConfig {
             return Err(format!(
                 "hub_room must differ from start_room (both are {:?})",
                 self.start_room
+            ));
+        }
+        if let Some((x, y)) = self.shop {
+            if !x.is_finite() || !y.is_finite() {
+                return Err(format!("shop must be two finite numbers, not ({x}, {y})"));
+            }
+            if self.hub_room.is_none() {
+                return Err("shop needs a hub_room: the shop stands in the hub".to_owned());
+            }
+        }
+        Ok(())
+    }
+
+    /// The shop's position, if there is a shop.
+    pub fn shop_position(&self) -> Option<Vec2> {
+        self.shop.map(|(x, y)| Vec2::new(x, y))
+    }
+
+    /// The shop lies inside the hub room, whose bounds are `hub` (its edges count as inside).
+    /// Nothing to check without a shop. Run when the game loads, where the rooms are known.
+    pub fn check_shop(&self, hub: Rect) -> Result<(), String> {
+        let Some((x, y)) = self.shop else {
+            return Ok(());
+        };
+        if !hub.contains(Vec2::new(x, y)) {
+            return Err(format!(
+                "run.ron: shop ({x}, {y}) is outside the hub room (it spans x {} to {}, y {} to {})",
+                hub.x,
+                hub.right(),
+                hub.y,
+                hub.bottom()
             ));
         }
         Ok(())

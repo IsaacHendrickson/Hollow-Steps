@@ -6,4 +6,5 @@
     start_room: First,             // where the game begins when there is no hub
     final_boss_room: Boss,         // defeating the boss of this room clears the dungeon
     coin_keep_percent: 100.0,      // share of a run's coins banked when it ends (0 to 100)
+    // shop: (480.0, 436.0),       // where the upgrade shop stands in the hub (center); Up opens it
 )

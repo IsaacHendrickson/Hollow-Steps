@@ -19,6 +19,7 @@ use crate::player::{Player, PlayerInput, WorldBounds};
 use crate::player_editor::PlayerDraft;
 use crate::room::{Room, RoomId};
 use crate::run::RunConfig;
+use crate::shop_menu::ShopMenu;
 use crate::tuning::TuningConfig;
 use crate::upgrades::UpgradeCatalog;
 use crate::vitals::{VitalsConfig, VitalsState};
@@ -63,6 +64,9 @@ mod run_pause_tests;
 mod run_profile_tests;
 #[cfg(test)]
 mod run_tests;
+mod shop_link;
+#[cfg(test)]
+mod shop_tests;
 #[cfg(test)]
 mod strike_tests;
 mod terrain_link;
@@ -131,6 +135,7 @@ pub struct GameState {
     /// Every permanent upgrade the hub shop sells; the levels bought are in the profile. See
     /// `shop_link`.
     upgrades: UpgradeCatalog,
+    shop: ShopMenu,
     /// The items taken during the run; see `world_items`.
     taken_items: TakenItems,
     /// The hub-and-run loop: its settings, the profile and where the player is in the loop; see
@@ -182,6 +187,7 @@ impl GameState {
             taken_items: TakenItems::default(),
             charms,
             upgrades,
+            shop: ShopMenu::default(),
             run,
         };
         game.prune_owned_charm_placements();
@@ -258,7 +264,7 @@ impl GameState {
     /// Opens or closes the inventory. Ignored while the pause menu is open or a run's result
     /// shows. An old charm refusal is not kept for the next time.
     pub fn toggle_inventory(&mut self) {
-        if self.pause_menu.is_open() || self.showing_result() {
+        if self.pause_menu.is_open() || self.showing_result() || self.shop.is_open() {
             return;
         }
         self.inventory_open = !self.inventory_open;
@@ -299,6 +305,7 @@ impl GameState {
             return self.end_test_room();
         }
         if self.editor.take().is_none() {
+            self.shop.close();
             self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
             self.attach_player_draft();
             self.attach_charm_draft();
@@ -553,7 +560,9 @@ impl GameState {
         }
         // Up with X is an upward strike, not a pickup or a door.
         let interact = input.pickup_pressed && !(input.attack_pressed && input.up_held);
-        let picked_up = interact && (self.pick_up_item() || self.pick_up_charm());
+        // The press goes to an item, then a charm, then the hub's shop, then a door.
+        let picked_up =
+            interact && (self.pick_up_item() || self.pick_up_charm() || self.open_shop());
 
         let index = self.current;
         let coins = &mut self.rooms[index].coins;

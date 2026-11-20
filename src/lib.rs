@@ -67,6 +67,7 @@ pub mod room_name;
 pub mod room_size;
 pub mod run;
 pub mod search;
+pub mod shop_menu;
 pub mod sound;
 pub mod terrain;
 pub mod terrain_style;

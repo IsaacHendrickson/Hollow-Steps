@@ -23,10 +23,13 @@ mod hud;
 mod hud_bars_draw;
 mod hud_charms;
 mod hud_run;
+mod hud_shop;
 mod pause_input;
 mod player_panel;
 mod postfx_pass;
 mod scene;
+mod scene_shop;
+mod shop_input;
 mod startup;
 mod terrain_canvas;
 mod terrain_draw;
@@ -224,6 +227,7 @@ async fn main() {
             }
         }
         charm_input::handle(&mut game, view, !ui_wants_keyboard);
+        shop_input::handle(&mut game, view, !ui_wants_keyboard, !ui_wants_pointer);
         if pause_input::handle(&mut game, view, !ui_wants_keyboard) == PauseOutcome::Exit {
             // For now Exit ends the program; later it will return to the main menu. A run in
             // progress is banked as abandoned first.
@@ -309,6 +313,9 @@ async fn main() {
         }
         if game.inventory_open() {
             hud::draw_inventory(&game, view);
+        }
+        if game.shop_open() {
+            hud_shop::draw_shop(&game, view);
         }
         hud::draw_pause_menu(game.pause_menu(), game.keybinds(), view);
         hud_run::draw_result(&game, view);

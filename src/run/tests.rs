@@ -276,3 +276,92 @@ fn a_bad_assets_file_is_an_error_naming_it_not_a_fallback() {
     assert!(error.contains(FILE_NAME), "names the file: {error}");
     assert!(error.contains("coin_keep_percent"), "{error}");
 }
+
+// ---- the shop's place ---------------------------------------------------------------------------
+
+#[test]
+fn a_shop_can_be_written_with_or_without_some_and_defaults_to_none() {
+    assert_eq!(RunConfig::default().shop, None);
+    assert_eq!(RunConfig::default().shop_position(), None);
+    let plain = RunConfig::from_ron("(hub_room: Custom(0), shop: (480.0, 436.0))").unwrap();
+    let explicit =
+        RunConfig::from_ron("(hub_room: Custom(0), shop: Some((480.0, 436.0)))").unwrap();
+    assert_eq!(plain, explicit);
+    assert_eq!(plain.shop_position(), Some(Vec2::new(480.0, 436.0)));
+    // A file from before the shop existed has none, and a shop can be turned off again.
+    assert_eq!(
+        RunConfig::from_ron("(hub_room: Custom(0))").unwrap().shop,
+        None
+    );
+    let off = RunConfig::from_ron("(hub_room: Custom(0), shop: None)").unwrap();
+    assert_eq!(off.shop_position(), None);
+}
+
+#[test]
+fn a_shop_needs_a_hub_to_stand_in() {
+    let error = RunConfig::from_ron("(shop: (480.0, 436.0))").unwrap_err();
+    assert!(
+        error.contains("shop") && error.contains("hub_room"),
+        "{error}"
+    );
+}
+
+#[test]
+fn a_shop_position_must_be_finite() {
+    for shop in [
+        (f32::NAN, 1.0),
+        (1.0, f32::INFINITY),
+        (f32::NEG_INFINITY, 1.0),
+    ] {
+        let config = RunConfig {
+            hub_room: Some(RoomId::Custom(0)),
+            shop: Some(shop),
+            ..RunConfig::default()
+        };
+        let error = config.validate().unwrap_err();
+        assert!(
+            error.contains("shop") && error.contains("finite"),
+            "{error}"
+        );
+    }
+}
+
+#[test]
+fn a_shop_must_lie_inside_the_hub_room() {
+    let hub = Rect::new(0.0, 0.0, 960.0, 460.0);
+    let with = |x: f32, y: f32| RunConfig {
+        hub_room: Some(RoomId::Custom(0)),
+        shop: Some((x, y)),
+        ..RunConfig::default()
+    };
+    with(480.0, 436.0).check_shop(hub).unwrap();
+    // The room's own edges count as inside.
+    for (x, y) in [(0.0, 0.0), (960.0, 460.0)] {
+        with(x, y).check_shop(hub).unwrap();
+    }
+    for (x, y) in [(960.5, 436.0), (-1.0, 436.0), (480.0, 460.5), (480.0, -0.5)] {
+        let error = with(x, y).check_shop(hub).unwrap_err();
+        assert!(
+            error.contains("shop") && error.contains("outside the hub room"),
+            "{error}"
+        );
+    }
+    // The message gives the room's span, so the number to write is easy to find.
+    let error = with(2000.0, 436.0).check_shop(hub).unwrap_err();
+    assert!(
+        error.contains("2000") && error.contains("960") && error.contains("460"),
+        "{error}"
+    );
+}
+
+#[test]
+fn nothing_about_the_shop_is_checked_when_there_is_no_shop() {
+    let hub = Rect::new(0.0, 0.0, 1.0, 1.0);
+    RunConfig::default().check_shop(hub).unwrap();
+}
+
+#[test]
+fn a_shop_field_with_a_wrong_shape_is_refused() {
+    assert!(RunConfig::from_ron("(hub_room: Custom(0), shop: (1.0))").is_err());
+    assert!(RunConfig::from_ron("(hub_room: Custom(0), shop: \"here\")").is_err());
+}

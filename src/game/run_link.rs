@@ -45,6 +45,9 @@ impl RunState {
     pub(super) fn start(config: RunConfig, rooms: &[Room]) -> Result<(Self, usize), String> {
         let ids: Vec<RoomId> = rooms.iter().map(|room| room.id).collect();
         config.check_rooms(&ids)?;
+        if let Some(hub) = rooms.iter().find(|room| Some(room.id) == config.hub_room) {
+            config.check_shop(hub.bounds)?;
+        }
         let first = config.hub_room.unwrap_or(config.start_room);
         let index = ids
             .iter()
