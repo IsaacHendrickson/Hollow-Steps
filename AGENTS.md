@@ -94,6 +94,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/player_body.rs`: the player's look (`data/player_body.ron`), pose choice, `BodyInstance`
 - `src/item.rs`: world items and pickup (`within_reach`, shared with charms)
 - `src/coin.rs`: collectible coins.
+- `src/profile.rs`: the saved profile (coins, tier, cleared): `profile.ron` in the config folder, staged save, bad file kept as `.bak`
+- `src/run.rs`: run loop rules: `RunConfig` (`data/run.ron`), `RunOutcome`, `RunResult`, `RunPhase`, `Profile::bank`; `docs/run-and-profile.md`
 - `src/room.rs`: rooms (with `terrain_style` and lying `charms`), exits, room transitions
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
 - `src/terrain_style.rs` (+ `terrain_style/`): procedural look of solids as a draw list, never collision

@@ -147,8 +147,9 @@ pub fn config_dir(platform: Platform, var: impl Fn(&str) -> Option<String>) -> O
     }
 }
 
-/// Where this computer keeps the keybinds file, or `None` when there is no config folder.
-pub fn default_path() -> Option<PathBuf> {
+/// The folder this computer keeps the game's per-user files in (`config_dir` for the running
+/// system), or `None` when there is no config folder. The keybinds and the profile live here.
+pub fn default_dir() -> Option<PathBuf> {
     let platform = if cfg!(windows) {
         Platform::Windows
     } else if cfg!(target_os = "macos") {
@@ -156,5 +157,10 @@ pub fn default_path() -> Option<PathBuf> {
     } else {
         Platform::Other
     };
-    config_dir(platform, |name| std::env::var(name).ok()).map(|folder| folder.join(FILE_NAME))
+    config_dir(platform, |name| std::env::var(name).ok())
+}
+
+/// Where this computer keeps the keybinds file, or `None` when there is no config folder.
+pub fn default_path() -> Option<PathBuf> {
+    default_dir().map(|folder| folder.join(FILE_NAME))
 }

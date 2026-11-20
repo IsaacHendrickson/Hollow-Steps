@@ -116,6 +116,11 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Catalog-backed pose dropdowns for attack phases in rows and Key values; `src/editor_panel/widgets.rs`; `tests/poses.rs`
 - Body, pose, spring, hurt, blend and tint values all have data, validation, editor controls; `src/body/`, `src/pose.rs`, `data/`; `tests/poses.rs`
 
+## Hub and runs
+
+- Profile: coins, tier and clears kept in `profile.ron` (config folder), staged save, bad file kept as `.bak`; `src/profile.rs`; `src/profile/tests.rs`
+- Run rules: `data/run.ron` (hub, start and final boss room, coin share), outcomes, banking, saturating; `src/run.rs`; `src/run/tests.rs`
+
 ## Tests and CI
 
 - Fixture-based tests; only `tests/shipped_content.rs` reads `assets/` (load and validate); `tests/fixtures/`, `tests/support/mod.rs`
