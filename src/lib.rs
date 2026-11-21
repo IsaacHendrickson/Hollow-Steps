@@ -64,6 +64,7 @@ pub mod pose;
 pub mod postfx;
 pub mod preset;
 pub mod profile;
+pub mod reach;
 pub mod room;
 pub mod room_charms;
 pub mod room_name;
