@@ -52,6 +52,12 @@ solid (standing on top of one is fine). A door does not cut an opening in the ro
 Known limits: **New exit here** in the link flow still places an edge exit (add a door to B
 first, then link to it); moving or deleting a linked door later does not update its partner.
 
+## Locked doors
+
+A door can be locked by a key like an edge exit (`locked_by`, written after `spawn`). Pressing Up in
+front of it without the key shows the notice and does nothing; with the key it uses the key up and
+opens for the rest of the run. See `docs/keys-and-locks.md`.
+
 ## Manual check
 
 1. F2, **Add door and link...**, choose Second, select one of its exits, Connect, Save.

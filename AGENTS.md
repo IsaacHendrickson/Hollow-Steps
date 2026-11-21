@@ -103,6 +103,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/shop_menu.rs` (+ `shop_menu/`): hub upgrade shop as pure state and layout; `game/shop_link.rs` owns it; `shop_input`, `hud_shop`, `scene_shop` draw it
 - `src/room.rs`: rooms (with `terrain_style` and lying `charms`), exits, room transitions
 - `src/door_exit.rs`: door exits (a free rectangle, Up to enter): room-file form, checks, editor add/move/resize; `docs/door-exits.md`
+- `src/ability.rs`, `src/exit_lock.rs`: abilities and keys as run state, locked exits, notice; `docs/keys-and-locks.md`
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
 - `src/terrain_style.rs` (+ `terrain_style/`): procedural look of solids as a draw list, never collision
 - `src/terrain_styles.rs`: terrain look presets (`data/terrain_styles.ron`), `RoomStyle`

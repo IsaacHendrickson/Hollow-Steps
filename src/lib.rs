@@ -3,6 +3,7 @@
 //! Rendering and keyboard APIs stay in the binary crate. This library owns
 //! gameplay state so it can be tested without opening a window.
 
+pub mod ability;
 mod action_parameters;
 pub mod action_runtime;
 pub mod assets;
@@ -42,6 +43,7 @@ pub mod enemy_attack;
 pub mod events;
 pub mod exit_arrival;
 pub mod exit_link;
+pub mod exit_lock;
 pub mod feel;
 pub mod game;
 pub mod health;
@@ -50,6 +52,7 @@ pub mod hud_damage;
 pub mod hud_layout;
 pub mod item;
 pub mod keybinds;
+pub mod notice;
 pub mod particles;
 pub mod pause_menu;
 pub mod player;

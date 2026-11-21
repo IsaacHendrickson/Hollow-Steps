@@ -428,6 +428,7 @@ fn entering_the_hub_during_a_run_abandons_it() {
         target_room: HUB,
         spawn: Vec2::new(180.0, 436.0),
         door: None,
+        locked_by: None,
     });
     game.player.place_on_floor(60.0, game.world_bounds());
 

@@ -397,6 +397,7 @@ pub(crate) fn draw_editor(
         linking::draw_exit_highlights(editor, &canvas);
     }
     arrival_labels::draw(&drawn, editor, &canvas);
+    lock_labels::draw(&drawn, editor, &canvas);
     if body_debug && state.destination.is_none() {
         // Preview authored placements and unsaved definitions without touching runtime bodies.
         let enemies = editor
@@ -583,6 +584,9 @@ mod charm_tests;
 mod linking;
 #[cfg(test)]
 mod linking_tests;
+#[cfg(test)]
+mod lock_label_tests;
+mod lock_labels;
 mod markers;
 mod naming;
 #[cfg(test)]

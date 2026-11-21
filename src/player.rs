@@ -1,5 +1,6 @@
 use macroquad::math::Vec2;
 
+use crate::ability::{Ability, AbilitySet};
 use crate::combat::{Attack, MeleeConfig, StrikeConfig, StrikeDirection};
 use crate::events::{EventQueue, GameEvent};
 use crate::health::Health;
@@ -110,6 +111,8 @@ pub struct Player {
     config: PlayerConfig,
     grounded: bool,
     collected_items: Vec<Item>,
+    /// What the player can do (`crate::ability`); granted by picking up the item that gives it.
+    abilities: AbilitySet,
     facing: f32,
     dash_remaining: f32,
     dash_cooldown: f32,
@@ -136,6 +139,7 @@ impl Player {
             config,
             grounded: false,
             collected_items: Vec::new(),
+            abilities: AbilitySet::default(),
             facing: 1.0,
             dash_remaining: 0.0,
             dash_cooldown: 0.0,
@@ -237,7 +241,11 @@ impl Player {
         &self.collected_items
     }
 
+    /// Takes `item` into the inventory, and grants the ability it gives, if any.
     pub(crate) fn collect_item(&mut self, item: Item) {
+        if let Some(ability) = item.grants() {
+            self.abilities.grant(ability);
+        }
         self.collected_items.push(item);
     }
 
@@ -356,7 +364,7 @@ impl Player {
         }
 
         if input.dash_pressed
-            && self.collected_items.contains(&Item::Dash)
+            && self.abilities.has(Ability::Dash)
             && self.dash_remaining == 0.0
             && self.dash_cooldown == 0.0
             && (self.grounded || !self.air_dash_used)
@@ -515,11 +523,14 @@ impl Player {
 }
 
 #[cfg(test)]
+mod ability_tests;
+#[cfg(test)]
 mod ceiling_tests;
 #[cfg(test)]
 mod dash_tests;
 #[cfg(test)]
 mod event_tests;
+mod inventory;
 mod run_reset;
 #[cfg(test)]
 mod strike_tests;

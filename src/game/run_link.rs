@@ -218,6 +218,8 @@ impl GameState {
         self.current = current;
         self.coin_count = 0;
         self.taken_items = TakenItems::default();
+        // Every door is locked again, and no notice outlives the run.
+        self.locks = super::world_locks::Locks::default();
         self.charm_state = CharmState::starting(&self.charms);
         // Charms owned at the start are not lying in the rebuilt rooms.
         self.prune_owned_charm_placements();
@@ -255,13 +257,18 @@ impl GameState {
         self.events.push(GameEvent::RoomEntered);
     }
 
-    /// The player walked into `exit` (never in a test room). Leaving the hub starts a run, and
-    /// entering the hub during a run abandons it. If a run cannot start (the rooms cannot be
+    /// The player walked into `exit` (never in a test room). A locked exit opens only with its
+    /// key (`pass_exit`). Leaving the hub starts a run, and entering the hub during a run
+    /// abandons it. If a run cannot start (the rooms cannot be
     /// rebuilt) the player stays in the hub, back at its spawn so the next try is a walk away.
     pub(super) fn use_exit(&mut self, exit: Exit) {
         let Some(mut target) = self.room_index(exit.target_room) else {
             return;
         };
+        // A locked exit asks for its key first; without it nothing else happens.
+        if !self.pass_exit(exit) {
+            return;
+        }
         if self.run_rules_apply() {
             let hub = self.run.config.hub_room;
             if self.run.phase == RunPhase::Hub && hub == Some(self.room().id) {

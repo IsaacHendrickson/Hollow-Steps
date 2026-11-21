@@ -43,6 +43,8 @@ mod feel_tests;
 #[cfg(test)]
 mod flier_tests;
 #[cfg(test)]
+mod gate_tests;
+#[cfg(test)]
 mod hud_loss_tests;
 #[cfg(test)]
 mod item_tests;
@@ -83,6 +85,7 @@ mod world_charms;
 mod world_doors;
 mod world_items;
 mod world_load;
+mod world_locks;
 
 pub use crate::room::FLOOR_Y;
 pub use charm_editor_link::CharmsSaved;
@@ -139,6 +142,8 @@ pub struct GameState {
     shop: ShopMenu,
     /// The items taken during the run; see `world_items`.
     taken_items: TakenItems,
+    /// The doors opened with a key this run and the notice about a locked one; see `world_locks`.
+    locks: world_locks::Locks,
     /// The hub-and-run loop: its settings, the profile and where the player is in the loop; see
     /// `run_link`. Inert while `run.ron` names no hub.
     run: run_link::RunState,
@@ -186,6 +191,7 @@ impl GameState {
             charm_state: CharmState::starting(&charms),
             charm_menu: CharmMenu::default(),
             taken_items: TakenItems::default(),
+            locks: world_locks::Locks::default(),
             charms,
             upgrades,
             shop: ShopMenu::default(),
@@ -426,6 +432,7 @@ impl GameState {
         } else {
             0.0
         };
+        self.locks.notice.update(delta_seconds);
         let frozen = self.feel.hit_stop_active();
         self.feel.advance(delta_seconds);
         let first_new_event = self.events.len();
