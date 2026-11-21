@@ -5,7 +5,8 @@ use super::widgets::{
     panel_button, panel_combo, panel_input, panel_label, searchable_list, section,
 };
 use super::{
-    canvas_tools, door_panel, hazard_panel, history_panel, lock_panel, look_panel, tool_panel,
+    canvas_tools, door_panel, dungeon_panel, gate_panel, hazard_panel, history_panel, lock_panel,
+    look_panel, reach_panel, tool_panel,
 };
 use super::{EditorSession, EditorUi, Selection};
 use egui_macroquad::egui;
@@ -131,6 +132,7 @@ pub(super) fn draw_room_tools(
             }
             door_panel::draw_door_size(ui, editor, state, i);
             lock_panel::draw_exit_lock(ui, editor, state, i);
+            gate_panel::draw_exit_gates(ui, editor, state, i);
         }
         if let Some(Selection::Inbound { room, .. }) = state.selected {
             panel_label(ui, &format!("Arrival from {}", editor.title_of(room)));
@@ -140,6 +142,8 @@ pub(super) fn draw_room_tools(
             state.destination = None;
             state.selected = None;
         }
+        dungeon_panel::draw_dungeon_check(ui, editor, state);
+        reach_panel::draw_reach_notes(ui, editor, state);
         ui.separator();
         panel_label(ui, "Blue: room spawn");
         panel_label(ui, "Green: exit span");
@@ -147,6 +151,7 @@ pub(super) fn draw_room_tools(
         panel_label(ui, "Magenta: hazard (hurts, knocks back)");
         panel_label(ui, "Purple: arrival spawn");
     });
+    gate_panel::draw_gate_problems(ui, editor, state);
     canvas_tools::draw_room_size_section(ui, editor, &mut state.history);
     look_panel::draw_look_section(ui, editor, state);
     canvas_tools::draw_view_section(ui, state);

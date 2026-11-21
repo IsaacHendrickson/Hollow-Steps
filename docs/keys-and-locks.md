@@ -10,7 +10,8 @@ Two kinds of progress live only for the length of a run and are lost when it end
 - **Keys are hard gates.** The game enforces them: a locked exit refuses the player until the run
   holds the key.
 - **Abilities are not checked at doors.** The room's geometry is the gate (a gap only a dash
-  crosses). Nothing in a room file says "needs Dash". Annotating such gates is a later task.
+  crosses). The author marks such a crossing (`docs/gates.md`) and the tools check the marks
+  (`docs/dungeon-check.md`); play never reads them.
 
 ## Abilities
 
@@ -90,7 +91,7 @@ The Dash still works after picking it up.
 ## Known limits
 
 - More abilities (wall jump, double jump) are not added; the Dash is the only one.
-- A gate that needs an ability is not annotated or checked (next task).
+- A gate that needs an ability is marked and checked by the tools, not enforced (`docs/gates.md`).
 - Keys are used up; there are no kept keys and no key list in the inventory.
 - The "Up: enter" prompt still shows over a locked door.
 - A test room's exits are inert, so locks cannot be tried there.

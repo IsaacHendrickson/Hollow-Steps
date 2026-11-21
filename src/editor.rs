@@ -77,6 +77,10 @@ pub struct RoomLayout {
         skip_serializing_if = "crate::terrain_styles::RoomStyle::is_default"
     )]
     pub terrain_style: crate::terrain_styles::RoomStyle,
+    /// What crossing from an entrance to an exit needs (`crate::gates`); the game never reads
+    /// it. Absent in older room files.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gates: Vec<crate::gates::Gate>,
 }
 
 impl RoomLayout {
@@ -95,6 +99,7 @@ impl RoomLayout {
             hazards: room.hazards.iter().map(Into::into).collect(),
             background: room.background.clone(),
             terrain_style: room.terrain_style.clone(),
+            gates: room.gates.clone(),
             items: room
                 .items
                 .iter()
@@ -195,7 +200,7 @@ impl RoomLayout {
                 return Err("exit must not be inside terrain".into());
             }
         }
-        Ok(())
+        self.validate_gates()
     }
 
     pub fn apply(&self, room: &mut Room) -> Result<(), String> {
@@ -218,6 +223,7 @@ impl RoomLayout {
             .collect();
         room.charms = self.world_charms();
         room.exits = self.exits.iter().map(ExitPlacement::exit).collect();
+        room.gates = self.gates.clone();
         Ok(())
     }
 }
@@ -247,6 +253,7 @@ impl RoomDraft {
         layout.items.clear();
         layout.charms.clear();
         layout.exits.clear();
+        layout.gates.clear(); // marks on the template's exits mean nothing in an empty room
         Self {
             enemies: Vec::new(),
             boss: None,
@@ -418,6 +425,7 @@ impl RoomDraft {
                 return Err("that arrival is not part of this room".into())
             }
         }
+        next.layout.follow_exits(&self.layout.exits); // gates follow a dragged exit
         next.validate_local(definitions)?;
         *self = next;
         Ok(())
@@ -472,6 +480,7 @@ impl RoomDraft {
             }
             Selection::Exit(i) | Selection::Destination(i) if i < self.layout.exits.len() => {
                 self.layout.exits.remove(i);
+                self.layout.drop_gates_without_exit();
             }
             _ => return Err("select a boss, enemy, item, charm, hazard, or exit to delete".into()),
         }
@@ -545,6 +554,7 @@ impl RoomDraft {
             hazards: Vec::new(),
             terrain_style: Default::default(),
             background: Vec::new(),
+            gates: Vec::new(),
             spawn: self.layout.spawn.into(),
             enemies: self
                 .enemies

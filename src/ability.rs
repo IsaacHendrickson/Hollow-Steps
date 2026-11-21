@@ -6,8 +6,11 @@
 //! (`crate::exit_lock`). `Item::Dash` stays the pickup kind in room files, and picking it up
 //! grants `Ability::Dash` (`Item::grants`).
 
-/// Something the player can do once granted.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+/// Something the player can do once granted. It is written by name in room files (the gates of
+/// `crate::gates`), so a name that does not exist is a load error.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Ability {
     Dash,
 }
