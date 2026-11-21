@@ -109,8 +109,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/dungeon_check.rs`: Check dungeon: unreachable rooms, locks, key counts, ability gates, traps, orphan gates; pure; `docs/dungeon-check.md`
 - `src/reach/editor.rs`: reach preview inputs and outlines; `src/reach/text.rs` the reach line shown after a save; `docs/reach.md`
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
-- `src/hazard.rs`: terrain hazards: room-file form, checks, touch rule, knockback by side touched (read by `DamageResolver`); `docs/hazards.md`
-- `src/hazard_look.rs`: hazard look: shape (spikes, lava, thorns), facing, color as a `Shape` draw list, never collision; `docs/hazards.md`
+- `src/hazard.rs` (+ `hazard_look`, `editor_hazard`, `scene_hazards`, `editor_panel/hazard_panel`): terrain hazards; `docs/hazards.md`, `docs/modules.md`
 - `src/terrain_style.rs` (+ `terrain_style/`): procedural look of solids as a draw list, never collision
 - `src/terrain_styles.rs`: terrain look presets (`data/terrain_styles.ron`), `RoomStyle`
 - `src/game/terrain_link.rs`: loads terrain presets with the rooms; `GameState::terrain_styles`
@@ -140,7 +139,6 @@ Gameplay modules (pure rules, no rendering):
 - `src/editor_inbound.rs` (+ `src/editor_selection.rs`): other rooms' arrivals here; canvas `Selection`
 - `src/editor_history.rs`: snapshot undo/redo for the room draft, Ctrl+Z / Ctrl+Y keys
 - `src/editor_terrain.rs`: pure terrain edits on the room draft (add, move, resize, delete), validated
-- `src/editor_hazard.rs`: pure hazard edits on the room draft (add beside the spawn, move, replace), validated
 - `src/editor_tools.rs`: editor tool enum (Select, Place, Terrain, Erase), key map, terrain drag state
 - `src/editor_view.rs`: pure editor canvas math: zoom/pan, grid snapping, window regions
 - `src/room_size.rs`: validated room bounds/floor edits for the editor
@@ -165,7 +163,6 @@ Composition and front end:
 - `src/editor_visuals.rs`: editor canvas enemy, boss and player pictures
 - `src/terrain_canvas.rs`: Macroquad drawing of solids' outlines and handles, terrain tool mouse glue
 - `src/terrain_draw.rs`: Macroquad adapter drawing a terrain draw list (world or editor canvas)
-- `src/scene_hazards.rs`: Macroquad drawing of hazards; `src/editor_panel/hazard_panel.rs`: the editor's Add hazard button and fields
 - `src/charm_panel.rs` (+ `charm_panel/`): the editor's Charms panel
 - `src/game/charm_editor_link.rs`: `GameState` holds the Charms panel's edits: sync, save, discard
 - `src/upgrade_panel.rs` (+ `upgrade_panel/`): the editor's Upgrades panel; `src/game/upgrade_editor_link.rs` holds its edits: sync, save, discard
