@@ -4,7 +4,8 @@
 //! them into the single hit to apply. The rules: the strongest source sets the
 //! damage, and an attack hit (which carries knockback) is used only when its
 //! damage is at least that strongest value. With several such hits the highest
-//! wins, and the later one wins a tie (enemies are listed before the boss).
+//! wins, and the later one wins a tie (hazards are listed first, then enemies, then the boss, so
+//! an enemy or boss hit of the same damage decides the knockback).
 
 use macroquad::math::Vec2;
 
@@ -22,7 +23,8 @@ pub struct DamageResolver {
     pub boss_contact: u16,
     /// Damage events from the boss's action sequence this tick; capped at 65535.
     pub boss_action: u32,
-    /// Attack and projectile hits that carry knockback: enemies' first, then the boss's.
+    /// Hits that carry knockback: the room's hazards first, then enemies' attacks and
+    /// projectiles, then the boss's.
     pub attacks: Vec<DamageHit>,
 }
 
@@ -52,9 +54,14 @@ impl DamageResolver {
                 .map_or(0, |boss| boss.contact_damage()),
             boss_action,
             attacks: room
-                .enemies
+                .hazards
                 .iter()
-                .filter_map(|enemy| enemy.attack_hit(player, size))
+                .filter_map(|hazard| hazard.hit(player, size))
+                .chain(
+                    room.enemies
+                        .iter()
+                        .filter_map(|enemy| enemy.attack_hit(player, size)),
+                )
                 .chain(boss.and_then(|boss| boss.attack_hit(player, size)))
                 .collect(),
         }
@@ -265,5 +272,39 @@ mod tests {
             DamageResolver::gather(&room, on_boss, SIZE, 0).boss_contact,
             0
         );
+    }
+    fn spikes() -> crate::hazard::Hazard {
+        crate::hazard::Hazard::from(&crate::hazard::HazardPlacement::standard(400.0, 444.0))
+    }
+
+    #[test]
+    fn gather_reads_a_touched_hazard_as_a_hit_with_knockback_and_ignores_a_distant_one() {
+        let [mut room, _, _] = test_rooms();
+        room.hazards = vec![spikes()];
+        let on_spikes = Vec2::new(440.0, 436.0);
+        let touching = DamageResolver::gather(&room, on_spikes, SIZE, 0);
+        assert_eq!(touching.attacks.len(), 1);
+        let hit = touching.resolve();
+        assert_eq!(hit.damage, i32::from(spikes().damage));
+        assert!(hit.knockback.x > 0.0 && hit.knockback.y < 0.0);
+        let apart = DamageResolver::gather(&room, Vec2::new(100.0, 436.0), SIZE, 0);
+        assert!(apart.attacks.is_empty());
+        assert_eq!(apart.resolve(), plain(0));
+    }
+
+    #[test]
+    fn a_hazard_weaker_than_an_enemy_touch_gives_way_and_the_strongest_hazard_wins() {
+        let sources = DamageResolver {
+            enemy_contact: 20,
+            attacks: vec![hit(10, 420.0)],
+            ..Default::default()
+        };
+        assert_eq!(sources.resolve(), plain(20));
+        let mut strong = spikes();
+        strong.damage = 30;
+        let [mut room, _, _] = test_rooms();
+        room.hazards = vec![spikes(), strong];
+        let gathered = DamageResolver::gather(&room, Vec2::new(440.0, 436.0), SIZE, 0);
+        assert_eq!(gathered.resolve().damage, 30);
     }
 }

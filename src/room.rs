@@ -121,6 +121,8 @@ pub struct Room {
     pub floor_y: f32,
     /// Solid rectangles that block the player (platforms and walls).
     pub terrain: crate::terrain::Terrain,
+    /// Hazards that hurt and knock back the player on touch (`hazard`).
+    pub hazards: Vec<crate::hazard::Hazard>,
     /// Palette and switches for how the solids look (drawing only).
     pub terrain_style: crate::terrain_styles::RoomStyle,
     /// Parallax background layers, drawn first (back to front) behind everything else.
@@ -281,6 +283,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
             terrain: Default::default(),
+            hazards: Vec::new(),
             terrain_style: Default::default(),
             background: Vec::new(),
             exits: vec![Exit {
@@ -318,6 +321,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             bounds: Rect::new(80.0, 40.0, 800.0, 360.0),
             floor_y: 400.0,
             terrain: Default::default(),
+            hazards: Vec::new(),
             terrain_style: Default::default(),
             background: Vec::new(),
             exits: vec![
@@ -349,6 +353,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             bounds: Rect::new(0.0, 0.0, 960.0, FLOOR_Y),
             floor_y: FLOOR_Y,
             terrain: Default::default(),
+            hazards: Vec::new(),
             terrain_style: Default::default(),
             background: Vec::new(),
             spawn: Vec2::new(160.0, 436.0),

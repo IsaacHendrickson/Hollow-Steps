@@ -12,6 +12,7 @@ mod canvas_tools;
 mod death_field;
 mod door_panel;
 mod entity;
+mod hazard_panel;
 mod history_panel;
 mod key_values;
 mod link_dialog;

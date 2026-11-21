@@ -84,7 +84,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/boss_special.rs`: boss sequence cursors, selection, effects, coin drops
 - `src/boss_special/body_link.rs`: `BossBody`: a boss driving its optional body; hitbox stays `size`
 - `src/combat.rs`: melee swings (forward, up, down), per-direction hitboxes, pogo, `MeleeConfig`
-- `src/damage.rs`: `DamageResolver`: all enemy and boss damage into the one hit on the player
+- `src/damage.rs`: `DamageResolver`: all enemy, boss and hazard damage into the one hit on the player
 - `src/events.rs`: `GameEvent`, `EventQueue`, `take_events` / `take_located_events`
 - `src/sound.rs`: validated event-to-sound cues (`data/audio.ron`), sound-file lookup, play plan
 - `src/particles.rs`: burst presets (`data/particles.ron`), seeded generator, capped live list
@@ -105,6 +105,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/door_exit.rs`: door exits (a free rectangle, Up to enter): room-file form, checks, editor add/move/resize; `docs/door-exits.md`
 - `src/ability.rs`, `src/exit_lock.rs`: abilities and keys as run state, locked exits, notice; `docs/keys-and-locks.md`
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
+- `src/hazard.rs`: terrain hazards: room-file form, checks, touch rule and knockback hit (read by `DamageResolver`); `docs/hazards.md`
 - `src/terrain_style.rs` (+ `terrain_style/`): procedural look of solids as a draw list, never collision
 - `src/terrain_styles.rs`: terrain look presets (`data/terrain_styles.ron`), `RoomStyle`
 - `src/game/terrain_link.rs`: loads terrain presets with the rooms; `GameState::terrain_styles`
@@ -134,6 +135,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/editor_inbound.rs` (+ `src/editor_selection.rs`): other rooms' arrivals here; canvas `Selection`
 - `src/editor_history.rs`: snapshot undo/redo for the room draft, Ctrl+Z / Ctrl+Y keys
 - `src/editor_terrain.rs`: pure terrain edits on the room draft (add, move, resize, delete), validated
+- `src/editor_hazard.rs`: pure hazard edits on the room draft (add beside the spawn, move, replace), validated
 - `src/editor_tools.rs`: editor tool enum (Select, Place, Terrain, Erase), key map, terrain drag state
 - `src/editor_view.rs`: pure editor canvas math: zoom/pan, grid snapping, window regions
 - `src/room_size.rs`: validated room bounds/floor edits for the editor
@@ -158,6 +160,7 @@ Composition and front end:
 - `src/editor_visuals.rs`: editor canvas enemy, boss and player pictures
 - `src/terrain_canvas.rs`: Macroquad drawing of solids' outlines and handles, terrain tool mouse glue
 - `src/terrain_draw.rs`: Macroquad adapter drawing a terrain draw list (world or editor canvas)
+- `src/scene_hazards.rs`: Macroquad drawing of hazards as spike rows; `src/editor_panel/hazard_panel.rs`: the editor's Add hazard button and fields
 - `src/charm_panel.rs` (+ `charm_panel/`): the editor's Charms panel
 - `src/game/charm_editor_link.rs`: `GameState` holds the Charms panel's edits: sync, save, discard
 - `src/upgrade_panel.rs` (+ `upgrade_panel/`): the editor's Upgrades panel; `src/game/upgrade_editor_link.rs` holds its edits: sync, save, discard

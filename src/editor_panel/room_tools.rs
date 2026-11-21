@@ -4,7 +4,9 @@ use super::room_name_field::draw_room_name_field;
 use super::widgets::{
     panel_button, panel_combo, panel_input, panel_label, searchable_list, section,
 };
-use super::{canvas_tools, door_panel, history_panel, lock_panel, look_panel, tool_panel};
+use super::{
+    canvas_tools, door_panel, hazard_panel, history_panel, lock_panel, look_panel, tool_panel,
+};
 use super::{EditorSession, EditorUi, Selection};
 use egui_macroquad::egui;
 use hollow_steps::editor_history::tracked;
@@ -95,6 +97,10 @@ pub(super) fn draw_room_tools(
             state.start_link_new_exit(editor, edge);
         }
         door_panel::draw_add_door(ui, editor, state);
+        hazard_panel::draw_add_hazard(ui, editor, state);
+        if let Some(Selection::Hazard(i)) = state.selected {
+            hazard_panel::draw_hazard_fields(ui, editor, state, i);
+        }
         if let Some(Selection::Exit(i) | Selection::Destination(i)) = state.selected {
             if let Some(leads_to) = editor.exit_leads_to(i) {
                 panel_label(ui, &format!("Leads to {leads_to}"));
@@ -138,6 +144,7 @@ pub(super) fn draw_room_tools(
         panel_label(ui, "Blue: room spawn");
         panel_label(ui, "Green: exit span");
         panel_label(ui, "Orange: door (Up to enter)");
+        panel_label(ui, "Magenta: hazard (hurts, knocks back)");
         panel_label(ui, "Purple: arrival spawn");
     });
     canvas_tools::draw_room_size_section(ui, editor, &mut state.history);

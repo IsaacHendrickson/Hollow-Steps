@@ -6,6 +6,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 
 - Walking, gravity, floor and wall collision; `src/player.rs`; `tests/gameplay.rs`
 - Room terrain: solid platforms, walls, ceilings; head stops under solids; enemies swept against solids; `src/terrain.rs`; `tests/terrain.rs`
+- Terrain hazards: touch hurts and knocks the player away and up; per-hazard damage and knockback in the room file; `src/hazard.rs`; `tests/hazards.rs`, manual
 - Terrain look (drawing only): procedural draw list for solids and boundary, presets, per-room style; `src/terrain_style.rs`; `tests/terrain_style.rs`, manual
 - Fixed 120 Hz step, capped catch-up, edge input on the first tick only; same jump apex at 30/60/144 fps; `src/timestep.rs`; `tests/timestep.rs`
 - Follow camera: smoothing, look-ahead, clamped to room bounds plus boundary walls; `src/camera.rs`; `tests/camera_bounds.rs`, manual
@@ -105,6 +106,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Room look in the editor: Room look section edits `layout.terrain_style` with a preview; `src/editor_look.rs`; `tests/editor_look.rs`, manual
 - Room undo/redo: buttons and Ctrl+Z / Ctrl+Y over room edits, a drag is one step, 100 steps; `src/editor_history.rs`; `tests/editor_history.rs`, manual
 - Test room: button and F6 play the unsaved draft from its spawn, F2 returns, nothing written; `src/game/test_room.rs`; `tests/test_room.rs`, manual
+- Hazards in the editor: Add hazard, drag, size, damage, knockback, undo, Test room; `src/editor_hazard.rs`; `src/editor_hazard/tests.rs`, `tests/hazards.rs`, manual
 - Editor tools: Select, Place, Terrain, Erase (V, P, T, E), grid-snapped solids with handles; `src/editor_terrain.rs`; `tests/editor_terrain.rs`, manual
 - Behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation, usage warnings, Key values; `src/preset.rs`; `tests/presets.rs`
 - Player stats in the editor: Player panel with every `player.ron` number, validated, staged Save; `src/player_panel.rs`; `tests/player_editor.rs`, manual

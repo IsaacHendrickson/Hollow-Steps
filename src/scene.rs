@@ -12,7 +12,7 @@ use hollow_steps::room_charms::CHARM_SIZE;
 use hollow_steps::terrain_style::{RoomInputs, TerrainLook};
 use macroquad::prelude::*;
 
-use crate::{body_draw, scene_locks, scene_shop, terrain_draw};
+use crate::{body_draw, scene_hazards, scene_locks, scene_shop, terrain_draw};
 
 /// Draws the world. `terrain_look` keeps the room's terrain draw list (boundary and solids)
 /// between frames. `camera_view` is the rectangle the camera shows before screen shake, which
@@ -59,6 +59,7 @@ pub fn draw_scene(
             Color::from_rgba(62, 70, 103, 255),
         );
     }
+    scene_hazards::draw_hazards(&room.hazards);
     for exit in &room.exits {
         let zone = exit.zone(room.bounds);
         if exit.is_door() {
