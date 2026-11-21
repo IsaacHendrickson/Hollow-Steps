@@ -1,5 +1,6 @@
 use super::*;
 use crate::enemy::EnemyDefinitions;
+use crate::hazard_look::{HazardFacing, HazardStyle};
 use crate::room::test_rooms;
 
 fn draft() -> RoomDraft {
@@ -179,4 +180,58 @@ fn a_new_room_starts_without_the_templates_hazards() {
     let mut template = draft().layout;
     template.hazards = vec![HazardPlacement::standard(400.0, 444.0)];
     assert!(RoomDraft::new_room(&template).layout.hazards.is_empty());
+}
+
+#[test]
+fn a_new_hazard_is_spikes_facing_up_and_replace_sets_its_look() {
+    let mut draft = draft();
+    draft.add_hazard().unwrap();
+    let new = draft.hazard(0).unwrap().clone();
+    assert_eq!(
+        (new.style, new.facing, new.color),
+        (HazardStyle::Spikes, HazardFacing::Up, None)
+    );
+    let mut edited = new;
+    edited.style = HazardStyle::Lava;
+    edited.facing = HazardFacing::Left;
+    edited.color = Some((0.9, 0.4, 0.1));
+    draft.replace_hazard(0, edited.clone()).unwrap();
+    assert_eq!(draft.hazard(0), Some(&edited));
+}
+
+#[test]
+fn replace_refuses_a_color_outside_zero_to_one_and_changes_nothing() {
+    let mut draft = draft();
+    draft.add_hazard().unwrap();
+    let before = draft.clone();
+    let mut bad = draft.hazard(0).unwrap().clone();
+    bad.color = Some((2.0, 0.0, 0.0));
+    let error = draft.replace_hazard(0, bad).unwrap_err();
+    assert!(
+        error.contains("hazard 0") && error.contains("color"),
+        "{error}"
+    );
+    assert_eq!(draft, before);
+}
+
+#[test]
+fn moving_and_resizing_keep_the_look() {
+    let definitions = no_definitions();
+    let mut draft = draft();
+    draft.add_hazard().unwrap();
+    let mut look = draft.hazard(0).unwrap().clone();
+    look.style = HazardStyle::Thorns;
+    look.facing = HazardFacing::Right;
+    look.color = Some((0.2, 0.6, 0.3));
+    draft.replace_hazard(0, look.clone()).unwrap();
+    draft
+        .move_to(Selection::Hazard(0), Vec2::new(700.0, 440.0), &definitions)
+        .unwrap();
+    let wider = draft.hazard(0).unwrap().resized(120.0, 32.0);
+    draft.replace_hazard(0, wider).unwrap();
+    let kept = draft.hazard(0).unwrap();
+    assert_eq!(
+        (kept.style, kept.facing, kept.color),
+        (look.style, look.facing, look.color)
+    );
 }

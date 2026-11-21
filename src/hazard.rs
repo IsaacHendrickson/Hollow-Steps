@@ -4,12 +4,16 @@
 //! The editor's add, move and edit operations are in `editor_hazard`; `docs/hazards.md`.
 //!
 //! A hazard is not solid: the player walks into it and takes the hit. Standing on top of one
-//! (touching its top edge) is safe; the body must overlap it.
+//! (touching its top edge) is safe; the body must overlap it. The hit throws the player away
+//! from the side that was touched: sideways (and up) from a side, straight up from the top,
+//! straight down from underneath. How a hazard looks (style, facing, color) is `hazard_look`.
 use macroquad::math::{Rect, Vec2};
 use serde::{Deserialize, Serialize};
 
 use crate::editor::RoomLayout;
 use crate::enemy_attack::DamageHit;
+use crate::hazard_look::{self, HazardFacing, HazardStyle};
+use crate::terrain_style::{Rgb, Shape};
 
 /// The smallest width and height of a hazard, in pixels.
 pub const MIN_HAZARD_SIZE: f32 = 8.0;
@@ -24,9 +28,6 @@ pub const MAX_HAZARD_KNOCKBACK_SECS: f32 = 2.0;
 const TOUCH_EPSILON: f32 = 0.001;
 /// The player's body at the room spawn, which must stay clear of every hazard.
 const SPAWN_BODY: Vec2 = Vec2::new(32.0, 48.0);
-
-/// How wide one drawn spike is, aiming for; the strip is divided into whole spikes.
-const SPIKE_WIDTH: f32 = 16.0;
 
 /// What the editor gives a new hazard; the author then edits each hazard's own numbers.
 const NEW_SIZE: (f32, f32) = (64.0, 16.0);
@@ -44,15 +45,25 @@ pub struct HazardPlacement {
     pub rect: (f32, f32, f32, f32),
     /// Health the hit takes (`HIT_DAMAGE` is 10). At least 1.
     pub damage: u16,
-    /// Horizontal speed away from the hazard's center, in pixels per second.
+    /// How hard the hit throws the player away from the side that was touched, in pixels per
+    /// second: away sideways from a side, straight up from the top, straight down from below.
     pub knockback_speed: f32,
-    /// Upward speed the hit gives, in pixels per second.
+    /// Extra upward speed when the hit throws the player sideways, in pixels per second.
     pub lift_speed: f32,
-    /// How long the horizontal push lasts, in seconds.
+    /// How long the sideways push lasts, in seconds.
     pub knockback_secs: f32,
+    /// What it looks like. Files from before styles existed have spikes.
+    #[serde(default)]
+    pub style: HazardStyle,
+    /// The side its points or surface face. Files from before facing existed face up.
+    #[serde(default)]
+    pub facing: HazardFacing,
+    /// The color, each part 0 to 1, or `None` for the style's own. Not written when `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<Rgb>,
 }
 
-/// The numbers the editor panel edits for one hazard: its size and its hit.
+/// What the editor panel edits for one hazard: its size, its hit and its look.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HazardFields {
     pub width: f32,
@@ -61,6 +72,9 @@ pub struct HazardFields {
     pub knockback_speed: f32,
     pub lift_speed: f32,
     pub knockback_secs: f32,
+    pub style: HazardStyle,
+    pub facing: HazardFacing,
+    pub color: Option<Rgb>,
 }
 
 /// A hazard in the room being played.
@@ -71,6 +85,18 @@ pub struct Hazard {
     pub knockback_speed: f32,
     pub lift_speed: f32,
     pub knockback_secs: f32,
+    pub style: HazardStyle,
+    pub facing: HazardFacing,
+    pub color: Option<Rgb>,
+}
+
+/// Which side of a hazard a touching body is on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Contact {
+    Top,
+    Bottom,
+    Left,
+    Right,
 }
 
 impl From<&HazardPlacement> for Hazard {
@@ -81,6 +107,9 @@ impl From<&HazardPlacement> for Hazard {
             knockback_speed: placement.knockback_speed,
             lift_speed: placement.lift_speed,
             knockback_secs: placement.knockback_secs,
+            style: placement.style,
+            facing: placement.facing,
+            color: placement.color,
         }
     }
 }
@@ -93,6 +122,9 @@ impl From<&Hazard> for HazardPlacement {
             knockback_speed: hazard.knockback_speed,
             lift_speed: hazard.lift_speed,
             knockback_secs: hazard.knockback_secs,
+            style: hazard.style,
+            facing: hazard.facing,
+            color: hazard.color,
         }
     }
 }
@@ -112,42 +144,86 @@ impl Hazard {
             && body.bottom() > self.rect.y + TOUCH_EPSILON
     }
 
-    /// The hazard drawn as a row of upward spikes filling its rectangle: each triangle's three
-    /// corners, base on the bottom edge and tip on the top. Drawing only, never collision.
-    pub fn spike_triangles(&self) -> Vec<[Vec2; 3]> {
-        if !(self.rect.w > 0.0 && self.rect.h > 0.0) {
-            return Vec::new();
-        }
-        let count = ((self.rect.w / SPIKE_WIDTH).round() as usize).max(1);
-        let width = self.rect.w / count as f32;
-        (0..count)
-            .map(|i| {
-                let left = self.rect.x + width * i as f32;
-                [
-                    Vec2::new(left, self.rect.bottom()),
-                    Vec2::new(left + width / 2.0, self.rect.y),
-                    Vec2::new(left + width, self.rect.bottom()),
-                ]
-            })
-            .collect()
+    /// The color it is drawn in: its own, or its style's.
+    pub fn draw_color(&self) -> Rgb {
+        self.color.unwrap_or_else(|| self.style.default_color())
     }
 
-    /// The hit on a body that touches the hazard: its damage and a knockback away from the
-    /// hazard's center, to the right when the body is exactly in line with it, and up.
-    pub fn hit(&self, center: Vec2, size: Vec2) -> Option<DamageHit> {
+    /// The hazard as a draw list in its style, facing and color; `time` is seconds (only lava
+    /// moves). Drawing only, never collision.
+    pub fn look(&self, time: f32) -> Vec<Shape> {
+        hazard_look::shapes(self.rect, self.style, self.facing, self.draw_color(), time)
+    }
+
+    /// The side of the hazard that a touching body is on: the one it has gone the least far
+    /// into. A body that is shallower in than it is wide lands on the top or underside; one
+    /// that is deeper in walked in from a side. Exactly level with the center is the top, and
+    /// exactly in line with it is the right.
+    fn contact(&self, center: Vec2, size: Vec2) -> Contact {
+        let across = |low: f32, high: f32, from: f32, to: f32| high.min(to) - low.max(from);
+        let (half_x, half_y) = (size.x / 2.0, size.y / 2.0);
+        let overlap_x = across(
+            center.x - half_x,
+            center.x + half_x,
+            self.rect.x,
+            self.rect.right(),
+        );
+        let overlap_y = across(
+            center.y - half_y,
+            center.y + half_y,
+            self.rect.y,
+            self.rect.bottom(),
+        );
+        let middle = self.rect.center();
+        if overlap_y < overlap_x {
+            if center.y <= middle.y {
+                Contact::Top
+            } else {
+                Contact::Bottom
+            }
+        } else if center.x >= middle.x {
+            Contact::Right
+        } else {
+            Contact::Left
+        }
+    }
+
+    /// The hit on a body that touches the hazard (`velocity` is how it is moving): the damage
+    /// and a throw away from the side it touched. From the top the body ends up moving straight
+    /// up at `knockback_speed`, and from below straight down; from a side it is pushed away
+    /// sideways for `knockback_secs` and ends up moving up at `lift_speed`. The vertical speed
+    /// is set, not added to, so a fall does not eat the throw; a body already moving that way
+    /// faster is not slowed.
+    pub fn hit(&self, center: Vec2, size: Vec2, velocity: Vec2) -> Option<DamageHit> {
         if !self.touches(center, size) {
             return None;
         }
-        let away = if center.x >= self.rect.center().x {
-            1.0
-        } else {
-            -1.0
+        let (push, vertical) = match self.contact(center, size) {
+            Contact::Top => (0.0, -self.knockback_speed),
+            Contact::Bottom => (0.0, self.knockback_speed),
+            Contact::Left => (-self.knockback_speed, -self.lift_speed),
+            Contact::Right => (self.knockback_speed, -self.lift_speed),
         };
         Some(DamageHit {
             damage: i32::from(self.damage),
-            knockback: Vec2::new(away * self.knockback_speed, -self.lift_speed),
+            knockback: Vec2::new(push, launch(vertical, velocity.y)),
             knockback_secs: self.knockback_secs,
         })
+    }
+}
+
+/// What to add to a vertical speed `current` so that it becomes `target`: nothing when the
+/// target is zero, or when `current` already goes that way at least as fast.
+fn launch(target: f32, current: f32) -> f32 {
+    let already_there = if target < 0.0 {
+        current <= target
+    } else {
+        current >= target
+    };
+    if target == 0.0 || already_there {
+        0.0
+    } else {
+        target - current
     }
 }
 
@@ -160,6 +236,9 @@ impl HazardPlacement {
             knockback_speed: NEW_KNOCKBACK_SPEED,
             lift_speed: NEW_LIFT_SPEED,
             knockback_secs: NEW_KNOCKBACK_SECS,
+            style: HazardStyle::default(),
+            facing: HazardFacing::default(),
+            color: None,
         }
     }
 
@@ -175,6 +254,9 @@ impl HazardPlacement {
             knockback_speed: self.knockback_speed,
             lift_speed: self.lift_speed,
             knockback_secs: self.knockback_secs,
+            style: self.style,
+            facing: self.facing,
+            color: self.color,
         }
     }
 
@@ -186,6 +268,9 @@ impl HazardPlacement {
             knockback_speed: fields.knockback_speed,
             lift_speed: fields.lift_speed,
             knockback_secs: fields.knockback_secs,
+            style: fields.style,
+            facing: fields.facing,
+            color: fields.color,
             ..self.resized(fields.width, fields.height)
         }
     }
@@ -201,7 +286,7 @@ impl HazardPlacement {
     }
 
     /// Checks one hazard (`index` is only for the message): finite numbers in range, at least
-    /// the minimum size, fully inside `room`.
+    /// the minimum size, fully inside `room`, a color (if any) between 0 and 1.
     pub fn check(&self, index: usize, room: Rect) -> Result<(), String> {
         let (x, y, w, h) = self.rect;
         if ![x, y, w, h, x + w, y + h].iter().all(|n| n.is_finite()) {
@@ -233,6 +318,11 @@ impl HazardPlacement {
                 return Err(format!(
                     "hazard {index} {label} must be between 0 and {max}"
                 ));
+            }
+        }
+        if let Some((red, green, blue)) = self.color {
+            if ![red, green, blue].iter().all(|c| (0.0..=1.0).contains(c)) {
+                return Err(format!("hazard {index} color must be between 0 and 1"));
             }
         }
         Ok(())

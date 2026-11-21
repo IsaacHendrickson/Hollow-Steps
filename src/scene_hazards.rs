@@ -1,17 +1,15 @@
-//! Macroquad drawing of a room's hazards as rows of spikes. The spike shapes are pure
-//! (`hollow_steps::hazard::Hazard::spike_triangles`); the editor canvas draws a plain marker.
+//! Macroquad drawing of a room's hazards. What each one looks like is pure
+//! (`hollow_steps::hazard::Hazard::look`, from `hazard_look`); this paints that draw list with
+//! the terrain's adapter, in the world and, through `editor_visuals`, on the editor canvas.
 use hollow_steps::hazard::Hazard;
 use macroquad::prelude::*;
 
-const SPIKE_FILL: Color = Color::new(0.80, 0.22, 0.38, 1.0);
-const SPIKE_EDGE: Color = Color::new(1.0, 0.62, 0.70, 1.0);
+use crate::terrain_draw;
 
-/// Draws every hazard of the room; call with the world camera set.
-pub fn draw_hazards(hazards: &[Hazard]) {
+/// Draws every hazard of the room; call with the world camera set. `view` is the world
+/// rectangle the camera shows and `time` is seconds (only lava moves with it).
+pub fn draw_hazards(hazards: &[Hazard], view: Rect, time: f32) {
     for hazard in hazards {
-        for [left, tip, right] in hazard.spike_triangles() {
-            draw_triangle(left, tip, right, SPIKE_FILL);
-            draw_triangle_lines(left, tip, right, 1.0, SPIKE_EDGE);
-        }
+        terrain_draw::draw_shapes(&hazard.look(time), view);
     }
 }

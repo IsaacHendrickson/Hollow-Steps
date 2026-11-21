@@ -1,14 +1,18 @@
-//! The room editor canvas's picture of enemies and the boss: the body (or plain box) drawn at
-//! its visual size, with the hitbox outlined over it, so both can be judged together.
+//! The room editor canvas's picture of enemies, the boss and hazards: the body (or plain box)
+//! drawn at its visual size, with the hitbox outlined over it, so both can be judged together;
+//! a hazard is drawn in its own look (shape, facing, color), which is its hitbox.
 //!
 //! `visual_previews` decides what to draw from the editor's current (possibly unsaved)
 //! definitions and is tested without a window; the `draw_*` functions only paint it.
 
 use crate::body_draw::draw_body;
+use crate::terrain_draw;
 use hollow_steps::body::BodyInstance;
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_view::CanvasView;
+use hollow_steps::hazard::Hazard;
 use hollow_steps::player_look_editor::PreviewSettings;
+use hollow_steps::terrain_style::Shape;
 use hollow_steps::visual_box;
 use macroquad::prelude::*;
 
@@ -36,10 +40,12 @@ pub(crate) struct VisualPreview {
     pub(crate) color: Color,
     /// A fresh body at rest, for an enemy or boss whose definition has one.
     pub(crate) body: Option<BodyInstance>,
+    /// A hazard's draw list (lava at rest); empty for everything else.
+    pub(crate) shapes: Vec<Shape>,
 }
 
-/// A preview for each enemy and boss marker in `markers` (whose rectangles are the hitboxes).
-/// Other markers, and enemies or bosses whose definition is missing, get none.
+/// A preview for each enemy, boss and hazard marker in `markers` (whose rectangles are the
+/// hitboxes). Other markers, and enemies or bosses whose definition is missing, get none.
 pub(crate) fn visual_previews(
     editor: &EditorSession,
     markers: &[(Selection, Rect, Color)],
@@ -48,6 +54,16 @@ pub(crate) fn visual_previews(
         .iter()
         .filter_map(|(selection, hitbox, _)| {
             let (visual, color, body) = match *selection {
+                Selection::Hazard(index) => {
+                    let hazard = Hazard::from(editor.draft.hazard(index)?);
+                    return Some(VisualPreview {
+                        selection: *selection,
+                        rect: *hitbox,
+                        color: MAROON,
+                        body: None,
+                        shapes: hazard.look(0.0),
+                    });
+                }
                 Selection::Enemy(index) => {
                     let name = &editor.draft.enemies.get(index)?.definition;
                     (
@@ -83,6 +99,7 @@ pub(crate) fn visual_previews(
                 ),
                 color,
                 body,
+                shapes: Vec::new(),
             })
         })
         .collect()
@@ -96,6 +113,14 @@ pub(crate) fn draw_visual_previews(
     canvas: &CanvasView,
 ) {
     for preview in previews {
+        if !preview.shapes.is_empty() {
+            // A hazard: its look through the canvas zoom and pan. Its marker outlines it.
+            let everywhere = Rect::new(-1.0e6, -1.0e6, 2.0e6, 2.0e6);
+            terrain_draw::draw_shapes_mapped(&preview.shapes, everywhere, canvas.scale, |p| {
+                canvas.screen(p)
+            });
+            continue;
+        }
         let screen = canvas.rect(preview.rect);
         match &preview.body {
             Some(body) => draw_body(body, screen.center(), screen.size(), false, |color| color),
@@ -139,8 +164,8 @@ pub(crate) fn draw_player_preview(
     }
 }
 
-/// Paints the markers: filled boxes, except that an enemy's or the boss's hitbox is only
-/// faintly filled so the picture drawn under it shows. The selected marker has a white outline.
+/// Paints the markers: filled boxes, except that an enemy's, the boss's or a hazard's box is
+/// only faintly filled so the picture drawn under it shows. The selected marker has a white outline.
 pub(crate) fn draw_markers(
     markers: &[(Selection, Rect, Color)],
     selected: Option<Selection>,
@@ -148,7 +173,10 @@ pub(crate) fn draw_markers(
 ) {
     for (selection, rect, color) in markers {
         let r = canvas.rect(*rect);
-        let alpha = if matches!(selection, Selection::Enemy(_) | Selection::Boss) {
+        let alpha = if matches!(
+            selection,
+            Selection::Enemy(_) | Selection::Boss | Selection::Hazard(_)
+        ) {
             HITBOX_FILL_ALPHA
         } else {
             MARKER_FILL_ALPHA

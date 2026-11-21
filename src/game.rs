@@ -483,6 +483,7 @@ impl GameState {
         let hit = DamageResolver::gather(
             room,
             self.player.position(),
+            self.player.velocity(),
             self.player.size(),
             special_damage,
         )

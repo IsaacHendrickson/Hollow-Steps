@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use hollow_steps::editor::{RoomLayout, Selection};
 use hollow_steps::game::GameState;
 use hollow_steps::hazard::HazardPlacement;
+use hollow_steps::hazard_look::{HazardFacing, HazardStyle};
 use hollow_steps::player::PlayerInput;
 use hollow_steps::room::{RoomEnemies, RoomId};
 use macroquad::math::Vec2;
@@ -135,6 +136,67 @@ fn walking_into_a_hazard_costs_its_damage_and_throws_the_player_back_and_up() {
 }
 
 #[test]
+fn jumping_onto_a_hazard_from_above_throws_the_player_straight_up() {
+    let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
+    game.toggle_editor().unwrap();
+    {
+        let draft = &mut game.editor_mut().unwrap().draft;
+        draft.enemies.clear();
+        draft.layout.items.clear();
+        draft.add_hazard().unwrap();
+        // A wide strip beside the spawn, so a hop to the right lands well inside it.
+        let mut wide = draft.hazard(0).unwrap().clone();
+        let (x, y, _, h) = wide.rect;
+        wide.rect = (x, y, 300.0, h);
+        draft.replace_hazard(0, wide).unwrap();
+    }
+    game.start_test_room().unwrap();
+    run(&mut game, 130, idle()); // settled, arrival immunity over
+    let full = game.player().health().current();
+
+    // Hop right: the body is in the air while it passes the strip's edge and comes down on it.
+    let hop = PlayerInput {
+        move_axis: 1.0,
+        jump_pressed: true,
+        ..idle()
+    };
+    game.update(hop, DT);
+    let mut falling_speed = None;
+    for _ in 0..300 {
+        let speed = game.player().velocity().y;
+        game.update(walk_right(), DT);
+        if game.player().health().current() < full {
+            falling_speed = Some(speed);
+            break;
+        }
+    }
+    let falling_speed = falling_speed.expect("the hop never landed on the hazard");
+    assert!(
+        falling_speed > 0.0,
+        "it came down on the hazard: {falling_speed}"
+    );
+
+    // Straight up: moving up the very next moment, whatever the fall was, and no sideways push.
+    assert!(
+        game.player().velocity().y < 0.0,
+        "{:?}",
+        game.player().velocity()
+    );
+    let (x_hit, y_hit) = (game.player().position().x, game.player().position().y);
+    let mut highest = y_hit;
+    for _ in 0..60 {
+        game.update(idle(), DT);
+        highest = highest.min(game.player().position().y);
+    }
+    assert!(
+        (game.player().position().x - x_hit).abs() < 1.0,
+        "pushed sideways from {x_hit} to {}",
+        game.player().position().x
+    );
+    assert!(y_hit - highest > 40.0, "only rose {} px", y_hit - highest);
+}
+
+#[test]
 fn the_push_is_stronger_than_walking_back_into_the_hazard() {
     let mut game = GameState::try_new(&support::fixture_assets()).unwrap();
     testing_with_a_hazard(&mut game);
@@ -196,6 +258,9 @@ fn a_hazard_is_saved_with_the_room_and_loads_again() {
         edited.knockback_speed = 300.0;
         edited.lift_speed = 150.0;
         edited.knockback_secs = 0.25;
+        edited.style = HazardStyle::Lava;
+        edited.facing = HazardFacing::Left;
+        edited.color = Some((0.5, 0.25, 0.75));
         draft.replace_hazard(0, edited.clone()).unwrap();
         edited
     };

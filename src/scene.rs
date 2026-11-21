@@ -59,7 +59,7 @@ pub fn draw_scene(
             Color::from_rgba(62, 70, 103, 255),
         );
     }
-    scene_hazards::draw_hazards(&room.hazards);
+    scene_hazards::draw_hazards(&room.hazards, camera_view, get_time() as f32);
     for exit in &room.exits {
         let zone = exit.zone(room.bounds);
         if exit.is_door() {

@@ -50,6 +50,7 @@ pub mod feel;
 pub mod game;
 pub mod gates;
 pub mod hazard;
+pub mod hazard_look;
 pub mod health;
 pub mod hud_bars;
 pub mod hud_damage;

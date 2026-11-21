@@ -143,7 +143,7 @@ pub(super) fn draw_look_section(
 /// soon as it opens; that must not turn into an override of the preset.
 const SAME_COLOR: f32 = 0.0005;
 
-fn same_color(a: [f32; 3], b: [f32; 3]) -> bool {
+pub(super) fn same_color(a: [f32; 3], b: [f32; 3]) -> bool {
     a.iter().zip(b).all(|(a, b)| (a - b).abs() <= SAME_COLOR)
 }
 
