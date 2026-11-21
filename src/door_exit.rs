@@ -204,6 +204,7 @@ impl RoomDraft {
             .get_mut(index)
             .ok_or("missing exit")?
             .resize_door(width, height)?;
+        next.layout.follow_exits(&self.layout.exits); // gates follow the resized door
         next.layout.validate_geometry()?;
         *self = next;
         Ok(())

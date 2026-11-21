@@ -42,8 +42,10 @@ impl GameState {
     pub fn save_tuning(&mut self) -> Result<PathBuf, String> {
         self.sync_player_from_editor();
         let spawns = self.spawn_checks();
+        let before = self.saved_player_numbers();
         let path = self.player_draft.save(&self.assets, &spawns)?;
         self.attach_player_draft();
+        self.note_reach(before);
         Ok(path)
     }
 
@@ -68,7 +70,9 @@ impl GameState {
                 )?;
             }
         }
+        let before = self.saved_player_numbers();
         let mut written = vec![self.player_draft.save(&self.assets, &spawns)?];
+        self.note_reach(before);
         if self.player_draft.is_vitals_dirty() {
             written.push(
                 self.player_draft

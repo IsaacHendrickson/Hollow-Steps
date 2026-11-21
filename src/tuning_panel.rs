@@ -25,6 +25,8 @@ mod run;
 pub struct TuningPanel {
     open: bool,
     status: Status,
+    /// The reach line the last Save left (`reach::line`), shown under "Saved to".
+    reach: Option<String>,
     run: run::RunDebug,
 }
 
@@ -41,7 +43,12 @@ impl TuningPanel {
         if !self.open {
             return;
         }
-        let Self { open, status, run } = self;
+        let Self {
+            open,
+            status,
+            reach,
+            run,
+        } = self;
         let list_height = (ctx.screen_rect().height() - 190.0).max(120.0);
         egui::Window::new("Player tuning (F4)")
             .open(open)
@@ -77,7 +84,7 @@ impl TuningPanel {
                         run.draw(ui, game);
                     });
                 ui.separator();
-                footer(ui, game, status);
+                footer(ui, game, status, reach);
             });
     }
 }
@@ -159,12 +166,18 @@ fn save_all(game: &mut GameState) -> Status {
     Status::Saved(saved.join(" and "))
 }
 
-fn footer(ui: &mut egui::Ui, game: &mut GameState, status: &mut Status) {
+fn footer(
+    ui: &mut egui::Ui,
+    game: &mut GameState,
+    status: &mut Status,
+    reach: &mut Option<String>,
+) {
     let save = ui.button("Save");
     #[cfg(test)]
     ui.data_mut(|data| data.insert_temp(egui::Id::new("save button"), save.rect));
     if save.clicked() {
         *status = save_all(game);
+        *reach = game.take_reach_note();
     }
     ui.label(if game.tuning_unsaved() || game.vitals_unsaved() {
         "Unsaved changes. F5 reloads the saved values."
@@ -175,6 +188,9 @@ fn footer(ui: &mut egui::Ui, game: &mut GameState, status: &mut Status) {
         Status::Quiet => {}
         Status::Saved(path) => {
             ui.label(format!("Saved to {path}"));
+            if let Some(line) = reach {
+                ui.label(line.as_str());
+            }
         }
         Status::Error(message) => {
             ui.colored_label(egui::Color32::LIGHT_RED, message.as_str());

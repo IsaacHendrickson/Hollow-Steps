@@ -97,3 +97,18 @@ fn shipped_run_rules_and_hub_room_load_and_validate() {
         assert_eq!(game.room().id, hub, "the game starts in the hub");
     }
 }
+
+#[test]
+fn shipped_dungeon_has_no_problems() {
+    // Opens the editor on the shipped rooms (custom rooms included) and runs Check dungeon, the
+    // same check as its button, under the shipped run rules. It asserts nothing about content.
+    let mut game = GameState::try_new(&assets()).expect("shipped rooms must load");
+    game.toggle_editor().expect("the editor must open");
+    let problems = game.editor().expect("editor is open").check_dungeon();
+    let text: Vec<_> = problems.iter().map(|problem| problem.text()).collect();
+    assert!(
+        problems.is_empty(),
+        "Check dungeon found:\n{}",
+        text.join("\n")
+    );
+}

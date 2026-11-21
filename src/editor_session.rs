@@ -60,6 +60,9 @@ pub struct EditorSession {
     pub parked: Vec<RoomWork>,
     /// The exit-linking flow in progress, if any (see `exit_link`).
     pub link: Option<crate::exit_link::ExitLink>,
+    /// The run rules (`run.ron`), which Check dungeon reads; `GameState` gives them when the
+    /// session opens (`game::dungeon_link`).
+    pub run: crate::run::RunConfig,
 }
 
 impl EditorSession {
@@ -167,6 +170,7 @@ impl EditorSession {
             name_input: None,
             parked: Vec::new(),
             link: None,
+            run: crate::run::RunConfig::default(),
         })
     }
 
