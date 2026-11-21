@@ -1,6 +1,7 @@
 use macroquad::math::Vec2;
 use serde::{Deserialize, Serialize};
 
+use crate::ability::Ability;
 use crate::player::Player;
 use crate::room::RoomId;
 
@@ -20,6 +21,15 @@ impl Item {
         match self {
             Self::AmberShard => "Amber Shard",
             Self::Dash => "Dash",
+        }
+    }
+
+    /// The ability picking this item up grants, if any. Collecting still puts the item in the
+    /// inventory; the ability is what the rules read (`crate::ability`).
+    pub fn grants(self) -> Option<Ability> {
+        match self {
+            Self::Dash => Some(Ability::Dash),
+            Self::AmberShard => None,
         }
     }
 }

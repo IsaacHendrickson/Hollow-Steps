@@ -24,6 +24,8 @@ fn equipped_player() -> Player {
 fn dash_requires_pickup() {
     let mut player = equipped_player();
     player.collected_items.clear();
+    // The dash reads the ability, not the item list, so a player without Dash has neither.
+    player.abilities.clear();
     player.update(DASH, 0.1, BOUNDS);
     assert_eq!(player.position.x, 400.0);
 }

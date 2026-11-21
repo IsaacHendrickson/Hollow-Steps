@@ -43,6 +43,8 @@ mod feel_tests;
 #[cfg(test)]
 mod flier_tests;
 #[cfg(test)]
+mod gate_tests;
+#[cfg(test)]
 mod hud_loss_tests;
 #[cfg(test)]
 mod item_tests;
