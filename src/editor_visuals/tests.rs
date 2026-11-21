@@ -164,7 +164,7 @@ fn a_boss_with_a_body_previews_that_body_at_the_visual_size() {
 }
 
 #[test]
-fn only_enemies_and_the_boss_get_a_preview() {
+fn only_enemies_the_boss_and_hazards_get_a_preview() {
     let game = game_editing(RoomId::First);
     let editor = game.editor().unwrap();
     let (markers, previews) = previews(editor);
@@ -172,10 +172,42 @@ fn only_enemies_and_the_boss_get_a_preview() {
         markers.len() > previews.len(),
         "spawn, exits and items stay plain markers"
     );
-    assert!(previews
-        .iter()
-        .all(|p| matches!(p.selection, Selection::Enemy(_) | Selection::Boss)));
+    assert!(previews.iter().all(|p| matches!(
+        p.selection,
+        Selection::Enemy(_) | Selection::Boss | Selection::Hazard(_)
+    )));
     // A marker for an enemy the draft does not have previews nothing instead of panicking.
     let stray = [(Selection::Enemy(99), Rect::new(0.0, 0.0, 10.0, 10.0), RED)];
     assert!(visual_previews(editor, &stray).is_empty());
+}
+
+#[test]
+fn a_hazard_is_previewed_in_its_own_look_and_follows_the_edits() {
+    use hollow_steps::hazard::Hazard;
+    use hollow_steps::hazard_look::{HazardFacing, HazardStyle};
+    let mut game = game_editing(RoomId::First);
+    let editor = game.editor_mut().unwrap();
+    editor.draft.add_hazard().unwrap();
+    let (markers, shown) = previews(editor);
+    let hazard = preview(&shown, Selection::Hazard(0));
+    assert_eq!(hazard.rect, hitbox(&markers, Selection::Hazard(0)));
+    assert!(hazard.body.is_none());
+    let placed = Hazard::from(editor.draft.hazard(0).unwrap());
+    assert!(!hazard.shapes.is_empty());
+    assert_eq!(hazard.shapes, placed.look(0.0));
+
+    let mut edited = editor.draft.hazard(0).unwrap().clone();
+    edited.style = HazardStyle::Lava;
+    edited.facing = HazardFacing::Left;
+    edited.color = Some((0.2, 0.3, 0.9));
+    editor.draft.replace_hazard(0, edited.clone()).unwrap();
+    let (_, after) = previews(editor);
+    let lava = preview(&after, Selection::Hazard(0));
+    assert_ne!(lava.shapes, hazard.shapes, "the picture followed the edit");
+    assert_eq!(lava.shapes, Hazard::from(&edited).look(0.0));
+    // Enemies and the boss carry no hazard shapes.
+    assert!(after
+        .iter()
+        .filter(|p| !matches!(p.selection, Selection::Hazard(_)))
+        .all(|p| p.shapes.is_empty()));
 }

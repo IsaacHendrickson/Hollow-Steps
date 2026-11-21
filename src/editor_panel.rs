@@ -14,6 +14,7 @@ mod door_panel;
 mod dungeon_panel;
 mod entity;
 mod gate_panel;
+mod hazard_panel;
 mod history_panel;
 mod key_values;
 mod link_dialog;

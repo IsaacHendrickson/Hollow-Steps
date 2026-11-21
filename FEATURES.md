@@ -6,6 +6,8 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 
 - Walking, gravity, floor and wall collision; `src/player.rs`; `tests/gameplay.rs`
 - Room terrain: solid platforms, walls, ceilings; head stops under solids; enemies swept against solids; `src/terrain.rs`; `tests/terrain.rs`
+- Terrain hazards: touch hurts and throws the player away from the side touched, up from the top; `src/hazard.rs`; `tests/hazards.rs`, manual
+- Hazard looks: Spikes, Lava or Thorns, facing any side, own color; spike rows along walls; `src/hazard_look.rs`; `src/hazard_look/tests.rs`, manual
 - Terrain look (drawing only): procedural draw list for solids and boundary, presets, per-room style; `src/terrain_style.rs`; `tests/terrain_style.rs`, manual
 - Reach envelope: jump height and longest gap with and without Dash, measured on the real physics; empty-interval error; `src/reach.rs`; `src/reach/tests.rs`
 - Gates: mark that going from an entrance to an exit needs Dash; editor Reaching this exit; orphans listed; `src/gates.rs`; `tests/gates_editing.rs`
@@ -109,6 +111,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Room look in the editor: Room look section edits `layout.terrain_style` with a preview; `src/editor_look.rs`; `tests/editor_look.rs`, manual
 - Room undo/redo: buttons and Ctrl+Z / Ctrl+Y over room edits, a drag is one step, 100 steps; `src/editor_history.rs`; `tests/editor_history.rs`, manual
 - Test room: button and F6 play the unsaved draft from its spawn, F2 returns, nothing written; `src/game/test_room.rs`; `tests/test_room.rs`, manual
+- Hazards in the editor: Add hazard, drag, size, damage, knockback, shape, facing, color, undo; `src/editor_hazard.rs`; `tests/hazards.rs`, manual
 - Editor tools: Select, Place, Terrain, Erase (V, P, T, E), grid-snapped solids with handles; `src/editor_terrain.rs`; `tests/editor_terrain.rs`, manual
 - Behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation, usage warnings, Key values; `src/preset.rs`; `tests/presets.rs`
 - Player stats in the editor: Player panel with every `player.ron` number, validated, staged Save; `src/player_panel.rs`; `tests/player_editor.rs`, manual

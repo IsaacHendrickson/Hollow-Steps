@@ -65,6 +65,9 @@ pub struct RoomLayout {
     /// Solid `(x, y, width, height)` rectangles; absent in older room files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub terrain: Vec<(f32, f32, f32, f32)>,
+    /// Hazards that hurt and knock back the player; absent in older room files.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hazards: Vec<crate::hazard::HazardPlacement>,
     /// Parallax background layers, back to front; absent in older room files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub background: Vec<crate::background::BackgroundLayer>,
@@ -93,6 +96,7 @@ impl RoomLayout {
                 .iter()
                 .map(|r| (r.x, r.y, r.w, r.h))
                 .collect(),
+            hazards: room.hazards.iter().map(Into::into).collect(),
             background: room.background.clone(),
             terrain_style: room.terrain_style.clone(),
             gates: room.gates.clone(),
@@ -153,6 +157,7 @@ impl RoomLayout {
             return Err("invalid room bounds or floor".into());
         }
         Terrain::validate(&self.terrain, self.rect())?;
+        self.validate_hazards()?;
         crate::background::validate(&self.background)?;
         self.terrain_style.validate()?;
         let terrain = Terrain::from_tuples(&self.terrain);
@@ -204,6 +209,7 @@ impl RoomLayout {
         room.bounds = self.rect();
         room.floor_y = self.floor_y;
         room.terrain = Terrain::from_tuples(&self.terrain);
+        room.hazards = self.hazards.iter().map(Into::into).collect();
         room.background = self.background.clone();
         room.terrain_style = self.terrain_style.clone();
         room.spawn = self.spawn.into();
@@ -243,6 +249,7 @@ impl RoomDraft {
         let mut layout = template.clone();
         layout.name = None; // named by whoever creates it, not by the template
         layout.terrain.clear(); // empty: only size, floor, spawn, background, look carry over
+        layout.hazards.clear();
         layout.items.clear();
         layout.charms.clear();
         layout.exits.clear();
@@ -395,6 +402,7 @@ impl RoomDraft {
                 next.layout.items.get_mut(i).ok_or("missing item")?.position = position.into()
             }
             Selection::Charm(i) => next.layout.move_charm(i, position)?,
+            Selection::Hazard(i) => next.layout.move_hazard(i, position)?,
             Selection::Spawn => next.layout.spawn = position.into(),
             Selection::Exit(i) => {
                 let exit = next.layout.exits.get_mut(i).ok_or("missing exit")?;
@@ -467,11 +475,14 @@ impl RoomDraft {
             Selection::Charm(i) if i < self.layout.charms.len() => {
                 self.layout.charms.remove(i);
             }
+            Selection::Hazard(i) if i < self.layout.hazards.len() => {
+                self.layout.hazards.remove(i);
+            }
             Selection::Exit(i) | Selection::Destination(i) if i < self.layout.exits.len() => {
                 self.layout.exits.remove(i);
                 self.layout.drop_gates_without_exit();
             }
-            _ => return Err("select a boss, enemy, item, charm, or exit to delete".into()),
+            _ => return Err("select a boss, enemy, item, charm, hazard, or exit to delete".into()),
         }
         Ok(())
     }
@@ -540,6 +551,7 @@ impl RoomDraft {
             bounds: self.layout.rect(),
             floor_y: self.layout.floor_y,
             terrain: Default::default(),
+            hazards: Vec::new(),
             terrain_style: Default::default(),
             background: Vec::new(),
             gates: Vec::new(),

@@ -84,7 +84,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/boss_special.rs`: boss sequence cursors, selection, effects, coin drops
 - `src/boss_special/body_link.rs`: `BossBody`: a boss driving its optional body; hitbox stays `size`
 - `src/combat.rs`: melee swings (forward, up, down), per-direction hitboxes, pogo, `MeleeConfig`
-- `src/damage.rs`: `DamageResolver`: all enemy and boss damage into the one hit on the player
+- `src/damage.rs`: `DamageResolver`: all enemy, boss and hazard damage into the one hit on the player
 - `src/events.rs`: `GameEvent`, `EventQueue`, `take_events` / `take_located_events`
 - `src/sound.rs`: validated event-to-sound cues (`data/audio.ron`), sound-file lookup, play plan
 - `src/particles.rs`: burst presets (`data/particles.ron`), seeded generator, capped live list
@@ -109,6 +109,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/dungeon_check.rs`: Check dungeon: unreachable rooms, locks, key counts, ability gates, traps, orphan gates; pure; `docs/dungeon-check.md`
 - `src/reach/editor.rs`: reach preview inputs and outlines; `src/reach/text.rs` the reach line shown after a save; `docs/reach.md`
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
+- `src/hazard.rs` (+ `hazard_look`, `editor_hazard`, `scene_hazards`, `editor_panel/hazard_panel`): terrain hazards; `docs/hazards.md`, `docs/modules.md`
 - `src/terrain_style.rs` (+ `terrain_style/`): procedural look of solids as a draw list, never collision
 - `src/terrain_styles.rs`: terrain look presets (`data/terrain_styles.ron`), `RoomStyle`
 - `src/game/terrain_link.rs`: loads terrain presets with the rooms; `GameState::terrain_styles`

@@ -29,6 +29,7 @@ mod pause_input;
 mod player_panel;
 mod postfx_pass;
 mod scene;
+mod scene_hazards;
 mod scene_locks;
 mod scene_shop;
 mod shop_input;
