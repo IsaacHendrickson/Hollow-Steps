@@ -27,6 +27,7 @@ impl GameState {
     pub(super) fn attach_catalog_drafts(&mut self) {
         self.attach_charm_draft();
         self.attach_upgrade_draft();
+        self.attach_run_config();
     }
 
     /// After a reload from the files: a panel with nothing unsaved shows the re-read list;

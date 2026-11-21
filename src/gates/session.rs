@@ -2,7 +2,7 @@
 //! from, and the gates that name an entrance the room no longer has.
 use macroquad::math::Vec2;
 
-use super::{Entrance, ExitRef};
+use super::{entrances_of, Entrance};
 use crate::editor_session::EditorSession;
 
 /// One entrance of the room being edited, as the editor lists it.
@@ -25,34 +25,28 @@ pub struct OrphanGate {
 }
 
 impl EditorSession {
-    /// Every entrance of the room being edited: its spawn, then the arrival of each exit of
-    /// another room that leads here (unsaved drafts included), in the order the rooms list them.
+    /// Every entrance of the room being edited (`entrances_of`, over every room as the editor
+    /// has it, unsaved drafts included): its spawn, then the arrival of each exit that leads here.
     pub fn gate_entrances(&self) -> Vec<EntranceInfo> {
-        let mut found = vec![EntranceInfo {
-            entrance: Entrance::Spawn,
-            label: "Room spawn".to_owned(),
-            position: self.draft.layout.spawn.into(),
-        }];
-        let catalog = self.catalog();
-        for arrival in self.inbound_arrivals() {
-            let Some(placement) = catalog
-                .iter()
-                .find(|(id, _)| *id == arrival.room)
-                .and_then(|(_, layout)| layout.exits.get(arrival.exit))
-            else {
-                continue;
-            };
-            let exit = ExitRef::of(placement);
-            found.push(EntranceInfo {
-                entrance: Entrance::Arrival {
-                    room: arrival.room,
-                    exit,
-                },
-                label: format!("Arrival from {} ({})", arrival.title, exit.describe()),
-                position: arrival.position,
-            });
-        }
-        found
+        entrances_of(self.id, &self.catalog())
+            .into_iter()
+            .map(|(entrance, position)| {
+                let label = match entrance {
+                    Entrance::Spawn => "Room spawn".to_owned(),
+                    Entrance::Arrival { room, exit } if room == self.id => {
+                        format!("Arrival from this room ({})", exit.describe())
+                    }
+                    Entrance::Arrival { room, exit } => {
+                        format!("Arrival from {} ({})", self.title_of(room), exit.describe())
+                    }
+                };
+                EntranceInfo {
+                    entrance,
+                    label,
+                    position,
+                }
+            })
+            .collect()
     }
 
     /// The gates that come from an entrance this room does not have: the other room's exit was

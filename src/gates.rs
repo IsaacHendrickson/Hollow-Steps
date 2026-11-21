@@ -4,6 +4,7 @@
 //! An exit is named by where it stands (`ExitRef`, never its place in the list), an entrance by
 //! where it comes from (`Entrance`, never where it lands), so editing either list or moving an
 //! arrival point cannot detach a gate.
+use macroquad::math::Vec2;
 use serde::{Deserialize, Serialize};
 
 use crate::ability::Ability;
@@ -73,6 +74,27 @@ pub struct Gate {
     pub from: Entrance,
     pub exit: ExitRef,
     pub needs: Vec<Ability>,
+}
+
+/// Every way the player can come into `room`, and where they appear: its spawn, then the arrival
+/// of each exit, in any room of `catalog` (this one's own included, such as an exit that leads
+/// back to its own room), that leads here, in catalog order. Empty when `room` is not in it.
+/// The editor's list and the dungeon checker's graph both come from here.
+pub fn entrances_of(room: RoomId, catalog: &[(RoomId, RoomLayout)]) -> Vec<(Entrance, Vec2)> {
+    let Some((_, layout)) = catalog.iter().find(|(id, _)| *id == room) else {
+        return Vec::new();
+    };
+    let mut found = vec![(Entrance::Spawn, layout.spawn.into())];
+    for (from, other) in catalog {
+        for exit in other.exits.iter().filter(|exit| exit.target_room == room) {
+            let entrance = Entrance::Arrival {
+                room: *from,
+                exit: ExitRef::of(exit),
+            };
+            found.push((entrance, exit.spawn.into()));
+        }
+    }
+    found
 }
 
 impl RoomLayout {

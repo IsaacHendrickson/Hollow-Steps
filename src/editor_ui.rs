@@ -44,6 +44,8 @@ pub(crate) struct EditorUi {
     pub(crate) view_destination: Option<usize>,
     pub(crate) pan: PanDrag,
     pub(crate) grid: Grid,
+    /// What the last Check dungeon found, one sentence each; `None` before the first press.
+    pub(crate) dungeon_check: Option<Vec<String>>,
     /// Asks before closing or replacing a session with unsaved changes.
     pub(crate) guard: UnsavedGuard,
     /// A room switch asked for by the panel this frame (New room); `draw_editor` runs it

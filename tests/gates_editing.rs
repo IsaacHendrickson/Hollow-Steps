@@ -1,5 +1,6 @@
 //! Gate annotations in the room editor's session: the entrances of the room being edited,
-//! moving an arrival under a gate, gates that name an entrance that is gone, and saving.
+//! moving an arrival under a gate, gates that name an entrance that is gone, and saving; and
+//! Check dungeon reading the session's drafts and the run rules.
 //! Editing First: its exit 0 leads to Second; Second's exit 0 leads back and arrives at
 //! (860, 436).
 mod support;
@@ -8,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use hollow_steps::ability::Ability;
+use hollow_steps::dungeon_check::Problem;
 use hollow_steps::editor::RoomLayout;
 use hollow_steps::editor_session::EditorSession;
 use hollow_steps::game::GameState;
@@ -269,4 +271,78 @@ fn a_gate_on_an_exit_the_room_does_not_have_stops_the_save_and_writes_nothing() 
         "{error}"
     );
     assert_eq!(temp.text("first.ron"), before);
+}
+
+// ---- Check dungeon ----
+
+#[test]
+fn the_run_rules_reach_the_editor_session() {
+    let temp = TempAssets::new();
+    std::fs::write(
+        temp.0.join("run.ron"),
+        "(start_room: Second, final_boss_room: Boss)",
+    )
+    .unwrap();
+    let mut game = editing(&temp);
+    let run = editor(&mut game).run;
+    assert_eq!(run.start_room, RoomId::Second);
+    assert_eq!(run, *game.run_config());
+}
+
+#[test]
+fn check_dungeon_reads_the_marks_of_the_unsaved_draft() {
+    let temp = TempAssets::new();
+    let mut game = editing(&temp);
+    let session = editor(&mut game);
+    assert_eq!(
+        session.check_dungeon(),
+        [],
+        "the fixture rooms are a valid dungeon"
+    );
+
+    // First's only way on needs the Dash, and no Dash lies anywhere the player can get it.
+    session
+        .draft
+        .layout
+        .items
+        .retain(|placed| placed.item != hollow_steps::item::Item::Dash);
+    session
+        .draft
+        .set_gate(Entrance::Spawn, 0, Ability::Dash, true)
+        .unwrap();
+    let found = session.check_dungeon();
+    assert!(
+        found.iter().any(|problem| matches!(problem,
+            Problem::AbilityUnobtainable { room, needs, .. }
+                if room == "First" && needs == &[Ability::Dash])),
+        "{found:?}"
+    );
+
+    session
+        .draft
+        .set_gate(Entrance::Spawn, 0, Ability::Dash, false)
+        .unwrap();
+    assert_eq!(session.check_dungeon(), []);
+}
+
+#[test]
+fn check_dungeon_reports_a_gate_that_names_no_entrance() {
+    let temp = TempAssets::new();
+    let mut game = editing(&temp);
+    let session = editor(&mut game);
+    let exit = ExitRef::of(&session.draft.layout.exits[0]);
+    session.draft.layout.gates.push(Gate {
+        from: Entrance::Arrival {
+            room: RoomId::Second,
+            exit: ExitRef::Edge {
+                edge: RoomEdge::Left,
+                offset: 7.0,
+            },
+        },
+        exit,
+        needs: vec![Ability::Dash],
+    });
+    let found = session.check_dungeon();
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(matches!(&found[0], Problem::OrphanGate { room, .. } if room == "First"));
 }

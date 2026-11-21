@@ -11,6 +11,7 @@ mod boss;
 mod canvas_tools;
 mod death_field;
 mod door_panel;
+mod dungeon_panel;
 mod entity;
 mod gate_panel;
 mod history_panel;

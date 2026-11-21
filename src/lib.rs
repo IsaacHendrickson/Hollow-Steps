@@ -25,6 +25,7 @@ pub mod combat;
 pub mod damage;
 pub mod definition_editor;
 pub mod door_exit;
+pub mod dungeon_check;
 pub mod editor;
 pub mod editor_charms;
 pub mod editor_files;
