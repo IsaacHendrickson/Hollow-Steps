@@ -126,6 +126,9 @@ pub struct Room {
     /// Parallax background layers, drawn first (back to front) behind everything else.
     pub background: Vec<crate::background::BackgroundLayer>,
     pub exits: Vec<Exit>,
+    /// Marks of what crossing needs (`crate::gates`). Carried so a layout rebuilt from the room
+    /// keeps them; the game never reads them.
+    pub(crate) gates: Vec<crate::gates::Gate>,
     /// Default player-center respawn point for this room.
     pub spawn: Vec2,
     pub enemies: Vec<Enemy>,
@@ -283,6 +286,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             terrain: Default::default(),
             terrain_style: Default::default(),
             background: Vec::new(),
+            gates: Vec::new(),
             exits: vec![Exit {
                 edge: RoomEdge::Right,
                 offset: FLOOR_Y - 96.0,
@@ -320,6 +324,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             terrain: Default::default(),
             terrain_style: Default::default(),
             background: Vec::new(),
+            gates: Vec::new(),
             exits: vec![
                 Exit {
                     edge: RoomEdge::Left,
@@ -351,6 +356,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             terrain: Default::default(),
             terrain_style: Default::default(),
             background: Vec::new(),
+            gates: Vec::new(),
             spawn: Vec2::new(160.0, 436.0),
             enemies: Vec::new(),
             boss_special: None,

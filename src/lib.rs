@@ -46,6 +46,7 @@ pub mod exit_link;
 pub mod exit_lock;
 pub mod feel;
 pub mod game;
+pub mod gates;
 pub mod health;
 pub mod hud_bars;
 pub mod hud_damage;

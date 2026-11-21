@@ -8,6 +8,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Room terrain: solid platforms, walls, ceilings; head stops under solids; enemies swept against solids; `src/terrain.rs`; `tests/terrain.rs`
 - Terrain look (drawing only): procedural draw list for solids and boundary, presets, per-room style; `src/terrain_style.rs`; `tests/terrain_style.rs`, manual
 - Reach envelope: jump height and longest gap with and without Dash, measured on the real physics; empty-interval error; `src/reach.rs`; `src/reach/tests.rs`
+- Gates: mark that going from an entrance to an exit needs Dash; editor Reaching this exit; orphans listed; `src/gates.rs`; `tests/gates_editing.rs`
 - Fixed 120 Hz step, capped catch-up, edge input on the first tick only; same jump apex at 30/60/144 fps; `src/timestep.rs`; `tests/timestep.rs`
 - Follow camera: smoothing, look-ahead, clamped to room bounds plus boundary walls; `src/camera.rs`; `tests/camera_bounds.rs`, manual
 - Virtual 960x540 render target, letterboxed window scaling, HUD anchored to it; `src/camera.rs`, `src/hud.rs`; `src/camera.rs` unit tests, manual
