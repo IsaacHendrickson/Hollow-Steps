@@ -4,6 +4,8 @@ use hollow_steps::vitals::{VitalsConfig, FILE_NAME as VITALS_FILE_NAME};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+mod reach;
+
 /// A private copy of the fixture assets, so Save never touches the repository.
 struct Assets(PathBuf);
 

@@ -10,6 +10,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Reach envelope: jump height and longest gap with and without Dash, measured on the real physics; empty-interval error; `src/reach.rs`; `src/reach/tests.rs`
 - Gates: mark that going from an entrance to an exit needs Dash; editor Reaching this exit; orphans listed; `src/gates.rs`; `tests/gates_editing.rs`
 - Check dungeon: unreachable rooms, unopenable locks, unobtainable abilities, traps; editor button; `src/dungeon_check.rs`; `tests/shipped_content.rs`
+- Reach preview: Reach toggle outlines a jump with and without Dash; reach line after Player or F4 save; `src/reach/editor.rs`; `tests/reach_editing.rs`
 - Fixed 120 Hz step, capped catch-up, edge input on the first tick only; same jump apex at 30/60/144 fps; `src/timestep.rs`; `tests/timestep.rs`
 - Follow camera: smoothing, look-ahead, clamped to room bounds plus boundary walls; `src/camera.rs`; `tests/camera_bounds.rs`, manual
 - Virtual 960x540 render target, letterboxed window scaling, HUD anchored to it; `src/camera.rs`, `src/hud.rs`; `src/camera.rs` unit tests, manual

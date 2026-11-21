@@ -19,7 +19,7 @@
 
 use macroquad::math::{Rect, Vec2};
 
-use crate::charms::{effective_with, CharmCatalog, Effect};
+use crate::charms::{effective_with, Charm, CharmCatalog, Effect};
 use crate::item::Item;
 use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
 use crate::terrain::Terrain;
@@ -90,7 +90,17 @@ impl Interval {
         charms: &CharmCatalog,
         upgrades: &MaxTotals,
     ) -> Self {
-        let percent = max_move_speed_percent(charms, upgrades);
+        Self::of_charms(base, vitals, charms.charms(), upgrades)
+    }
+
+    /// `new` for a plain list of charms (the editor's list, which may not be valid yet).
+    pub fn of_charms(
+        base: &TuningConfig,
+        vitals: &VitalsConfig,
+        charms: &[Charm],
+        upgrades: &MaxTotals,
+    ) -> Self {
+        let percent = max_move_speed_percent_of(charms, upgrades);
         // The game's own layering, so the buff cannot drift from what a player really gets.
         let (buffed, _) = effective_with(base, vitals, &[], &[Effect::MoveSpeedPercent(percent)]);
         Self::from_configs(&base.player, &buffed.player)
@@ -141,8 +151,12 @@ impl Interval {
 /// The most move speed percent a player can have: every charm in the catalog (as if all were
 /// worn at once) plus every upgrade at its last level. Only gains count.
 pub fn max_move_speed_percent(charms: &CharmCatalog, upgrades: &MaxTotals) -> f32 {
+    max_move_speed_percent_of(charms.charms(), upgrades)
+}
+
+/// `max_move_speed_percent` for a plain list of charms.
+pub fn max_move_speed_percent_of(charms: &[Charm], upgrades: &MaxTotals) -> f32 {
     let from_charms: f32 = charms
-        .charms()
         .iter()
         .filter_map(|charm| match charm.effect {
             Effect::MoveSpeedPercent(percent) if percent.is_finite() => Some(percent.max(0.0)),
@@ -381,5 +395,10 @@ fn jump_height(world: &World, config: &PlayerConfig) -> f32 {
     (start - highest).max(0.0)
 }
 
+mod editor;
 #[cfg(test)]
 mod tests;
+mod text;
+
+pub use editor::{outline_labels, outlines, Outlines, ReachKey};
+pub use text::line;

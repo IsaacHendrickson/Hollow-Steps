@@ -193,6 +193,8 @@ pub(crate) struct PlayerUi {
     /// Save was clicked this frame; `draw_editor` saves through the game and records the result.
     pub(crate) save_requested: bool,
     pub(crate) status: Status,
+    /// The reach line the last Save left (`reach::line`), drawn under "Saved to".
+    pub(crate) reach: Option<String>,
     /// Why a typed value was refused, drawn under its field until the next edit.
     refused: Option<(Field, String)>,
     /// The same for the vitals sections.
@@ -358,7 +360,12 @@ fn draw_stats(ui: &mut egui::Ui, editor: &mut EditorSession, state: &mut PlayerU
     }
     match &state.status {
         Status::Quiet => {}
-        Status::Saved(path) => panel_label(ui, &format!("Saved to {path}")),
+        Status::Saved(path) => {
+            panel_label(ui, &format!("Saved to {path}"));
+            if let Some(line) = &state.reach {
+                panel_label(ui, line);
+            }
+        }
         Status::Error(message) => {
             ui.add(
                 egui::Label::new(

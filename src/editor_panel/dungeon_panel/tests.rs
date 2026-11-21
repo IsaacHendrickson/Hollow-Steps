@@ -55,7 +55,7 @@ fn nothing_is_listed_until_the_button_is_pressed_and_pressing_is_not_an_edit() {
 
     press_check(&ctx, editor, &mut state);
 
-    assert!(state.dungeon_check.is_some());
+    assert!(state.checks.dungeon.is_some());
     assert!(!editor.dirty, "checking changes no room");
     assert!(!state.history.can_undo());
 }

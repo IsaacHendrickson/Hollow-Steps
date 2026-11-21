@@ -12,9 +12,9 @@ pub(super) fn draw_dungeon_check(
     state: &mut EditorUi,
 ) {
     if panel_button(ui, "Check dungeon") {
-        state.dungeon_check = Some(editor.check_dungeon().iter().map(|p| p.text()).collect());
+        state.checks.dungeon = Some(editor.check_dungeon().iter().map(|p| p.text()).collect());
     }
-    match &state.dungeon_check {
+    match &state.checks.dungeon {
         None => {}
         Some(lines) if lines.is_empty() => panel_label(ui, "No problems found"),
         Some(lines) => {

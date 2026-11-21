@@ -15,7 +15,11 @@ const SIZES: RangeInclusive<f32> = 1.0..=20_000.0;
 
 pub(super) fn draw_view_section(ui: &mut egui::Ui, state: &mut EditorUi) {
     section(ui, "View", |ui| {
-        ui.checkbox(&mut state.grid.enabled, "Grid and snap");
+        ui.horizontal_wrapped(|ui| {
+            ui.checkbox(&mut state.grid.enabled, "Grid and snap");
+            let reach = ui.checkbox(&mut state.checks.reach, "Reach");
+            probe(ui, || (egui::Id::new(("reach toggle",)), reach.rect));
+        });
         ui.horizontal(|ui| {
             panel_label(ui, "Snap size");
             ui.add(

@@ -3,6 +3,7 @@ use hollow_steps::game::GameState;
 
 mod dialog;
 mod look;
+mod reach;
 mod stats;
 mod undo;
 

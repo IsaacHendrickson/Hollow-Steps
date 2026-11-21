@@ -6,7 +6,7 @@ use super::widgets::{
 };
 use super::{
     canvas_tools, door_panel, dungeon_panel, gate_panel, history_panel, lock_panel, look_panel,
-    tool_panel,
+    reach_panel, tool_panel,
 };
 use super::{EditorSession, EditorUi, Selection};
 use egui_macroquad::egui;
@@ -139,6 +139,7 @@ pub(super) fn draw_room_tools(
             state.selected = None;
         }
         dungeon_panel::draw_dungeon_check(ui, editor, state);
+        reach_panel::draw_reach_notes(ui, editor, state);
         ui.separator();
         panel_label(ui, "Blue: room spawn");
         panel_label(ui, "Green: exit span");

@@ -107,6 +107,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/reach.rs`: reach envelope (jump height, longest gap, with and without Dash) measured on the real `Player`; `Interval`
 - `src/gates.rs`: gate marks (entrance to exit needs an ability), play never reads them; editor `gate_panel`; `docs/gates.md`
 - `src/dungeon_check.rs`: Check dungeon: unreachable rooms, locks, key counts, ability gates, traps, orphan gates; pure; `docs/dungeon-check.md`
+- `src/reach/editor.rs`: reach preview inputs and outlines; `src/reach/text.rs` the reach line shown after a save; `docs/reach.md`
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
 - `src/terrain_style.rs` (+ `terrain_style/`): procedural look of solids as a draw list, never collision
 - `src/terrain_styles.rs`: terrain look presets (`data/terrain_styles.ron`), `RoomStyle`

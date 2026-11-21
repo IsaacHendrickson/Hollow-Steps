@@ -44,8 +44,8 @@ pub(crate) struct EditorUi {
     pub(crate) view_destination: Option<usize>,
     pub(crate) pan: PanDrag,
     pub(crate) grid: Grid,
-    /// What the last Check dungeon found, one sentence each; `None` before the first press.
-    pub(crate) dungeon_check: Option<Vec<String>>,
+    /// Check dungeon's list and the Reach preview (`checks`).
+    pub(crate) checks: checks::ChecksUi,
     /// Asks before closing or replacing a session with unsaved changes.
     pub(crate) guard: UnsavedGuard,
     /// A room switch asked for by the panel this frame (New room); `draw_editor` runs it
@@ -400,6 +400,7 @@ pub(crate) fn draw_editor(
     }
     arrival_labels::draw(&drawn, editor, &canvas);
     lock_labels::draw(&drawn, editor, &canvas);
+    checks::draw_reach(&mut state.checks, state.selected, editor, &canvas);
     if body_debug && state.destination.is_none() {
         // Preview authored placements and unsaved definitions without touching runtime bodies.
         let enemies = editor
@@ -533,6 +534,7 @@ pub(crate) fn draw_editor(
             ),
             Err(error) => Status::Error(error),
         };
+        state.player.reach = game.take_reach_note();
     }
     if test {
         // The main loop notices the switch and resets its clocks and camera. A refusal
@@ -583,6 +585,7 @@ mod arrival_labels;
 mod arrival_tests;
 #[cfg(test)]
 mod charm_tests;
+mod checks;
 mod linking;
 #[cfg(test)]
 mod linking_tests;
