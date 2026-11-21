@@ -60,6 +60,8 @@ room's coordinate space. **Back to room** restores the current-room view. The ex
 *other* rooms that lead into the room you are editing show their arrival here too, without
 leaving the room (see "Arrivals of other rooms' exits" in docs/room-editor-links-checks.md).
 **Add exit** creates a span on the chosen **Edge** so new rooms can be connected.
+A selected exit (edge exit or door) also has a **Locked by** dropdown (None, Key 1 to Key 8; one undo
+step, see docs/keys-and-locks.md); keys are placed from the Place list as "Item: Key N".
 **Save** applies the draft to gameplay and disk; errors remain visible in
 the footer and preserve the draft, running room, and previous file.
 Closing with F2, opening another room, or choosing New room discards unsaved

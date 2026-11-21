@@ -16,6 +16,7 @@ mod history_panel;
 mod key_values;
 mod link_dialog;
 mod link_panel;
+mod lock_panel;
 mod look_panel;
 mod movement_field;
 mod name_dialog;

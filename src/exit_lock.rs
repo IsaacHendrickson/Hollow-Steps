@@ -7,6 +7,7 @@
 //! gets them open again. An ability such as Dash is different: the game never checks it at a door.
 use macroquad::math::{Rect, Vec2};
 
+use crate::editor::RoomDraft;
 use crate::item::Item;
 use crate::room::{Exit, RoomEdge, RoomId};
 
@@ -47,6 +48,21 @@ pub fn key_marker_label(item: Item) -> Option<String> {
     match item {
         Item::Key(id) => Some(id.to_string()),
         _ => None,
+    }
+}
+
+impl RoomDraft {
+    /// Locks exit `index` with key `locked_by`, or unlocks it with `None`. Refused, with the
+    /// draft unchanged, for a missing exit or a key outside 1..=8. Where the exit leads, and
+    /// where it is, stay as they are.
+    pub fn set_exit_lock(&mut self, index: usize, locked_by: Option<u8>) -> Result<(), String> {
+        check_lock(locked_by)?;
+        self.layout
+            .exits
+            .get_mut(index)
+            .ok_or("missing exit")?
+            .locked_by = locked_by;
+        Ok(())
     }
 }
 
@@ -153,3 +169,6 @@ impl OpenedExits {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod editing_tests;

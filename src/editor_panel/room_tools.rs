@@ -4,7 +4,7 @@ use super::room_name_field::draw_room_name_field;
 use super::widgets::{
     panel_button, panel_combo, panel_input, panel_label, searchable_list, section,
 };
-use super::{canvas_tools, door_panel, history_panel, look_panel, tool_panel};
+use super::{canvas_tools, door_panel, history_panel, lock_panel, look_panel, tool_panel};
 use super::{EditorSession, EditorUi, Selection};
 use egui_macroquad::egui;
 use hollow_steps::editor_history::tracked;
@@ -124,6 +124,7 @@ pub(super) fn draw_room_tools(
                 state.tool = EditorTool::Select;
             }
             door_panel::draw_door_size(ui, editor, state, i);
+            lock_panel::draw_exit_lock(ui, editor, state, i);
         }
         if let Some(Selection::Inbound { room, .. }) = state.selected {
             panel_label(ui, &format!("Arrival from {}", editor.title_of(room)));

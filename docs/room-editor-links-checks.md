@@ -39,6 +39,7 @@ Run `cargo run`, press F2 and use a room with a few entities.
 - Place an enemy, drag it across the room and release: Ctrl+Z puts it back where it was
   in one step, another Ctrl+Z removes it, Ctrl+Y brings it back. Delete it with Del, undo.
   Add an exit, retarget it, undo twice. Drag Width, release, undo once.
+  Choose Key 3 in **Locked by** on an exit, undo once: it is unlocked again.
   Change a room color (drag in the picker), release, undo once: the color is back in one step.
 - Click a text box in the panel and press Ctrl+Z: the canvas does not change. Click the
   canvas and it does. After undo, make a new edit and confirm redo is gone.
