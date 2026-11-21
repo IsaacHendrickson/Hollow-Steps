@@ -7,3 +7,5 @@ pub fn fixture_assets() -> PathBuf {
 
 #[allow(dead_code)]
 pub mod player_assets;
+#[allow(dead_code)]
+pub mod upgrade_world;

@@ -42,15 +42,19 @@ fn build(session: &EditorSession) -> Result<Room, String> {
     Ok(room)
 }
 
-/// Why the unsaved player or charms cannot be played: a size or jump the rooms or the rules
-/// refuse, a charm list with a problem, or a look the game could not draw. Plain-box players (no body template in the assets) have no
-/// look to check.
+/// Why the unsaved player, charms or upgrades cannot be played: a size or jump the rooms or the
+/// rules refuse, a charm or upgrade list with a problem, or a look the game could not draw.
+/// Plain-box players (no body template in the assets) have no look to check.
 fn player_problem(session: &EditorSession) -> Result<(), String> {
     session.player.validate(&session.spawn_checks())?;
     session
         .charms
         .validate(session.player.saved_vitals().max_mana)
         .map_err(|problem| format!("the charms cannot be used: {problem}"))?;
+    session
+        .upgrades
+        .validate()
+        .map_err(|problem| format!("the upgrades cannot be used: {problem}"))?;
     let has_body = session
         .content
         .bodies
@@ -97,6 +101,7 @@ impl GameState {
         // The Player panel's edits are what gets played, saved or not, if the player can be.
         self.sync_player_from_editor();
         self.sync_charms_from_editor();
+        self.sync_upgrades_from_editor();
         let session = self.editor.as_mut().ok_or("open the editor first")?;
         if session.link_active() {
             let error = "finish or cancel the exit link before testing a room".to_owned();

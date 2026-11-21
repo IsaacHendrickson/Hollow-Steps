@@ -93,9 +93,12 @@ Banked coins buy **permanent upgrades**, bought once in the hub and kept in the 
   An upgrade has an `id` (letters, digits, `_` and `-`, the same rule as charms), a `name`, a
   `description`, an `effect` and `costs`. `effect` is one of the charm effects (`MaxHealth(n)`,
   `MoveSpeedPercent(p)`, `SwordDamage(n)`) and is the amount **per level**. `costs` lists the price
-  of each level in coins: 1 to 10 entries, each above 0, so the number of entries is the maximum
-  level. The shipped list is Vitality (+10 max health, 30/60/100), Swift Feet (+5% move speed,
+  of each level in coins: 1 to 10 entries, each from 1 to 1,000,000, so the number of entries is
+  the maximum level. The shipped list is Vitality (+10 max health, 30/60/100), Swift Feet (+5% move speed,
   40/80/140) and Keen Edge (+3 sword damage, 50/100/180).
+- **The editor** has an Upgrades panel for the whole list (`docs/upgrade-editor.md`): every field,
+  validated, a staged Save to `assets/upgrades.ron`, its own undo, a place in the unsaved-changes
+  dialog and the Test room. The profile is never touched by it: levels of a deleted upgrade stay.
 - **The shop** is a marker at `run.ron`'s `shop` position in the hub. Up within pickup reach
   opens it (an item or charm in reach takes the press first, and the hub's exit doors wait for it).
   It opens only in the hub: never in a run, on the result screen or in a test room. While it is
@@ -175,9 +178,9 @@ room.** (On the result screen after Abandoned by an exit, the room is the hub an
 ## Known limits
 
 Effect kinds other than max health, move speed and sword damage (max mana, a coin bonus), refunds
-or selling an upgrade back, an editor panel for the upgrades (the next task,
-`feature/upgrade-editor`; until then edit `assets/upgrades.ron`), placing the shop in the editor
-(it is a position in `run.ron`), a delay before the result screen, saving a run in progress,
+or selling an upgrade back, new effect kinds and an effect amount that changes per level in the
+upgrade editor (`docs/upgrade-editor.md`), placing the shop in the editor (it is a position in
+`run.ron`), a delay before the result screen, saving a run in progress,
 editor controls for `run.ron` (it holds run rules, not player feel), per-dungeon settings, and a
 hard stop of the program (power loss, a crash) not banking the run.
 
@@ -193,4 +196,6 @@ hard stop of the program (power loss, a crash) not banking the run.
 them and the key or click that leaves the result screen), `src/tuning_panel/run.rs` (F4 debug section). Tests: `src/game/run_tests.rs` (the loop),
 `src/game/run_profile_tests.rs` (profile, test rooms, editor, no hub), `src/upgrades/tests.rs` and
 `src/game/upgrade_tests.rs` (the rules and the layered stats), `src/shop_menu/tests.rs` and
-`src/game/shop_tests.rs` (the shop).
+`src/game/shop_tests.rs` (the shop). The editor side: `src/upgrade_editor.rs`, `src/upgrade_panel.rs`,
+`src/game/upgrade_editor_link.rs`, `src/snapshot_history.rs`; tests `tests/upgrade_editor.rs`,
+`tests/upgrade_test_room.rs`.

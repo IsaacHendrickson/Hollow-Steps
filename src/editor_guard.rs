@@ -65,8 +65,8 @@ pub struct Prompt {
 }
 
 /// What a session has unsaved that its room list (`EditorSession::unsaved_rooms`) does not
-/// name, for the dialog to list: the Player panel's stats, vitals or look, and the Charms
-/// panel's list.
+/// name, for the dialog to list: the Player panel's stats, vitals or look, the Charms panel's
+/// list and the Upgrades panel's list.
 pub fn unsaved_besides_rooms(session: &EditorSession) -> Vec<&'static str> {
     let mut items = Vec::new();
     if player_unsaved(session) {
@@ -74,6 +74,9 @@ pub fn unsaved_besides_rooms(session: &EditorSession) -> Vec<&'static str> {
     }
     if session.charms.is_dirty() {
         items.push("Charms");
+    }
+    if session.upgrades.is_dirty() {
+        items.push("Upgrades");
     }
     items
 }
@@ -109,8 +112,8 @@ impl UnsavedGuard {
     }
 
     /// `request` for an open session: it is dirty when a room (this one or a parked one), the
-    /// player or the charm list is, and the dialog lists the player and the charms when they
-    /// are unsaved. `None` (no session) acts at once.
+    /// player, the charm list or the upgrade list is, and the dialog lists what is unsaved
+    /// besides rooms. `None` (no session) acts at once.
     pub fn request_for(
         &mut self,
         action: GuardedAction,
@@ -185,18 +188,23 @@ impl UnsavedGuard {
 }
 
 /// Saves what is unsaved in the open editor: the charm list, the room and definitions, then
-/// the Player panel's stats and look (which may name poses the room save just wrote). The
-/// charms go first so a room can name a charm that was just made, unless the list deletes a
-/// charm that a saved room places: then the room goes first, to take it out. Stops at the
-/// first failure, so nothing after it is written. A max mana below the cost of a charm in the list
-/// that will be saved is refused before the first write.
+/// the Player panel's stats and look (which may name poses the room save just wrote), then the
+/// upgrade list (nothing refers to it). The charms go first so a room can name a charm that was
+/// just made, unless the list deletes a charm that a saved room places: then the room goes first,
+/// to take it out. Stops at the first failure, so nothing after it is written. A max mana below
+/// the cost of a charm in the list that will be saved, and an upgrade list with a problem, are
+/// refused before the first write.
 pub fn save_all(game: &mut GameState) -> Result<(), String> {
     let session = game.editor().ok_or("editor is closed")?;
-    let (charms, room, player) = (
+    let (charms, room, player, upgrades) = (
         session.charms.is_dirty(),
         session.has_unsaved(),
         player_unsaved(session),
+        session.upgrades.is_dirty(),
     );
+    if upgrades {
+        session.upgrades.validate()?;
+    }
     // The vitals are held to the charm list that will be on disk once this Save all has written
     // the charms, and that is decided before anything is written.
     if session.player.is_vitals_dirty() {
@@ -222,16 +230,20 @@ pub fn save_all(game: &mut GameState) -> Result<(), String> {
     if player {
         game.save_player()?;
     }
+    if upgrades {
+        game.save_upgrades()?;
+    }
     Ok(())
 }
 
 /// Carries out an approved action: closes the editor, opens a room in it, or starts a
 /// new room draft. The error (a room that will not load) is for the editor message.
 pub fn perform(game: &mut GameState, action: &GuardedAction) -> Result<(), String> {
-    // Whatever the Player and Charms panels still have unsaved was given up (a Save wrote it
-    // first).
+    // Whatever the Player, Charms and Upgrades panels still have unsaved was given up (a Save
+    // wrote it first).
     game.discard_player_edits();
     game.discard_charm_edits();
+    game.discard_upgrade_edits();
     match action {
         GuardedAction::Close if game.editor().is_some() => game.toggle_editor(),
         GuardedAction::Close => Ok(()),

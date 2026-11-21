@@ -127,6 +127,7 @@ pub(super) fn draw_panel(
                             ) {
                                 state.player.open = false;
                                 state.charms.open = false;
+                                state.upgrades.open = false;
                                 state.properties = !state.properties;
                                 if state.properties {
                                     state.tool = EditorTool::Select;
@@ -179,7 +180,15 @@ pub(super) fn draw_panel(
                                     state.property = PropertyUi::for_entity(editor, path);
                                 }
                             }
-                            if crate::charm_panel::draw(
+                            if crate::upgrade_panel::draw(
+                                ui,
+                                editor,
+                                &mut state.upgrades,
+                                &mut state.charms.open,
+                                &mut state.player.open,
+                            ) {
+                                // The Upgrades panel replaces everything below it.
+                            } else if crate::charm_panel::draw(
                                 ui,
                                 editor,
                                 &mut state.charms,
