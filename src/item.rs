@@ -12,15 +12,49 @@ pub const PICKUP_REACH: f32 = 24.0;
 pub enum Item {
     AmberShard,
     Dash,
+    /// A key, `Key(1)` to `Key(8)` (`crate::exit_lock`): opens one exit locked by that number and
+    /// is used up doing it. In a room file it is written `Key(3)`.
+    Key(u8),
 }
 
+/// The names of keys 1 to 8, so that `Item::name` can stay a `&'static str`.
+const KEY_NAMES: [&str; 8] = [
+    "Key 1", "Key 2", "Key 3", "Key 4", "Key 5", "Key 6", "Key 7", "Key 8",
+];
+
 impl Item {
-    pub const ALL: &'static [Self] = &[Self::AmberShard, Self::Dash];
+    pub const ALL: &'static [Self] = &[
+        Self::AmberShard,
+        Self::Dash,
+        Self::Key(1),
+        Self::Key(2),
+        Self::Key(3),
+        Self::Key(4),
+        Self::Key(5),
+        Self::Key(6),
+        Self::Key(7),
+        Self::Key(8),
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
             Self::AmberShard => "Amber Shard",
             Self::Dash => "Dash",
+            // An id outside 1 to 8 is refused when a room is checked (`check`); it still gets a
+            // name so that the error message can show it.
+            Self::Key(id) => usize::from(id)
+                .checked_sub(1)
+                .and_then(|index| KEY_NAMES.get(index))
+                .copied()
+                .unwrap_or("Key"),
+        }
+    }
+
+    /// Why this item cannot be placed in a room: a key id outside 1 to 8.
+    pub fn check(self) -> Result<(), String> {
+        match self {
+            Self::Key(id) => crate::exit_lock::check_key_id(id),
+            Self::AmberShard | Self::Dash => Ok(()),
         }
     }
 
@@ -29,7 +63,7 @@ impl Item {
     pub fn grants(self) -> Option<Ability> {
         match self {
             Self::Dash => Some(Ability::Dash),
-            Self::AmberShard => None,
+            Self::AmberShard | Self::Key(_) => None,
         }
     }
 }

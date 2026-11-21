@@ -21,8 +21,9 @@ const PLAYER_HALF_HEIGHT: f32 = 24.0;
 
 impl Serialize for ExitPlacement {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut out = serializer
-            .serialize_struct("ExitPlacement", if self.door.is_some() { 3 } else { 5 })?;
+        let fields =
+            if self.door.is_some() { 3 } else { 5 } + usize::from(self.locked_by.is_some());
+        let mut out = serializer.serialize_struct("ExitPlacement", fields)?;
         match self.door {
             Some(door) => out.serialize_field("door", &door)?,
             None => {
@@ -33,6 +34,9 @@ impl Serialize for ExitPlacement {
         }
         out.serialize_field("target_room", &self.target_room)?;
         out.serialize_field("spawn", &self.spawn)?;
+        if let Some(key) = self.locked_by {
+            out.serialize_field("locked_by", &key)?;
+        }
         out.end()
     }
 }
@@ -58,24 +62,25 @@ struct ExitFile {
     door: Option<(f32, f32, f32, f32)>,
     target_room: RoomId,
     spawn: (f32, f32),
+    /// The key that locks the exit; absent in older room files and for a free exit.
+    #[serde(default, deserialize_with = "plain")]
+    locked_by: Option<u8>,
 }
 
 impl<'de> Deserialize<'de> for ExitPlacement {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let file = ExitFile::deserialize(deserializer)?;
-        let (target_room, spawn) = (file.target_room, file.spawn);
+        let (target_room, spawn, locked_by) = (file.target_room, file.spawn, file.locked_by);
         match (file.door, file.edge, file.offset, file.length) {
             (Some(door), None, None, None) => Ok(ExitPlacement {
                 door: Some(door),
+                locked_by,
                 ..ExitPlacement::edge_exit(RoomEdge::Bottom, 0.0, 0.0, target_room, spawn)
             }),
-            (None, Some(edge), Some(offset), Some(length)) => Ok(ExitPlacement::edge_exit(
-                edge,
-                offset,
-                length,
-                target_room,
-                spawn,
-            )),
+            (None, Some(edge), Some(offset), Some(length)) => Ok(ExitPlacement {
+                locked_by,
+                ..ExitPlacement::edge_exit(edge, offset, length, target_room, spawn)
+            }),
             (Some(_), ..) => Err(D::Error::custom(
                 "a door exit has a `door` rectangle and no `edge`, `offset` or `length`",
             )),
@@ -102,6 +107,7 @@ impl ExitPlacement {
             target_room,
             spawn,
             door: None,
+            locked_by: None,
         }
     }
 

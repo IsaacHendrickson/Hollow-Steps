@@ -12,7 +12,7 @@ use hollow_steps::room_charms::CHARM_SIZE;
 use hollow_steps::terrain_style::{RoomInputs, TerrainLook};
 use macroquad::prelude::*;
 
-use crate::{body_draw, scene_shop, terrain_draw};
+use crate::{body_draw, scene_locks, scene_shop, terrain_draw};
 
 /// Draws the world. `terrain_look` keeps the room's terrain draw list (boundary and solids)
 /// between frames. `camera_view` is the rectangle the camera shows before screen shake, which
@@ -63,6 +63,7 @@ pub fn draw_scene(
         let zone = exit.zone(room.bounds);
         if exit.is_door() {
             draw_door(zone, room.exits_locked());
+            scene_locks::draw_lock(exit, zone);
             continue;
         }
         draw_rectangle(
@@ -79,6 +80,7 @@ pub fn draw_scene(
         if room.exits_locked() {
             draw_rectangle_lines(zone.x, zone.y, zone.w, zone.h, 3.0, RED);
         }
+        scene_locks::draw_lock(exit, zone);
     }
     // Shown by the same rule that lets Up open the door (`GameState::door_in_reach`).
     if let Some(door) = game.door_in_reach() {

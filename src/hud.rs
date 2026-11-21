@@ -157,6 +157,7 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
         Color::from_rgba(170, 180, 210, 255),
     );
     draw_boss_hud(room, view);
+    crate::hud_notice::draw_notice(game, view);
 }
 
 fn draw_boss_hud(room: &Room, view: Vec2) {

@@ -30,6 +30,8 @@ pub struct ExitPlacement {
     pub spawn: (f32, f32),
     /// A door's `(x, y, width, height)` in room coordinates; the edge fields mean nothing then.
     pub door: Option<(f32, f32, f32, f32)>,
+    /// The key that locks this exit, `Key 1` to `Key 8`; absent in older room files.
+    pub locked_by: Option<u8>,
 }
 
 impl ExitPlacement {
@@ -41,6 +43,7 @@ impl ExitPlacement {
             target_room: self.target_room,
             spawn: self.spawn.into(),
             door: self.door.map(|(x, y, w, h)| Rect::new(x, y, w, h)),
+            locked_by: self.locked_by,
         }
     }
 }
@@ -107,6 +110,7 @@ impl RoomLayout {
                     target_room: exit.target_room,
                     spawn: exit.spawn.into(),
                     door: exit.door.map(|zone| (zone.x, zone.y, zone.w, zone.h)),
+                    locked_by: exit.locked_by,
                 })
                 .collect(),
         }
@@ -154,6 +158,7 @@ impl RoomLayout {
             return Err("spawn must not be inside terrain".into());
         }
         for item in &self.items {
+            item.item.check()?;
             if !self.contains_body(item.position, ITEM_SIZE) {
                 return Err("item must be inside the room above the floor".into());
             }
@@ -163,6 +168,7 @@ impl RoomLayout {
         }
         self.validate_charm_positions(&terrain)?;
         for exit in &self.exits {
+            crate::exit_lock::check_lock(exit.locked_by)?;
             if exit.is_door() {
                 exit.check_door(self, &terrain)?;
                 continue;

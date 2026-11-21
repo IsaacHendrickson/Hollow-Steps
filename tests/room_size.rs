@@ -120,6 +120,7 @@ fn shrinking_the_span_an_exit_sits_on_is_rejected() {
             target_room: exit.target_room,
             spawn: exit.spawn.into(),
             door: None,
+            locked_by: None,
         })
         .collect();
     assert_eq!(draft.layout.exits.len(), 1);

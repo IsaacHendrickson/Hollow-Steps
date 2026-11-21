@@ -122,6 +122,8 @@ impl GameState {
         self.prune_owned_charm_placements();
         // So are the items already taken: the rebuilt rooms place every item their files do.
         self.restore_taken_items(&saved);
+        // And the doors already opened: the rebuilt rooms lock every exit their files lock.
+        self.restore_opened_exits(&saved);
         Ok(())
     }
 }

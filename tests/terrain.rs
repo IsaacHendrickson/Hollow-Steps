@@ -227,6 +227,7 @@ fn items_and_exits_cannot_be_inside_terrain() {
         target_room: RoomId::Second,
         spawn: (160.0, 376.0),
         door: None,
+        locked_by: None,
     });
     assert!(with_exit.validate_geometry().is_err());
 }
@@ -619,6 +620,7 @@ fn a_head_stopped_at_the_room_top_still_reaches_a_top_exit() {
         target_room: RoomId::Second,
         spawn: Vec2::new(100.0, 436.0),
         door: None,
+        locked_by: None,
     };
     let player = player_at(&layout, Vec2::new(360.0, 100.0), &terrain);
     let bumped = rise_until_blocked(player, &layout, &terrain, 100.0);

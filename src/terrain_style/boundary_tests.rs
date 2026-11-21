@@ -20,6 +20,7 @@ pub(super) fn exit(edge: RoomEdge, offset: f32, length: f32) -> Exit {
         target_room: RoomId::Second,
         spawn: Vec2::ZERO,
         door: None,
+        locked_by: None,
     }
 }
 

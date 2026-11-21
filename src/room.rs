@@ -66,6 +66,9 @@ pub struct Exit {
     /// A door: a free rectangle in room coordinates, anywhere in the room, used by pressing
     /// Up in front of it. `edge`, `offset` and `length` mean nothing for a door.
     pub door: Option<Rect>,
+    /// The key that opens this exit (`Some(3)` is Key 3), or `None` for a free exit. Using the
+    /// key takes the lock off the live exit for the rest of the run (`crate::exit_lock`).
+    pub locked_by: Option<u8>,
 }
 
 impl Exit {
@@ -78,6 +81,7 @@ impl Exit {
             target_room,
             spawn,
             door: Some(zone),
+            locked_by: None,
         }
     }
 
@@ -286,6 +290,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                 target_room: RoomId::Second,
                 spawn: Vec2::new(160.0, 376.0),
                 door: None,
+                locked_by: None,
             }],
             items: vec![
                 WorldItem {
@@ -323,6 +328,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                     target_room: RoomId::First,
                     spawn: Vec2::new(860.0, 436.0),
                     door: None,
+                    locked_by: None,
                 },
                 Exit {
                     edge: RoomEdge::Right,
@@ -331,6 +337,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                     target_room: RoomId::Boss,
                     spawn: Vec2::new(160.0, 436.0),
                     door: None,
+                    locked_by: None,
                 },
             ],
             items: vec![],
@@ -355,6 +362,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
                 target_room: RoomId::Second,
                 spawn: Vec2::new(780.0, 376.0),
                 door: None,
+                locked_by: None,
             }],
             items: vec![],
             charms: vec![],
