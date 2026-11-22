@@ -152,6 +152,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Run loop edges: profile save and bad file, test-room sandbox, editor moves, no hub; `src/game/run_link.rs`; `src/game/run_profile_tests.rs`
 - Permanent upgrades: levels bought and saved in the profile, layered on stats; `src/upgrades.rs`; `src/upgrades/tests.rs`, `src/game/upgrade_tests.rs`
 - Upgrade shop: Up at the hub stall opens it, buy levels with banked coins; `src/shop_menu.rs`; `src/shop_menu/tests.rs`, `src/game/shop_tests.rs`
+- Difficulty rules: per-tier percents in `data/difficulty.ron`, cap, `scale(tier)`; `src/difficulty.rs`; `src/difficulty/tests.rs`, `tests/shipped_content.rs`
 
 ## Tests and CI
 

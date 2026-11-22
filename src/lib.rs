@@ -24,6 +24,7 @@ pub mod coin;
 pub mod combat;
 pub mod damage;
 pub mod definition_editor;
+pub mod difficulty;
 pub mod door_exit;
 pub mod dungeon_check;
 pub mod dungeon_map;
