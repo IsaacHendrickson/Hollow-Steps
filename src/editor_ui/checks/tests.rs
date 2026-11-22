@@ -39,3 +39,32 @@ fn the_toggle_starts_off_and_nothing_is_measured_until_it_is_asked_for() {
     assert!(checks.measured.is_none());
     assert!(checks.dungeon.is_none());
 }
+
+#[test]
+fn a_new_double_jump_speed_is_measured_again_and_changes_only_the_double_jump() {
+    let mut game = editing();
+    let editor = game.editor_mut().unwrap();
+    let mut checks = ChecksUi::default();
+    let first = checks.interval(editor);
+
+    let faster = editor.player.edited().player.double_jump_speed * 1.25;
+    editor
+        .player
+        .set_field(Field::DoubleJumpSpeed, faster)
+        .unwrap();
+    let second = checks.interval(editor);
+
+    assert_eq!(second, editor.reach_interval());
+    assert!(
+        second.with.double_jump_height > first.with.double_jump_height,
+        "{second:?} vs {first:?}"
+    );
+    // The plain jump has no double jump to speed up.
+    assert_eq!(second.without.jump_height, first.without.jump_height);
+    assert_eq!(second.without.jump_distance, first.without.jump_distance);
+    assert_eq!(second.with.jump_height, first.with.jump_height);
+    assert_eq!(
+        second.with.dash_jump_distance,
+        first.with.dash_jump_distance
+    );
+}

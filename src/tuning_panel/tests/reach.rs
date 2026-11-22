@@ -44,3 +44,19 @@ fn an_edit_after_the_save_takes_the_reach_line_away_with_the_saved_message() {
     let text = frame(&ctx, vec![], &mut panel, &mut game);
     assert!(!text.contains("dash jump"), "{text}");
 }
+
+#[test]
+fn a_save_that_changed_only_the_double_jump_speed_shows_every_abilitys_numbers() {
+    let assets = Assets::new();
+    let mut game = assets.game();
+    let (ctx, mut panel) = open_panel(&mut game);
+    type_into(&ctx, Field::DoubleJumpSpeed, "450", &mut panel, &mut game);
+
+    let text = save(&ctx, &mut panel, &mut game);
+
+    assert!(text.contains("Saved to"), "{text}");
+    assert!(text.contains(" px, dash jump "), "{text}");
+    assert!(text.contains(", double jump "), "{text}");
+    assert!(text.contains(" px high / "), "{text}");
+    assert!(text.contains(" px far; run Check dungeon"), "{text}");
+}

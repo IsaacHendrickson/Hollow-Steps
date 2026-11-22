@@ -176,6 +176,50 @@ fn a_held_jump_must_end_and_stay_under_the_height_limit() {
 }
 
 #[test]
+fn a_held_double_jump_that_rises_too_high_is_a_problem_naming_its_fields() {
+    let mut draft = PlayerDraft::default();
+    assert!(
+        draft.problems(&[]).is_empty(),
+        "the shipped numbers are fine"
+    );
+
+    // Each number is in its own range, but together the air jump rises too high.
+    draft.set_field(Field::DoubleJumpSpeed, 1_500.0).unwrap();
+    let problems = draft.problems(&[]);
+    assert_eq!(
+        problems.len(),
+        1,
+        "the ground jump is still fine: {problems:?}"
+    );
+    assert!(problems[0]
+        .message
+        .contains("a held double jump would rise"));
+    assert!(problems[0].message.contains(&format!("{MAX_JUMP_APEX:.0}")));
+    for field in [
+        Field::DoubleJumpSpeed,
+        Field::Gravity,
+        Field::HeldJumpGravityMultiplier,
+    ] {
+        assert!(draft.problem_for(field, &[]).is_some(), "{field:?}");
+    }
+    assert!(draft.problem_for(Field::JumpSpeed, &[]).is_none());
+    assert!(draft.validate(&[]).is_err());
+
+    // More gravity brings it back under the limit, as for the jump.
+    draft.set_field(Field::Gravity, 3_000.0).unwrap();
+    draft.validate(&[]).unwrap();
+
+    // A held jump that never ends is the jump's problem alone: not reported twice.
+    let mut never_ends = PlayerDraft::default();
+    never_ends
+        .set_field(Field::HeldJumpGravityMultiplier, 0.0)
+        .unwrap();
+    let problems = never_ends.problems(&[]);
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    assert!(problems[0].message.contains("never end"));
+}
+
+#[test]
 fn a_size_that_starts_inside_a_solid_is_rejected_naming_the_room() {
     let mut draft = PlayerDraft::default();
     draft.set_field(Field::Width, 64.0).unwrap();

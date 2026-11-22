@@ -316,3 +316,100 @@ fn adding_an_exit_leaves_every_gate_where_it_was() {
     draft.layout.follow_exits(&exits);
     assert_eq!(draft.layout.gates, before);
 }
+
+// ---- Double Jump as a gate ability ----
+
+/// The fixture room with its one exit marked as needing the Double Jump from the spawn.
+fn needing_the_double_jump() -> RoomLayout {
+    let mut layout = layout();
+    let exit = ExitRef::of(&layout.exits[0]);
+    layout.gates = vec![gate(Entrance::Spawn, exit, &[Ability::DoubleJump])];
+    layout
+}
+
+#[test]
+fn a_gate_needing_the_double_jump_is_written_by_name_and_read_back_exactly() {
+    let layout = needing_the_double_jump();
+    let (text, read) = written(&layout);
+    assert!(text.contains("DoubleJump"), "{text}");
+    assert_eq!(read, layout);
+    assert_eq!(read.validate_gates(), Ok(()));
+}
+
+#[test]
+fn a_gate_may_need_both_abilities_and_both_are_written_and_read_back() {
+    let mut layout = needing_the_double_jump();
+    layout.gates[0].needs = vec![Ability::Dash, Ability::DoubleJump];
+    let (text, read) = written(&layout);
+    assert!(
+        text.contains("Dash") && text.contains("DoubleJump"),
+        "{text}"
+    );
+    assert_eq!(read, layout);
+    assert_eq!(read.validate_gates(), Ok(()));
+}
+
+#[test]
+fn the_double_jump_is_read_from_a_room_file_by_its_name() {
+    let gate: Gate =
+        ron::from_str("(from: Spawn, exit: Edge(edge: Right, offset: 1.0), needs: [DoubleJump])")
+            .unwrap();
+    assert_eq!(gate.needs, [Ability::DoubleJump]);
+}
+
+#[test]
+fn listing_the_double_jump_twice_is_refused_and_names_it() {
+    let mut layout = needing_the_double_jump();
+    layout.gates[0].needs = vec![Ability::DoubleJump, Ability::DoubleJump];
+    let error = layout.validate_geometry().unwrap_err();
+    assert!(
+        error.contains("gate 1") && error.contains("Double Jump twice"),
+        "{error}"
+    );
+}
+
+#[test]
+fn ticking_each_ability_keeps_them_in_the_order_of_the_abilities_and_unticking_leaves_the_rest() {
+    let mut draft = draft_of(layout());
+    let exit = ExitRef::of(&draft.layout.exits[0]);
+    // Ticked in the opposite order to `Ability::ALL`.
+    draft
+        .set_gate(Entrance::Spawn, 0, Ability::DoubleJump, true)
+        .unwrap();
+    draft
+        .set_gate(Entrance::Spawn, 0, Ability::Dash, true)
+        .unwrap();
+    assert_eq!(
+        draft.layout.gate_needs(&Entrance::Spawn, &exit),
+        [Ability::Dash, Ability::DoubleJump]
+    );
+
+    draft
+        .set_gate(Entrance::Spawn, 0, Ability::Dash, false)
+        .unwrap();
+    assert_eq!(
+        draft.layout.gates,
+        [gate(Entrance::Spawn, exit, &[Ability::DoubleJump])],
+        "only the Dash was cleared"
+    );
+    draft
+        .set_gate(Entrance::Spawn, 0, Ability::DoubleJump, false)
+        .unwrap();
+    assert!(draft.layout.gates.is_empty());
+}
+
+#[test]
+fn a_double_jump_gate_follows_its_exit_like_any_other() {
+    let mut draft = draft_of(needing_the_double_jump());
+    let before = ExitRef::of(&draft.layout.exits[0]);
+    draft
+        .move_to(Selection::Exit(0), Vec2::new(950.0, 200.0), &definitions())
+        .unwrap();
+    let after = ExitRef::of(&draft.layout.exits[0]);
+    assert_ne!(before, after, "the exit moved");
+    assert_eq!(
+        draft.layout.gate_needs(&Entrance::Spawn, &after),
+        [Ability::DoubleJump]
+    );
+    assert_eq!(draft.layout.validate_geometry(), Ok(()));
+}

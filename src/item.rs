@@ -12,6 +12,8 @@ pub const PICKUP_REACH: f32 = 24.0;
 pub enum Item {
     AmberShard,
     Dash,
+    /// Grants `Ability::DoubleJump`. In a room file it is written `DoubleJump`.
+    DoubleJump,
     /// A key, `Key(1)` to `Key(8)` (`crate::exit_lock`): opens one exit locked by that number and
     /// is used up doing it. In a room file it is written `Key(3)`.
     Key(u8),
@@ -26,6 +28,7 @@ impl Item {
     pub const ALL: &'static [Self] = &[
         Self::AmberShard,
         Self::Dash,
+        Self::DoubleJump,
         Self::Key(1),
         Self::Key(2),
         Self::Key(3),
@@ -40,6 +43,7 @@ impl Item {
         match self {
             Self::AmberShard => "Amber Shard",
             Self::Dash => "Dash",
+            Self::DoubleJump => "Double Jump",
             // An id outside 1 to 8 is refused when a room is checked (`check`); it still gets a
             // name so that the error message can show it.
             Self::Key(id) => usize::from(id)
@@ -54,7 +58,7 @@ impl Item {
     pub fn check(self) -> Result<(), String> {
         match self {
             Self::Key(id) => crate::exit_lock::check_key_id(id),
-            Self::AmberShard | Self::Dash => Ok(()),
+            Self::AmberShard | Self::Dash | Self::DoubleJump => Ok(()),
         }
     }
 
@@ -63,6 +67,7 @@ impl Item {
     pub fn grants(self) -> Option<Ability> {
         match self {
             Self::Dash => Some(Ability::Dash),
+            Self::DoubleJump => Some(Ability::DoubleJump),
             Self::AmberShard | Self::Key(_) => None,
         }
     }
@@ -161,6 +166,23 @@ mod tests {
             item: Item::Dash,
             position: Vec2::new(x, 450.0),
         }
+    }
+
+    #[test]
+    fn the_double_jump_item_is_placeable_named_and_grants_its_ability() {
+        assert!(Item::ALL.contains(&Item::DoubleJump));
+        assert_eq!(Item::DoubleJump.name(), "Double Jump");
+        assert_eq!(Item::DoubleJump.grants(), Some(Ability::DoubleJump));
+        assert_eq!(Item::DoubleJump.check(), Ok(()));
+        // Every item that grants an ability grants a different one.
+        let granted: Vec<_> = Item::ALL.iter().filter_map(|item| item.grants()).collect();
+        assert_eq!(granted, [Ability::Dash, Ability::DoubleJump]);
+        // The pickup kind as a room file writes it.
+        assert_eq!(ron::to_string(&Item::DoubleJump).unwrap(), "DoubleJump");
+        assert_eq!(
+            ron::from_str::<Item>("DoubleJump").unwrap(),
+            Item::DoubleJump
+        );
     }
 
     #[test]

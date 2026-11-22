@@ -66,6 +66,7 @@ Details of every module: docs/modules.md (open it only when the task needs it).
 Gameplay modules (pure rules, no rendering):
 
 - `src/player.rs`, `player/run_reset`, `health`, `vitals`, `vitals/fill`, `combat`, `damage`: movement, dash, collision; health, mana; melee; one damage path
+- `src/player/air_jump.rs`: Double Jump's air jump, one per flight, refilled on landing; `double_jump_speed` in player.ron (Player panel, F4)
 - `src/tuning.rs`, `tuning_fields`, `player_editor`, `player_history`, `player_look_editor`, `player_body`: player.ron, vitals.ron values, drafts, undo, look
 - `src/enemy.rs` (+ `enemy/`), `pose`, `body` (+ `body/`), `body_debug`, `visual_box`: enemies, poses, RON body templates, overlays, drawn box vs hitbox
 - `src/behavior.rs` (+ `behavior/`), `action_runtime` (+ `action_runtime/`), `preset`, `action_parameters`, `behavior_values`: data-driven actions, presets
@@ -76,7 +77,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/profile.rs`, `run`, `run/screen`, `upgrades`, `upgrade_editor`, `snapshot_history`: profile.ron, run loop, upgrades; `docs/run-and-profile.md`
 - `src/pause_menu.rs` (+ `pause_menu/`), `shop_menu` (+ `shop_menu/`), `keybinds` (+ `keybinds/`): pause menu, hub shop, rebindable controls; `docs/keybinds.md`
 - `src/room.rs`, `door_exit`, `ability`, `exit_lock`, `exit_link`, `exit_arrival`: rooms, door exits, abilities, locked exits, exit links; `docs/door-exits.md`
-- `src/reach.rs`, `reach/editor`, `reach/text`: reach envelope (jump height, longest gap) measured on the real `Player`, preview, text; `docs/reach.md`
+- `src/reach.rs`, `reach/span`, `reach/editor`, `reach/text`: reach envelope per ability measured on the real `Player`, preview, text; `docs/reach.md`
 - `src/gates.rs`, `dungeon_check`, `dungeon_map`: gate marks, Check dungeon, dungeon map (play, editor); `docs/gates.md`, `dungeon-check.md`, `dungeon-map.md`
 - `src/terrain.rs`, `terrain_style` (+ `terrain_style/`), `terrain_styles`, `game/terrain_link`: solids and collision, procedural look as a draw list, presets
 - `src/hazard.rs`, `hazard_look`, `editor_hazard`, `scene_hazards`, `editor_panel/hazard_panel`: terrain hazards; `docs/hazards.md`

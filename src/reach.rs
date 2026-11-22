@@ -1,4 +1,5 @@
-//! The reach envelope: how high and how far the player can jump, with and without Dash.
+//! The reach envelope: how high and how far the player can jump with no ability, with Dash and
+//! with Double Jump.
 //!
 //! Every number here is measured by stepping the real [`Player`] at the fixed step, never
 //! computed from a formula that could drift from the physics. The test world is a flat platform
@@ -12,13 +13,21 @@
 //! tick of the flight. A dash only stops the fall for a moment, so it adds distance, never height.
 //! A start of the dash on the ground, or a second dash, is not tried: the number stays reachable.
 //!
+//! With Double Jump the technique is: jump at the best tick of the coyote window, press the jump
+//! key a second time at the best tick of the flight, jump held, on a `Player` that holds the
+//! ability. The air jump sets the upward speed, so the best second press is near the top of the
+//! first jump. The flight with no second press is one of the samples, so these numbers are never
+//! below the plain jump's. Height is measured the same way from a standing start.
+//!
 //! Two scenarios make an [`Interval`]: `without` is the best a player can do with no ability and
-//! every buff at its maximum (a conservative upper bound), `with` is base stats and Dash. A gap
-//! that needs Dash must be longer than the first and not longer than the second; when the first
-//! is not below the second the interval is empty and the numbers (or the buffs) must change.
+//! every buff at its maximum (a conservative upper bound), `with` is base stats and the ability.
+//! A gap that needs an ability must be longer than the first and not longer than the second
+//! (`Interval::gap`), and so must a ledge's height (`Interval::height`); when the first is not
+//! below the second the interval is empty and the numbers (or the buffs) must change.
 
 use macroquad::math::{Rect, Vec2};
 
+use crate::ability::Ability;
 use crate::charms::{effective_with, Charm, CharmCatalog, Effect};
 use crate::item::Item;
 use crate::player::{Player, PlayerConfig, PlayerInput, WorldBounds};
@@ -39,8 +48,9 @@ const RUN_UP_TICKS: usize = 40;
 /// Longest flight, in ticks (5 s). A jump that stays up longer is not a platformer jump: a config
 /// that never comes back down in that time measures nothing (and costs little).
 const MAX_TICKS: usize = 600;
-/// The dash key is tried in about this many ticks of a flight at most (every tick of a normal one).
-const DASH_SAMPLES: usize = 200;
+/// The second key (dash, or the air jump) is tried in about this many ticks of a flight at most
+/// (every tick of a normal one).
+const BRANCH_SAMPLES: usize = 200;
 /// A body this far above the platform top has left it.
 const RISE_EPSILON: f32 = 0.01;
 /// The slack `terrain` allows before a body counts as overlapping a solid.
@@ -55,6 +65,11 @@ pub struct Reach {
     pub jump_distance: f32,
     /// The same gap with one dash during the jump (never below `jump_distance`).
     pub dash_jump_distance: f32,
+    /// How far a jump with the air jump of Double Jump, both held, lifts the body (never below
+    /// `jump_height`).
+    pub double_jump_height: f32,
+    /// The same gap with a second jump in the air (never below `jump_distance`).
+    pub double_jump_distance: f32,
 }
 
 impl Reach {
@@ -68,16 +83,23 @@ impl Reach {
             jump_height: jump_height(world, config),
             jump_distance: distance(config, &landings(world, config, false)),
             dash_jump_distance: distance(config, &landings(world, config, true)),
+            double_jump_height: double_jump_height(world, config),
+            double_jump_distance: distance(
+                config,
+                &sampled_landings(world, config, Second::AirJump),
+            ),
         }
     }
 }
 
-/// The two scenarios and the gap lengths between them that need Dash.
+/// The two scenarios, and between them the gaps and ledges that need each ability (`gap`, `height`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Interval {
-    /// No ability, every buff at its maximum: the best a player gets without Dash.
+    /// No ability, every buff at its maximum: the best a player gets with no ability. Only its
+    /// jump numbers are read; its Dash and double jump numbers are measured but nothing needs them.
     pub without: Reach,
-    /// Base stats and Dash.
+    /// Base stats, with each ability in turn: the Dash numbers with the Dash, the double jump
+    /// numbers with the Double Jump.
     pub with: Reach,
 }
 
@@ -114,37 +136,31 @@ impl Interval {
         }
     }
 
-    /// A gap that needs Dash is longer than this.
+    /// A gap that needs any ability is longer than this: the best jump with no ability and every
+    /// buff at its maximum.
     pub fn low(&self) -> f32 {
         self.without.jump_distance
     }
 
-    /// A gap that needs Dash is not longer than this.
+    /// A gap that needs Dash is not longer than this (`gap(Ability::Dash).high`).
     pub fn high(&self) -> f32 {
-        self.with.dash_jump_distance
+        self.gap(Ability::Dash).high
     }
 
     /// True when some gap length needs Dash: the first distance is below the second.
     pub fn usable(&self) -> bool {
-        self.low() < self.high()
+        self.gap(Ability::Dash).usable()
     }
 
-    /// Why no gap can need Dash, naming both distances; `None` when the interval is usable.
+    /// Why no gap can need Dash, naming both distances; `None` when the interval is usable. The
+    /// other abilities' reasons are in `problems`.
     pub fn error(&self) -> Option<String> {
-        (!self.usable()).then(|| {
-            format!(
-                "no gap can need Dash: without it the best jump with every buff crosses {:.0} px, \
-                 but with Dash a jump crosses only {:.0} px; lower the move speed buffs or raise \
-                 the dash",
-                self.low(),
-                self.high()
-            )
-        })
+        self.problems(Ability::Dash).into_iter().next()
     }
 
     /// True when a gap this long needs Dash and can be crossed with it.
     pub fn needs_dash(&self, gap: f32) -> bool {
-        gap > self.low() && gap <= self.high()
+        self.gap(Ability::Dash).contains(gap)
     }
 }
 
@@ -323,13 +339,41 @@ fn walk_off(world: &World, config: &PlayerConfig) -> Option<Attempt> {
     None
 }
 
+/// The second key a flight may press: none, the dash key, or the jump key again (the air jump of
+/// Double Jump, so the player holds that ability).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Second {
+    Nothing,
+    Dash,
+    AirJump,
+}
+
+impl Second {
+    fn press(self, keys: Keys) -> Keys {
+        match self {
+            Self::Nothing => keys,
+            Self::Dash => Keys { dash: true, ..keys },
+            Self::AirJump => Keys { jump: true, ..keys },
+        }
+    }
+}
+
 /// Every attempt worth measuring: the jump button goes down in each tick from the last one on the
 /// platform through the coyote window (a tick too late makes no jump and lands nowhere), and with
-/// `dash` the dash key also goes down in each tick of the flight (see `DASH_SAMPLES`).
+/// `dash` the dash key also goes down in each tick of the flight (see `BRANCH_SAMPLES`).
 fn landings(world: &World, config: &PlayerConfig, dash: bool) -> Vec<Landing> {
+    let second = if dash { Second::Dash } else { Second::Nothing };
+    sampled_landings(world, config, second)
+}
+
+/// `landings` for any second key.
+fn sampled_landings(world: &World, config: &PlayerConfig, second: Second) -> Vec<Landing> {
     let Some(mut before) = walk_off(world, config) else {
         return Vec::new();
     };
+    if second == Second::AirJump {
+        before.player.collect_item(Item::DoubleJump);
+    }
     let window = (config.coyote_seconds.max(0.0) / FIXED_STEP_SECONDS).ceil() as usize;
     let mut found = Vec::new();
     for _ in 0..=window.min(600) {
@@ -341,7 +385,7 @@ fn landings(world: &World, config: &PlayerConfig, dash: bool) -> Vec<Landing> {
             if flight.tick >= MAX_TICKS {
                 break None;
             }
-            if dash {
+            if second != Second::Nothing {
                 branches.push((flight.clone(), keys));
             }
             flight.advance(world, keys);
@@ -355,9 +399,9 @@ fn landings(world: &World, config: &PlayerConfig, dash: bool) -> Vec<Landing> {
             continue;
         };
         found.push(baseline);
-        let stride = branches.len().div_ceil(DASH_SAMPLES).max(1);
+        let stride = branches.len().div_ceil(BRANCH_SAMPLES).max(1);
         for (mut branch, keys) in branches.into_iter().step_by(stride) {
-            found.extend(finish(world, &mut branch, Keys { dash: true, ..keys }));
+            found.extend(finish(world, &mut branch, second.press(keys)));
         }
     }
     found
@@ -395,10 +439,48 @@ fn jump_height(world: &World, config: &PlayerConfig) -> f32 {
     (start - highest).max(0.0)
 }
 
+/// How far a standing jump, then the air jump at the best tick of the flight, both held, lifts
+/// the body. The flight with no second press is a sample too, so this is never below
+/// `jump_height`.
+fn double_jump_height(world: &World, config: &PlayerConfig) -> f32 {
+    let standing = |keys: Keys| Keys { axis: 0.0, ..keys };
+    let mut attempt = Attempt::new(world, config, EDGE - 300.0);
+    attempt.player.collect_item(Item::DoubleJump);
+    let start = attempt.player.position().y;
+    let mut highest = start;
+    let mut branches = Vec::new();
+    let mut keys = standing(Keys::TAKEOFF);
+    while attempt.tick < MAX_TICKS {
+        branches.push((attempt.clone(), keys));
+        attempt.advance(world, keys);
+        highest = highest.min(attempt.player.position().y);
+        if attempt.player.is_grounded() {
+            break;
+        }
+        keys = standing(Keys::FLY);
+    }
+    let stride = branches.len().div_ceil(BRANCH_SAMPLES).max(1);
+    for (mut branch, keys) in branches.into_iter().step_by(stride) {
+        let mut keys = Second::AirJump.press(keys);
+        while branch.tick < MAX_TICKS {
+            branch.advance(world, keys);
+            highest = highest.min(branch.player.position().y);
+            if branch.player.is_grounded() {
+                break;
+            }
+            keys = standing(Keys::FLY);
+        }
+    }
+    (start - highest).max(0.0)
+}
+
 mod editor;
+mod span;
 #[cfg(test)]
 mod tests;
 mod text;
 
-pub use editor::{outline_labels, outlines, Outlines, ReachKey};
+pub use span::Span;
+
+pub use editor::{outline_label, outlines, Outlines, ReachKey};
 pub use text::line;

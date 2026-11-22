@@ -9,8 +9,8 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Terrain hazards: touch hurts and throws the player away from the side touched, up from the top; `src/hazard.rs`; `tests/hazards.rs`, manual
 - Hazard looks: Spikes, Lava or Thorns, facing any side, own color; spike rows along walls; `src/hazard_look.rs`; `src/hazard_look/tests.rs`, manual
 - Terrain look (drawing only): procedural draw list for solids and boundary, presets, per-room style; `src/terrain_style.rs`; `tests/terrain_style.rs`, manual
-- Reach envelope: jump height and longest gap with and without Dash, measured on the real physics; empty-interval error; `src/reach.rs`; `src/reach/tests.rs`
-- Gates: mark that going from an entrance to an exit needs Dash; editor Reaching this exit; orphans listed; `src/gates.rs`; `tests/gates_editing.rs`
+- Reach envelope: jump height, longest gap with no ability, Dash, Double Jump, on the real physics; per-ability interval; `src/reach.rs`; `src/reach/tests.rs`
+- Gates: mark what an entrance to an exit needs (Dash, Double Jump); editor panel; orphans; `src/gates.rs`; `src/dungeon_check/tests/double_jump.rs`
 - Check dungeon: unreachable rooms, unopenable locks, unobtainable abilities, traps; editor button; `src/dungeon_check.rs`; `tests/shipped_content.rs`
 - Dungeon map data: room `map_cell` (-64..64) or placement by exits; conflicts, one-way links, key numbers; `src/dungeon_map.rs`; `src/dungeon_map/tests.rs`
 - Map discovery: rooms seen this run, cleared as a run starts or ends, kept by Save, none in a test room; `src/game/map_link.rs`; `src/game/map_tests.rs`
@@ -20,7 +20,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Editor Map cell row: Auto or X/Y, shows the resolved cell, one undo step; `src/editor_panel/map_panel.rs`; `src/editor_panel/panel_tests/map.rs`
 - Editor Dungeon map window: every room and draft, marks clashes, click opens; `src/editor_panel/map_window.rs`; `src/dungeon_map/editor_tests.rs`, manual
 - Check dungeon: two rooms with one map cell, naming both; `src/dungeon_check.rs`; `tests/editor_map.rs`, `tests/shipped_content.rs`
-- Reach preview: Reach toggle outlines a jump with and without Dash; reach line after Player or F4 save; `src/reach/editor.rs`; `tests/reach_editing.rs`
+- Reach preview: outlines of a jump with no ability and with each ability; reach line after a Player or F4 save; `src/reach/editor.rs`; `tests/reach_editing.rs`
 - Fixed 120 Hz step, capped catch-up, edge input on the first tick only; same jump apex at 30/60/144 fps; `src/timestep.rs`; `tests/timestep.rs`
 - Follow camera: smoothing, look-ahead, clamped to room bounds plus boundary walls; `src/camera.rs`; `tests/camera_bounds.rs`, manual
 - Virtual 960x540 render target, letterboxed window scaling, HUD anchored to it; `src/camera.rs`, `src/hud.rs`; `src/camera.rs` unit tests, manual
@@ -40,6 +40,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Parallax background layers per room (procedural shapes, depth), drawn behind terrain; `src/background.rs`; `tests/background.rs`, manual
 - Sound hooks: `data/audio.ron` maps events to sound names and volumes, missing files skipped; `src/sound.rs`; `src/sound/tests.rs`, manual
 - Collectible Dash (facing, duration, cooldown, one air dash); `src/item.rs`, `src/player.rs`; `tests/items.rs`
+- Collectible Double Jump: one air jump, refilled on landing; tuned in Player panel and F4; `src/player/air_jump.rs`; `src/player/air_jump_tests.rs`
 - Player health, invincibility, respawn; `src/health.rs`; `tests/enemies.rs`
 - Health and damage scale: values are ten times the old whole hit (`HIT_DAMAGE` 10, `MAX_HEALTH` 50), stored as `u16`; `src/health.rs`; `tests/damage_scale.rs`
 - Player vitals: trailing health bar, regain on sword hits, mana from kills, hold-to-heal; `data/vitals.ron`; `src/vitals.rs`; `src/vitals/tests.rs`, manual

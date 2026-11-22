@@ -14,7 +14,8 @@
 //! Three levels of checking, each with its own place:
 //! - one field: its range (`FieldSpec::check`), applied when a value is entered, so the draft
 //!   never holds a number outside its range;
-//! - several fields together (`problems`): the held jump must end;
+//! - several fields together (`problems`): the held jump must end, and neither it nor the held
+//!   air jump of Double Jump may rise past `MAX_JUMP_APEX`;
 //! - the rooms (`problems` with `SpawnCheck`s): the player must not start inside a solid.
 //!
 //! The last two can fail for a draft that is otherwise made of valid numbers, so the draft may
@@ -249,6 +250,7 @@ impl PlayerDraft {
     pub fn problems(&self, spawns: &[SpawnCheck]) -> Vec<Problem> {
         let mut problems = Vec::new();
         problems.extend(jump_problem(&self.edited));
+        problems.extend(double_jump_problem(&self.edited));
         problems.extend(size_problems(&self.edited, spawns));
         problems
     }
@@ -355,6 +357,29 @@ fn jump_problem(config: &TuningConfig) -> Option<Problem> {
         message: format!(
             "a held jump would rise {apex:.0} px, more than the {MAX_JUMP_APEX:.0} px allowed: \
              lower the jump speed or raise gravity"
+        ),
+    })
+}
+
+/// The air jump of Double Jump, held, rises `double_jump_speed² / (2 · gravity · held multiplier)`
+/// on its own; that is held to `MAX_JUMP_APEX` too. A held jump that never ends is the jump's
+/// problem (`jump_problem`, same gravity numbers), so it is not repeated here.
+fn double_jump_problem(config: &TuningConfig) -> Option<Problem> {
+    let player = &config.player;
+    let rising_gravity = player.gravity * player.held_jump_gravity_multiplier;
+    if rising_gravity <= 0.0 {
+        return None;
+    }
+    let apex = player.double_jump_speed * player.double_jump_speed / (2.0 * rising_gravity);
+    (apex > MAX_JUMP_APEX).then(|| Problem {
+        fields: vec![
+            Field::DoubleJumpSpeed,
+            Field::Gravity,
+            Field::HeldJumpGravityMultiplier,
+        ],
+        message: format!(
+            "a held double jump would rise {apex:.0} px, more than the {MAX_JUMP_APEX:.0} px \
+             allowed: lower the double jump speed or raise gravity"
         ),
     })
 }

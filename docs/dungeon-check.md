@@ -58,8 +58,8 @@ abilities, no exit can be taken").
   its own rule. Which door spends a key is not searched, so a dungeon with enough keys can still be
   unwinnable if the player spends one on the wrong door.
 - Everything in a room can be picked up once the room is entered; regions inside a room are not modelled.
-- A gate is a claim the author makes. Nothing proves that a marked crossing needs Dash, or that an
-  unmarked one does not (a bot that tries each crossing is a later task).
+- A gate is a claim the author makes. Nothing proves that a marked crossing needs the ability it
+  names (Dash, Double Jump), or that an unmarked one does not (a bot that tries each crossing is a later task).
 - A boss that keeps its room's exits locked until it falls is not modelled; only the final boss room is exempt
   from the trap check.
 - The checker does not know a run can end by dying, so a room that is hard is still not a problem.
