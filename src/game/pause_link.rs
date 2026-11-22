@@ -11,25 +11,29 @@ impl GameState {
         &self.pause_menu
     }
 
-    /// True while the world stands still for the inventory, the hub's shop, the pause menu or a
-    /// run's result screen. The editor stops the world too, but it is not "paused": it has its
+    /// True while the world stands still for the inventory, the map, the hub's shop, the pause
+    /// menu or a run's result screen. The editor stops the world too, but it is not "paused": it has its
     /// own loop.
     pub fn is_paused(&self) -> bool {
         self.inventory_open
+            || self.map.open
             || self.shop.is_open()
             || self.pause_menu.is_open()
             || self.showing_result()
     }
 
-    /// The Escape key during play. It closes the shop or the inventory if one is open; otherwise
-    /// it opens the pause menu, closes it, or goes back from Settings. Ignored while the editor
-    /// is open (the editor has no pause menu) and on the result screen (only Enter leaves it).
+    /// The Escape key during play. It closes the shop, the map or the inventory if one is open;
+    /// otherwise it opens the pause menu, closes it, or goes back from Settings. Ignored while
+    /// the editor is open (the editor has no pause menu) and on the result screen (only Enter
+    /// leaves it).
     pub fn press_escape(&mut self) {
         if self.editor.is_some() || self.showing_result() {
             return;
         }
         if self.shop.is_open() {
             self.shop.close();
+        } else if self.map.open {
+            self.map.open = false;
         } else if self.inventory_open {
             self.inventory_open = false;
         } else {

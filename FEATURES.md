@@ -12,6 +12,14 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Reach envelope: jump height and longest gap with and without Dash, measured on the real physics; empty-interval error; `src/reach.rs`; `src/reach/tests.rs`
 - Gates: mark that going from an entrance to an exit needs Dash; editor Reaching this exit; orphans listed; `src/gates.rs`; `tests/gates_editing.rs`
 - Check dungeon: unreachable rooms, unopenable locks, unobtainable abilities, traps; editor button; `src/dungeon_check.rs`; `tests/shipped_content.rs`
+- Dungeon map data: room `map_cell` (-64..64) or placement by exits; conflicts, one-way links, key numbers; `src/dungeon_map.rs`; `src/dungeon_map/tests.rs`
+- Map discovery: rooms seen this run, cleared as a run starts or ends, kept by Save, none in a test room; `src/game/map_link.rs`; `src/game/map_tests.rs`
+- Map screen (M, Esc closes): seen rooms named, next rooms empty, one-way arrows, key numbers; `src/hud_map.rs`, `src/dungeon_map/grid.rs`; `src/dungeon_map/grid_tests.rs`, manual
+- Map screen rules: freezes the world, shut in editor, test room, pause menu, shop, result; `src/game/map_link.rs`; `src/game/map_screen_tests.rs`
+- Map keybind: rebindable Map action (default M), older keybinds files keep M; `src/keybinds.rs`; `src/keybinds/map_tests.rs`
+- Editor Map cell row: Auto or X/Y, shows the resolved cell, one undo step; `src/editor_panel/map_panel.rs`; `src/editor_panel/panel_tests/map.rs`
+- Editor Dungeon map window: every room and draft, marks clashes, click opens; `src/editor_panel/map_window.rs`; `src/dungeon_map/editor_tests.rs`, manual
+- Check dungeon: two rooms with one map cell, naming both; `src/dungeon_check.rs`; `tests/editor_map.rs`, `tests/shipped_content.rs`
 - Reach preview: Reach toggle outlines a jump with and without Dash; reach line after Player or F4 save; `src/reach/editor.rs`; `tests/reach_editing.rs`
 - Fixed 120 Hz step, capped catch-up, edge input on the first tick only; same jump apex at 30/60/144 fps; `src/timestep.rs`; `tests/timestep.rs`
 - Follow camera: smoothing, look-ahead, clamped to room bounds plus boundary walls; `src/camera.rs`; `tests/camera_bounds.rs`, manual
@@ -102,6 +110,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Room size section (x, y, width, height, floor_y); a change leaving contents outside is refused; `src/room_size.rs`; `tests/room_size.rs`
 - Room names: Room name box, 1-32 chars, unique ignoring case, New room asks first; `src/room_name.rs`; `tests/room_names.rs`, `tests/new_room.rs`, manual
 - Room file names: only `room_<number>.ron` without leading zeros loads; a bad name errors with the fix; `src/editor_files.rs`; `tests/room_file_names.rs`
+- Room order: custom rooms listed by id (room_2 before room_10), at start-up and after Save; `src/editor_files.rs`; `tests/room_order.rs`
 - Door exits: Up in front of a door on the ground travels, "Up: enter" prompt; `src/game/world_doors.rs`, `src/door_exit.rs`; `src/game/door_tests.rs`, manual
 - Doors in the editor: Add door (and link), drag, width and height; `src/editor_panel/door_panel.rs`; `src/door_exit/tests.rs`, `tests/door_exits.rs`, manual
 - Abilities and keys as run state; Keys 1-8 open locked exits; editor Locked by; `src/exit_lock.rs`, `src/ability.rs`; `src/game/world_locks/tests.rs`, manual

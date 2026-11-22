@@ -22,6 +22,7 @@ mod effects;
 mod hud;
 mod hud_bars_draw;
 mod hud_charms;
+mod hud_map;
 mod hud_notice;
 mod hud_run;
 mod hud_shop;
@@ -223,11 +224,13 @@ async fn main() {
         }
         if !ui_wants_keyboard {
             if is_key_pressed(KeyCode::Escape) {
-                // Closes the inventory, else opens or closes the pause menu (or backs out of
-                // its Settings screen).
+                // Closes the inventory or the map, else opens or closes the pause menu (or
+                // backs out of its Settings screen).
                 game.press_escape();
             } else if game.keybinds().triggered(Action::Inventory, is_key_pressed) {
                 game.toggle_inventory();
+            } else if game.keybinds().triggered(Action::Map, is_key_pressed) {
+                game.toggle_map();
             }
         }
         charm_input::handle(&mut game, view, !ui_wants_keyboard);
@@ -317,6 +320,9 @@ async fn main() {
         }
         if game.inventory_open() {
             hud::draw_inventory(&game, view);
+        }
+        if game.map_open() {
+            hud_map::draw_map(&game, view);
         }
         if game.shop_open() {
             hud_shop::draw_shop(&game, view);

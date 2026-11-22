@@ -39,6 +39,12 @@ pub enum Problem {
         from: String,
         exit: String,
     },
+    /// Two rooms name the same map cell (`docs/dungeon-map.md`); the map moves the second.
+    SameMapCell {
+        first: String,
+        second: String,
+        cell: (i32, i32),
+    },
 }
 
 fn names(abilities: &[Ability]) -> String {
@@ -117,6 +123,13 @@ impl Problem {
             ),
             Self::OrphanGate { room, from, exit } => format!(
                 "{room}: a gate from {from} to the {exit} names an entrance that no longer exists"
+            ),
+            Self::SameMapCell {
+                first,
+                second,
+                cell: (x, y),
+            } => format!(
+                "{first} and {second} both have the map cell ({x}, {y}); the map moves {second}"
             ),
         }
     }

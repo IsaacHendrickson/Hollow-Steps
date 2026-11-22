@@ -81,6 +81,10 @@ pub struct RoomLayout {
     /// it. Absent in older room files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gates: Vec<crate::gates::Gate>,
+    /// Where the dungeon map puts this room, `(column, row)` from -64 to 64 (`crate::dungeon_map`);
+    /// absent means placed by its exits, and in older room files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub map_cell: Option<(i32, i32)>,
 }
 
 impl RoomLayout {
@@ -100,6 +104,7 @@ impl RoomLayout {
             background: room.background.clone(),
             terrain_style: room.terrain_style.clone(),
             gates: room.gates.clone(),
+            map_cell: room.map_cell,
             items: room
                 .items
                 .iter()
@@ -200,6 +205,9 @@ impl RoomLayout {
                 return Err("exit must not be inside terrain".into());
             }
         }
+        if let Some(cell) = self.map_cell {
+            crate::dungeon_map::check_cell(cell)?;
+        }
         self.validate_gates()
     }
 
@@ -224,6 +232,7 @@ impl RoomLayout {
         room.charms = self.world_charms();
         room.exits = self.exits.iter().map(ExitPlacement::exit).collect();
         room.gates = self.gates.clone();
+        room.map_cell = self.map_cell;
         Ok(())
     }
 }
@@ -254,6 +263,7 @@ impl RoomDraft {
         layout.charms.clear();
         layout.exits.clear();
         layout.gates.clear(); // marks on the template's exits mean nothing in an empty room
+        layout.map_cell = None; // a copied cell would put the new room on top of its template
         Self {
             enemies: Vec::new(),
             boss: None,
@@ -555,6 +565,7 @@ impl RoomDraft {
             terrain_style: Default::default(),
             background: Vec::new(),
             gates: Vec::new(),
+            map_cell: None,
             spawn: self.layout.spawn.into(),
             enemies: self
                 .enemies

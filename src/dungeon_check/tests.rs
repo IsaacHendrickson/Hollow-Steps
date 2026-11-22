@@ -521,6 +521,14 @@ fn every_problem_reads_as_a_sentence_that_names_what_to_look_at() {
             },
             "Key 5 is used up by the exit it opens, but 3 exits are locked by it and 2 are placed",
         ),
+        (
+            Problem::SameMapCell {
+                first: "Hub".into(),
+                second: "Cellar".into(),
+                cell: (-2, 3),
+            },
+            "Hub and Cellar both have the map cell (-2, 3); the map moves Cellar",
+        ),
     ];
     for (problem, text) in cases {
         assert_eq!(problem.text(), text);

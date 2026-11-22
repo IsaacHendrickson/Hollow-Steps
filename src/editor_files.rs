@@ -88,5 +88,7 @@ pub fn load_extra_rooms(
             rooms.push(room);
         }
     }
+    // The files come in name order as text (`room_10` before `room_2`); rooms are listed by id.
+    rooms.sort_by_key(|room| room.id.index());
     Ok(rooms)
 }

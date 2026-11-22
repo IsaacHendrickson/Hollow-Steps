@@ -54,6 +54,11 @@ mod keybind_link;
 mod keybind_tests;
 #[cfg(test)]
 mod located_event_tests;
+mod map_link;
+#[cfg(test)]
+mod map_screen_tests;
+#[cfg(test)]
+mod map_tests;
 mod pause_link;
 #[cfg(test)]
 mod pause_tests;
@@ -152,6 +157,8 @@ pub struct GameState {
     /// The hub-and-run loop: its settings, the profile and where the player is in the loop; see
     /// `run_link`. Inert while `run.ron` names no hub.
     run: run_link::RunState,
+    /// The dungeon map: the rooms seen this run; see `map_link`.
+    map: map_link::MapState,
 }
 
 impl GameState {
@@ -202,9 +209,11 @@ impl GameState {
             reach_note: None,
             shop: ShopMenu::default(),
             run,
+            map: map_link::MapState::default(),
         };
         game.prune_owned_charm_placements();
         game.apply_stats();
+        game.discover_current_room();
         Ok(game)
     }
 
@@ -277,7 +286,11 @@ impl GameState {
     /// Opens or closes the inventory. Ignored while the pause menu is open or a run's result
     /// shows. An old charm refusal is not kept for the next time.
     pub fn toggle_inventory(&mut self) {
-        if self.pause_menu.is_open() || self.showing_result() || self.shop.is_open() {
+        if self.pause_menu.is_open()
+            || self.showing_result()
+            || self.shop.is_open()
+            || self.map.open
+        {
             return;
         }
         self.inventory_open = !self.inventory_open;
@@ -319,6 +332,7 @@ impl GameState {
         }
         if self.editor.take().is_none() {
             self.shop.close();
+            self.map.open = false;
             self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
             self.attach_player_draft();
             self.attach_catalog_drafts();
@@ -359,6 +373,7 @@ impl GameState {
             return;
         }
         self.reconcile_run();
+        self.discover_current_room();
         let delta_seconds = if delta_seconds.is_finite() {
             delta_seconds.max(0.0)
         } else {
