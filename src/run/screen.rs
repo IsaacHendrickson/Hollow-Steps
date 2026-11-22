@@ -132,5 +132,23 @@ pub fn inventory_coins(
     }
 }
 
+/// The font size of the HUD's tier label: small, it is only a reminder.
+pub const TIER_LABEL_SIZE: f32 = 18.0;
+/// How far the tier label sits from the right edge and from the top, in virtual pixels; the top
+/// puts it under the room's title and note.
+pub const TIER_LABEL_OFFSET: Vec2 = Vec2::new(24.0, 84.0);
+
+/// The small tier label of the HUD, in the hub and in a run: the player's own tier, even when it
+/// is above the cap the numbers stop at.
+pub fn tier_label(tier: u32) -> String {
+    format!("Tier {tier}")
+}
+
+/// Where the tier label of `width` pixels starts: its right end `TIER_LABEL_OFFSET.x` from the
+/// right edge of a `view`-sized screen, whatever the view's size.
+pub fn tier_label_origin(view: Vec2, width: f32) -> Vec2 {
+    anchored(view, Anchor::TopRight, vec2(width, 0.0), TIER_LABEL_OFFSET)
+}
+
 #[cfg(test)]
 mod tests;

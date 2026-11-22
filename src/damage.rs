@@ -9,9 +9,11 @@
 
 use macroquad::math::Vec2;
 
-use crate::enemy::Enemy;
+use crate::difficulty::TierScale;
 use crate::enemy_attack::DamageHit;
 use crate::room::Room;
+
+mod tier;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DamageResolver {
@@ -30,43 +32,17 @@ pub struct DamageResolver {
 
 impl DamageResolver {
     /// Everything that can hurt the player standing at `player` (center), `size` big and
-    /// moving at `velocity`; a hazard's throw depends on that speed.
+    /// moving at `velocity`; a hazard's throw depends on that speed. The damage is as authored;
+    /// `gather_scaled` is the same at a difficulty tier.
     pub fn gather(room: &Room, player: Vec2, velocity: Vec2, size: Vec2, boss_action: u32) -> Self {
-        let boss = room.boss_special.as_ref();
-        Self {
-            enemy_contact: room
-                .enemies
-                .iter()
-                .filter(|enemy| enemy.touches(player, size))
-                .map(Enemy::contact_damage)
-                .max()
-                .unwrap_or(0),
-            enemy_action: room
-                .enemies
-                .iter()
-                .map(|enemy| enemy.action_damage(player, size))
-                .max()
-                .unwrap_or(0),
-            boss_contact: boss
-                .filter(|boss| {
-                    let separation = (boss.position() - player).abs();
-                    let reach = (boss.size() + size) / 2.0;
-                    separation.x <= reach.x && separation.y <= reach.y
-                })
-                .map_or(0, |boss| boss.contact_damage()),
+        Self::gather_scaled(
+            room,
+            player,
+            velocity,
+            size,
             boss_action,
-            attacks: room
-                .hazards
-                .iter()
-                .filter_map(|hazard| hazard.hit(player, size, velocity))
-                .chain(
-                    room.enemies
-                        .iter()
-                        .filter_map(|enemy| enemy.attack_hit(player, size)),
-                )
-                .chain(boss.and_then(|boss| boss.attack_hit(player, size)))
-                .collect(),
-        }
+            &TierScale::NEUTRAL,
+        )
     }
 
     pub fn resolve(&self) -> DamageHit {

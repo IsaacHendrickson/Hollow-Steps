@@ -5,8 +5,8 @@
 use hollow_steps::charm_menu::{wrap_lines, InventoryLayout};
 use hollow_steps::game::GameState;
 use hollow_steps::run::{
-    hud_counter, inventory_coins, result_layout, result_lines, result_title, Counter, RunOutcome,
-    RETURN_HINT,
+    hud_counter, inventory_coins, result_layout, result_lines_with_bonus, result_title, tier_label,
+    tier_label_origin, Counter, RunOutcome, RETURN_HINT, TIER_LABEL_SIZE,
 };
 use macroquad::prelude::*;
 
@@ -46,6 +46,18 @@ pub fn draw_caption(counter: &Counter, origin: Vec2) {
     }
 }
 
+/// The small "Tier N" under the room's title and note, top right: in the hub and in a run, not on
+/// the result screen and not with no hub.
+pub fn draw_tier(game: &GameState, view: Vec2) {
+    let Some(tier) = game.hud_tier() else {
+        return;
+    };
+    let text = tier_label(tier);
+    let width = measure_text(&text, None, TIER_LABEL_SIZE as u16, 1.0).width;
+    let at = tier_label_origin(view, width);
+    draw_text(&text, at.x, at.y, TIER_LABEL_SIZE, LIGHTGRAY);
+}
+
 /// The inventory's coin line, and the banked coins and tier at the right end of it when a hub
 /// is set.
 pub fn draw_inventory_coins(game: &GameState, layout: &InventoryLayout) {
@@ -64,7 +76,7 @@ pub fn draw_result(game: &GameState, view: Vec2) {
         return;
     };
     draw_rectangle(0.0, 0.0, view.x, view.y, Color::from_rgba(0, 0, 0, 200));
-    let lines = result_lines(&result, game.profile());
+    let lines = result_lines_with_bonus(&result, game.profile(), game.result_bonus());
     let layout = result_layout(view, lines.len());
     let panel = layout.panel;
     draw_rectangle(

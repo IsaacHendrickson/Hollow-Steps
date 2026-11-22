@@ -23,6 +23,7 @@ mod lock_panel;
 mod look_panel;
 mod map_panel;
 mod map_window;
+mod min_tier_field;
 mod movement_field;
 mod name_dialog;
 #[cfg(test)]

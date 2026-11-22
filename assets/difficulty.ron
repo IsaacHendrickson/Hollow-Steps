@@ -1,0 +1,14 @@
+// What a difficulty tier changes in the shipped game. This file replaces data/difficulty.ron
+// whole, and F5 does not re-read it: restart the game after editing it by hand. The F4 window's
+// Difficulty section edits and saves this file.
+// The tier is the number of dungeons cleared (it lives in the profile); each tier above 0 adds
+// these percentages on top of the base numbers, in a straight line.
+// Placeholders: the owner tunes them.
+(
+    enemy_health_percent: 10.0,   // percent ADDED to enemy health per tier above 0 (0 to 100)
+    enemy_damage_percent: 8.0,    // percent added to the damage enemies deal per tier (0 to 100)
+    boss_health_percent: 12.0,    // percent added to boss health per tier (0 to 100)
+    boss_damage_percent: 8.0,     // percent added to the damage bosses deal per tier (0 to 100)
+    coin_percent: 10.0,           // percent added to the coins a run earns per tier (0 to 100)
+    max_effective_tier: 20,       // a profile tier above this counts as this (1 to 99)
+)

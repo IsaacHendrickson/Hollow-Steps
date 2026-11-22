@@ -38,6 +38,10 @@ impl GameState {
             .collect();
         let plan = session.content.plan(&documents)?;
         let (content, mut rooms) = session.content.prepare(&plan)?;
+        // The rebuilt rooms play at the tier of the run in progress, like every other room; the
+        // files written above never carry it.
+        let layer = self.tiers.layer;
+        layer.apply(&mut rooms);
         let definitions = content.definitions()?;
         Self::validate_destinations(&rooms, &definitions)?;
         // Saving can add a room that sorts before this one, so the index is looked up in

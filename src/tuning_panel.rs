@@ -1,5 +1,6 @@
 //! The F4 player-tuning window: a drag box for every number in `player.ron`, then one for every
-//! number in `vitals.ron`, then the Run (debug) section (`run`).
+//! number in `vitals.ron`, then the Run (debug) section (`run`) and the Difficulty section
+//! (`difficulty`).
 //!
 //! Presentation only. The ranges, validation and file writing live in `hollow_steps::tuning`,
 //! `hollow_steps::vitals` and `GameState`; this module turns widget changes into
@@ -18,6 +19,7 @@ use crate::player_panel::parse_entry;
 #[cfg(test)]
 use std::cell::RefCell;
 
+mod difficulty;
 mod run;
 
 /// State of the F4 window; the values themselves live in `GameState`.
@@ -28,6 +30,7 @@ pub struct TuningPanel {
     /// The reach line the last Save left (`reach::line`), shown under "Saved to".
     reach: Option<String>,
     run: run::RunDebug,
+    difficulty: difficulty::DifficultySection,
 }
 
 /// Pixels of label column, so the drag boxes line up.
@@ -48,6 +51,7 @@ impl TuningPanel {
             status,
             reach,
             run,
+            difficulty,
         } = self;
         let list_height = (ctx.screen_rect().height() - 190.0).max(120.0);
         egui::Window::new("Player tuning (F4)")
@@ -82,6 +86,7 @@ impl TuningPanel {
                         }
                         ui.add_space(4.0);
                         run.draw(ui, game);
+                        difficulty.draw(ui, game);
                     });
                 ui.separator();
                 footer(ui, game, status, reach);

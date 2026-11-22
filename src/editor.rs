@@ -375,11 +375,8 @@ impl RoomDraft {
         let selection = match placement {
             Placement::Enemy(definition) => {
                 let index = next.enemies.len();
-                next.enemies.push(EnemyPlacement {
-                    definition,
-                    patrol_left: position.x,
-                    patrol_right: position.x,
-                });
+                next.enemies
+                    .push(EnemyPlacement::new(definition, position.x, position.x));
                 Selection::Enemy(index)
             }
             Placement::Item(item) => {
@@ -550,10 +547,7 @@ impl RoomDraft {
             return Err("room already has a boss; delete it before placing another".into());
         }
         let mut next = self.clone();
-        next.boss = Some(crate::room::BossPlacement {
-            definition: name.to_owned(),
-            position: position.into(),
-        });
+        next.boss = Some(crate::room::BossPlacement::new(name, position.into()));
         next.validate_boss(definitions)?;
         *self = next;
         Ok(Selection::Boss)
@@ -590,12 +584,14 @@ impl RoomDraft {
                 .enemies
                 .iter()
                 .map(|p| {
-                    definitions.spawn(
-                        &p.definition,
-                        p.patrol_left,
-                        p.patrol_right,
-                        self.layout.world_bounds(),
-                    )
+                    definitions
+                        .spawn(
+                            &p.definition,
+                            p.patrol_left,
+                            p.patrol_right,
+                            self.layout.world_bounds(),
+                        )
+                        .map(|enemy| enemy.with_min_tier(p.min_tier))
                 })
                 .collect::<Result<_, _>>()?,
             exits: Vec::new(),

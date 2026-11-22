@@ -6,7 +6,7 @@ use super::widgets::{
 };
 use super::{
     canvas_tools, door_panel, dungeon_panel, gate_panel, hazard_panel, history_panel, lock_panel,
-    look_panel, map_panel, puzzle_panel, reach_panel, tool_panel,
+    look_panel, map_panel, min_tier_field, puzzle_panel, reach_panel, tool_panel,
 };
 use super::{EditorSession, EditorUi, Selection};
 use egui_macroquad::egui;
@@ -102,6 +102,7 @@ pub(super) fn draw_room_tools(
         if let Some(Selection::Hazard(i)) = state.selected {
             hazard_panel::draw_hazard_fields(ui, editor, state, i);
         }
+        min_tier_field::draw_min_tier(ui, editor, state);
         puzzle_panel::draw_puzzle_controls(ui, editor, state);
         if let Some(Selection::Exit(i) | Selection::Destination(i)) = state.selected {
             if let Some(leads_to) = editor.exit_leads_to(i) {

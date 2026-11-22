@@ -140,3 +140,38 @@ fn the_inventory_shows_both_counts_when_there_is_a_hub() {
     assert_eq!(hub, "Coins this run: 0");
     assert!(banked.is_some());
 }
+
+// ---- the HUD's tier label ---------------------------------------------------------------------------
+
+#[test]
+fn the_tier_label_says_the_players_own_tier() {
+    assert_eq!(tier_label(0), "Tier 0");
+    assert_eq!(tier_label(7), "Tier 7");
+    assert_eq!(tier_label(99), "Tier 99");
+}
+
+#[test]
+fn the_tier_label_hangs_from_the_right_edge_under_the_room_note() {
+    let at = tier_label_origin(VIEW, 60.0);
+    assert_eq!(
+        at,
+        vec2(960.0 - 60.0 - TIER_LABEL_OFFSET.x, TIER_LABEL_OFFSET.y)
+    );
+    assert!(at.y > 62.0, "below the room note at 62");
+    // A wider label moves left so its right end stays put.
+    let wide = tier_label_origin(VIEW, 90.0);
+    assert_eq!(wide.x + 90.0, at.x + 60.0);
+}
+
+#[test]
+fn the_tier_label_stays_inside_any_view_it_is_anchored_to() {
+    for view in [vec2(960.0, 540.0), vec2(1280.0, 720.0), vec2(640.0, 360.0)] {
+        let at = tier_label_origin(view, 70.0);
+        assert!(at.x >= 0.0 && at.x + 70.0 <= view.x, "{view:?}");
+        assert_eq!(at.x + 70.0, view.x - TIER_LABEL_OFFSET.x);
+        assert_eq!(
+            at.y, TIER_LABEL_OFFSET.y,
+            "the top does not move with the width"
+        );
+    }
+}

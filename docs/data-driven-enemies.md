@@ -138,6 +138,14 @@ health, size, and damage. `patrol.ron` provides the same patrol without chasing.
 Programmatic `Enemy::new` spawns (including existing boss summons) use the same
 state machine with their supplied speed, radius, and endpoints.
 
+An enemy placement and a boss placement can have `min_tier: N` (0 to 99; absent
+means 0): the lowest difficulty tier it is in the room at, for example
+`(definition: "chase", patrol_left: 300.0, patrol_right: 400.0, min_tier: 3)`.
+Only the game's world loading leaves a placement out below its tier (a boss left
+out locks no exit). The room editor and Save keep it, and it is set with the
+"Min tier" field of a selected enemy or the boss. To swap an enemy by tier, use
+two placements with different `min_tier`. See `docs/run-and-profile.md`.
+
 Loading rejects malformed RON, unknown or missing fields, empty or duplicate
 state/entity names, missing initial states or transition targets, missing
 behavior or enemy references, invalid dimensions or patrol intervals, and

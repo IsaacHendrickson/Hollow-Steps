@@ -99,6 +99,16 @@ fn shipped_run_rules_and_hub_room_load_and_validate() {
 }
 
 #[test]
+fn shipped_difficulty_loads_and_validates() {
+    let assets = assets();
+    assert!(
+        assets.join(hollow_steps::difficulty::FILE_NAME).is_file(),
+        "assets/difficulty.ron ships with the game"
+    );
+    hollow_steps::difficulty::Difficulty::load(&assets).expect("shipped difficulty.ron must load");
+}
+
+#[test]
 fn shipped_dungeon_has_no_problems() {
     // Opens the editor on the shipped rooms (custom rooms included) and runs Check dungeon, the
     // same check as its button, under the shipped run rules. It asserts nothing about content.

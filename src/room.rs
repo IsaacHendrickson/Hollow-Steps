@@ -199,6 +199,15 @@ pub struct EnemyPlacement {
     pub definition: String,
     pub patrol_left: f32,
     pub patrol_right: f32,
+    /// The lowest difficulty tier the enemy is in the room at; absent (0) in older room files
+    /// means every tier. Only the game's world loading leaves a placement out; the editor and
+    /// Save keep it.
+    #[serde(
+        default,
+        skip_serializing_if = "is_zero",
+        deserialize_with = "read_min_tier"
+    )]
+    pub min_tier: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -206,6 +215,54 @@ pub struct EnemyPlacement {
 pub struct BossPlacement {
     pub definition: String,
     pub position: (f32, f32),
+    /// Like `EnemyPlacement::min_tier`: a boss left out of the room does not lock its exits.
+    #[serde(
+        default,
+        skip_serializing_if = "is_zero",
+        deserialize_with = "read_min_tier"
+    )]
+    pub min_tier: u32,
+}
+
+fn is_zero(tier: &u32) -> bool {
+    *tier == 0
+}
+
+/// Reads a `min_tier`, refusing one above the highest tier there is (`MAX_MIN_TIER`).
+fn read_min_tier<'de, D: serde::Deserializer<'de>>(reader: D) -> Result<u32, D::Error> {
+    let tier = <u32 as Deserialize>::deserialize(reader)?;
+    if tier > MAX_MIN_TIER {
+        return Err(serde::de::Error::custom(format!(
+            "min_tier {tier} is above {MAX_MIN_TIER}, the highest tier"
+        )));
+    }
+    Ok(tier)
+}
+
+/// The highest `min_tier` a placement can have: the highest tier the rules can count.
+pub const MAX_MIN_TIER: u32 = crate::difficulty::MAX_EFFECTIVE_TIER;
+
+impl EnemyPlacement {
+    /// A placement shown at every tier.
+    pub fn new(definition: impl Into<String>, patrol_left: f32, patrol_right: f32) -> Self {
+        Self {
+            definition: definition.into(),
+            patrol_left,
+            patrol_right,
+            min_tier: 0,
+        }
+    }
+}
+
+impl BossPlacement {
+    /// A placement shown at every tier.
+    pub fn new(definition: impl Into<String>, position: (f32, f32)) -> Self {
+        Self {
+            definition: definition.into(),
+            position,
+            min_tier: 0,
+        }
+    }
 }
 
 pub fn place_boss(
@@ -215,7 +272,9 @@ pub fn place_boss(
 ) -> Result<(), String> {
     room.boss_special = placement
         .map(|placement| {
-            let boss = definitions.spawn(&placement.definition, placement.position.into())?;
+            let boss = definitions
+                .spawn(&placement.definition, placement.position.into())?
+                .with_min_tier(placement.min_tier);
             let p = boss.position();
             let half = boss.size() / 2.0;
             if p.x - half.x < room.bounds.x
@@ -263,6 +322,7 @@ pub fn load_room_enemies(
                     spawn.patrol_right,
                     bounds,
                 )
+                .map(|enemy| enemy.with_min_tier(spawn.min_tier))
                 .map_err(|error| format!("{}: enemy {index}: {error}", path.display()))
         })
         .collect()

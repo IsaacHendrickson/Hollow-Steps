@@ -165,15 +165,62 @@ room.** (On the result screen after Abandoned by an exit, the room is the hub an
   one screen. `PauseOutcome::AbandonRun` is handled by `GameState` like Reset keybinds, so the front
   end only ever sees `Exit`.
 - **Result screen.** Title (Dungeon cleared / You died / Run abandoned), coins earned, coins
-  banked, total banked, and after a clear "Difficulty tier a -> b". A message about a profile that
+  banked, total banked, and after a clear "Difficulty tier a -> b". At tier 1 and up, when the tier
+  pays a coin bonus, a "Tier N bonus: +X%" line sits under "Coins earned". A message about a profile that
   did not save shows under the lines. Enter or a left click leaves it. The text and layout are pure
   (`run/screen.rs`); `hud_run.rs` draws them and `main.rs` only passes on the keys and the click.
 - **Counters.** With no hub the HUD counter is the coin count as always. In the hub it shows the
-  banked coins with the tier; in a run, this run's coins. The inventory shows both.
+  banked coins with the tier; in a run, this run's coins. The inventory shows both. A small
+  "Tier N" sits under the room's title and note (top right) in the hub and in a run: the player's
+  own tier, even above the cap the numbers stop at. The result screen has none.
 - **Exit and the close button.** Both call `abandon_run_on_exit()` first, which ends a test room
   and banks a run in progress as Abandoned. The close button is intercepted with macroquad's
   `prevent_quit` / `is_quit_requested`, set only after start-up so the load-error screen can still
   be closed.
+
+## Difficulty tiers
+
+The tier is the number of dungeons cleared (`Profile::tier`). It changes the dungeon, never its
+files: **a tier is layered on when rooms are built and never written back.** The editor session,
+`load_rooms`, `load_extra_rooms` and the editor's Save never apply one.
+
+**Where the numbers live.** `src/difficulty.rs` and `data/difficulty.ron` (embedded; an
+`assets/difficulty.ron` replaces it whole). Five percents are ADDED per tier above 0, each 0 to 100
+and finite: `enemy_health_percent`, `enemy_damage_percent`, `boss_health_percent`,
+`boss_damage_percent` and `coin_percent`; tier 3 at 10 is x1.30, in a straight line. A sixth number,
+`max_effective_tier` (1 to 99), is the tier the numbers stop growing at: a tier above it plays as it.
+The F4 window's **Difficulty** section edits all six, shows the multipliers at the debug tier of
+**Run (debug)** and saves `assets/difficulty.ron` (a staged write, with a comment on top). A value
+outside its range is refused with the reason and nothing changes. **F5 does not re-read
+`difficulty.ron`**; restart the game after editing it by hand. An F4 edit is in effect for the next
+run only.
+
+**What a tier does.** The profile's tier is read when a run starts (`reset_run_state`) and held for
+that run (`game/tier_link.rs`), so F4 changing the tier, or the rules, takes effect at the next run.
+- Enemy and boss maximum and current health are scaled (rounded, never below 1). Enemies a boss
+  summons are scaled too.
+- Enemy and boss damage are scaled on the hit `DamageResolver` returns: contact, enemy actions,
+  attacks, projectiles and blasts, and the boss's actions and attacks. **Hazards are not scaled.**
+- A run's coins are scaled by `coin_percent` when it ends, before the share kept (`coin_keep_percent`),
+  and rounded. The result screen shows the earned number and "Tier N bonus: +X%" when it is above 0.
+- Every rebuild in the middle of a run keeps the scale: F5 and an editor Save rebuild with the
+  layer the run holds. The hub, and a game with no hub, are tier 0: every number as authored.
+- A **test room** plays at the profile's current tier and writes nothing.
+
+**`min_tier` on a placement.** An enemy placement and a boss placement can have `min_tier` (0 to 99,
+absent means 0): the lowest tier it is in the room at. Only the game's world loading leaves a
+placement out below it, so the editor still shows it, Save keeps it in the file (Save at tier 0,
+then play at tier 3: it is there), and a boss left out does not lock its room's exits. The room
+editor's **Min tier** field (Room tools, a selected enemy or the boss, 0 to 99) sets it; dragging is
+one undo step and it counts as an unsaved change. It is compared with the tier that counts, so with a
+cap of 20 a `min_tier` of 30 never shows. To swap an enemy by tier, use two placements with different
+`min_tier`.
+
+**Known limits.** Per-room and per-dungeon tiers; scaling enemy speed or attack timing; scaling
+hazards; a curve instead of a straight line; swapping an enemy for another one by tier (use two
+placements); the dungeon check knowing about tiers (a hidden boss in the final boss room means that
+dungeon cannot be cleared at a lower tier). A `health_below` condition compares absolute health, so a
+scaled enemy reaches it later. A boss defined with a very low health stays at least 1.
 
 ## Known limits
 
@@ -193,7 +240,12 @@ hard stop of the program (power loss, a crash) not banking the run.
 `src/scene_shop.rs` (the window, the keys and mouse, the marker), `src/game/run_link.rs`
 (`GameState` owns the phase and the profile), `src/game/world_load.rs` (the one world loader), `src/player/run_reset.rs` and
 `src/vitals/fill.rs` (the player and vitals reset), `src/run/screen.rs` (result screen text and layout, counter captions), `src/hud_run.rs` (drawing
-them and the key or click that leaves the result screen), `src/tuning_panel/run.rs` (F4 debug section). Tests: `src/game/run_tests.rs` (the loop),
+them and the key or click that leaves the result screen), `src/tuning_panel/run.rs` (F4 debug section), `src/difficulty.rs` (the tier rules), `src/game/tier_link.rs`
+(`GameState` holds the layer, the rules and the HUD tier), `src/enemy/tier.rs`, `src/boss_special/tier.rs`
+and `src/damage/tier.rs` (health and damage), `src/run/bonus.rs` (the coin bonus line),
+`src/editor_min_tier.rs` and `src/editor_panel/min_tier_field.rs` (the editor's Min tier),
+`src/tuning_panel/difficulty.rs` (F4 Difficulty). Tests: `src/game/tier_tests.rs`,
+`src/game/min_tier_tests.rs`, `src/game/difficulty_tests.rs`, `tests/min_tier.rs`. Tests: `src/game/run_tests.rs` (the loop),
 `src/game/run_profile_tests.rs` (profile, test rooms, editor, no hub), `src/upgrades/tests.rs` and
 `src/game/upgrade_tests.rs` (the rules and the layered stats), `src/shop_menu/tests.rs` and
 `src/game/shop_tests.rs` (the shop). The editor side: `src/upgrade_editor.rs`, `src/upgrade_panel.rs`,

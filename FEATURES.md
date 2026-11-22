@@ -152,6 +152,14 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Run loop edges: profile save and bad file, test-room sandbox, editor moves, no hub; `src/game/run_link.rs`; `src/game/run_profile_tests.rs`
 - Permanent upgrades: levels bought and saved in the profile, layered on stats; `src/upgrades.rs`; `src/upgrades/tests.rs`, `src/game/upgrade_tests.rs`
 - Upgrade shop: Up at the hub stall opens it, buy levels with banked coins; `src/shop_menu.rs`; `src/shop_menu/tests.rs`, `src/game/shop_tests.rs`
+- Difficulty rules: per-tier percents in `data/difficulty.ron`, cap, `scale(tier)`; `src/difficulty.rs`; `src/difficulty/tests.rs`, `tests/shipped_content.rs`
+- Tier on a run: enemy/boss health scaled at run start and kept on F5/Save; `src/game/tier_link.rs`, `src/enemy/tier.rs`; `src/game/tier_tests.rs`
+- Tier damage: `DamageResolver::gather_scaled` scales enemy and boss hits (contact, actions, attacks, blasts); `src/damage/tier.rs`; `src/damage/tier/tests.rs`
+- Tier coins: a run's coins scaled before banking, result line "Tier N bonus: +X%"; `src/run/bonus.rs`; `src/run/bonus/tests.rs`, `src/game/tier_tests.rs`
+- Min tier on enemy/boss placements: out of play below it, kept by editor and Save; `src/game/tier_link.rs`; `tests/min_tier.rs`, `src/game/min_tier_tests.rs`
+- Editor Min tier field (0-99), one undo step; `src/editor_min_tier.rs`, `src/editor_panel/min_tier_field.rs`; `editor_panel/min_tier_field/tests.rs`
+- F4 Difficulty section: six numbers, read-out, Save writes difficulty.ron; `src/tuning_panel/difficulty.rs`; `difficulty/tests.rs`, `difficulty/draw_tests.rs`
+- Rules set in F4 apply at the next run only, saved staged; HUD "Tier N"; `src/game/tier_link.rs`, `src/run/screen.rs`; `src/game/difficulty_tests.rs`
 
 ## Tests and CI
 
