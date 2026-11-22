@@ -11,8 +11,6 @@
 //!
 //! A test room is a sandbox: its pieces start whole and off, nothing it does is remembered, and
 //! ending it puts back the saved room with what the run had done to it.
-// `Puzzles::strike` is called from `GameState::step` in the next commit (part 2, in play).
-#![cfg_attr(not(test), allow(dead_code))]
 use macroquad::math::Rect;
 
 use super::GameState;

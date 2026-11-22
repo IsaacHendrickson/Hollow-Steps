@@ -65,6 +65,8 @@ mod pause_tests;
 mod player_link;
 #[cfg(test)]
 mod player_stats_tests;
+#[cfg(test)]
+mod puzzle_play_tests;
 mod reach_link;
 mod room_reload;
 mod run_link;
@@ -399,12 +401,12 @@ impl GameState {
         let enemy_tuning = self.tuning().enemy;
         let bounds = self.rooms[index].world_bounds();
         let player_input = self.input_for_player(input);
-        self.player.update_with_terrain(
-            player_input,
-            delta_seconds,
-            bounds,
-            &self.rooms[index].terrain,
-        );
+        // The player is blocked by the terrain and by the puzzle pieces still standing.
+        let collision = self.rooms[index]
+            .puzzles
+            .collision(&self.rooms[index].terrain);
+        self.player
+            .update_with_terrain(player_input, delta_seconds, bounds, &collision);
         self.update_vitals(input, delta_seconds);
         let feet = self.player.position() + Vec2::new(0.0, self.player.size().y / 2.0);
         self.events.extend_at(self.player.take_events(), feet);
@@ -493,6 +495,14 @@ impl GameState {
                 if boss.is_defeated() {
                     special_damage = 0;
                 }
+            }
+            // Walls and switches are not enemies: they never count as `struck`, so no pogo.
+            let swing = self.player.attack().id();
+            if let Some(text) = self
+                .puzzles
+                .strike(room, hitbox, swing, self.test_run.is_none())
+            {
+                self.locks.notice.show(text);
             }
             if struck {
                 self.player.pogo();

@@ -2,7 +2,7 @@
 //! `tests/fixtures`: the first room is 960 wide with its floor at y = 460 and its spawn at
 //! (180, 436). The pieces go into the room's file through the editor, the way an author puts them
 //! there, and are struck with `Puzzles::strike` (the swing itself is tested with `GameState::step`
-//! in `play_tests`).
+//! in `puzzle_play_tests`).
 use macroquad::math::Rect;
 
 use super::super::charm_tests::Scratch;
