@@ -68,6 +68,13 @@ pub struct RoomLayout {
     /// Hazards that hurt and knock back the player; absent in older room files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hazards: Vec<crate::hazard::HazardPlacement>,
+    /// Puzzle pieces (`crate::puzzle`); each list is absent in older room files.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub breakables: Vec<crate::puzzle::BreakablePlacement>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub switches: Vec<crate::puzzle::SwitchPlacement>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub barriers: Vec<crate::puzzle::BarrierPlacement>,
     /// Parallax background layers, back to front; absent in older room files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub background: Vec<crate::background::BackgroundLayer>,
@@ -101,6 +108,9 @@ impl RoomLayout {
                 .map(|r| (r.x, r.y, r.w, r.h))
                 .collect(),
             hazards: room.hazards.iter().map(Into::into).collect(),
+            breakables: room.puzzles.breakable_placements(),
+            switches: room.puzzles.switch_placements(),
+            barriers: room.puzzles.barrier_placements(),
             background: room.background.clone(),
             terrain_style: room.terrain_style.clone(),
             gates: room.gates.clone(),
@@ -163,6 +173,7 @@ impl RoomLayout {
         }
         Terrain::validate(&self.terrain, self.rect())?;
         self.validate_hazards()?;
+        self.validate_puzzles()?;
         crate::background::validate(&self.background)?;
         self.terrain_style.validate()?;
         let terrain = Terrain::from_tuples(&self.terrain);
@@ -218,6 +229,7 @@ impl RoomLayout {
         room.floor_y = self.floor_y;
         room.terrain = Terrain::from_tuples(&self.terrain);
         room.hazards = self.hazards.iter().map(Into::into).collect();
+        room.puzzles = crate::puzzle::RoomPuzzles::from_layout(self);
         room.background = self.background.clone();
         room.terrain_style = self.terrain_style.clone();
         room.spawn = self.spawn.into();
@@ -259,6 +271,7 @@ impl RoomDraft {
         layout.name = None; // named by whoever creates it, not by the template
         layout.terrain.clear(); // empty: only size, floor, spawn, background, look carry over
         layout.hazards.clear();
+        layout.clear_puzzles();
         layout.items.clear();
         layout.charms.clear();
         layout.exits.clear();
@@ -315,6 +328,7 @@ impl RoomDraft {
                     exit.target_room
                 ));
             }
+            target.1.validate_arrival(exit.spawn)?;
             // A door needs Up, so arriving in front of one is no immediate return trip.
             if target.1.exits.iter().any(|e| {
                 !e.is_door()
@@ -562,6 +576,7 @@ impl RoomDraft {
             floor_y: self.layout.floor_y,
             terrain: Default::default(),
             hazards: Vec::new(),
+            puzzles: Default::default(),
             terrain_style: Default::default(),
             background: Vec::new(),
             gates: Vec::new(),

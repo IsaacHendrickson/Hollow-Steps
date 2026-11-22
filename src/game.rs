@@ -94,6 +94,7 @@ mod world_doors;
 mod world_items;
 mod world_load;
 mod world_locks;
+mod world_puzzles;
 
 pub use crate::room::FLOOR_Y;
 pub use charm_editor_link::CharmsSaved;
@@ -154,6 +155,8 @@ pub struct GameState {
     taken_items: TakenItems,
     /// The doors opened with a key this run and the notice about a locked one; see `world_locks`.
     locks: world_locks::Locks,
+    /// The walls broken and the switches turned on this run; see `world_puzzles`.
+    puzzles: world_puzzles::Puzzles,
     /// The hub-and-run loop: its settings, the profile and where the player is in the loop; see
     /// `run_link`. Inert while `run.ron` names no hub.
     run: run_link::RunState,
@@ -204,6 +207,7 @@ impl GameState {
             charm_menu: CharmMenu::default(),
             taken_items: TakenItems::default(),
             locks: world_locks::Locks::default(),
+            puzzles: world_puzzles::Puzzles::default(),
             charms,
             upgrades,
             reach_note: None,

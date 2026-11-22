@@ -124,6 +124,8 @@ impl GameState {
         self.restore_taken_items(&saved);
         // And the doors already opened: the rebuilt rooms lock every exit their files lock.
         self.restore_opened_exits(&saved);
+        // And the walls already broken and the switches already on.
+        self.restore_puzzles(&saved);
         Ok(())
     }
 }

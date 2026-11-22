@@ -70,6 +70,7 @@ pub mod pose;
 pub mod postfx;
 pub mod preset;
 pub mod profile;
+pub mod puzzle;
 pub mod reach;
 pub mod room;
 pub mod room_charms;
