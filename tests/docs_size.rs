@@ -2,7 +2,8 @@
 //!
 //! Reads only `AGENTS.md` and `FEATURES.md` in the repository root. A `FEATURES.md` line
 //! or an `AGENTS.md` module line over 200 characters fails with the file and line number,
-//! and so does an `AGENTS.md` over 24 KB. Longer text belongs in `docs/`.
+//! and so does an `AGENTS.md` over 24 KB, counted as if every line ended with CRLF so the
+//! limit holds on every checkout. Longer text belongs in `docs/`.
 
 use std::fs;
 use std::path::Path;
@@ -25,6 +26,13 @@ fn long_lines(text: &str, prefix: &str, limit: usize) -> Vec<(usize, usize)> {
         .map(|(index, line)| (index + 1, line.chars().count()))
         .filter(|(_, length)| *length > limit)
         .collect()
+}
+
+/// Size of `text` in bytes as if every line ended with CRLF: each line's own bytes plus 2.
+/// An LF checkout and a CRLF (Windows) checkout of the same file count the same, so the
+/// size limit holds on both. For an LF file this is its bytes plus the number of lines.
+fn size_with_crlf(text: &str) -> usize {
+    text.lines().map(|line| line.len() + 2).sum()
 }
 
 fn describe(file: &str, offenders: &[(usize, usize)]) -> String {
@@ -63,11 +71,46 @@ fn agents_module_lines_stay_short() {
 
 #[test]
 fn agents_md_stays_small() {
-    let size = read_root_file("AGENTS.md").len();
+    let size = size_with_crlf(&read_root_file("AGENTS.md"));
     assert!(
         size <= MAX_AGENTS_BYTES,
-        "AGENTS.md is {size} bytes (limit {MAX_AGENTS_BYTES}); move detail to docs/"
+        "AGENTS.md is {size} bytes counted with CRLF line endings (limit {MAX_AGENTS_BYTES}); \
+         move detail to docs/"
     );
+}
+
+#[test]
+fn the_size_counts_every_line_as_ending_with_crlf() {
+    // Bytes plus one per line for an LF file: "ab\n" is 3 bytes, 1 line.
+    assert_eq!(size_with_crlf("ab\ncd\n"), "ab\ncd\n".len() + 2);
+    // The same text with CRLF endings already has those bytes, and counts the same.
+    assert_eq!(size_with_crlf("ab\r\ncd\r\n"), "ab\r\ncd\r\n".len());
+    assert_eq!(size_with_crlf("ab\ncd\n"), size_with_crlf("ab\r\ncd\r\n"));
+}
+
+#[test]
+fn the_size_counts_blank_lines_a_missing_final_break_and_bytes() {
+    assert_eq!(size_with_crlf(""), 0);
+    assert_eq!(size_with_crlf("\n\n"), 4);
+    // A last line with no line break still counts the CRLF it would have.
+    assert_eq!(size_with_crlf("ab\ncd"), size_with_crlf("ab\ncd\n"));
+    // Bytes, not characters: "é" is two bytes.
+    assert_eq!(size_with_crlf("é\n"), 4);
+}
+
+#[test]
+fn the_size_limit_is_exact_on_either_line_ending() {
+    let exact = "x".repeat(MAX_AGENTS_BYTES - 2);
+    for ending in ["\n", "\r\n"] {
+        assert_eq!(
+            size_with_crlf(&format!("{exact}{ending}")),
+            MAX_AGENTS_BYTES
+        );
+        assert_eq!(
+            size_with_crlf(&format!("{exact}x{ending}")),
+            MAX_AGENTS_BYTES + 1
+        );
+    }
 }
 
 #[test]
