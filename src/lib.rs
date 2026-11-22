@@ -36,6 +36,7 @@ pub mod editor_history;
 pub mod editor_inbound;
 pub mod editor_look;
 pub mod editor_name;
+pub mod editor_puzzle;
 pub mod editor_selection;
 pub mod editor_session;
 pub mod editor_terrain;

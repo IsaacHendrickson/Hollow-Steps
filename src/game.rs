@@ -66,6 +66,8 @@ mod player_link;
 #[cfg(test)]
 mod player_stats_tests;
 #[cfg(test)]
+mod puzzle_editor_tests;
+#[cfg(test)]
 mod puzzle_play_tests;
 mod reach_link;
 mod room_reload;

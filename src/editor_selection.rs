@@ -10,6 +10,11 @@ pub enum Selection {
     Charm(usize),
     /// A hazard of the room (`RoomLayout::hazards`), moved by its center.
     Hazard(usize),
+    /// A breakable wall, a switch or a barrier of the room (`RoomLayout::breakables`,
+    /// `switches`, `barriers`), moved by its center.
+    Breakable(usize),
+    Switch(usize),
+    Barrier(usize),
     PatrolLeft(usize),
     PatrolRight(usize),
     Spawn,

@@ -427,6 +427,9 @@ impl RoomDraft {
             }
             Selection::Charm(i) => next.layout.move_charm(i, position)?,
             Selection::Hazard(i) => next.layout.move_hazard(i, position)?,
+            Selection::Breakable(_) | Selection::Switch(_) | Selection::Barrier(_) => {
+                next.layout.move_puzzle(selection, position)?
+            }
             Selection::Spawn => next.layout.spawn = position.into(),
             Selection::Exit(i) => {
                 let exit = next.layout.exits.get_mut(i).ok_or("missing exit")?;
@@ -501,6 +504,9 @@ impl RoomDraft {
             }
             Selection::Hazard(i) if i < self.layout.hazards.len() => {
                 self.layout.hazards.remove(i);
+            }
+            Selection::Breakable(_) | Selection::Switch(_) | Selection::Barrier(_) => {
+                self.layout.delete_puzzle(selection)?
             }
             Selection::Exit(i) | Selection::Destination(i) if i < self.layout.exits.len() => {
                 self.layout.exits.remove(i);

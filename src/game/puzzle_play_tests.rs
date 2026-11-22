@@ -9,7 +9,7 @@ use crate::combat::StrikeDirection;
 use crate::editor::RoomLayout;
 use crate::puzzle::{BarrierPlacement, BreakablePlacement, SwitchPlacement};
 
-const DT: f32 = 1.0 / 120.0;
+pub(super) const DT: f32 = 1.0 / 120.0;
 const HALF_WIDTH: f32 = 16.0;
 const HALF_HEIGHT: f32 = 24.0;
 const WALL: Rect = Rect {
@@ -87,14 +87,14 @@ fn barrier_and_switch(game: &mut GameState) {
     });
 }
 
-fn walk(axis: f32) -> PlayerInput {
+pub(super) fn walk(axis: f32) -> PlayerInput {
     PlayerInput {
         move_axis: axis,
         ..PlayerInput::default()
     }
 }
 
-fn strike(attack: bool, up: bool, down: bool) -> PlayerInput {
+pub(super) fn strike(attack: bool, up: bool, down: bool) -> PlayerInput {
     PlayerInput {
         attack_pressed: attack,
         up_held: up,
@@ -103,7 +103,7 @@ fn strike(attack: bool, up: bool, down: bool) -> PlayerInput {
     }
 }
 
-fn stand_at(game: &mut GameState, x: f32) {
+pub(super) fn stand_at(game: &mut GameState, x: f32) {
     let bounds = game.world_bounds();
     game.player.place_on_floor(x, bounds);
 }
@@ -114,7 +114,7 @@ fn hang_at(game: &mut GameState, x: f32, y: f32) {
 }
 
 /// Walks right for `ticks` ticks.
-fn walk_right(game: &mut GameState, ticks: u32) {
+pub(super) fn walk_right(game: &mut GameState, ticks: u32) {
     for _ in 0..ticks {
         game.update(walk(1.0), DT);
     }
@@ -125,7 +125,7 @@ fn remaining(game: &GameState) -> u8 {
 }
 
 /// One swing, then the rest of its active time, so that every tick of it is played.
-fn swing(game: &mut GameState, up: bool, down: bool) {
+pub(super) fn swing(game: &mut GameState, up: bool, down: bool) {
     game.update(strike(true, up, down), DT);
     for _ in 0..20 {
         game.update(strike(false, up, down), DT);
@@ -133,7 +133,7 @@ fn swing(game: &mut GameState, up: bool, down: bool) {
 }
 
 /// Waits out the swing's cooldown so that the next one can start.
-fn rest(game: &mut GameState) {
+pub(super) fn rest(game: &mut GameState) {
     game.update(PlayerInput::default(), 1.0);
 }
 
