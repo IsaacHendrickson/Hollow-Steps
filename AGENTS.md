@@ -103,9 +103,9 @@ Composition and front end:
 The library target (`src/lib.rs`) exposes reusable gameplay modules. Integration
 tests live in `tests/` and verify behavior through the public API.
 
-When you add, rename, or remove a module, change ONE line here (160 characters at most) and put anything longer in docs/modules.md or the matching docs/*.md.
+When you add a module, add its file to the line of its area (keep the line at 160 characters or less); a new area gets a new line; put anything longer in docs/modules.md or the matching docs/*.md. Rename or remove a module in the same line. After the first path on a line, paths are relative to `src/` and leave off `.rs`.
 
-Limits, checked by `tests/docs_size.rs`: a module line here or a line of `FEATURES.md` over 200 characters fails the test, and so does this file over 24 KB (24576 bytes).
+Limits: a module line here is at most 160 characters, and this file is at most 24 KB (24576 bytes). `tests/docs_size.rs` fails this file over 24 KB, and any module line here or line of `FEATURES.md` over 200 characters.
 
 ## Coordinate and simulation conventions
 
