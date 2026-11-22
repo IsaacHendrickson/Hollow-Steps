@@ -5,8 +5,8 @@
 use hollow_steps::charm_menu::{wrap_lines, InventoryLayout};
 use hollow_steps::game::GameState;
 use hollow_steps::run::{
-    hud_counter, inventory_coins, result_layout, result_lines_with_bonus, result_title, Counter,
-    RunOutcome, RETURN_HINT,
+    hud_counter, inventory_coins, result_layout, result_lines_with_bonus, result_title, tier_label,
+    tier_label_origin, Counter, RunOutcome, RETURN_HINT, TIER_LABEL_SIZE,
 };
 use macroquad::prelude::*;
 
@@ -44,6 +44,18 @@ pub fn draw_caption(counter: &Counter, origin: Vec2) {
     if let Some(caption) = &counter.caption {
         draw_text(caption, origin.x + 26.0, origin.y + 30.0, 18.0, LIGHTGRAY);
     }
+}
+
+/// The small "Tier N" under the room's title and note, top right: in the hub and in a run, not on
+/// the result screen and not with no hub.
+pub fn draw_tier(game: &GameState, view: Vec2) {
+    let Some(tier) = game.hud_tier() else {
+        return;
+    };
+    let text = tier_label(tier);
+    let width = measure_text(&text, None, TIER_LABEL_SIZE as u16, 1.0).width;
+    let at = tier_label_origin(view, width);
+    draw_text(&text, at.x, at.y, TIER_LABEL_SIZE, LIGHTGRAY);
 }
 
 /// The inventory's coin line, and the banked coins and tier at the right end of it when a hub

@@ -78,6 +78,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/difficulty.rs`: difficulty tiers: rules and data/difficulty.ron, scale(tier); `docs/run-and-profile.md`
 - `src/game/tier_link.rs`, `run/bonus`, `damage/tier`, `enemy/tier`, `boss_special/tier`: a run's tier on rooms, hits, coins; never written back
 - `src/editor_min_tier.rs`, `editor_panel/min_tier_field`: a placement's min tier (enemy, boss): draft edits, the Room tools field; `docs/run-and-profile.md`
+- `src/tuning_panel/difficulty.rs`: F4 Difficulty section (six numbers, read-out at the debug tier, Save); `hud_run`: the HUD tier; `docs/run-and-profile.md`
 - `src/pause_menu.rs` (+ `pause_menu/`), `shop_menu` (+ `shop_menu/`), `keybinds` (+ `keybinds/`): pause menu, hub shop, rebindable controls; `docs/keybinds.md`
 - `src/room.rs`, `door_exit`, `ability`, `exit_lock`, `exit_link`, `exit_arrival`: rooms, door exits, abilities, locked exits, exit links; `docs/door-exits.md`
 - `src/reach.rs`, `reach/span`, `reach/editor`, `reach/text`: reach envelope per ability measured on the real `Player`, preview, text; `docs/reach.md`

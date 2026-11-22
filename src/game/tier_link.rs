@@ -11,7 +11,7 @@
 use super::GameState;
 use crate::difficulty::{Difficulty, TierScale};
 use crate::room::Room;
-use crate::run::CoinBonus;
+use crate::run::{CoinBonus, RunPhase};
 
 /// The tier a set of rooms was built at, and what it multiplies.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -61,8 +61,11 @@ impl Layer {
 /// The rules, the layer the rooms in play were built with, and the last run's coin bonus.
 #[derive(Debug)]
 pub(super) struct TierState {
-    /// `difficulty.ron` as loaded at start-up; F5 does not re-read it.
+    /// The rules the next run starts with: `difficulty.ron` as loaded at start-up, then what the
+    /// F4 window set. F5 does not re-read the file.
     rules: Difficulty,
+    /// The rules as the file has them (loaded, or last saved by F4).
+    saved: Difficulty,
     pub(super) layer: Layer,
     /// What the run that just ended was paid for its tier; `None` when it was paid nothing.
     pub(super) bonus: Option<CoinBonus>,
@@ -72,6 +75,7 @@ impl TierState {
     pub(super) fn new(rules: Difficulty) -> Self {
         Self {
             rules,
+            saved: rules,
             layer: Layer::BASE,
             bonus: None,
         }
@@ -91,6 +95,40 @@ impl GameState {
     /// What a tier adds (`difficulty.ron`).
     pub fn difficulty(&self) -> &Difficulty {
         &self.tiers.rules
+    }
+
+    /// Sets the rules the next run starts with (F4's Difficulty section). Rules that fail
+    /// `Difficulty::validate` are refused and nothing changes. The run in progress keeps the
+    /// layer it started with, so the numbers it plays at do not move.
+    pub fn set_difficulty(&mut self, rules: Difficulty) -> Result<(), String> {
+        rules.validate()?;
+        self.tiers.rules = rules;
+        Ok(())
+    }
+
+    /// Whether the rules differ from `difficulty.ron` as loaded or last saved.
+    pub fn difficulty_unsaved(&self) -> bool {
+        self.tiers.rules != self.tiers.saved
+    }
+
+    /// Writes the rules to `assets/difficulty.ron` through a staged file and returns its path.
+    /// On a failure the old file stays and the rules stay unsaved.
+    pub fn save_difficulty(&mut self) -> Result<std::path::PathBuf, String> {
+        let text = self.tiers.rules.to_file_text()?;
+        let path = self.assets.join(crate::difficulty::FILE_NAME);
+        crate::tuning::write_staged(&path, &text)?;
+        self.tiers.saved = self.tiers.rules;
+        Ok(path)
+    }
+
+    /// The tier the HUD shows: the profile's in the hub, the run's during a run (and in a test
+    /// room, the profile's); nothing with no hub or on the result screen.
+    pub fn hud_tier(&self) -> Option<u32> {
+        match self.run_phase()? {
+            RunPhase::Hub => Some(self.run.profile.tier),
+            RunPhase::Running => Some(self.tiers.layer.profile_tier),
+            RunPhase::Result(_) => None,
+        }
     }
 
     /// The multipliers the rooms in play were built with: neutral in the hub and in a game with

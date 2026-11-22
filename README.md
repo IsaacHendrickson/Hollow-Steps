@@ -126,6 +126,17 @@ file that cannot be read is kept as `profile.ron.bak`, a fresh profile is used a
 shown on screen. The `F4` window's **Run (debug)** section sets the banked coins and the tier and
 resets the profile (which also takes the bought upgrades away).
 
+**Difficulty tiers.** Every dungeon cleared raises the tier, and a run plays at the tier it starts
+with: enemies and bosses have more health and hit harder (hazards do not), and the coins a run
+earns are worth more, with a "Tier N bonus" line on the result screen. A small "Tier N" shows top
+right. The numbers are in `assets/difficulty.ron` (replaces `data/difficulty.ron` whole): the
+percent each tier adds, and the tier the numbers stop growing at. The `F4` window's **Difficulty**
+section edits and saves them; a change applies at the next run, and **`F5` does not re-read
+`difficulty.ron`**. The room editor's **Min tier** field (a selected enemy or the boss) keeps a
+placement out of the room below that tier; the editor and Save always keep it. Nothing a tier does
+is ever written to a room or definition file. Design note:
+[docs/run-and-profile.md](docs/run-and-profile.md).
+
 **The upgrade shop.** In the hub, stand at the stall (it shows an "Up: shop" prompt) and press `Up`
 to spend banked coins on permanent upgrades: Vitality (+10 max health per level), Swift Feet (+5%
 move speed) and Keen Edge (+3 sword damage), each with a few levels that get dearer. The world

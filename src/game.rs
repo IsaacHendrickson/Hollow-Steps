@@ -35,6 +35,8 @@ mod charm_tests;
 #[cfg(test)]
 mod death_tests;
 #[cfg(test)]
+mod difficulty_tests;
+#[cfg(test)]
 mod door_tests;
 mod dungeon_link;
 mod editor_save;

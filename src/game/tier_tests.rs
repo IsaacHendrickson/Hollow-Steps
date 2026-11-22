@@ -15,7 +15,7 @@ use crate::profile::Profile;
 pub(super) const RULES: &str = "(enemy_health_percent: 10.0, enemy_damage_percent: 20.0, \
     boss_health_percent: 20.0, boss_damage_percent: 50.0, coin_percent: 10.0, max_effective_tier: 20)";
 
-fn rules() -> Difficulty {
+pub(super) fn rules() -> Difficulty {
     Difficulty::from_ron(RULES).unwrap()
 }
 
@@ -29,7 +29,7 @@ pub(super) fn with_tier(game: &mut GameState, tier: u32) {
 
 /// A world with the test rules, keeping `keep_percent` of a run's coins, and a game in it whose
 /// profile is at `tier`.
-fn tiered_with(tier: u32, keep_percent: f32, rules: &str) -> (Scratch, GameState) {
+pub(super) fn tiered_with(tier: u32, keep_percent: f32, rules: &str) -> (Scratch, GameState) {
     let scratch = world(keep_percent);
     scratch.write("difficulty.ron", rules);
     let mut game = game_in(&scratch);
@@ -37,7 +37,7 @@ fn tiered_with(tier: u32, keep_percent: f32, rules: &str) -> (Scratch, GameState
     (scratch, game)
 }
 
-fn tiered(tier: u32) -> (Scratch, GameState) {
+pub(super) fn tiered(tier: u32) -> (Scratch, GameState) {
     tiered_with(tier, 100.0, RULES)
 }
 

@@ -17,6 +17,10 @@ use crate::assets::read_override;
 
 pub const FILE_NAME: &str = "difficulty.ron";
 const DEFAULTS: &str = include_str!("../data/difficulty.ron");
+/// The comment on top of a `difficulty.ron` the F4 window saves.
+const FILE_HEADER: &str = "// What a difficulty tier changes. This file replaces data/difficulty.ron whole, and F5 does\n\
+// not re-read it: restart the game after editing it by hand. The F4 window's Difficulty\n\
+// section edits and saves it. Each tier above 0 adds these percentages to the base numbers.\n";
 
 /// The most percent one tier may add to a number.
 pub const MAX_PERCENT: f32 = 100.0;
@@ -153,6 +157,13 @@ impl Difficulty {
     /// The file text, in the pretty format the editors use.
     pub fn to_ron(&self) -> Result<String, String> {
         crate::definition_editor::serialize(self)
+    }
+
+    /// What the F4 window writes to `assets/difficulty.ron`: `to_ron` under a short comment, and
+    /// only for rules that pass `validate`.
+    pub fn to_file_text(&self) -> Result<String, String> {
+        self.validate()?;
+        Ok(format!("{FILE_HEADER}{}", self.to_ron()?))
     }
 
     /// Every percent is a finite number from 0 to 100 and the cap is from 1 to 99. The error

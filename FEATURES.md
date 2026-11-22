@@ -158,6 +158,8 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Tier coins: a run's coins scaled before banking, result line "Tier N bonus: +X%"; `src/run/bonus.rs`; `src/run/bonus/tests.rs`, `src/game/tier_tests.rs`
 - Min tier on enemy/boss placements: out of play below it, kept by editor and Save; `src/game/tier_link.rs`; `tests/min_tier.rs`, `src/game/min_tier_tests.rs`
 - Editor Min tier field (0-99), one undo step; `src/editor_min_tier.rs`, `src/editor_panel/min_tier_field.rs`; `editor_panel/min_tier_field/tests.rs`
+- F4 Difficulty section: six numbers, read-out, Save writes difficulty.ron; `src/tuning_panel/difficulty.rs`; `difficulty/tests.rs`, `difficulty/draw_tests.rs`
+- Rules set in F4 apply at the next run only, saved staged; HUD "Tier N"; `src/game/tier_link.rs`, `src/run/screen.rs`; `src/game/difficulty_tests.rs`
 
 ## Tests and CI
 
