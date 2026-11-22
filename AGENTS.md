@@ -80,6 +80,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/gates.rs`, `dungeon_check`, `dungeon_map`: gate marks, Check dungeon, dungeon map (play, editor); `docs/gates.md`, `dungeon-check.md`, `dungeon-map.md`
 - `src/terrain.rs`, `terrain_style` (+ `terrain_style/`), `terrain_styles`, `game/terrain_link`: solids and collision, procedural look as a draw list, presets
 - `src/hazard.rs`, `hazard_look`, `editor_hazard`, `scene_hazards`, `editor_panel/hazard_panel`: terrain hazards; `docs/hazards.md`
+- `src/puzzle.rs`, `editor_puzzle`, `scene_puzzles`, `game/world_puzzles`, `editor_panel/puzzle_panel`: breakable walls, switches, barriers; `docs/puzzles.md`
 - `src/editor.rs`, `editor_files`, `editor_session`, `editor_history`, `editor_guard`, `editor_look`: room editor: edits, files, session, undo, unsaved guard
 - `src/editor_terrain.rs`, `editor_tools`, `editor_view`: room editor terrain edits, tools, canvas zoom, pan and grid
 - `src/room_name.rs`, `room_size`, `editor_name`, `editor_inbound`, `editor_selection`: room name and size, inbound arrivals, canvas selection

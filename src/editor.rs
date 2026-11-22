@@ -505,9 +505,7 @@ impl RoomDraft {
             Selection::Hazard(i) if i < self.layout.hazards.len() => {
                 self.layout.hazards.remove(i);
             }
-            Selection::Breakable(_) | Selection::Switch(_) | Selection::Barrier(_) => {
-                self.layout.delete_puzzle(selection)?
-            }
+            s if s.is_puzzle() => self.layout.delete_puzzle(s)?,
             Selection::Exit(i) | Selection::Destination(i) if i < self.layout.exits.len() => {
                 self.layout.exits.remove(i);
                 self.layout.drop_gates_without_exit();
