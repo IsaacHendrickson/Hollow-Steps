@@ -14,6 +14,9 @@ use crate::room::{Room, RoomEdge, RoomId};
 use crate::room_name::room_title;
 
 mod discovery;
+mod editor;
+#[cfg(test)]
+mod editor_tests;
 mod grid;
 #[cfg(test)]
 mod grid_tests;
@@ -25,6 +28,7 @@ mod play_tests;
 mod tests;
 
 pub use discovery::MapDiscovery;
+pub use editor::{EditorMap, EditorMapRoom};
 pub use grid::{screen_layout, MapGrid, MapScreen, BOX_FRACTION, MAX_PITCH};
 use place::{nearest_free, step, Wide};
 pub use play::{PlayMap, PlayRoom};

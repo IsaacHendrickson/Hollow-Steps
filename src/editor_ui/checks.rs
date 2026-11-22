@@ -1,5 +1,6 @@
 //! The editor window's two checks beside the room: what the last Check dungeon found
-//! (`docs/dungeon-check.md`) and the Reach preview (`docs/reach.md`). The preview's interval is
+//! (`docs/dungeon-check.md`) and the Reach preview (`docs/reach.md`), and whether the Dungeon map
+//! window is open (`docs/dungeon-map.md`). The preview's interval is
 //! measured on the real player, which takes a moment, so it is measured only while the Reach
 //! toggle is on and again only when the numbers behind it change (`ReachKey`).
 use hollow_steps::editor::{EditorSession, Selection};
@@ -19,6 +20,8 @@ pub(crate) struct ChecksUi {
     pub(crate) dungeon: Option<Vec<String>>,
     /// The Reach toggle of the View section.
     pub(crate) reach: bool,
+    /// The Dungeon map window is open. Opening another room closes it.
+    pub(crate) map_window: bool,
     /// The interval and the numbers it was measured from.
     pub(super) measured: Option<(ReachKey, Interval)>,
 }

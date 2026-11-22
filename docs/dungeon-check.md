@@ -41,6 +41,7 @@ cannot reach is really unreachable.
 | Exit needs an ability that cannot be picked up before it | the gate's entrance is reached, its ability never is, and no other entrance lets the exit be used |
 | Trap | an entrance the player can reach where no exit can be taken (below) |
 | A gate names an entrance the room does not have | `docs/gates.md`; changes no other result |
+| Two rooms have the same map cell | `docs/dungeon-map.md`; names both, one problem per room the map moved |
 
 ### Trap
 

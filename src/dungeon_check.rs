@@ -12,6 +12,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use crate::ability::Ability;
+use crate::dungeon_map::{MapLayout, MapRoomInput};
 use crate::editor::RoomLayout;
 use crate::gates::{entrances_of, Entrance, ExitRef};
 use crate::item::Item;
@@ -28,7 +29,7 @@ pub use problem::Problem;
 
 /// Checks the dungeon made of `rooms` (every room, the hub included) under the run rules
 /// `config`. Empty when nothing is wrong. The order is fixed: run rules, unreachable rooms, locks,
-/// key counts, abilities, traps, gates that name no entrance.
+/// key counts, abilities, traps, gates that name no entrance, rooms that share a map cell.
 pub fn check(rooms: &[(RoomId, RoomLayout)], config: &RunConfig) -> Vec<Problem> {
     let graph = Graph::new(rooms, config);
     let mut problems = Vec::new();
@@ -42,6 +43,7 @@ pub fn check(rooms: &[(RoomId, RoomLayout)], config: &RunConfig) -> Vec<Problem>
     graph.abilities(&walk, &mut problems);
     graph.traps(&starts, &mut problems);
     graph.orphan_gates(&mut problems);
+    graph.map_cells(&mut problems);
     problems
 }
 
@@ -462,6 +464,26 @@ impl<'a> Graph<'a> {
                     from.map_or_else(|| room_title(*room, None), |found| found.title.clone());
                 format!("the arrival from {from} ({})", exit.describe())
             }
+        }
+    }
+
+    /// Rooms that name the same map cell: the map keeps the lower room id there and moves the other.
+    fn map_cells(&self, problems: &mut Vec<Problem>) {
+        let inputs: Vec<MapRoomInput> = self
+            .rooms
+            .iter()
+            .map(|dungeon| MapRoomInput::from_layout(dungeon.id, dungeon.layout))
+            .collect();
+        let title = |id: RoomId| {
+            let found = self.rooms.iter().find(|dungeon| dungeon.id == id);
+            found.map_or_else(|| room_title(id, None), |dungeon| dungeon.title.clone())
+        };
+        for conflict in MapLayout::build(&inputs).conflicts {
+            problems.push(Problem::SameMapCell {
+                first: title(conflict.kept),
+                second: title(conflict.moved),
+                cell: conflict.cell,
+            });
         }
     }
 

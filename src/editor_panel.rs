@@ -21,6 +21,8 @@ mod link_dialog;
 mod link_panel;
 mod lock_panel;
 mod look_panel;
+mod map_panel;
+mod map_window;
 mod movement_field;
 mod name_dialog;
 #[cfg(test)]
@@ -239,6 +241,7 @@ pub(super) fn draw_panel(
                 });
             });
         });
+    map_window::draw_map_window(ctx, editor, state, &mut open);
     PanelResponse {
         save,
         test,

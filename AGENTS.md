@@ -77,7 +77,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/pause_menu.rs` (+ `pause_menu/`), `shop_menu` (+ `shop_menu/`), `keybinds` (+ `keybinds/`): pause menu, hub shop, rebindable controls; `docs/keybinds.md`
 - `src/room.rs`, `door_exit`, `ability`, `exit_lock`, `exit_link`, `exit_arrival`: rooms, door exits, abilities, locked exits, exit links; `docs/door-exits.md`
 - `src/reach.rs`, `reach/editor`, `reach/text`: reach envelope (jump height, longest gap) measured on the real `Player`, preview, text; `docs/reach.md`
-- `src/gates.rs`, `dungeon_check`, `dungeon_map`: gate marks, Check dungeon, dungeon map; `docs/gates.md`, `dungeon-check.md`, `dungeon-map.md`
+- `src/gates.rs`, `dungeon_check`, `dungeon_map`: gate marks, Check dungeon, dungeon map (play, editor); `docs/gates.md`, `dungeon-check.md`, `dungeon-map.md`
 - `src/terrain.rs`, `terrain_style` (+ `terrain_style/`), `terrain_styles`, `game/terrain_link`: solids and collision, procedural look as a draw list, presets
 - `src/hazard.rs`, `hazard_look`, `editor_hazard`, `scene_hazards`, `editor_panel/hazard_panel`: terrain hazards; `docs/hazards.md`
 - `src/editor.rs`, `editor_files`, `editor_session`, `editor_history`, `editor_guard`, `editor_look`: room editor: edits, files, session, undo, unsaved guard
