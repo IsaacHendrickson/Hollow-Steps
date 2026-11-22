@@ -49,6 +49,7 @@ impl FieldSpec {
 pub enum Field {
     MoveSpeed,
     JumpSpeed,
+    DoubleJumpSpeed,
     Gravity,
     MaxFallSpeed,
     HeldJumpGravityMultiplier,
@@ -100,7 +101,7 @@ const fn spec(
     }
 }
 
-const SPECS: [FieldSpec; 27] = [
+const SPECS: [FieldSpec; 28] = [
     spec(
         "player.move_speed",
         "Move speed",
@@ -114,6 +115,16 @@ const SPECS: [FieldSpec; 27] = [
     spec(
         "player.jump_speed",
         "Jump speed",
+        "Jump",
+        "px/s",
+        1.0,
+        2000.0,
+        1.0,
+        0,
+    ),
+    spec(
+        "player.double_jump_speed",
+        "Double jump speed",
         "Jump",
         "px/s",
         1.0,
@@ -365,9 +376,10 @@ const SPECS: [FieldSpec; 27] = [
 ];
 
 impl Field {
-    pub const ALL: [Field; 27] = [
+    pub const ALL: [Field; 28] = [
         Field::MoveSpeed,
         Field::JumpSpeed,
+        Field::DoubleJumpSpeed,
         Field::Gravity,
         Field::MaxFallSpeed,
         Field::HeldJumpGravityMultiplier,
@@ -404,6 +416,7 @@ impl Field {
         match self {
             Field::MoveSpeed => player.move_speed,
             Field::JumpSpeed => player.jump_speed,
+            Field::DoubleJumpSpeed => player.double_jump_speed,
             Field::Gravity => player.gravity,
             Field::MaxFallSpeed => player.max_fall_speed,
             Field::HeldJumpGravityMultiplier => player.held_jump_gravity_multiplier,
@@ -438,6 +451,7 @@ impl Field {
         match self {
             Field::MoveSpeed => player.move_speed = value,
             Field::JumpSpeed => player.jump_speed = value,
+            Field::DoubleJumpSpeed => player.double_jump_speed = value,
             Field::Gravity => player.gravity = value,
             Field::MaxFallSpeed => player.max_fall_speed = value,
             Field::HeldJumpGravityMultiplier => player.held_jump_gravity_multiplier = value,

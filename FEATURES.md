@@ -40,6 +40,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Parallax background layers per room (procedural shapes, depth), drawn behind terrain; `src/background.rs`; `tests/background.rs`, manual
 - Sound hooks: `data/audio.ron` maps events to sound names and volumes, missing files skipped; `src/sound.rs`; `src/sound/tests.rs`, manual
 - Collectible Dash (facing, duration, cooldown, one air dash); `src/item.rs`, `src/player.rs`; `tests/items.rs`
+- Collectible Double Jump: one air jump, refilled on landing; tuned in Player panel and F4; `src/player/air_jump.rs`; `src/player/air_jump_tests.rs`
 - Player health, invincibility, respawn; `src/health.rs`; `tests/enemies.rs`
 - Health and damage scale: values are ten times the old whole hit (`HIT_DAMAGE` 10, `MAX_HEALTH` 50), stored as `u16`; `src/health.rs`; `tests/damage_scale.rs`
 - Player vitals: trailing health bar, regain on sword hits, mana from kills, hold-to-heal; `data/vitals.ron`; `src/vitals.rs`; `src/vitals/tests.rs`, manual

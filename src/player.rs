@@ -43,6 +43,9 @@ pub struct PlayerInput {
 pub struct PlayerConfig {
     pub move_speed: f32,
     pub jump_speed: f32,
+    /// Upward speed of the air jump `Ability::DoubleJump` gives (`air_jump`). Only that ability
+    /// uses it; charms and upgrades cannot change it.
+    pub double_jump_speed: f32,
     pub gravity: f32,
     pub max_fall_speed: f32,
     pub held_jump_gravity_multiplier: f32,
@@ -117,6 +120,9 @@ pub struct Player {
     dash_remaining: f32,
     dash_cooldown: f32,
     air_dash_used: bool,
+    /// The one air jump of `Ability::DoubleJump` has been taken since the player last stood on
+    /// something (`air_jump`).
+    air_jump_used: bool,
     health: Health,
     attack: Attack,
     coyote_remaining: f32,
@@ -144,6 +150,7 @@ impl Player {
             dash_remaining: 0.0,
             dash_cooldown: 0.0,
             air_dash_used: false,
+            air_jump_used: false,
             health: Health::new(config.max_health, config.invincibility_seconds),
             attack: Attack::default(),
             coyote_remaining: 0.0,
@@ -292,6 +299,7 @@ impl Player {
         self.dash_remaining = 0.0;
         self.dash_cooldown = 0.0;
         self.air_dash_used = false;
+        self.air_jump_used = false;
         self.falling = false;
         self.resolve_horizontal_bounds(bounds);
         self.resolve_floor(bounds, &Terrain::default());
@@ -356,6 +364,9 @@ impl Player {
             && (self.grounded || self.coyote_remaining > 0.0)
         {
             self.start_jump();
+        }
+        if self.dash_remaining == 0.0 {
+            self.try_air_jump();
         }
 
         if input.jump_pressed {
@@ -516,6 +527,7 @@ impl Player {
             self.velocity.y = 0.0;
             self.grounded = true;
             self.air_dash_used = false;
+            self.air_jump_used = false;
         } else {
             self.grounded = false;
         }
@@ -524,6 +536,9 @@ impl Player {
 
 #[cfg(test)]
 mod ability_tests;
+mod air_jump;
+#[cfg(test)]
+mod air_jump_tests;
 #[cfg(test)]
 mod ceiling_tests;
 #[cfg(test)]

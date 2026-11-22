@@ -69,7 +69,8 @@ fn keys_are_items_named_key_n_and_listed_for_placement() {
         assert_eq!(Item::Key(id).grants(), None, "a key is not an ability");
         assert!(Item::Key(id).check().is_ok());
     }
-    assert_eq!(Item::ALL.len(), 2 + usize::from(LAST_KEY));
+    // Amber Shard, Dash and Double Jump, then the keys.
+    assert_eq!(Item::ALL.len(), 3 + usize::from(LAST_KEY));
     assert!(Item::Key(0).check().is_err() && Item::Key(9).check().is_err());
     assert!(Item::Dash.check().is_ok() && Item::AmberShard.check().is_ok());
     assert_eq!(

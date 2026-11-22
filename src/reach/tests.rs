@@ -10,6 +10,7 @@ fn fixture() -> PlayerConfig {
     PlayerConfig {
         move_speed: 200.0,
         jump_speed: 500.0,
+        double_jump_speed: 400.0,
         gravity: 1500.0,
         max_fall_speed: 900.0,
         held_jump_gravity_multiplier: 0.5,

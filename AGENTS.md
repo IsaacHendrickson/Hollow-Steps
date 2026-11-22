@@ -66,6 +66,7 @@ Details of every module: docs/modules.md (open it only when the task needs it).
 Gameplay modules (pure rules, no rendering):
 
 - `src/player.rs`, `player/run_reset`, `health`, `vitals`, `vitals/fill`, `combat`, `damage`: movement, dash, collision; health, mana; melee; one damage path
+- `src/player/air_jump.rs`: Double Jump's air jump, one per flight, refilled on landing; `double_jump_speed` in player.ron (Player panel, F4)
 - `src/tuning.rs`, `tuning_fields`, `player_editor`, `player_history`, `player_look_editor`, `player_body`: player.ron, vitals.ron values, drafts, undo, look
 - `src/enemy.rs` (+ `enemy/`), `pose`, `body` (+ `body/`), `body_debug`, `visual_box`: enemies, poses, RON body templates, overlays, drawn box vs hitbox
 - `src/behavior.rs` (+ `behavior/`), `action_runtime` (+ `action_runtime/`), `preset`, `action_parameters`, `behavior_values`: data-driven actions, presets

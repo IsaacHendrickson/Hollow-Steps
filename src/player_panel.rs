@@ -163,6 +163,7 @@ pub(crate) const SECTIONS: [(&str, &[Field]); 8] = [
         "Jump",
         &[
             Field::JumpSpeed,
+            Field::DoubleJumpSpeed,
             Field::Gravity,
             Field::MaxFallSpeed,
             Field::HeldJumpGravityMultiplier,

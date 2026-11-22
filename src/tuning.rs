@@ -83,6 +83,8 @@ struct PlayerFile {
     dash_duration: f32,
     dash_cooldown: f32,
     // Added after the first files were written: a file without them gets today's values.
+    #[serde(default = "default_double_jump_speed")]
+    double_jump_speed: f32,
     #[serde(default = "default_max_health")]
     max_health: u16,
     #[serde(default = "default_invincibility_seconds")]
@@ -109,6 +111,12 @@ struct StrikeFile {
 
 // What an older `player.ron` (written before these numbers were in it) means: the values the
 // game used when they were constants.
+/// The placeholder for a file without `double_jump_speed`: 0.8 times the shipped jump speed
+/// (480). The owner tunes it in the Player panel or F4; a test keeps it at that ratio.
+fn default_double_jump_speed() -> f32 {
+    0.8 * 480.0
+}
+
 fn default_max_health() -> u16 {
     crate::health::MAX_HEALTH
 }
@@ -144,6 +152,7 @@ impl From<TuningFile> for TuningConfig {
             player: PlayerConfig {
                 move_speed: player.move_speed,
                 jump_speed: player.jump_speed,
+                double_jump_speed: player.double_jump_speed,
                 gravity: player.gravity,
                 max_fall_speed: player.max_fall_speed,
                 held_jump_gravity_multiplier: player.held_jump_gravity_multiplier,
@@ -197,6 +206,7 @@ impl From<&TuningConfig> for TuningFile {
                 dash_speed: player.dash_speed,
                 dash_duration: player.dash_duration,
                 dash_cooldown: player.dash_cooldown,
+                double_jump_speed: player.double_jump_speed,
                 max_health: player.max_health,
                 invincibility_seconds: player.invincibility_seconds,
             },
@@ -333,6 +343,34 @@ mod tests {
         assert_eq!(config.player.coyote_seconds, 0.1);
         assert_eq!(config.player.jump_buffer_seconds, 0.12);
         assert_eq!(config.player.size, Vec2::new(32.0, 48.0));
+    }
+
+    #[test]
+    fn the_shipped_double_jump_speed_is_the_placeholder_and_a_missing_one_gets_it() {
+        let config = TuningConfig::default();
+        assert_eq!(
+            config.player.double_jump_speed,
+            0.8 * config.player.jump_speed,
+            "a placeholder the owner tunes"
+        );
+        // A file written before the ability has no such line and gets the same number.
+        let without: String = DEFAULTS
+            .lines()
+            .filter(|line| !line.contains("double_jump_speed"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(!without.contains("double_jump_speed"));
+        let older = TuningConfig::parse(&without, "player.ron").unwrap();
+        assert_eq!(
+            older.player.double_jump_speed,
+            config.player.double_jump_speed
+        );
+        // A file that names it, even out of range, is judged like any other speed.
+        let bad = DEFAULTS.replace("double_jump_speed: 384.0", "double_jump_speed: 0.0");
+        let error = TuningConfig::parse(&bad, "player.ron").unwrap_err();
+        assert!(error.contains("player.double_jump_speed"), "{error}");
+        let past = DEFAULTS.replace("double_jump_speed: 384.0", "double_jump_speed: 2000.5");
+        assert!(TuningConfig::parse(&past, "player.ron").is_err());
     }
 
     #[test]

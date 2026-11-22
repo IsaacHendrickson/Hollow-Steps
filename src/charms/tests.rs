@@ -422,3 +422,53 @@ fn max_mana_never_goes_below_zero_and_the_starting_mana_follows_it() {
     let (_, with) = effective(&tuning, &vitals, &worn(&catalog, &["heart", "sharp"]));
     assert_eq!((with.max_mana, with.mana_start), (0.0, 0.0));
 }
+
+// ---- the jump numbers -----------------------------------------------------------------
+
+/// Charms and upgrades share these effect kinds (an upgrade's effect is an `Effect`, and its
+/// maximum is summed into `MaxTotals`). None of them touches a jump number: the reach envelope
+/// (`crate::reach`) measures the jump and the air jump of Double Jump from the base numbers, and
+/// `PlayerConfig::double_jump_speed` is meant to be changed only in `player.ron`.
+///
+/// This match has no wildcard on purpose: a jump effect, or any new kind, stops it compiling,
+/// and whoever adds it has to decide here what it does to `jump_speed` and `double_jump_speed`
+/// and how the reach measure (`Interval`) accounts for it.
+fn changes_no_jump_number(effect: Effect) -> bool {
+    match effect {
+        Effect::MaxHealth(_) | Effect::MoveSpeedPercent(_) | Effect::SwordDamage(_) => true,
+    }
+}
+
+#[test]
+fn no_charm_or_upgrade_effect_changes_a_jump_number() {
+    let (base, vitals) = base();
+    let largest = [
+        Effect::MaxHealth(MAX_HEALTH_BONUS),
+        Effect::MoveSpeedPercent(MAX_SPEED_PERCENT),
+        Effect::SwordDamage(MAX_DAMAGE_BONUS),
+    ];
+    for effect in largest {
+        assert!(changes_no_jump_number(effect), "{effect:?}");
+        // Worn as a charm, then as a permanent upgrade effect.
+        let charm = charm("c", "C", 0.0, effect);
+        let (worn, _) = effective(&base, &vitals, &[&charm]);
+        let (upgraded, _) = effective_with(&base, &vitals, &[], &[effect]);
+        for result in [worn, upgraded] {
+            assert_eq!(
+                result.player.jump_speed, base.player.jump_speed,
+                "{effect:?}"
+            );
+            assert_eq!(
+                result.player.double_jump_speed, base.player.double_jump_speed,
+                "{effect:?}"
+            );
+            assert_eq!(result.player.gravity, base.player.gravity, "{effect:?}");
+        }
+    }
+    // The upgrades' maximum is added up by these kinds and no other; a new field fails here.
+    let crate::upgrades::MaxTotals {
+        max_health: _,
+        move_speed_percent: _,
+        sword_damage: _,
+    } = crate::upgrades::MaxTotals::default();
+}
