@@ -32,11 +32,13 @@ pub enum Action {
     /// Held while swinging in the air, strikes downward.
     Down,
     Inventory,
+    /// Opens and closes the dungeon map (`crate::dungeon_map`).
+    Map,
 }
 
 impl Action {
     /// Every action in the order the settings screen lists them.
-    pub const ALL: [Action; 9] = [
+    pub const ALL: [Action; 10] = [
         Action::MoveLeft,
         Action::MoveRight,
         Action::Jump,
@@ -46,6 +48,7 @@ impl Action {
         Action::Up,
         Action::Down,
         Action::Inventory,
+        Action::Map,
     ];
 
     /// The name shown on the settings screen.
@@ -60,6 +63,7 @@ impl Action {
             Self::Up => "Up (pick up)",
             Self::Down => "Down",
             Self::Inventory => "Inventory",
+            Self::Map => "Map",
         }
     }
 
@@ -75,6 +79,7 @@ impl Action {
             Self::Up => "up",
             Self::Down => "down",
             Self::Inventory => "inventory",
+            Self::Map => "map",
         }
     }
 
@@ -158,6 +163,7 @@ const DEFAULTS: [(Action, KeyCode, Option<KeyCode>); Action::ALL.len()] = [
     (Action::Up, KeyCode::Up, None),
     (Action::Down, KeyCode::Down, None),
     (Action::Inventory, KeyCode::I, None),
+    (Action::Map, KeyCode::M, None),
 ];
 
 impl Default for Keybinds {
@@ -278,6 +284,8 @@ impl Keybinds {
     }
 }
 
+#[cfg(test)]
+mod map_tests;
 #[cfg(test)]
 mod store_tests;
 #[cfg(test)]

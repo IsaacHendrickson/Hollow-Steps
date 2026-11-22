@@ -42,10 +42,34 @@ run starts and when one ends. It is keyed by room id, so an editor Save, which r
 and F5 keep it. A test room records nothing. With no hub in `run.ron` nothing ever clears it: it
 starts with the start room and grows as the player walks.
 
+## The map screen
+
+Press `M` (the **Map** action: rebindable in Settings like Inventory, shipped key `M`, no
+alternate; a `keybinds.ron` from before the action existed loads with `M`, and **Reset keybinds**
+brings it back). The screen opens over the world and freezes it like the inventory. `Esc` or the
+Map key closes it; a run ending or the editor opening closes it too. It does not open while the pause
+menu, the inventory, the shop, the result screen, the editor or a test room is up, and the inventory
+does not open over it.
+
+`PlayMap` (pure, `dungeon_map/play.rs`) decides what is drawn: the rooms visited this run (filled,
+with their name), the rooms one exit away from one of those (an empty box, no name), and the current
+room (marked). A room that is neither is not drawn at all. Links start at a visited room, so an
+exit is shown once the room it leaves has been seen: an arrow head when it is one-way, and the key
+number of a locked exit.
+
+`screen_layout` and `MapGrid::fit` (`dungeon_map/grid.rs`) turn cells into rectangles in the
+960x540 virtual screen: the panel is inset from the view, the grid is scaled to fit the panel
+area with a cap on the cell pitch (`MAX_PITCH`), centered, and the box is `BOX_FRACTION` of a cell.
+One room gives one centered box of at most the cap; 40 rooms shrink to fit and never leave the
+panel. The panel is placed with `camera::anchored`; `src/hud_map.rs` only paints the result, in
+virtual coordinates (no window-size constants).
+
 ## Where the code is
 
 `src/dungeon_map.rs` (types and `build`), `src/dungeon_map/place.rs` (the cell rules),
-`src/dungeon_map/discovery.rs` (`MapDiscovery`), tests in `src/dungeon_map/tests.rs`;
+`src/dungeon_map/discovery.rs` (`MapDiscovery`), `src/dungeon_map/grid.rs` (screen layout),
+`src/dungeon_map/play.rs` (`PlayMap`), tests in `src/dungeon_map/tests.rs`, `grid_tests.rs`,
+`play_tests.rs`; `src/hud_map.rs` (drawing, bin only); `src/game/map_screen_tests.rs`;
 `src/game/map_link.rs` (`GameState` owns the discovery and builds the map of the live rooms), tests
 in `src/game/map_tests.rs`; `Room::map_cell` (`src/room.rs`) and `RoomLayout::map_cell`
 (`src/editor.rs`).

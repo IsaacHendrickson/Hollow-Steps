@@ -189,7 +189,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/gates.rs`: gate marks (entrance to exit needs an ability), play never reads them; editor `gate_panel`; `docs/gates.md`
 - `src/dungeon_check.rs`: Check dungeon: unreachable rooms, locks, key counts, ability gates, traps, orphan gates; pure; `docs/dungeon-check.md`
 - `src/dungeon_map.rs` (+ `dungeon_map/`): the dungeon map as pure data: `MapLayout::build` puts every room in a grid cell (its own `map_cell`, else by walking its exits), reports two rooms on one cell, and lists the links (one-way, key number); `place.rs` (the cell rules), `discovery.rs` (`MapDiscovery`, rooms seen this run, by room id); `docs/dungeon-map.md`
-- `src/game/map_link.rs`: `GameState` owns the `MapDiscovery` (recorded on entering a room and each tick, cleared when a run starts or ends, nothing in a test room) and builds `dungeon_map()` from the live rooms
+- `src/game/map_link.rs`: `GameState` owns the `MapDiscovery` (recorded on entering a room and each tick, cleared when a run starts or ends, nothing in a test room) and builds `dungeon_map()` from the live rooms; `toggle_map`/`map_open` (opens only in plain play, freezes like the inventory), `play_map()` for what the screen shows
+- `src/hud_map.rs` (bin): paints the map screen from `screen_layout`, `MapGrid` and `PlayMap` (`dungeon_map/grid.rs`, `play.rs`, pure and tested); `main.rs` binds the Map key
 - `src/reach/editor.rs`: reach preview inputs and outlines; `src/reach/text.rs` the reach line shown after a save; `docs/reach.md`
 - `src/terrain.rs`: solid rectangles, axis-separated substepped collision, validation
 - `src/hazard.rs` (+ `hazard_look`, `editor_hazard`, `scene_hazards`, `editor_panel/hazard_panel`): terrain hazards; `docs/hazards.md`, `docs/modules.md`

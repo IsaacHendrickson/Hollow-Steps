@@ -8,12 +8,14 @@
 //! A test room records nothing. With no hub nothing is ever cleared: the map starts with the
 //! start room and grows as the player walks.
 use super::GameState;
-use crate::dungeon_map::{MapDiscovery, MapLayout, MapRoomInput};
+use crate::dungeon_map::{MapDiscovery, MapLayout, MapRoomInput, PlayMap};
 
 /// What the map screen knows about the run.
 #[derive(Debug, Default)]
 pub(super) struct MapState {
     pub(super) discovery: MapDiscovery,
+    /// The map screen is up over the frozen world.
+    pub(super) open: bool,
 }
 
 impl GameState {
@@ -27,6 +29,34 @@ impl GameState {
     pub fn dungeon_map(&self) -> MapLayout {
         let rooms: Vec<MapRoomInput> = self.rooms.iter().map(MapRoomInput::from_room).collect();
         MapLayout::build(&rooms)
+    }
+
+    /// What the map screen draws now: the rooms seen this run, the rooms one exit from them and
+    /// the exits of the seen rooms, with the room the player is in marked.
+    pub fn play_map(&self) -> PlayMap {
+        PlayMap::new(&self.dungeon_map(), &self.map.discovery, self.room().id)
+    }
+
+    /// True while the map screen is up. The world stands still then.
+    pub fn map_open(&self) -> bool {
+        self.map.open
+    }
+
+    /// The Map key: opens the map over the frozen world, or closes it. It does not open while
+    /// the editor, a test room, the pause menu, the inventory, the shop or a run's result is up
+    /// (closing is always allowed).
+    pub fn toggle_map(&mut self) {
+        if self.map.open {
+            self.map.open = false;
+        } else if self.editor.is_none()
+            && self.test_run.is_none()
+            && !self.inventory_open
+            && !self.pause_menu.is_open()
+            && !self.shop.is_open()
+            && !self.showing_result()
+        {
+            self.map.open = true;
+        }
     }
 
     /// Records the room the player is in as visited. A test room is a sandbox and records

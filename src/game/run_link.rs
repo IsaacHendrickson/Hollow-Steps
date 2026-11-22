@@ -201,6 +201,7 @@ impl GameState {
         self.run.phase = RunPhase::Result(result);
         // The run is over, and so is what it showed on the map.
         self.map.discovery.clear();
+        self.map.open = false;
         self.inventory_open = false;
         self.pause_menu.close();
     }
@@ -221,6 +222,7 @@ impl GameState {
         self.current = current;
         // A new run has seen nothing yet.
         self.map.discovery.clear();
+        self.map.open = false;
         self.coin_count = 0;
         self.taken_items = TakenItems::default();
         // Every door is locked again, and no notice outlives the run.

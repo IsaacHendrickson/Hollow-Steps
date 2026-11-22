@@ -14,6 +14,9 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Check dungeon: unreachable rooms, unopenable locks, unobtainable abilities, traps; editor button; `src/dungeon_check.rs`; `tests/shipped_content.rs`
 - Dungeon map data: room `map_cell` (-64..64) or placement by exits; conflicts, one-way links, key numbers; `src/dungeon_map.rs`; `src/dungeon_map/tests.rs`
 - Map discovery: rooms seen this run, cleared as a run starts or ends, kept by Save, none in a test room; `src/game/map_link.rs`; `src/game/map_tests.rs`
+- Map screen (M, Esc closes): seen rooms named, next rooms empty, one-way arrows, key numbers; `src/hud_map.rs`, `src/dungeon_map/grid.rs`; `src/dungeon_map/grid_tests.rs`, manual
+- Map screen rules: freezes the world, shut in editor, test room, pause menu, shop, result; `src/game/map_link.rs`; `src/game/map_screen_tests.rs`
+- Map keybind: rebindable Map action (default M), older keybinds files keep M; `src/keybinds.rs`; `src/keybinds/map_tests.rs`
 - Reach preview: Reach toggle outlines a jump with and without Dash; reach line after Player or F4 save; `src/reach/editor.rs`; `tests/reach_editing.rs`
 - Fixed 120 Hz step, capped catch-up, edge input on the first tick only; same jump apex at 30/60/144 fps; `src/timestep.rs`; `tests/timestep.rs`
 - Follow camera: smoothing, look-ahead, clamped to room bounds plus boundary walls; `src/camera.rs`; `tests/camera_bounds.rs`, manual

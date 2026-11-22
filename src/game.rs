@@ -56,6 +56,8 @@ mod keybind_tests;
 mod located_event_tests;
 mod map_link;
 #[cfg(test)]
+mod map_screen_tests;
+#[cfg(test)]
 mod map_tests;
 mod pause_link;
 #[cfg(test)]
@@ -284,7 +286,11 @@ impl GameState {
     /// Opens or closes the inventory. Ignored while the pause menu is open or a run's result
     /// shows. An old charm refusal is not kept for the next time.
     pub fn toggle_inventory(&mut self) {
-        if self.pause_menu.is_open() || self.showing_result() || self.shop.is_open() {
+        if self.pause_menu.is_open()
+            || self.showing_result()
+            || self.shop.is_open()
+            || self.map.open
+        {
             return;
         }
         self.inventory_open = !self.inventory_open;
@@ -326,6 +332,7 @@ impl GameState {
         }
         if self.editor.take().is_none() {
             self.shop.close();
+            self.map.open = false;
             self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
             self.attach_player_draft();
             self.attach_catalog_drafts();

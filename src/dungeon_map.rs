@@ -14,12 +14,20 @@ use crate::room::{Room, RoomEdge, RoomId};
 use crate::room_name::room_title;
 
 mod discovery;
+mod grid;
+#[cfg(test)]
+mod grid_tests;
 mod place;
+mod play;
+#[cfg(test)]
+mod play_tests;
 #[cfg(test)]
 mod tests;
 
 pub use discovery::MapDiscovery;
+pub use grid::{screen_layout, MapGrid, MapScreen, BOX_FRACTION, MAX_PITCH};
 use place::{nearest_free, step, Wide};
+pub use play::{PlayMap, PlayRoom};
 
 /// A cell of the map grid: (column, row).
 pub type Cell = (i32, i32);

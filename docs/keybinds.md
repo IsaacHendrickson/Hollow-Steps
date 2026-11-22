@@ -1,7 +1,7 @@
 ## Keybinds: design note
 
 The player's keys can be changed in the pause menu: `Esc`, **Settings**. Each action
-(move left, move right, jump, attack, dash, heal, up, down, inventory) has a **primary**
+(move left, move right, jump, attack, dash, heal, up, down, inventory, map) has a **primary**
 key, which is always set, and an optional **alternate** key. Press a row's key button (or
 select it and press Enter), then press the new key. Left/Right (or A/D) switch between a
 row's two keys, **Delete** empties an alternate key, **Esc** cancels, and **Reset keybinds**
@@ -9,7 +9,7 @@ puts everything back on the shipped keys. Changes apply at once and are saved at
 
 Shipped keys: move `A`/`Left` and `D`/`Right`, jump `Space`/`Z`, attack `X`, dash
 `Left Shift`/`Right Shift`, heal `C`, up (pick up, strike up) `Up`, down (strike down)
-`Down`, inventory `I`.
+`Down`, inventory `I`, map `M`.
 
 ### Rules
 

@@ -93,7 +93,7 @@ Composition and front end:
 - `src/game/test_room.rs`, `game/editor_save`, `game/map_link`: Test room (plays the editor draft), editor save (checks, staged write), rooms seen this run
 - `src/charm_menu.rs` (+ `charm_menu/`), `charm_input`, `hud_charms`, `charm_panel` (+ `charm_panel/`), `game/charm_link`, `game/charm_editor_link`: Charms UI
 - `src/hud.rs`, `hud_bars` (+ `hud_bars/`), `hud_bars_draw`, `hud_damage`, `hud_layout`, `hud_run`: HUD, health and mana bars, result screen, inventory
-- `src/shop_input.rs`, `hud_shop`, `scene_shop`: hub shop input and drawing
+- `src/shop_input.rs`, `hud_shop`, `scene_shop`, `hud_map`: hub shop input and drawing, map screen
 - `src/editor_panel.rs` (+ `editor_panel/`), `editor_ui` (+ `editor_ui/`): egui editor panel frame, one sub-module per panel; window state and canvas frame
 - `src/editor_panel/room_name_field.rs`, `editor_panel/name_dialog`, `editor_panel/link_dialog`, `editor_panel/link_panel`: room name, New room, exit-link UI
 - `src/editor_visuals.rs`, `terrain_canvas`, `terrain_draw`, `body_draw`, `scene`, `effects`, `postfx_pass`: Macroquad drawing: canvas, terrain, bodies, effects
