@@ -28,6 +28,7 @@ mod name_dialog;
 #[cfg(test)]
 mod panel_tests;
 pub(crate) mod property;
+mod puzzle_panel;
 mod reach_panel;
 mod room_name_field;
 mod room_tools;

@@ -400,6 +400,7 @@ pub(crate) fn draw_editor(
     }
     arrival_labels::draw(&drawn, editor, &canvas);
     lock_labels::draw(&drawn, editor, &canvas);
+    puzzle_labels::draw(&drawn, editor, &canvas);
     checks::draw_reach(&mut state.checks, state.selected, editor, &canvas);
     if body_debug && state.destination.is_none() {
         // Preview authored placements and unsaved definitions without touching runtime bodies.
@@ -596,5 +597,9 @@ mod markers;
 mod naming;
 #[cfg(test)]
 mod naming_tests;
+#[cfg(test)]
+mod puzzle_label_tests;
+mod puzzle_labels;
+mod puzzle_markers;
 #[cfg(test)]
 mod tests;

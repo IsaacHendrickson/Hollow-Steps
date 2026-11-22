@@ -227,6 +227,8 @@ impl GameState {
         self.taken_items = TakenItems::default();
         // Every door is locked again, and no notice outlives the run.
         self.locks = super::world_locks::Locks::default();
+        // Every wall is whole and every switch off again.
+        self.puzzles = super::world_puzzles::Puzzles::default();
         self.charm_state = CharmState::starting(&self.charms);
         // Charms owned at the start are not lying in the rebuilt rooms.
         self.prune_owned_charm_placements();

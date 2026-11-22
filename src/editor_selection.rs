@@ -10,6 +10,11 @@ pub enum Selection {
     Charm(usize),
     /// A hazard of the room (`RoomLayout::hazards`), moved by its center.
     Hazard(usize),
+    /// A breakable wall, a switch or a barrier of the room (`RoomLayout::breakables`,
+    /// `switches`, `barriers`), moved by its center.
+    Breakable(usize),
+    Switch(usize),
+    Barrier(usize),
     PatrolLeft(usize),
     PatrolRight(usize),
     Spawn,
@@ -29,6 +34,14 @@ pub enum Selection {
 }
 
 impl Selection {
+    /// A breakable wall, a switch or a barrier (`editor_puzzle`).
+    pub fn is_puzzle(self) -> bool {
+        matches!(
+            self,
+            Selection::Breakable(_) | Selection::Switch(_) | Selection::Barrier(_)
+        )
+    }
+
     /// Moving it edits the room being edited. The inbound and link arrivals instead edit
     /// another room's draft or a link not made yet, so they leave this room's unsaved flag
     /// and undo history alone.

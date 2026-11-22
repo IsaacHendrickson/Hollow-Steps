@@ -121,6 +121,9 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Room undo/redo: buttons and Ctrl+Z / Ctrl+Y over room edits, a drag is one step, 100 steps; `src/editor_history.rs`; `tests/editor_history.rs`, manual
 - Test room: button and F6 play the unsaved draft from its spawn, F2 returns, nothing written; `src/game/test_room.rs`; `tests/test_room.rs`, manual
 - Hazards in the editor: Add hazard, drag, size, damage, knockback, shape, facing, color, undo; `src/editor_hazard.rs`; `tests/hazards.rs`, manual
+- Breakable walls: solid until the nail hits them N times (1-9), one hit per swing, no pogo; `src/puzzle.rs`; `src/game/puzzle_play_tests.rs`, manual
+- Switches and barriers: the nail turns a numbered switch on for the run and its barrier opens; `src/puzzle.rs`; `src/game/world_puzzles/tests.rs`, manual
+- Puzzle pieces in the editor: add, drag, size, hits, numbers, delete, undo, Test room, Save; `src/editor_puzzle.rs`; `src/game/puzzle_editor_tests.rs`, manual
 - Editor tools: Select, Place, Terrain, Erase (V, P, T, E), grid-snapped solids with handles; `src/editor_terrain.rs`; `tests/editor_terrain.rs`, manual
 - Behavior presets (Patrol, Chaser, Charger, Skittish, Stationary), searchable creation, usage warnings, Key values; `src/preset.rs`; `tests/presets.rs`
 - Player stats in the editor: Player panel with every `player.ron` number, validated, staged Save; `src/player_panel.rs`; `tests/player_editor.rs`, manual

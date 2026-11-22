@@ -78,6 +78,7 @@ pub(crate) fn editor_markers(
     for (i, hazard) in editor.draft.layout.hazards.iter().enumerate() {
         markers.push((Selection::Hazard(i), hazard.rect(), HAZARD));
     }
+    markers.extend(super::puzzle_markers::markers(editor));
     for (i, exit) in editor.draft.layout.exits.iter().enumerate() {
         markers.push((
             Selection::Exit(i),

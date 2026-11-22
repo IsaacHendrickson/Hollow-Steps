@@ -123,6 +123,8 @@ pub struct Room {
     pub terrain: crate::terrain::Terrain,
     /// Hazards that hurt and knock back the player on touch (`hazard`).
     pub hazards: Vec<crate::hazard::Hazard>,
+    /// Breakable walls, switches and barriers, with what play has done to them (`puzzle`).
+    pub puzzles: crate::puzzle::RoomPuzzles,
     /// Palette and switches for how the solids look (drawing only).
     pub terrain_style: crate::terrain_styles::RoomStyle,
     /// Parallax background layers, drawn first (back to front) behind everything else.
@@ -290,6 +292,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             floor_y: FLOOR_Y,
             terrain: Default::default(),
             hazards: Vec::new(),
+            puzzles: Default::default(),
             terrain_style: Default::default(),
             background: Vec::new(),
             gates: Vec::new(),
@@ -330,6 +333,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             floor_y: 400.0,
             terrain: Default::default(),
             hazards: Vec::new(),
+            puzzles: Default::default(),
             terrain_style: Default::default(),
             background: Vec::new(),
             gates: Vec::new(),
@@ -364,6 +368,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             floor_y: FLOOR_Y,
             terrain: Default::default(),
             hazards: Vec::new(),
+            puzzles: Default::default(),
             terrain_style: Default::default(),
             background: Vec::new(),
             gates: Vec::new(),

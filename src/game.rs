@@ -65,6 +65,10 @@ mod pause_tests;
 mod player_link;
 #[cfg(test)]
 mod player_stats_tests;
+#[cfg(test)]
+mod puzzle_editor_tests;
+#[cfg(test)]
+mod puzzle_play_tests;
 mod reach_link;
 mod room_reload;
 mod run_link;
@@ -94,6 +98,7 @@ mod world_doors;
 mod world_items;
 mod world_load;
 mod world_locks;
+mod world_puzzles;
 
 pub use crate::room::FLOOR_Y;
 pub use charm_editor_link::CharmsSaved;
@@ -154,6 +159,8 @@ pub struct GameState {
     taken_items: TakenItems,
     /// The doors opened with a key this run and the notice about a locked one; see `world_locks`.
     locks: world_locks::Locks,
+    /// The walls broken and the switches turned on this run; see `world_puzzles`.
+    puzzles: world_puzzles::Puzzles,
     /// The hub-and-run loop: its settings, the profile and where the player is in the loop; see
     /// `run_link`. Inert while `run.ron` names no hub.
     run: run_link::RunState,
@@ -204,6 +211,7 @@ impl GameState {
             charm_menu: CharmMenu::default(),
             taken_items: TakenItems::default(),
             locks: world_locks::Locks::default(),
+            puzzles: world_puzzles::Puzzles::default(),
             charms,
             upgrades,
             reach_note: None,
@@ -395,12 +403,12 @@ impl GameState {
         let enemy_tuning = self.tuning().enemy;
         let bounds = self.rooms[index].world_bounds();
         let player_input = self.input_for_player(input);
-        self.player.update_with_terrain(
-            player_input,
-            delta_seconds,
-            bounds,
-            &self.rooms[index].terrain,
-        );
+        // The player is blocked by the terrain and by the puzzle pieces still standing.
+        let collision = self.rooms[index]
+            .puzzles
+            .collision(&self.rooms[index].terrain);
+        self.player
+            .update_with_terrain(player_input, delta_seconds, bounds, &collision);
         self.update_vitals(input, delta_seconds);
         let feet = self.player.position() + Vec2::new(0.0, self.player.size().y / 2.0);
         self.events.extend_at(self.player.take_events(), feet);
@@ -489,6 +497,14 @@ impl GameState {
                 if boss.is_defeated() {
                     special_damage = 0;
                 }
+            }
+            // Walls and switches are not enemies: they never count as `struck`, so no pogo.
+            let swing = self.player.attack().id();
+            if let Some(text) = self
+                .puzzles
+                .strike(room, hitbox, swing, self.test_run.is_none())
+            {
+                self.locks.notice.show(text);
             }
             if struck {
                 self.player.pogo();
