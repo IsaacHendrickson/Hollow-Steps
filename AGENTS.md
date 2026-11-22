@@ -76,6 +76,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/item.rs`, `coin`, `charms`, `room_charms`, `editor_charms`, `charm_editor`, `charm_history`: items, coins, charm rules, charms in rooms, Charms edits
 - `src/profile.rs`, `run`, `run/screen`, `upgrades`, `upgrade_editor`, `snapshot_history`: profile.ron, run loop, upgrades; `docs/run-and-profile.md`
 - `src/difficulty.rs`: difficulty tiers: rules and data/difficulty.ron, scale(tier); `docs/run-and-profile.md`
+- `src/game/tier_link.rs`, `run/bonus`, `damage/tier`, `enemy/tier`, `boss_special/tier`: a run's tier on rooms, hits, coins; never written back
 - `src/pause_menu.rs` (+ `pause_menu/`), `shop_menu` (+ `shop_menu/`), `keybinds` (+ `keybinds/`): pause menu, hub shop, rebindable controls; `docs/keybinds.md`
 - `src/room.rs`, `door_exit`, `ability`, `exit_lock`, `exit_link`, `exit_arrival`: rooms, door exits, abilities, locked exits, exit links; `docs/door-exits.md`
 - `src/reach.rs`, `reach/span`, `reach/editor`, `reach/text`: reach envelope per ability measured on the real `Player`, preview, text; `docs/reach.md`

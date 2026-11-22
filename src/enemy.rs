@@ -23,6 +23,7 @@ mod death;
 mod definition;
 mod flap;
 mod movement;
+mod tier;
 
 pub use catalog::EnemyDefinitions;
 pub use death::DeathTimer;

@@ -5,8 +5,8 @@
 use hollow_steps::charm_menu::{wrap_lines, InventoryLayout};
 use hollow_steps::game::GameState;
 use hollow_steps::run::{
-    hud_counter, inventory_coins, result_layout, result_lines, result_title, Counter, RunOutcome,
-    RETURN_HINT,
+    hud_counter, inventory_coins, result_layout, result_lines_with_bonus, result_title, Counter,
+    RunOutcome, RETURN_HINT,
 };
 use macroquad::prelude::*;
 
@@ -64,7 +64,7 @@ pub fn draw_result(game: &GameState, view: Vec2) {
         return;
     };
     draw_rectangle(0.0, 0.0, view.x, view.y, Color::from_rgba(0, 0, 0, 200));
-    let lines = result_lines(&result, game.profile());
+    let lines = result_lines_with_bonus(&result, game.profile(), game.result_bonus());
     let layout = result_layout(view, lines.len());
     let panel = layout.panel;
     draw_rectangle(

@@ -8,6 +8,7 @@ use crate::charm_menu::CharmMenu;
 use crate::charms::{CharmCatalog, CharmState};
 use crate::coin::Coin;
 use crate::damage::DamageResolver;
+use crate::difficulty::Difficulty;
 use crate::editor::{self, EditorSession};
 use crate::enemy::EnemyDefinitions;
 use crate::events::{EventQueue, GameEvent, LocatedEvent};
@@ -87,6 +88,9 @@ mod terrain_link;
 mod test_room;
 #[cfg(test)]
 mod tests;
+mod tier_link;
+#[cfg(test)]
+mod tier_tests;
 mod upgrade_editor_link;
 #[cfg(test)]
 mod upgrade_tests;
@@ -164,6 +168,9 @@ pub struct GameState {
     /// The hub-and-run loop: its settings, the profile and where the player is in the loop; see
     /// `run_link`. Inert while `run.ron` names no hub.
     run: run_link::RunState,
+    /// The difficulty rules, the tier the rooms in play were built at and the last run's coin
+    /// bonus; see `tier_link`.
+    tiers: tier_link::TierState,
     /// The dungeon map: the rooms seen this run; see `map_link`.
     map: map_link::MapState,
 }
@@ -183,7 +190,10 @@ impl GameState {
         let charms = CharmCatalog::load(assets, vitals.max_mana)?;
         let run_config = RunConfig::load(assets)?;
         let upgrades = UpgradeCatalog::load(assets)?;
-        let (rooms, terrain_styles) = world_load::load_world(assets, &charms)?;
+        let difficulty = Difficulty::load(assets)?;
+        // The hub, and a game with no hub, play with no tier on top.
+        let (rooms, terrain_styles) =
+            world_load::load_world(assets, &charms, &tier_link::Layer::BASE)?;
         let (run, current) = run_link::RunState::start(run_config, &rooms)?;
         let mut player = Player::new(Vec2::new(180.0, 0.0), tuning.player);
         player.place_at(rooms[current].spawn, rooms[current].world_bounds());
@@ -217,6 +227,7 @@ impl GameState {
             reach_note: None,
             shop: ShopMenu::default(),
             run,
+            tiers: tier_link::TierState::new(difficulty),
             map: map_link::MapState::default(),
         };
         game.prune_owned_charm_placements();
@@ -401,6 +412,7 @@ impl GameState {
         let events_before = self.events.len();
         let index = self.current;
         let enemy_tuning = self.tuning().enemy;
+        let tier_scale = self.tiers.layer.scale;
         let bounds = self.rooms[index].world_bounds();
         let player_input = self.input_for_player(input);
         // The player is blocked by the terrain and by the puzzle pieces still standing.
@@ -433,7 +445,7 @@ impl GameState {
                 boss.new_enemies()
                     .iter()
                     .cloned()
-                    .map(|enemy| enemy.spawned_with(enemy_tuning)),
+                    .map(|enemy| enemy.spawned_with(enemy_tuning).scaled(&tier_scale)),
             );
             room.coins.extend_from_slice(boss.new_coins());
         }
@@ -454,6 +466,7 @@ impl GameState {
             .extend(spawned_positions.into_iter().map(|position| {
                 crate::enemy::Enemy::new(position.x, position.x, 0.0, 0.0, bounds)
                     .spawned_with(enemy_tuning)
+                    .scaled(&tier_scale)
             }));
         if let Some(hitbox) = self.player.strike_hitbox() {
             let sword_damage = self.player.config().melee.damage;
@@ -511,12 +524,13 @@ impl GameState {
             }
         }
         room.enemies.retain(|enemy| !enemy.is_removable());
-        let hit = DamageResolver::gather(
+        let hit = DamageResolver::gather_scaled(
             room,
             self.player.position(),
             self.player.velocity(),
             self.player.size(),
             special_damage,
+            &tier_scale,
         )
         .resolve();
         if self.player.take_attack_damage(hit) {

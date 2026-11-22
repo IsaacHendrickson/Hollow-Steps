@@ -16,6 +16,7 @@ use std::path::PathBuf;
 
 use macroquad::math::Vec2;
 
+use super::tier_link::Layer;
 use super::{vitals_link, world_load, GameState};
 use crate::charms::CharmState;
 use crate::events::GameEvent;
@@ -23,7 +24,7 @@ use crate::item::TakenItems;
 use crate::player::WorldBounds;
 use crate::profile::{self, Profile};
 use crate::room::{Exit, Room, RoomId};
-use crate::run::{RunConfig, RunOutcome, RunPhase, RunResult};
+use crate::run::{CoinBonus, RunConfig, RunOutcome, RunPhase, RunResult};
 
 /// The loop's settings, the profile and where the player is in the loop.
 #[derive(Debug)]
@@ -166,7 +167,8 @@ impl GameState {
         let (RunPhase::Result(_), Some(hub)) = (self.run.phase, self.run.config.hub_room) else {
             return;
         };
-        if let Err(error) = self.reset_run_state() {
+        // Back in the hub nothing has a tier on it.
+        if let Err(error) = self.reset_run_state(Layer::BASE) {
             self.run.message = Some(format!("Could not return to the hub: {error}"));
             return;
         }
@@ -190,10 +192,14 @@ impl GameState {
 
     /// Banks the run's coins into the profile, saves it, and shows the result.
     fn end_run(&mut self, outcome: RunOutcome) {
-        let result =
-            self.run
-                .profile
-                .bank(self.coin_count, self.run.config.coin_keep_percent, outcome);
+        // The tier's bonus is paid on what the run collected, before the share that is kept.
+        let layer = self.tiers.layer;
+        let earned = layer.scale.coins(self.coin_count);
+        self.tiers.bonus = CoinBonus::new(layer.profile_tier, &layer.scale);
+        let result = self
+            .run
+            .profile
+            .bank(earned, self.run.config.coin_keep_percent, outcome);
         // A failed save keeps the banked coins for this session.
         self.run.message = self.save_profile().err().map(|error| {
             format!("Profile not saved, the coins are kept for this session: {error}")
@@ -209,16 +215,19 @@ impl GameState {
     /// Everything a run touched back to how a new run begins: every room rebuilt from its file
     /// (enemies, boss, coins, items, charms lying), owned charms back to the ones owned at the
     /// start, nothing taken, no coins, no items, full health and mana. Nothing changes if the
-    /// rooms cannot be rebuilt. The player's place is left to the caller.
-    fn reset_run_state(&mut self) -> Result<(), String> {
+    /// rooms cannot be rebuilt. The rooms are rebuilt with `layer` over them and keep it until the
+    /// next rebuild: a run's tier, or none when the run is over. The player's place is left to the
+    /// caller.
+    fn reset_run_state(&mut self, layer: Layer) -> Result<(), String> {
         let here = self.room().id;
-        let (rooms, terrain_styles) = world_load::load_world(&self.assets, &self.charms)?;
+        let (rooms, terrain_styles) = world_load::load_world(&self.assets, &self.charms, &layer)?;
         let current = rooms
             .iter()
             .position(|room| room.id == here)
             .ok_or("the room being played is gone")?;
         self.rooms = rooms;
         self.terrain_styles = terrain_styles;
+        self.tiers.layer = layer;
         self.current = current;
         // A new run has seen nothing yet.
         self.map.discovery.clear();
@@ -251,9 +260,10 @@ impl GameState {
         self.vitals.fill_mana();
     }
 
-    /// Starts a run: the state is reset and the phase is Running.
+    /// Starts a run: the state is reset and the phase is Running. The profile's tier is read
+    /// here, once, so the run plays at it from start to end.
     fn start_run(&mut self) -> Result<(), String> {
-        self.reset_run_state()?;
+        self.reset_run_state(self.profile_layer())?;
         self.run.phase = RunPhase::Running;
         self.run.message = None;
         Ok(())

@@ -13,6 +13,7 @@ use crate::player::WorldBounds;
 use crate::pose::Poses;
 
 mod body_link;
+mod tier;
 use body_link::BossBody;
 
 pub const SLAM_TELEGRAPH_SECONDS: f32 = 0.5;
@@ -57,6 +58,8 @@ pub struct BossSpecials {
     target_position: Vec2,
     move_speed: f32,
     health: u32,
+    /// The health the boss began with: the definition's, or that scaled by a difficulty tier.
+    max_health: u32,
     active: Option<ActiveAttack>,
     pending_damage: u32,
     next_attack: usize,
@@ -103,6 +106,7 @@ impl BossSpecials {
             .transpose()?;
         Ok(Self {
             health: definition.health,
+            max_health: definition.health,
             definition,
             position,
             target_position: position,
@@ -170,7 +174,7 @@ impl BossSpecials {
         self.health
     }
     pub fn max_health(&self) -> u32 {
-        self.definition.health
+        self.max_health
     }
     pub fn contact_damage(&self) -> u16 {
         if self.defeated {

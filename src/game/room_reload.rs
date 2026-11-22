@@ -1,4 +1,6 @@
-//! Re-reading the assets folder while the game runs (`GameState::reload_rooms`, F5).
+//! Re-reading the assets folder while the game runs (`GameState::reload_rooms`, F5). The rooms
+//! come back with the layer of the world in play over them, so a rebuilt room matches the others;
+//! `difficulty.ron` is not re-read.
 use super::{world_load, GameState};
 use crate::charms::CharmCatalog;
 use crate::feel::FeelConfig;
@@ -25,7 +27,8 @@ impl GameState {
         let vitals = VitalsConfig::load(&self.assets)?;
         let charms = CharmCatalog::load(&self.assets, vitals.max_mana)?;
         let upgrades = UpgradeCatalog::load(&self.assets)?;
-        let (rooms, terrain_styles) = world_load::load_world(&self.assets, &charms)?;
+        let (rooms, terrain_styles) =
+            world_load::load_world(&self.assets, &charms, &self.tiers.layer)?;
         for mut reloaded in rooms {
             if let Some(current) = self.rooms.iter_mut().find(|room| room.id == reloaded.id) {
                 // Prefer exact placements before matching moved placements by name/occurrence.

@@ -17,6 +17,7 @@ use crate::assets::read_override;
 use crate::profile::Profile;
 use crate::room::RoomId;
 
+pub use bonus::{result_lines_with_bonus, CoinBonus};
 pub use screen::{
     hud_counter, inventory_coins, result_layout, result_lines, result_title, Counter, ResultLayout,
     RETURN_HINT,
@@ -237,6 +238,7 @@ impl Profile {
     }
 }
 
+mod bonus;
 mod screen;
 
 #[cfg(test)]

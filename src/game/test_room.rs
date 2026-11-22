@@ -4,6 +4,7 @@
 //! player and every counter the run can change are parked and put back afterwards.
 use std::mem;
 
+use super::tier_link::Layer;
 use super::GameState;
 use crate::charms::CharmState;
 use crate::editor::EditorSession;
@@ -28,6 +29,9 @@ pub(super) struct TestRun {
     current: usize,
     /// The saved room the test room stands in for; `None` for a room that is not saved yet.
     replaced: Option<Room>,
+    /// The difficulty layer of the world that was in play; the test room plays at the profile's
+    /// tier instead and this is put back afterwards.
+    layer: Layer,
 }
 
 /// The draft as a playable room, boss included, using the session's preview definitions so
@@ -110,13 +114,18 @@ impl GameState {
         }
         // The room is judged first: a draft that is not a valid room says so before anything
         // is said about the player.
-        let room = match build(session).and_then(|room| player_problem(session).map(|()| room)) {
+        let mut room = match build(session).and_then(|room| player_problem(session).map(|()| room))
+        {
             Ok(room) => room,
             Err(error) => {
                 session.message = format!("Cannot test the room: {error}");
                 return Err(error);
             }
         };
+        // A test room plays at the profile's current tier, so F4's tier lets you try a tier-5
+        // room. The tier is layered on the built room only; nothing is written.
+        let layer = self.profile_layer();
+        layer.apply_room(&mut room);
         let session = self.editor.take().expect("editor open");
         let id = session.id;
         let (test_index, replaced) = match self.rooms.iter().position(|saved| saved.id == id) {
@@ -137,7 +146,9 @@ impl GameState {
             last_special_hit: self.last_special_hit,
             current: self.current,
             replaced,
+            layer: self.tiers.layer,
         };
+        self.tiers.layer = layer;
         self.current = test_index;
         // A run starts owning the charms marked owned_at_start, so a charm just made can be
         // tried; the run's charms are put back when it ends.
@@ -181,6 +192,7 @@ impl GameState {
         self.special_attack_timer = run.special_attack_timer;
         self.last_special_hit = run.last_special_hit;
         self.current = run.current;
+        self.tiers.layer = run.layer;
         self.editor = Some(run.session);
         // The run may have changed the tunables through F4; the session's copy follows.
         self.attach_player_draft();
