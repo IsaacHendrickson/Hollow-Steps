@@ -68,6 +68,9 @@ menu keys, `F2`, `F4`, `F5` and `F6` stay fixed.
 - `Shift`: after collecting Dash, dash horizontally in the facing direction at
   800 units/second for 0.2 seconds. Dash starts have a 0.5 second cooldown;
   only one air dash is available until landing.
+- `Space` or `Z` again in the air: after collecting Double Jump, one more jump per flight (a fresh
+  press, not a held key; once the coyote window has passed). Landing gives it back. Its speed is
+  `double_jump_speed` in `data/player.ron` (F4 window, Player panel).
 - `C`: hold on the ground to heal. After a short delay mana turns into health (30 mana a
   second, one health each); let go and the health is added a moment later. Letting go during
   the delay costs nothing. While healing you walk at half speed and cannot jump, dash or

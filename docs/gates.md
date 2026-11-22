@@ -1,7 +1,7 @@
 # Gates: marking what a crossing needs
 
-A key blocks entry and the game enforces it (`docs/keys-and-locks.md`). An ability such as Dash is
-different: **the game never checks it.** A room's geometry needs it (a gap too wide to jump, a
+A key blocks entry and the game enforces it (`docs/keys-and-locks.md`). An ability (Dash, Double
+Jump) is different: **the game never checks it.** A room's geometry needs it (a gap too wide to jump, a
 ledge too high) and the author *marks* the crossing so the tools know. The mark is a claim that
 nothing enforces: play never reads it. Only the dungeon checker (`src/dungeon_check.rs`) and the
 room editor use it. The reach envelope (`src/reach.rs`) is how the editor helps the author size
@@ -19,13 +19,18 @@ gates: [
 ],
 ```
 
+The ability names in a file are `Dash` and `DoubleJump`; the editor and the checker's sentences call
+them "Dash" and "Double Jump". A gate that needs both is `needs: [Dash, DoubleJump]`.
+
 - **Directed.** Going from X to Y is its own fact. Y to X is free unless a gate says otherwise
   (falling into a pit needs nothing, climbing out may need Dash).
 - **Absent means free.** A room with no gates behaves as before; `gates` is left out of the file
   when empty (`#[serde(default, skip_serializing_if = "Vec::is_empty")]`), so older room files load.
 - **`needs` lists abilities and means all of them.** It is never empty (an empty list is the
-  same as no gate) and holds each ability once. The ability names come from `Ability::ALL`, so
-  a new ability appears in the editor by itself.
+  same as no gate) and holds each ability once; the editor keeps them in the order of
+  `Ability::ALL`. The ability names come from `Ability::ALL`, so a new ability appears in the
+  editor's checkboxes, the file and the checker by itself (the Double Jump did, with no change to
+  any of them; only the reach preview has to be told what each ability is for).
 - **An entrance** is the room's `Spawn`, or an `Arrival` of another room's exit that leads here,
   named by *where it comes from*: that room and that exit. Never by where it lands.
 - **An exit** is identified by `(edge, offset)`, the way `OpenedExits` does, never by its place in
@@ -36,7 +41,7 @@ gates: [
 
 **An arrival point moves.** Nothing changes in the gate. An entrance is named by its source, so
 moving the point where the player lands (`move_inbound_arrival`, or dragging it on the canvas)
-cannot detach a gate. If the arrival moves to a place that no longer needs Dash, or needs more,
+cannot detach a gate. If the arrival moves to a place that no longer needs the ability, or needs more,
 the author changes the gate; the editor does not guess.
 
 **A gate names no entrance.** This happens when the other room's exit was moved, re-linked
@@ -50,6 +55,19 @@ throw away while a link is being redone. It is reported, not enforced:
 Moving an exit **in the room it belongs to** re-keys that room's gates on it (they follow the exit),
 and deleting the exit deletes its gates. The same edit made to an exit in room B leaves room A's
 gates that come from it orphaned (a known limit; Link... again and tick the boxes).
+
+## The abilities a gate can name
+
+Each ability is granted by its own pickup (`Item::Dash`, `Item::DoubleJump`) and the checker holds
+them separately: a Dash does not open a gate that needs the Double Jump, nor the other way round. A
+gate that needs both opens only when both lie before it, and the checker's sentence names only what
+is missing ("needs Double Jump, which cannot be picked up before it"; when neither can be had,
+"needs Dash and Double Jump, ..."). A trap names what the player holds there ("with Dash, no exit can
+be taken").
+
+What each is for decides what the reach preview checks (`docs/reach.md`): a Dash crosses a gap longer
+than a jump; a Double Jump crosses a longer gap and reaches a higher ledge. Pick the ability whose
+interval the crossing falls in.
 
 ## Validation
 
@@ -67,6 +85,10 @@ on other rooms); see above.
 ## Known limits
 
 - Nothing proves a marked crossing: no bot yet. Use Test room, with and without the ability.
+- A gate names abilities, not lengths: nothing compares the crossing to the reach numbers. The reach
+  preview shows them beside the room, and Check dungeon trusts the marks.
+- A crossing that needs two abilities used together (a dash after an air jump) is a gate that names
+  both, but no reach number covers the pair.
 - A gate covers a whole entrance to an exit; regions inside a room are not modelled (a pit is
   its own small room for now).
 - Exits of another room that move or are deleted orphan the gates that come from them.

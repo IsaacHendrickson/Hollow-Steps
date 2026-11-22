@@ -190,6 +190,37 @@ Run `cargo run`, press F2 in the first room (Second's left exit leads to it).
 - Press F5 and Open room during a test: refused until you press F2. Resize the window and
   repeat: the view letterboxes as in normal play.
 
+### Manual check: Double Jump, gates and the Reach preview
+
+Run `cargo run`, press F2 in the first room. The reach numbers below are for the shipped
+`player.ron` when this was written (jump 163 px high, double jump 266 px high); yours follow the file.
+
+- In the Entity list pick "Item: Double Jump" (beside "Item: Dash"), press **P** and click the floor
+  near the spawn: a pickup appears. It also shows in the inventory (**I**) once collected.
+- Turn **Reach** on (View section). Three outlines appear around the spawn: light blue "without any
+  ability ...", pink "with Dash ..." and a taller yellow-green "with Double Jump N px high / N px far".
+  The Room tools panel says "the outlines are a jump with no ability, and with Dash and Double Jump".
+- Draw a platform (**T**) whose top is above the light blue outline and below the yellow-green one.
+  Press **F6**: without the pickup you cannot jump onto it. Press Up at the pickup, then jump and press
+  Space again in the air: you reach it. The second press does nothing on the ground, and holding
+  Space does not fire it; landing refills it.
+- Back in the editor (**F2**), select an exit, tick **Needs Double Jump** under "Room spawn" in
+  "Reaching this exit", save, and press **Check dungeon**: "No problems found" while the pickup lies in
+  a room the player can reach before it. Delete the pickup and press it again: it reports "... needs
+  Double Jump, which cannot be picked up before it". Undo (Ctrl+Z) brings the pickup back and the
+  check passes again. Tick **Needs Dash** too: the report names only the ability that no pickup
+  before the gate provides.
+- Select an arrival marker: the outlines move to it. Turn Reach off: they vanish.
+- Open **F4**, find **Double jump speed** (Jump section), raise it and Save: under "Saved to" a line
+  such as "jump 389 px, dash jump 509 px, double jump 266 px high / 512 px far; run Check dungeon"
+  appears, with a larger double jump height than before. Save again unchanged: no line. The Player
+  panel does the same. With Reach on, a changed field redraws the yellow-green outline (slowly in a
+  debug build, about 0.2 s).
+- In the Charms panel make two charms with the effect "Move speed" at 200, Reach on: the panel lists
+  in red each ability that nothing needs, naming both numbers (with the shipped numbers, "no gap can
+  need Dash ... 1490 px ... 509 px" and the same for Double Jump), and the outlines go. Delete the
+  charms and they come back.
+
 ## Manual check: hitbox and visual size
 
 - Open a room with an enemy, select it, open Entity properties. Tick Separate visual size:
