@@ -205,6 +205,8 @@ impl DefinitionDraft {
                 .map_err(|e| file_error(path, e))?;
             rooms.push(room);
         }
+        // `originals` is in file-name order as text; rooms are listed by id, as at start-up.
+        rooms.sort_by_key(|room| room.id.index());
         Ok((next, rooms))
     }
 

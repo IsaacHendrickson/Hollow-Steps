@@ -102,6 +102,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Room size section (x, y, width, height, floor_y); a change leaving contents outside is refused; `src/room_size.rs`; `tests/room_size.rs`
 - Room names: Room name box, 1-32 chars, unique ignoring case, New room asks first; `src/room_name.rs`; `tests/room_names.rs`, `tests/new_room.rs`, manual
 - Room file names: only `room_<number>.ron` without leading zeros loads; a bad name errors with the fix; `src/editor_files.rs`; `tests/room_file_names.rs`
+- Room order: custom rooms listed by id (room_2 before room_10), at start-up and after Save; `src/editor_files.rs`; `tests/room_order.rs`
 - Door exits: Up in front of a door on the ground travels, "Up: enter" prompt; `src/game/world_doors.rs`, `src/door_exit.rs`; `src/game/door_tests.rs`, manual
 - Doors in the editor: Add door (and link), drag, width and height; `src/editor_panel/door_panel.rs`; `src/door_exit/tests.rs`, `tests/door_exits.rs`, manual
 - Abilities and keys as run state; Keys 1-8 open locked exits; editor Locked by; `src/exit_lock.rs`, `src/ability.rs`; `src/game/world_locks/tests.rs`, manual
