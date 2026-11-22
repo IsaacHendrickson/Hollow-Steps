@@ -1,6 +1,6 @@
-//! What the Room tools panel says while the Reach toggle is on (`docs/reach.md`): what the two
-//! outlines on the canvas mean and where they start, or, when the player's numbers leave no gap
-//! that needs Dash, why there is nothing to draw. Nothing is measured while the toggle is off.
+//! What the Room tools panel says while the Reach toggle is on (`docs/reach.md`): what the
+//! outlines on the canvas mean and where they start, and, for each ability that no gap or ledge
+//! can need with the player's numbers, why (in red). Nothing is measured while the toggle is off.
 use super::widgets::panel_label;
 use super::{EditorSession, EditorUi, Selection};
 use egui_macroquad::egui;
@@ -10,23 +10,28 @@ pub(super) fn draw_reach_notes(ui: &mut egui::Ui, editor: &EditorSession, state:
         return;
     }
     let interval = state.checks.interval(editor);
-    match interval.error() {
-        Some(error) => {
-            ui.add(
-                egui::Label::new(egui::RichText::new(error).color(egui::Color32::LIGHT_RED)).wrap(),
-            );
-        }
-        None => {
-            let from = match state.selected {
-                Some(Selection::Inbound { .. }) => "the selected arrival",
-                _ => "the room spawn",
-            };
-            panel_label(
-                ui,
-                &format!("Reach from {from}: the outlines are a jump without Dash and with it"),
-            );
-        }
+    for (_, error) in interval.errors() {
+        ui.add(egui::Label::new(egui::RichText::new(error).color(egui::Color32::LIGHT_RED)).wrap());
     }
+    let drawn: Vec<&str> = interval
+        .usable_abilities()
+        .into_iter()
+        .map(|ability| ability.name())
+        .collect();
+    if drawn.is_empty() {
+        return;
+    }
+    let from = match state.selected {
+        Some(Selection::Inbound { .. }) => "the selected arrival",
+        _ => "the room spawn",
+    };
+    panel_label(
+        ui,
+        &format!(
+            "Reach from {from}: the outlines are a jump with no ability, and with {}",
+            drawn.join(" and ")
+        ),
+    );
 }
 
 #[cfg(test)]

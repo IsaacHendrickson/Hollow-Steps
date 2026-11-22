@@ -93,6 +93,38 @@ fn an_enemy_number_leaves_the_key_alone() {
     assert_eq!(session.reach_key(), key, "but it is not the player's");
 }
 
+#[test]
+fn the_double_jump_speed_is_behind_the_key_and_changes_only_the_double_jump_numbers() {
+    let temp = TempAssets::new();
+    let mut game = temp.game();
+    game.toggle_editor().unwrap();
+    let session = game.editor_mut().unwrap();
+    let (key, before) = (session.reach_key(), session.reach_interval());
+
+    let faster = session.player.edited().player.double_jump_speed * 1.25;
+    session
+        .player
+        .set_field(Field::DoubleJumpSpeed, faster)
+        .unwrap();
+
+    assert_ne!(
+        session.reach_key(),
+        key,
+        "the double jump speed is behind it"
+    );
+    let after = session.reach_interval();
+    assert!(after.with.double_jump_height > before.with.double_jump_height);
+    assert!(after.with.double_jump_distance >= before.with.double_jump_distance);
+    // The plain jump has no double jump to speed up.
+    assert_eq!(after.without.jump_height, before.without.jump_height);
+    assert_eq!(after.without.jump_distance, before.without.jump_distance);
+    assert_eq!(after.with.jump_height, before.with.jump_height);
+    assert_eq!(
+        after.with.dash_jump_distance,
+        before.with.dash_jump_distance
+    );
+}
+
 // ---- where the preview starts ----
 
 #[test]
@@ -190,4 +222,38 @@ fn each_save_leaves_the_line_of_its_own_numbers() {
     game.save_tuning().unwrap();
     let newer = game.take_reach_note().unwrap();
     assert_ne!(newer, saved_line);
+}
+
+#[test]
+fn the_line_a_save_leaves_names_every_ability_and_a_double_jump_save_changes_only_its_part() {
+    let temp = TempAssets::new();
+    let mut game = temp.game();
+    let speed = game.player_draft().saved().player.double_jump_speed;
+    let parts = |line: &str| -> (String, String) {
+        let (before, double) = line
+            .split_once(", double jump ")
+            .unwrap_or_else(|| panic!("no double jump in: {line}"));
+        assert!(
+            before.starts_with("jump ") && before.contains(" px, dash jump "),
+            "{line}"
+        );
+        assert!(
+            double.contains(" px high / ") && double.ends_with(" px far; run Check dungeon"),
+            "{line}"
+        );
+        (before.to_owned(), double.to_owned())
+    };
+
+    game.set_tuning_field(Field::DoubleJumpSpeed, speed * 1.1)
+        .unwrap();
+    game.save_tuning().unwrap();
+    let first = parts(&game.take_reach_note().expect("the numbers changed"));
+
+    game.set_tuning_field(Field::DoubleJumpSpeed, speed * 1.3)
+        .unwrap();
+    game.save_tuning().unwrap();
+    let second = parts(&game.take_reach_note().expect("the numbers changed again"));
+
+    assert_eq!(first.0, second.0, "the jump and the dash jump are the same");
+    assert_ne!(first.1, second.1, "a faster double jump goes higher");
 }

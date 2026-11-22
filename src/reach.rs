@@ -1,4 +1,5 @@
-//! The reach envelope: how high and how far the player can jump, with and without Dash.
+//! The reach envelope: how high and how far the player can jump with no ability, with Dash and
+//! with Double Jump.
 //!
 //! Every number here is measured by stepping the real [`Player`] at the fixed step, never
 //! computed from a formula that could drift from the physics. The test world is a flat platform
@@ -91,12 +92,14 @@ impl Reach {
     }
 }
 
-/// The two scenarios and the gap lengths between them that need Dash.
+/// The two scenarios, and between them the gaps and ledges that need each ability (`gap`, `height`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Interval {
-    /// No ability, every buff at its maximum: the best a player gets without Dash.
+    /// No ability, every buff at its maximum: the best a player gets with no ability. Only its
+    /// jump numbers are read; its Dash and double jump numbers are measured but nothing needs them.
     pub without: Reach,
-    /// Base stats and Dash.
+    /// Base stats, with each ability in turn: the Dash numbers with the Dash, the double jump
+    /// numbers with the Double Jump.
     pub with: Reach,
 }
 
@@ -479,5 +482,5 @@ mod text;
 
 pub use span::Span;
 
-pub use editor::{outline_labels, outlines, Outlines, ReachKey};
+pub use editor::{outline_label, outlines, Outlines, ReachKey};
 pub use text::line;

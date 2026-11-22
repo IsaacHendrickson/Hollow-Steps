@@ -95,6 +95,29 @@ impl Interval {
         found
     }
 
+    /// The abilities with no problem (some length each is for needs it), in `Ability::ALL` order.
+    /// These are the ones the preview draws an outline for.
+    pub fn usable_abilities(&self) -> Vec<Ability> {
+        Ability::ALL
+            .iter()
+            .copied()
+            .filter(|ability| self.problems(*ability).is_empty())
+            .collect()
+    }
+
+    /// How far and how high a jump with `ability` goes, in whole pixels, as the preview and the
+    /// reach line say it: `296 px` for an ability that adds only distance, `270 px high / 240 px
+    /// far` for one that adds height too.
+    pub fn figures(&self, ability: Ability) -> String {
+        let far = self.gap(ability).high;
+        let high = self.height(ability).high;
+        match adds(ability) {
+            (_, false) => format!("{far:.0} px"),
+            (false, true) => format!("{high:.0} px high"),
+            (true, true) => format!("{high:.0} px high / {far:.0} px far"),
+        }
+    }
+
     /// Every ability's problems, in `Ability::ALL` order; empty when each ability can be needed.
     pub fn errors(&self) -> Vec<(Ability, String)> {
         Ability::ALL

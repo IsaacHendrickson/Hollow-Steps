@@ -179,3 +179,71 @@ fn a_gate_naming_no_entrance_is_shown_as_a_problem_and_can_be_removed() {
         "one undo step brings it back"
     );
 }
+
+fn tick_double_jump(
+    ctx: &egui::Context,
+    row: usize,
+    editor: &mut EditorSession,
+    state: &mut EditorUi,
+) {
+    click_on(
+        ctx,
+        egui::Id::new(("gate", row, "Double Jump")),
+        editor,
+        state,
+    );
+}
+
+#[test]
+fn every_entrance_has_a_checkbox_for_the_double_jump_beside_the_dash() {
+    let mut game = editor();
+    let editor = game.editor_mut().unwrap();
+    let mut state = selecting_the_edge_exit();
+    let (_, text) = ready(editor, &mut state);
+    assert_eq!(text.matches("Needs Double Jump").count(), 2, "{text}");
+    assert_eq!(text.matches("Needs Dash").count(), 2, "{text}");
+}
+
+#[test]
+fn ticking_the_double_jump_marks_that_ability_alone_in_one_undo_step() {
+    let mut game = editor();
+    let editor = game.editor_mut().unwrap();
+    let mut state = selecting_the_edge_exit();
+    let before = editor.draft.clone();
+    let (ctx, _) = ready(editor, &mut state);
+
+    tick_double_jump(&ctx, 0, editor, &mut state);
+
+    let exit = ExitRef::of(&editor.draft.layout.exits[0]);
+    assert_eq!(
+        editor.draft.layout.gate_needs(&Entrance::Spawn, &exit),
+        [Ability::DoubleJump],
+        "the Dash is not ticked along with it"
+    );
+    assert!(editor.dirty);
+    undo(editor, &mut state);
+    assert_eq!(editor.draft, before);
+    assert!(!state.history.can_undo(), "one step");
+}
+
+#[test]
+fn ticking_both_abilities_marks_both_and_clearing_one_leaves_the_other() {
+    let mut game = editor();
+    let editor = game.editor_mut().unwrap();
+    let mut state = selecting_the_edge_exit();
+    let (ctx, _) = ready(editor, &mut state);
+
+    tick_double_jump(&ctx, 0, editor, &mut state);
+    tick(&ctx, 0, editor, &mut state);
+    let exit = ExitRef::of(&editor.draft.layout.exits[0]);
+    assert_eq!(
+        editor.draft.layout.gate_needs(&Entrance::Spawn, &exit),
+        [Ability::Dash, Ability::DoubleJump]
+    );
+
+    tick(&ctx, 0, editor, &mut state);
+    assert_eq!(
+        editor.draft.layout.gate_needs(&Entrance::Spawn, &exit),
+        [Ability::DoubleJump]
+    );
+}

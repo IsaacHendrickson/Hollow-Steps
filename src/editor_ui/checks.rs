@@ -3,16 +3,25 @@
 //! window is open (`docs/dungeon-map.md`). The preview's interval is
 //! measured on the real player, which takes a moment, so it is measured only while the Reach
 //! toggle is on and again only when the numbers behind it change (`ReachKey`).
+use hollow_steps::ability::Ability;
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_view::CanvasView;
-use hollow_steps::reach::{outline_labels, outlines, Interval, ReachKey};
+use hollow_steps::reach::{outline_label, outlines, Interval, ReachKey};
 use macroquad::prelude::*;
 
 const LABEL_SIZE: f32 = 16.0;
-/// Without Dash: a cool grey-blue that stands apart from the entrance markers.
-const WITHOUT_DASH: Color = Color::new(0.62, 0.86, 0.95, 1.0);
-/// With Dash: a warm pink, the same hue the Dash pickup is not.
-const WITH_DASH: Color = Color::new(1.0, 0.45, 0.65, 1.0);
+/// With no ability: a cool grey-blue that stands apart from the entrance markers.
+const WITHOUT_ABILITY: Color = Color::new(0.62, 0.86, 0.95, 1.0);
+
+/// The outline color of an ability, each its own hue; a new ability has to pick one here.
+fn color_of(ability: Ability) -> Color {
+    match ability {
+        // A warm pink, the same hue the Dash pickup is not.
+        Ability::Dash => Color::new(1.0, 0.45, 0.65, 1.0),
+        // A fresh yellow-green.
+        Ability::DoubleJump => Color::new(0.74, 0.93, 0.42, 1.0),
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct ChecksUi {
@@ -23,7 +32,7 @@ pub(crate) struct ChecksUi {
     /// The Dungeon map window is open. Opening another room closes it.
     pub(crate) map_window: bool,
     /// The interval and the numbers it was measured from.
-    pub(super) measured: Option<(ReachKey, Interval)>,
+    pub(crate) measured: Option<(ReachKey, Interval)>,
 }
 
 impl ChecksUi {
@@ -42,8 +51,9 @@ impl ChecksUi {
     }
 }
 
-/// Draws the two outlines (and what each says) around the selected entrance while Reach is on,
-/// and nothing while the interval is empty: the panel says why then.
+/// Draws the outline of a jump with no ability and one for each ability some gap or ledge can
+/// need (and what each says), around the selected entrance while Reach is on. Draws nothing while
+/// no ability has such a gap or ledge: the panel says why then.
 pub(crate) fn draw_reach(
     checks: &mut ChecksUi,
     selected: Option<Selection>,
@@ -54,21 +64,24 @@ pub(crate) fn draw_reach(
         return;
     }
     let interval = checks.interval(editor);
-    if !interval.usable() {
-        return;
-    }
     let origin = editor.reach_origin(selected);
     let found = outlines(origin, editor.player.edited().player.size, &interval);
-    let labels = outline_labels(&interval);
-    for (world, label, color) in [
-        (found.with, &labels[1], WITH_DASH),
-        (found.without, &labels[0], WITHOUT_DASH),
-    ] {
+    if found.with.is_empty() {
+        return;
+    }
+    // The plain jump last, so its box and label lie on top of the others.
+    let drawn = found
+        .with
+        .iter()
+        .map(|(ability, rect)| (Some(*ability), *rect, color_of(*ability)))
+        .chain([(None, found.without, WITHOUT_ABILITY)]);
+    for (ability, world, color) in drawn {
         let rect = canvas.rect(world);
         draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, color);
-        let measured = measure_text(label, None, LABEL_SIZE as u16, 1.0);
+        let label = outline_label(&interval, ability);
+        let measured = measure_text(&label, None, LABEL_SIZE as u16, 1.0);
         draw_text(
-            label,
+            &label,
             rect.x + 4.0,
             rect.y + measured.offset_y + 2.0,
             LABEL_SIZE,

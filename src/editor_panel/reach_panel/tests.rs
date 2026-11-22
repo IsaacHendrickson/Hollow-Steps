@@ -1,6 +1,7 @@
 use super::super::test_support::{click, drawn_text, editing_game as editor};
 use super::*;
 use hollow_steps::charm_editor::EffectKind;
+use hollow_steps::reach::{Interval, Reach};
 
 /// One pass of the whole panel in a tall window; returns what it drew.
 fn pass(
@@ -113,4 +114,76 @@ fn numbers_that_leave_no_gap_for_the_dash_say_why_in_red_text_instead() {
     let text = pass(&ctx, vec![], editor, &mut state);
     assert!(text.contains("Reach from the room spawn"), "{text}");
     assert!(!text.contains("no gap can need Dash"), "{text}");
+}
+
+/// An interval where a jump with every buff crosses 200 px and rises 160 px, a dash jump crosses
+/// `dash_far`, and a double jump crosses `double_far` and rises `double_high`.
+fn interval(dash_far: f32, double_far: f32, double_high: f32) -> Interval {
+    Interval {
+        without: Reach {
+            jump_height: 160.0,
+            jump_distance: 200.0,
+            dash_jump_distance: 210.0,
+            double_jump_height: 200.0,
+            double_jump_distance: 220.0,
+        },
+        with: Reach {
+            jump_height: 160.0,
+            jump_distance: 190.0,
+            dash_jump_distance: dash_far,
+            double_jump_height: double_high,
+            double_jump_distance: double_far,
+        },
+    }
+}
+
+/// The panel with the Reach toggle on and `found` as what was measured for the numbers held.
+fn with_measured(found: Interval) -> (egui::Context, EditorUi, String, bool) {
+    let mut game = editor();
+    let editor = game.editor_mut().unwrap();
+    let mut state = EditorUi::default();
+    state.checks.reach = true;
+    state.checks.measured = Some((editor.reach_key(), found));
+    let (ctx, text) = ready(editor, &mut state);
+    (ctx, state, text, editor.dirty)
+}
+
+#[test]
+fn the_note_names_every_ability_that_has_an_outline() {
+    let (_, _, text, dirty) = with_measured(interval(400.0, 250.0, 300.0));
+    assert!(
+        text.contains("Reach from the room spawn: the outlines are a jump with no ability, and with Dash and Double Jump"),
+        "{text}"
+    );
+    assert!(!text.contains("no gap can need"), "{text}");
+    assert!(!text.contains("no ledge can need"), "{text}");
+    assert!(!dirty, "looking is not an edit");
+}
+
+#[test]
+fn a_double_jump_nothing_can_need_says_why_in_red_and_the_dash_outline_stays() {
+    // It crosses farther but rises no higher than a jump.
+    let (_, _, text, _) = with_measured(interval(400.0, 250.0, 160.0));
+    assert!(text.contains("no ledge can need Double Jump"), "{text}");
+    assert!(text.contains("160 px"), "both numbers: {text}");
+    assert!(!text.contains("no gap can need Dash"), "{text}");
+    assert!(text.contains("and with Dash"), "{text}");
+    assert!(!text.contains("Dash and Double Jump"), "{text}");
+}
+
+#[test]
+fn a_dash_nothing_can_need_says_why_and_the_double_jump_outline_stays() {
+    let (_, _, text, _) = with_measured(interval(190.0, 250.0, 300.0));
+    assert!(text.contains("no gap can need Dash"), "{text}");
+    assert!(!text.contains("no gap can need Double Jump"), "{text}");
+    assert!(text.contains("and with Double Jump"), "{text}");
+}
+
+#[test]
+fn when_no_ability_has_anything_to_need_it_every_reason_is_listed_and_nothing_is_drawn() {
+    let (_, _, text, _) = with_measured(interval(190.0, 190.0, 100.0));
+    assert!(text.contains("no gap can need Dash"), "{text}");
+    assert!(text.contains("no gap can need Double Jump"), "{text}");
+    assert!(text.contains("no ledge can need Double Jump"), "{text}");
+    assert!(!text.contains("Reach from"), "nothing to draw: {text}");
 }

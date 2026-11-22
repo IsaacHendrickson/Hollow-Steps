@@ -2,7 +2,8 @@
 //! (`GameState::take_reach_note`), the panel only shows it next to the saved message.
 use super::*;
 
-const LINE: &str = "jump 183 px, dash jump 296 px; run Check dungeon";
+const LINE: &str =
+    "jump 183 px, dash jump 296 px, double jump 270 px high / 240 px far; run Check dungeon";
 
 #[test]
 fn the_line_is_drawn_under_saved_to_and_goes_with_the_saved_message() {
