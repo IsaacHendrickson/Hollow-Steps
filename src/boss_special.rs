@@ -60,6 +60,8 @@ pub struct BossSpecials {
     health: u32,
     /// The health the boss began with: the definition's, or that scaled by a difficulty tier.
     max_health: u32,
+    /// The lowest difficulty tier the placement shows up at; 0 = always.
+    min_tier: u32,
     active: Option<ActiveAttack>,
     pending_damage: u32,
     next_attack: usize,
@@ -107,6 +109,7 @@ impl BossSpecials {
         Ok(Self {
             health: definition.health,
             max_health: definition.health,
+            min_tier: 0,
             definition,
             position,
             target_position: position,

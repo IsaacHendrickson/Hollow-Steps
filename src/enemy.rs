@@ -66,6 +66,8 @@ pub struct Enemy {
     /// A pose from the behavior (a wind-up, a recoil) is playing, so the wings leave the body
     /// alone until the behavior clears it.
     behavior_pose_held: bool,
+    /// The lowest difficulty tier the placement shows up at (`crate::difficulty`); 0 = always.
+    min_tier: u32,
 }
 
 impl Enemy {
@@ -205,6 +207,7 @@ impl Enemy {
             flap_clock: FlapClock::default(),
             wing_pose: None,
             behavior_pose_held: false,
+            min_tier: 0,
         })
     }
 

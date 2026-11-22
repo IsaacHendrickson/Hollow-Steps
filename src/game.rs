@@ -60,6 +60,8 @@ mod map_link;
 mod map_screen_tests;
 #[cfg(test)]
 mod map_tests;
+#[cfg(test)]
+mod min_tier_tests;
 mod pause_link;
 #[cfg(test)]
 mod pause_tests;

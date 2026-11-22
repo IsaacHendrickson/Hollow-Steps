@@ -10,6 +10,18 @@ impl BossSpecials {
         self.max_health = scale.boss_health(self.max_health);
         self.health = scale.boss_health(self.health);
     }
+
+    /// The lowest tier this boss is in the room at; 0 means every tier. It comes from the
+    /// placement's `min_tier` and only the game's world loading acts on it.
+    pub fn min_tier(&self) -> u32 {
+        self.min_tier
+    }
+
+    /// The boss marked as appearing from `min_tier` on.
+    pub fn with_min_tier(mut self, min_tier: u32) -> Self {
+        self.min_tier = min_tier;
+        self
+    }
 }
 
 #[cfg(test)]

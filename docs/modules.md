@@ -191,6 +191,8 @@ Gameplay modules (pure rules, no rendering):
 - `src/boss_special/tier.rs`: `BossSpecials::scale_health`; `max_health` is now a field (the shared definition keeps the authored number)
 - `src/damage/tier.rs`: `DamageResolver::gather_scaled(.., &TierScale)`: enemy contact, actions, blasts and attacks times the enemy damage multiplier, boss contact, actions and attacks times the boss one, hazards never; `gather` is the neutral scale
 - `src/run/bonus.rs`: `CoinBonus` (tier and percent, `None` when there is no bonus) and `result_lines_with_bonus`, which puts "Tier N bonus: +X%" under "Coins earned"
+- `src/editor_min_tier.rs`: `RoomDraft::{enemy_min_tier, boss_min_tier, set_enemy_min_tier, set_boss_min_tier}`: a placement's `min_tier` (0 to `MAX_MIN_TIER`, 99); a set above it, or on a missing placement, is refused with the draft unchanged
+- `src/editor_panel/min_tier_field.rs`: the "Min tier" `DragValue` of the Room tools panel for the selected enemy or the boss (a "Placement" section); dragging is one undo step, an edit marks the room unsaved; the Test room plays it at the profile's tier
 - `src/upgrades.rs`: permanent upgrades (`data/upgrades.ron`): `UpgradeCatalog`, `buy`, `permanent_effects`; levels live in the profile
 - `src/upgrade_editor.rs`: pure `UpgradeDraft` editing `upgrades.ron`, field table, validate-first save; `docs/upgrade-editor.md`
 - `src/snapshot_history.rs`: generic snapshot undo/redo for a panel's own list (the Upgrades panel's)

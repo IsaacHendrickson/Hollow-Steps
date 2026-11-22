@@ -5,7 +5,7 @@
 //! The rule is that a tier is layered on when rooms are built and never written back. Every
 //! place that builds rooms for play (`world_load`, a run's start, the F5 reload, the editor's
 //! Save, a test room) puts a `Layer` over them; the editor session and the room files never
-//! see one. A run holds one layer from its start to its end: the profile's tier is read when the
+//! see one, which is also why Save keeps a placement the tier left out. A run holds one layer from its start to its end: the profile's tier is read when the
 //! run starts (`start_run`), so changing it in F4 takes effect at the next run. In the hub and in
 //! a game with no hub the layer is `Layer::BASE`, which changes nothing.
 use super::GameState;
@@ -38,8 +38,17 @@ impl Layer {
         }
     }
 
-    /// Layers the tier over one freshly built room: enemy and boss health scaled.
+    /// Layers the tier over one freshly built room: placements whose `min_tier` is above the
+    /// tier are left out (a boss left out locks no exit), the rest have their health scaled.
     pub(super) fn apply_room(&self, room: &mut Room) {
+        room.enemies.retain(|enemy| enemy.min_tier() <= self.tier);
+        if room
+            .boss_special
+            .as_ref()
+            .is_some_and(|boss| boss.min_tier() > self.tier)
+        {
+            room.boss_special = None;
+        }
         for enemy in &mut room.enemies {
             enemy.scale_health(&self.scale);
         }

@@ -156,6 +156,8 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Tier on a run: enemy/boss health scaled at run start and kept on F5/Save; `src/game/tier_link.rs`, `src/enemy/tier.rs`; `src/game/tier_tests.rs`
 - Tier damage: `DamageResolver::gather_scaled` scales enemy and boss hits (contact, actions, attacks, blasts); `src/damage/tier.rs`; `src/damage/tier/tests.rs`
 - Tier coins: a run's coins scaled before banking, result line "Tier N bonus: +X%"; `src/run/bonus.rs`; `src/run/bonus/tests.rs`, `src/game/tier_tests.rs`
+- Min tier on enemy/boss placements: out of play below it, kept by editor and Save; `src/game/tier_link.rs`; `tests/min_tier.rs`, `src/game/min_tier_tests.rs`
+- Editor Min tier field (0-99), one undo step; `src/editor_min_tier.rs`, `src/editor_panel/min_tier_field.rs`; `editor_panel/min_tier_field/tests.rs`
 
 ## Tests and CI
 

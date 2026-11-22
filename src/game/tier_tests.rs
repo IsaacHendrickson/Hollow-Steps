@@ -12,14 +12,14 @@ use crate::difficulty::Difficulty;
 use crate::hazard::{Hazard, HazardPlacement};
 use crate::profile::Profile;
 
-const RULES: &str = "(enemy_health_percent: 10.0, enemy_damage_percent: 20.0, \
+pub(super) const RULES: &str = "(enemy_health_percent: 10.0, enemy_damage_percent: 20.0, \
     boss_health_percent: 20.0, boss_damage_percent: 50.0, coin_percent: 10.0, max_effective_tier: 20)";
 
 fn rules() -> Difficulty {
     Difficulty::from_ron(RULES).unwrap()
 }
 
-fn with_tier(game: &mut GameState, tier: u32) {
+pub(super) fn with_tier(game: &mut GameState, tier: u32) {
     let profile = Profile {
         tier,
         ..game.profile().clone()
@@ -42,7 +42,7 @@ fn tiered(tier: u32) -> (Scratch, GameState) {
 }
 
 /// Walks out of the hub: a run starts. Unlike `run_tests::start_run` the enemies stay.
-fn begin(game: &mut GameState) {
+pub(super) fn begin(game: &mut GameState) {
     game.update(walk(1.0), 10.0);
     assert!(
         game.run_in_progress(),
@@ -50,12 +50,12 @@ fn begin(game: &mut GameState) {
     );
 }
 
-fn first_enemy(game: &GameState) -> (u16, u16) {
+pub(super) fn first_enemy(game: &GameState) -> (u16, u16) {
     let enemy = &game.rooms[RoomId::First.index()].enemies[0];
     (enemy.health(), enemy.max_health())
 }
 
-fn boss(game: &GameState) -> (u32, u32) {
+pub(super) fn boss(game: &GameState) -> (u32, u32) {
     let boss = game.rooms[RoomId::Boss.index()]
         .boss_special
         .as_ref()

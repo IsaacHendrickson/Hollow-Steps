@@ -30,6 +30,7 @@ impl Assets {
             let mut document: RoomEnemies =
                 ron::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
             document.enemies.push(hollow_steps::room::EnemyPlacement {
+                min_tier: 0,
                 definition: "patrol".into(),
                 patrol_left: 300.0,
                 patrol_right: 400.0,
@@ -733,6 +734,7 @@ fn deleting_entity_checks_unsaved_room_references() {
         .draft
         .enemies
         .push(hollow_steps::room::EnemyPlacement {
+            min_tier: 0,
             definition: "copy".into(),
             patrol_left: 300.0,
             patrol_right: 400.0,
@@ -762,6 +764,7 @@ fn new_entity_edits_keep_preview_and_unsaved_references_valid() {
         .draft
         .enemies
         .push(hollow_steps::room::EnemyPlacement {
+            min_tier: 0,
             definition: entity.name.clone(),
             patrol_left: 300.0,
             patrol_right: 400.0,
@@ -1106,6 +1109,7 @@ fn unrelated_editor_saves_preserve_damaged_boss_progress() {
     let mut document: RoomEnemies =
         ron::from_str(&std::fs::read_to_string(&room_path).unwrap()).unwrap();
     document.boss = Some(hollow_steps::room::BossPlacement {
+        min_tier: 0,
         definition: "Ground Pound Example".into(),
         position: (spawn.x + 40.0, spawn.y),
     });
