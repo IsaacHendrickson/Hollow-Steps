@@ -9,7 +9,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Terrain hazards: touch hurts and throws the player away from the side touched, up from the top; `src/hazard.rs`; `tests/hazards.rs`, manual
 - Hazard looks: Spikes, Lava or Thorns, facing any side, own color; spike rows along walls; `src/hazard_look.rs`; `src/hazard_look/tests.rs`, manual
 - Terrain look (drawing only): procedural draw list for solids and boundary, presets, per-room style; `src/terrain_style.rs`; `tests/terrain_style.rs`, manual
-- Reach envelope: jump height and longest gap with and without Dash, measured on the real physics; empty-interval error; `src/reach.rs`; `src/reach/tests.rs`
+- Reach envelope: jump height, longest gap with no ability, Dash, Double Jump, on the real physics; per-ability interval; `src/reach.rs`; `src/reach/tests.rs`
 - Gates: mark that going from an entrance to an exit needs Dash; editor Reaching this exit; orphans listed; `src/gates.rs`; `tests/gates_editing.rs`
 - Check dungeon: unreachable rooms, unopenable locks, unobtainable abilities, traps; editor button; `src/dungeon_check.rs`; `tests/shipped_content.rs`
 - Dungeon map data: room `map_cell` (-64..64) or placement by exits; conflicts, one-way links, key numbers; `src/dungeon_map.rs`; `src/dungeon_map/tests.rs`

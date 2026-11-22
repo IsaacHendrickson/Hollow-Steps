@@ -6,6 +6,8 @@ fn interval(without_distance: f32, with_dash: f32) -> Interval {
         jump_height: 160.0,
         jump_distance,
         dash_jump_distance,
+        double_jump_height: 250.0,
+        double_jump_distance: jump_distance + 100.0,
     };
     Interval {
         without: reach(without_distance, without_distance + 10.0),

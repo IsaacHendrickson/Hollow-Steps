@@ -8,6 +8,8 @@ fn interval() -> Interval {
         jump_height,
         jump_distance,
         dash_jump_distance,
+        double_jump_height: jump_height,
+        double_jump_distance: jump_distance,
     };
     Interval {
         without: reach(160.0, 200.0, 330.0),

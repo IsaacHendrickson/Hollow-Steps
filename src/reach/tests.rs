@@ -206,6 +206,8 @@ fn an_interval_with_equal_distances_is_not_usable() {
         jump_height: 100.0,
         jump_distance: 200.0,
         dash_jump_distance: 200.0,
+        double_jump_height: 100.0,
+        double_jump_distance: 200.0,
     };
     let interval = Interval {
         without: reach,
@@ -223,11 +225,15 @@ fn needs_dash_is_longer_than_the_jump_and_up_to_the_dash_jump() {
             jump_height: 100.0,
             jump_distance: 180.0,
             dash_jump_distance: 250.0,
+            double_jump_height: 100.0,
+            double_jump_distance: 180.0,
         },
         with: Reach {
             jump_height: 100.0,
             jump_distance: 160.0,
             dash_jump_distance: 300.0,
+            double_jump_height: 100.0,
+            double_jump_distance: 160.0,
         },
     };
     assert!(interval.usable());
@@ -319,3 +325,5 @@ fn the_slowest_allowed_walk_still_measures() {
     assert!(reach.jump_distance >= crawl.size.x, "{reach:?}");
     assert!(reach.jump_distance < crawl.size.x + 10.0, "{reach:?}");
 }
+
+mod double_jump;
