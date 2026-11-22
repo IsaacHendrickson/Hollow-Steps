@@ -27,7 +27,7 @@ fn body_rect(position: Vec2, size: Vec2) -> Rect {
 /// Size of a door placed in the editor (width, height); its size can be changed there.
 pub const DOOR_SIZE: Vec2 = Vec2::new(48.0, 72.0);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum RoomId {
     First,
     Second,
@@ -131,6 +131,9 @@ pub struct Room {
     /// Marks of what crossing needs (`crate::gates`). Carried so a layout rebuilt from the room
     /// keeps them; the game never reads them.
     pub(crate) gates: Vec<crate::gates::Gate>,
+    /// Where the dungeon map puts the room (`crate::dungeon_map`); `None` places it by its exits.
+    /// Carried like `gates`; the game's rules never read it.
+    pub(crate) map_cell: Option<(i32, i32)>,
     /// Default player-center respawn point for this room.
     pub spawn: Vec2,
     pub enemies: Vec<Enemy>,
@@ -290,6 +293,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             terrain_style: Default::default(),
             background: Vec::new(),
             gates: Vec::new(),
+            map_cell: None,
             exits: vec![Exit {
                 edge: RoomEdge::Right,
                 offset: FLOOR_Y - 96.0,
@@ -329,6 +333,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             terrain_style: Default::default(),
             background: Vec::new(),
             gates: Vec::new(),
+            map_cell: None,
             exits: vec![
                 Exit {
                     edge: RoomEdge::Left,
@@ -362,6 +367,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             terrain_style: Default::default(),
             background: Vec::new(),
             gates: Vec::new(),
+            map_cell: None,
             spawn: Vec2::new(160.0, 436.0),
             enemies: Vec::new(),
             boss_special: None,

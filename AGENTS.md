@@ -77,7 +77,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/pause_menu.rs` (+ `pause_menu/`), `shop_menu` (+ `shop_menu/`), `keybinds` (+ `keybinds/`): pause menu, hub shop, rebindable controls; `docs/keybinds.md`
 - `src/room.rs`, `door_exit`, `ability`, `exit_lock`, `exit_link`, `exit_arrival`: rooms, door exits, abilities, locked exits, exit links; `docs/door-exits.md`
 - `src/reach.rs`, `reach/editor`, `reach/text`: reach envelope (jump height, longest gap) measured on the real `Player`, preview, text; `docs/reach.md`
-- `src/gates.rs`, `dungeon_check`: gate marks and Check dungeon (unreachable rooms, locks, traps); `docs/gates.md`, `docs/dungeon-check.md`
+- `src/gates.rs`, `dungeon_check`, `dungeon_map`: gate marks, Check dungeon, dungeon map; `docs/gates.md`, `dungeon-check.md`, `dungeon-map.md`
 - `src/terrain.rs`, `terrain_style` (+ `terrain_style/`), `terrain_styles`, `game/terrain_link`: solids and collision, procedural look as a draw list, presets
 - `src/hazard.rs`, `hazard_look`, `editor_hazard`, `scene_hazards`, `editor_panel/hazard_panel`: terrain hazards; `docs/hazards.md`
 - `src/editor.rs`, `editor_files`, `editor_session`, `editor_history`, `editor_guard`, `editor_look`: room editor: edits, files, session, undo, unsaved guard
@@ -90,7 +90,7 @@ Composition and front end:
 - `src/game.rs`: gameplay state and world composition; add systems as modules or fields, testable without a window
 - `src/game/pause_link.rs`, `game/keybind_link`, `game/vitals_link`, `game/player_link`, `game/run_link`, `game/shop_link`: `GameState` owns and drives these
 - `src/game/world_load.rs`, `game/world_doors`, `game/world_items`, `game/world_charms`: the one world loader, door rule, items and charms in play and Save
-- `src/game/test_room.rs`, `game/editor_save`: Test room (plays the editor draft), editor save (checks, staged write)
+- `src/game/test_room.rs`, `game/editor_save`, `game/map_link`: Test room (plays the editor draft), editor save (checks, staged write), rooms seen this run
 - `src/charm_menu.rs` (+ `charm_menu/`), `charm_input`, `hud_charms`, `charm_panel` (+ `charm_panel/`), `game/charm_link`, `game/charm_editor_link`: Charms UI
 - `src/hud.rs`, `hud_bars` (+ `hud_bars/`), `hud_bars_draw`, `hud_damage`, `hud_layout`, `hud_run`: HUD, health and mana bars, result screen, inventory
 - `src/shop_input.rs`, `hud_shop`, `scene_shop`: hub shop input and drawing

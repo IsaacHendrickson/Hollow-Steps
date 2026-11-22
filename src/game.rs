@@ -54,6 +54,9 @@ mod keybind_link;
 mod keybind_tests;
 #[cfg(test)]
 mod located_event_tests;
+mod map_link;
+#[cfg(test)]
+mod map_tests;
 mod pause_link;
 #[cfg(test)]
 mod pause_tests;
@@ -152,6 +155,8 @@ pub struct GameState {
     /// The hub-and-run loop: its settings, the profile and where the player is in the loop; see
     /// `run_link`. Inert while `run.ron` names no hub.
     run: run_link::RunState,
+    /// The dungeon map: the rooms seen this run; see `map_link`.
+    map: map_link::MapState,
 }
 
 impl GameState {
@@ -202,9 +207,11 @@ impl GameState {
             reach_note: None,
             shop: ShopMenu::default(),
             run,
+            map: map_link::MapState::default(),
         };
         game.prune_owned_charm_placements();
         game.apply_stats();
+        game.discover_current_room();
         Ok(game)
     }
 
@@ -359,6 +366,7 @@ impl GameState {
             return;
         }
         self.reconcile_run();
+        self.discover_current_room();
         let delta_seconds = if delta_seconds.is_finite() {
             delta_seconds.max(0.0)
         } else {

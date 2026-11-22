@@ -180,6 +180,7 @@ impl GameState {
         self.refill_vitals();
         self.run.phase = RunPhase::Hub;
         self.run.message = None;
+        self.discover_current_room();
         self.events.push(GameEvent::RoomEntered);
     }
 
@@ -198,6 +199,8 @@ impl GameState {
             format!("Profile not saved, the coins are kept for this session: {error}")
         });
         self.run.phase = RunPhase::Result(result);
+        // The run is over, and so is what it showed on the map.
+        self.map.discovery.clear();
         self.inventory_open = false;
         self.pause_menu.close();
     }
@@ -216,6 +219,8 @@ impl GameState {
         self.rooms = rooms;
         self.terrain_styles = terrain_styles;
         self.current = current;
+        // A new run has seen nothing yet.
+        self.map.discovery.clear();
         self.coin_count = 0;
         self.taken_items = TakenItems::default();
         // Every door is locked again, and no notice outlives the run.
@@ -254,6 +259,7 @@ impl GameState {
     fn enter_room(&mut self, target: usize, spawn: Vec2) {
         self.current = target;
         self.player.place_at(spawn, self.world_bounds());
+        self.discover_current_room();
         self.events.push(GameEvent::RoomEntered);
     }
 
