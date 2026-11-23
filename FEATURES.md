@@ -180,6 +180,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Room `flippable` mark (editor Seed flip box, undo, absent = no); a run's seed mirrors each marked room 50/50; `src/editor_panel/flippable_field.rs`
 - `variety.ron` `room_flip_percent` (default 50) and F4 Flip rooms next run; hub never mirrored; `src/variety/room_flip.rs`; `room_flip_tests.rs`
 - Rooms mirrored alone or with the dungeon (xor); map cell follows the dungeon; run closes the editor; `src/mirror/source.rs`; `game/flip_link/room_tests.rs`
+- `variety.ron` `generator`: enabled, rooms, spine, keys, mirror_percent, attempts; optional, validated; `src/variety/generator.rs`; `generator/tests.rs`
 
 ## Dungeon pieces
 
