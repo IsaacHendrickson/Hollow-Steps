@@ -1,4 +1,4 @@
-# Variety: the run seed
+# Variety: the run seed and the dungeon flip
 
 Every run has a **seed**, one `u64` that makes a run's random choices repeatable. The seed is
 the first thing that makes one run differ from the next without any file being edited. Optional
@@ -150,3 +150,74 @@ message line. The Test room plays every placement.
 8. In the hub, and in the editor, and in **Test room**: all five placements are there.
 9. Open the room in the editor during a run and Save: the file still has all five placements.
 10. Un-fix the seed: each new run takes the next seed, and the result screen shows a different one.
+
+# The dungeon flip
+
+The same fixed dungeon can be played **mirrored left to right**, so one dungeon plays as two. This
+section is the pure half: a room seen in a mirror (`src/mirror.rs`, `src/mirror/world.rs`). Nothing
+there reads a file, a seed or the game; `game::world_load` calls it when a run is flipped.
+
+## The symmetry assumption
+
+A flipped room only plays the same as the original if **the player is left-right symmetric**: the
+same run, jump, air jump, dash and nail swing, mirrored. That is an assumption about `Player`, so it
+is proved, not trusted: `tests/flip.rs` steps the real `Player` through a scripted sequence on a
+small world and on its mirror with every move input mirrored, and asserts at every tick (within
+1e-3) that x and horizontal velocity are negated, y and vertical velocity are the same, and
+grounded, facing and the strike hitbox agree. **If that test ever fails, the flip must not ship**:
+something in the player now treats left and right differently. Re-run it after any change to
+`player.rs`, collision or the dash.
+
+One thing that is not symmetric by construction: an enemy starts at the **left end of its patrol**
+facing right (`Enemy::from_definition`). A flipped placement swaps its ends, so it starts at the
+mirror of the original's *right* end. Its patrol and everything after the first moments are mirrored.
+
+## A room in a mirror (`mirror_layout`, `mirror_document`)
+
+The mirror is the vertical line through the middle of the room's `bounds`, so a room maps onto
+itself: a point `x` goes to `2 * bounds.x + bounds.w - x`, a rectangle by its far edge, y never
+changes, and `bounds`, `floor_y` and the name stay. Mirroring twice gives the room back (exactly,
+for whole-number coordinates).
+
+| Moved | How |
+|---|---|
+| spawn, items, charms | the point is mirrored |
+| terrain, hazards, breakables, switches, barriers | the rectangle is mirrored by its far edge |
+| a hazard's `facing` | Left and Right swap (Up and Down stay) |
+| an edge exit on Left or Right | the edges swap; the offset (from the top) stays |
+| an edge exit on Top or Bottom | `offset` becomes `bounds.w - offset - length` |
+| a door | its rectangle is mirrored |
+| a gate's `exit` | follows its exit (the exit is looked up in the room, a reference has no length) |
+| `map_cell` | the column is negated, the row stays |
+| an enemy's patrol | the ends swap and are mirrored: the left end is the mirror of the old right end |
+| the boss | its position is mirrored |
+
+**Not moved:** the terrain look and the background layers (drawing only, a known limit), and an
+exit's arrival `spawn`: that is a point in *another* room, which only `flip_world` can mirror. A
+document with no `layout` has no bounds, so `mirror_document` returns it unchanged.
+
+## A whole dungeon (`flip_world`)
+
+`flip_world(&mut documents, flipped)` mirrors every room `flipped` names and makes the links agree:
+
+- the `spawn` of every exit that leads into a flipped room is mirrored in **that room's** bounds, so
+  the player still arrives beside the matching exit (an exit into its own room is mirrored once);
+- a gate's `Entrance::Arrival` follows the exit it names when that exit's room is flipped. The exit
+  is looked up in its room **as it was before the flip**, because a top or bottom exit needs its
+  length.
+
+The game flips every room except the hub together, because a room mirrored alone would break the
+dungeon (you would leave through one wall and arrive at the neighbour's same wall). The function is
+still correct for any set of rooms, and the tests run all 32 sets of the fixture dungeon.
+
+## What the tests prove
+
+- `src/mirror/tests/layout.rs`: one test per kind of thing moved, the four edges and a door, patrols
+  and the boss, mirroring twice (exact for whole numbers, within 1e-3 otherwise).
+- `src/mirror/tests/world.rs`: arrivals into flipped rooms are free spots **and** the spot beside
+  the matching exit, gates and entrances still agree with the exits, flipped rooms pass
+  `RoomLayout::validate_geometry`, flipping twice gives the dungeon back.
+- `src/mirror/tests/dungeon.rs`: the dungeon check gives the same number and kinds of problems before
+  and after the flip, for a good dungeon and one made bad on purpose.
+- The fixture dungeon (`src/mirror/fixture.rs`) is built in code: a hub, a start room with a key,
+  the Dash and a hazard, a locked exit with a Dash gate, a door, a top and a bottom exit.

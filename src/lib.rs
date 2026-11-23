@@ -62,6 +62,7 @@ pub mod hud_damage;
 pub mod hud_layout;
 pub mod item;
 pub mod keybinds;
+pub mod mirror;
 pub mod notice;
 pub mod particles;
 pub mod pause_menu;
