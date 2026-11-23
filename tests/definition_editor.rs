@@ -31,6 +31,8 @@ impl Assets {
                 ron::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
             document.enemies.push(hollow_steps::room::EnemyPlacement {
                 min_tier: 0,
+                group: None,
+                chance: 100,
                 definition: "patrol".into(),
                 patrol_left: 300.0,
                 patrol_right: 400.0,
@@ -735,6 +737,8 @@ fn deleting_entity_checks_unsaved_room_references() {
         .enemies
         .push(hollow_steps::room::EnemyPlacement {
             min_tier: 0,
+            group: None,
+            chance: 100,
             definition: "copy".into(),
             patrol_left: 300.0,
             patrol_right: 400.0,
@@ -765,6 +769,8 @@ fn new_entity_edits_keep_preview_and_unsaved_references_valid() {
         .enemies
         .push(hollow_steps::room::EnemyPlacement {
             min_tier: 0,
+            group: None,
+            chance: 100,
             definition: entity.name.clone(),
             patrol_left: 300.0,
             patrol_right: 400.0,

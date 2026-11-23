@@ -24,6 +24,7 @@ mod definition;
 mod flap;
 mod movement;
 mod tier;
+mod variety;
 
 pub use catalog::EnemyDefinitions;
 pub use death::DeathTimer;
@@ -68,6 +69,11 @@ pub struct Enemy {
     behavior_pose_held: bool,
     /// The lowest difficulty tier the placement shows up at (`crate::difficulty`); 0 = always.
     min_tier: u32,
+    /// The group and the chance (percent) of the placement (`crate::variety`) and the number
+    /// that tells it from the others of its room; only a run's world loading acts on them.
+    group: Option<u8>,
+    chance: u8,
+    identity: u64,
 }
 
 impl Enemy {
@@ -208,6 +214,9 @@ impl Enemy {
             wing_pose: None,
             behavior_pose_held: false,
             min_tier: 0,
+            group: None,
+            chance: crate::variety::FULL_CHANCE,
+            identity: 0,
         })
     }
 

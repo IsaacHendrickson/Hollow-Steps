@@ -167,6 +167,9 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - A run takes a seed at start (can be fixed), kept to the result screen, none in hub or test room, not saved; `src/game/seed_link.rs`; `src/game/seed_tests.rs`
 - Result screen's last line `Seed: <16 hex>`, after the tier line, dimmer; `src/run/seed_line.rs`; `src/run/seed_line/tests.rs`
 - F4 Run (debug) Seed row: Fixed seed box, hex text box (bad text refused, old seed kept), seed label; `src/tuning_panel/run/seed.rs`; `run/seed/*tests.rs`
+- Optional placements: enemy `group` (1-9, one member stays) and `chance` (0-100, default 100); a run's seed decides; `src/variety.rs`; `src/variety/tests.rs`
+- Only a run's rooms are thinned, min tier first: not the hub, test room, loaders or Save; F5 keeps the picks; `src/game/tier_link.rs`; `game/variety_tests.rs`
+- Editor Group (None box, 1-9 drag) and Chance % rows under Min tier, one undo step each; `src/editor_panel/variety_fields.rs`; `src/editor_variety.rs`
 
 ## Tests and CI
 

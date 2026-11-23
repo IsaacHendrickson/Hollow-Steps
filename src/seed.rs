@@ -51,10 +51,11 @@ fn mix(value: u64) -> u64 {
     Rng::new(value).next_u64()
 }
 
-/// FNV-1a of `label`'s bytes.
-fn hash_label(label: &str) -> u64 {
-    label.bytes().fold(FNV_OFFSET, |hash, byte| {
-        (hash ^ u64::from(byte)).wrapping_mul(FNV_PRIME)
+/// The 64-bit FNV-1a hash of `bytes`: a fixed, dependency-free way to turn a name into a number
+/// (it is how a label, and a placement's identity, become part of a stream's key).
+pub fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(FNV_OFFSET, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(FNV_PRIME)
     })
 }
 
@@ -64,7 +65,7 @@ fn hash_label(label: &str) -> u64 {
 /// values always give the same stream; a different label or key (or seed) gives a different one,
 /// and for one seed and label two keys never start from the same state.
 pub fn stream(seed: u64, label: &str, key: u64) -> Rng {
-    let state = mix(mix(seed) ^ hash_label(label)) ^ key;
+    let state = mix(mix(seed) ^ fnv1a(label.as_bytes())) ^ key;
     Rng::new(mix(state))
 }
 

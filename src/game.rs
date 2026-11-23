@@ -101,6 +101,8 @@ mod tier_tests;
 mod upgrade_editor_link;
 #[cfg(test)]
 mod upgrade_tests;
+#[cfg(test)]
+mod variety_tests;
 mod vitals_link;
 #[cfg(test)]
 mod vitals_tests;

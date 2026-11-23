@@ -158,3 +158,12 @@ fn spaces_signs_and_other_forms_are_refused() {
     }
     assert!(parse_seed("12 ").unwrap_err().contains("' '"));
 }
+
+#[test]
+fn fnv1a_matches_the_published_64_bit_values() {
+    // From the FNV reference test vectors.
+    assert_eq!(fnv1a(b""), 0xCBF2_9CE4_8422_2325);
+    assert_eq!(fnv1a(b"a"), 0xAF63_DC4C_8601_EC8C);
+    assert_eq!(fnv1a(b"foobar"), 0x8594_4171_F739_67E8);
+    assert_ne!(fnv1a(b"ab"), fnv1a(b"ba"));
+}

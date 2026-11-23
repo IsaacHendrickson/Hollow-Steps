@@ -1,7 +1,8 @@
 //! The "Min tier" field of the Room tools panel: the lowest difficulty tier the selected enemy
 //! or the boss is in the room at (`editor_min_tier`). The editor always shows and saves every
 //! placement; the game leaves one out below its tier, and the Test room does so at the
-//! profile's tier. Dragging the field is one undo step, like the room size fields.
+//! profile's tier. Dragging the field is one undo step, like the room size fields. An enemy's
+//! Group and Chance % rows sit under it (`variety_fields`).
 use super::widgets::{panel_label, probe, section};
 use super::{EditorSession, EditorUi, Selection};
 use egui_macroquad::egui;
@@ -55,6 +56,8 @@ pub(super) fn draw_min_tier(ui: &mut egui::Ui, editor: &mut EditorSession, state
                     )
                 });
                 ui.end_row();
+                // Under Min tier, for an enemy: Group and Chance %.
+                super::variety_fields::rows(ui, editor, state);
                 response
             })
             .inner;

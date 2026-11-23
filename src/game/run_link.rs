@@ -268,10 +268,12 @@ impl GameState {
 
     /// Starts a run: the state is reset and the phase is Running. The profile's tier is read
     /// here, once, so the run plays at it from start to end, and so is the run's seed: the fixed
-    /// one if F4 set it, otherwise the next from the source. A run that cannot start takes none.
+    /// one if F4 set it, otherwise the next from the source. The seed goes into the layer the
+    /// rooms are built with, so it decides the optional enemy placements and every rebuild in
+    /// the run keeps its picks. A run that cannot start takes no seed.
     fn start_run(&mut self) -> Result<(), String> {
         let (seed, source) = self.run.seeds.next_seed();
-        self.reset_run_state(self.profile_layer())?;
+        self.reset_run_state(self.profile_layer().with_seed(seed))?;
         self.run.seeds.begin(seed, source);
         self.run.phase = RunPhase::Running;
         self.run.message = None;

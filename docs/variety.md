@@ -60,3 +60,93 @@ refused with a message that says why.
     run: ...` in the hub afterwards, and says no run has started before the first one.
   - The row does not touch the profile. With no hub in `run.ron` the whole section only says there
     are no runs, so there is no row.
+
+## Optional enemy placements
+
+An enemy placement in a room file can say how sure it is to be there. Two optional fields:
+
+```ron
+(definition: "chase", patrol_left: 100.0, patrol_right: 200.0, group: Some(1)),
+(definition: "chase", patrol_left: 460.0, patrol_right: 540.0, chance: 50),
+```
+
+- `group: Some(1)` to `Some(9)`: the placement is one of the **alternatives** of that group in its
+  room. A room can have up to nine groups; groups of different numbers do not touch each other.
+- `chance: 0` to `100` (percent, 100 when the file says nothing): how likely the enemy is to be in
+  the room.
+- Both are left out of the file when they are the default, so an older room file loads and is saved
+  back unchanged. A group outside 1 to 9 or a chance over 100 is refused when the file loads, and
+  so is a **grouped placement whose chance is not 100** (a group keeps exactly one member whatever
+  the dice say, so a chance next to a group would mean nothing). The error names the placement
+  (`enemy 2 ("chase")`) and the file. A boss placement takes neither field.
+
+## The rule
+
+It is applied once, where the game builds the rooms **of a run** (`game::tier_link::Layer`), and
+nowhere else:
+
+1. Every placement of the room is numbered by what it is (`variety::mark_identities`): its
+   definition's name, its patrol and how many identical placements come before it (so two twins
+   still differ, and nothing else about the place in the list matters). It is made before the tier
+   leaves anything out, so the tier does not move the picks.
+2. The **min tier** is applied first: a placement below the run's tier is out before any draw.
+3. From each group, exactly **one** of the members that are left stays: the first number of
+   `stream(seed, "enemies", key)`, taken modulo the number of members, with the key from the room
+   and the group. A group with one member left keeps it, so a tier that leaves out two of three
+   never leaves the group empty.
+4. Every ungrouped enemy with a chance under 100 rolls: the first number of the stream whose key
+   comes from the room and the enemy's number, modulo 100. It stays when the roll is under its
+   chance. Chance 100 never rolls and always stays, chance 0 never stays.
+
+The same seed always gives the same enemies (the draws read nothing else), a different seed gives
+other ones, and the room's other enemies, its boss (never touched; its exits lock as before) and
+its order are as before. The pinned results of five seeds are in `src/variety/tests.rs`, checked
+against a separate implementation.
+
+## Where it does not apply
+
+Outside a run **nothing is left out**:
+
+- the hub, and a game with no hub (a layer with no seed);
+- a **test room** (a sandbox takes no seed), even inside a run, and the run's own rooms are back
+  when it ends;
+- `load_rooms`, `load_extra_rooms` and the editor, so the editor shows every placement and
+  **Save writes every placement** to the file, whichever seed the run has;
+- a room file read for any other reason.
+
+In the middle of a run, **F5** and an editor **Save** rebuild the world with the run's own seed, so
+the same enemies come back. After a file edit, an ungrouped enemy that did not change keeps its
+roll even when other placements are added or moved (its draw is keyed by its own number); a group
+picks among its members, so its pick can change when its members do.
+
+## In the editor
+
+Select an enemy: under **Min tier** in the Placement section are two rows.
+
+- **Group**: a **None** checkbox and a drag box from 1 to 9. Unticking None puts the enemy in group
+  1; the drag box can only be used while the enemy is in a group.
+- **Chance %**: a drag box from 0 to 100.
+
+Each drag is one undo step, so is each tick of None; each marks the room unsaved, so the
+unsaved-changes dialog sees it. A change the rules refuse (a group for an enemy whose chance is not
+100, a chance for an enemy in a group) leaves the room as it was and says why in the editor's
+message line. The Test room plays every placement.
+
+## A manual check
+
+1. Open a room with three enemies in the editor and give each **Group** 1 (untick None). Save. Add a
+   fourth enemy, give it **Chance %** 50 and Save again. Add a fifth with Chance % 0.
+2. F4, Run (debug), Seed: tick **Fixed seed**, type `1` and start a run. Walk to that room and
+   note which enemies are there: one of the three grouped enemies, the chance 50 one or not, and
+   not the chance 0 one.
+3. Die or leave the run and start another with the same seed: the **same** enemies.
+4. Change the seed (`2`, `3`, ...): other enemies in some of them (two seeds can pick the same
+   one; try a few).
+5. Press F5 in the room: the same enemies stay.
+6. End the run: the result screen's last line is `Seed: <16 hex digits>`. Type those digits into
+   the F4 text box with Fixed seed on and start a run: the run plays out as before.
+7. In F4, type `xyz` and tick Fixed seed: it is refused with the reason shown, and the old seed is
+   kept. Try an empty box, `0x` and 17 digits too.
+8. In the hub, and in the editor, and in **Test room**: all five placements are there.
+9. Open the room in the editor during a run and Save: the file still has all five placements.
+10. Un-fix the seed: each new run takes the next seed, and the result screen shows a different one.

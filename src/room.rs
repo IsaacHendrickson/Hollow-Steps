@@ -208,6 +208,22 @@ pub struct EnemyPlacement {
         deserialize_with = "read_min_tier"
     )]
     pub min_tier: u32,
+    /// The group (1 to 9) the enemy is in; absent means none. In a run exactly one placement of
+    /// each group of a room stays (`crate::variety`). Only the game's world loading chooses.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::variety::read_group"
+    )]
+    pub group: Option<u8>,
+    /// How likely the enemy is in the room in a run, 0 to 100 percent; absent means 100. A
+    /// grouped placement must have 100 (`EnemyPlacement::check_variety`).
+    #[serde(
+        default = "crate::variety::full_chance",
+        skip_serializing_if = "crate::variety::is_full_chance",
+        deserialize_with = "crate::variety::read_chance"
+    )]
+    pub chance: u8,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -250,6 +266,8 @@ impl EnemyPlacement {
             patrol_left,
             patrol_right,
             min_tier: 0,
+            group: None,
+            chance: crate::variety::FULL_CHANCE,
         }
     }
 }
@@ -299,6 +317,10 @@ pub fn load_room_enemies(
     bounds: WorldBounds,
 ) -> Result<Vec<Enemy>, String> {
     let room: RoomEnemies = read_ron(path)?;
+    for (index, placement) in room.enemies.iter().enumerate() {
+        let checked = placement.check_variety(index);
+        checked.map_err(|error| format!("{}: {error}", path.display()))?;
+    }
     let bounds = if let Some(layout) = &room.layout {
         crate::editor::RoomDraft {
             enemies: room.enemies.clone(),
@@ -322,7 +344,7 @@ pub fn load_room_enemies(
                     spawn.patrol_right,
                     bounds,
                 )
-                .map(|enemy| enemy.with_min_tier(spawn.min_tier))
+                .map(|enemy| enemy.with_placement(&spawn))
                 .map_err(|error| format!("{}: enemy {index}: {error}", path.display()))
         })
         .collect()
