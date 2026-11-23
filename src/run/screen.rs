@@ -10,6 +10,9 @@ use super::{RunOutcome, RunPhase, RunResult};
 use crate::camera::{anchored, Anchor};
 use crate::profile::Profile;
 
+/// How the result screen's tier line begins ("Difficulty tier 1 -> 2"), so the drawing can find it.
+const TIER_LINE_PREFIX: &str = "Difficulty tier";
+
 /// What the result screen tells the player to do.
 pub const RETURN_HINT: &str = "Press Enter or click to return to the hub";
 
@@ -32,11 +35,16 @@ pub fn result_lines(result: &RunResult, profile: &Profile) -> Vec<String> {
     ];
     if result.outcome == RunOutcome::Cleared {
         lines.push(format!(
-            "Difficulty tier {} -> {}",
+            "{TIER_LINE_PREFIX} {} -> {}",
             result.tier_before, result.tier_after
         ));
     }
     lines
+}
+
+/// True for the tier line a clear adds to the result screen, which is drawn in gold.
+pub fn is_tier_line(line: &str) -> bool {
+    line.starts_with(TIER_LINE_PREFIX)
 }
 
 const PANEL_WIDTH: f32 = 560.0;

@@ -165,6 +165,8 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 
 - Run seed: `SeedSource` (SplitMix64, clock at start-up), `stream(seed, label, key)`, 16-hex `format_seed`/`parse_seed`; `src/seed.rs`; `src/seed/tests.rs`
 - A run takes a seed at start (can be fixed), kept to the result screen, none in hub or test room, not saved; `src/game/seed_link.rs`; `src/game/seed_tests.rs`
+- Result screen's last line `Seed: <16 hex>`, after the tier line, dimmer; `src/run/seed_line.rs`; `src/run/seed_line/tests.rs`
+- F4 Run (debug) Seed row: Fixed seed box, hex text box (bad text refused, old seed kept), seed label; `src/tuning_panel/run/seed.rs`; `run/seed/*tests.rs`
 
 ## Tests and CI
 

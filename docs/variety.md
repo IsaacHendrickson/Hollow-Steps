@@ -40,3 +40,23 @@ One seed feeds many uses, and no use may disturb another. `stream(seed, label, k
 `parse_seed` reads 1 to 16 hex digits in either case with an optional `0x`; an empty text, a
 bare `0x`, a character that is not a hex digit (a space too) and more than 16 digits are each
 refused with a message that says why.
+
+## Showing the seed
+
+- **Result screen.** The last line is `Seed: <16 hex digits>` (`run::seed_line`), under the tier line
+  after a clear, in a dimmer colour. It stays on the screen as long as the result does. Type the
+  digits into F4 to play the same run again.
+- **F4, Run (debug), Seed row.** A **Fixed seed** checkbox, a **text box** and a read-only label.
+  The text box takes the seed as hex (1 to 16 digits, either case, an optional `0x`, spaces
+  around it ignored). AGENTS.md says text boxes are for names and numbers get drag boxes; a seed is
+  an identifier, not a tuned number (it is copied from the result screen and has no range to
+  drag over), so a text box is right here.
+  - Ticking the box fixes the seed to the text. A text that is not a seed is refused with the
+    reason shown under the section's buttons, and the box stays unticked.
+  - While the box is ticked, typing changes the fixed seed at once; a text that is not a seed
+    keeps the old seed and shows why.
+  - Unticking goes back to the source (the clock at launch). The text box is not read then.
+  - The label reads `Seed of this run: ...` during a run and on its result screen, `Seed of the last
+    run: ...` in the hub afterwards, and says no run has started before the first one.
+  - The row does not touch the profile. With no hub in `run.ron` the whole section only says there
+    are no runs, so there is no row.
