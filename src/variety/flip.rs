@@ -6,9 +6,11 @@
 //! `flip_percent` is required, `room_flip_percent` falls back to 50 when a file says nothing (so a
 //! file from before it still loads), unknown fields are refused and both numbers are validated
 //! when the game loads, like `difficulty.ron`. F5 does not re-read it, and the F4 rows never
-//! write it.
+//! write it. The optional `generator` section (`generator.rs`) holds the dungeon generator's
+//! rules and is validated with the rest.
 use serde::Deserialize;
 
+use super::generator::GeneratorRules;
 use crate::assets::read_override;
 use crate::seed::stream;
 
@@ -38,6 +40,10 @@ pub struct VarietyRules {
     /// (always). 50 when the file says nothing.
     #[serde(default = "default_room_flip_percent")]
     pub room_flip_percent: f32,
+    /// The dungeon generator's rules (`docs/dungeon-gen.md`); the defaults when the file says
+    /// nothing, which keeps the generator off.
+    #[serde(default)]
+    pub generator: GeneratorRules,
 }
 
 impl Default for VarietyRules {
@@ -74,8 +80,8 @@ impl VarietyRules {
         }
     }
 
-    /// `flip_percent` and `room_flip_percent` are finite numbers from 0 to 100. The error names
-    /// the field.
+    /// `flip_percent` and `room_flip_percent` are finite numbers from 0 to 100, and the generator
+    /// section is in range (`GeneratorRules::validate`). The error names the field.
     pub fn validate(&self) -> Result<(), String> {
         for (name, percent) in [
             ("flip_percent", self.flip_percent),
@@ -87,7 +93,7 @@ impl VarietyRules {
                 ));
             }
         }
-        Ok(())
+        self.generator.validate()
     }
 }
 

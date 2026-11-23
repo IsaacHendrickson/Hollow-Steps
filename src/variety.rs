@@ -149,8 +149,10 @@ pub(crate) fn thin(enemies: &mut Vec<Enemy>, room: RoomId, seed: u64) {
 }
 
 pub mod flip;
+pub mod generator;
 pub mod room_flip;
 pub use flip::{decide_flip, FlipChoice, VarietyRules};
+pub use generator::GeneratorRules;
 pub(crate) use room_flip::is_false;
 pub use room_flip::{decide_room_flips, RoomFlips};
 

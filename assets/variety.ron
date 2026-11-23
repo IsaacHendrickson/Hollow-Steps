@@ -7,4 +7,13 @@
                          // mirrored left to right (the hub is never mirrored); 0 never, 100 always
     room_flip_percent: 50.0, // chance, in percent (0 to 100), that a room marked flippable is played
                          // mirrored in a run, drawn for each such room apart from the others
+    generator: (         // the dungeon generator (docs/dungeon-gen.md); nothing in the game calls it yet
+        enabled: false,  // off: a run plays the authored dungeon
+        rooms: (min: 6, max: 12),  // rooms in a run, start and boss included (3 to 40)
+        spine: (min: 4, max: 7),   // rooms on the main path from start to boss, both included
+                                   // (2 or more, and the most no higher than rooms.max)
+        keys: (min: 0, max: 2),    // keys, and so locked links, in a run (0 to 8)
+        mirror_percent: 50.0,      // chance, in percent (0 to 100), that a piece is placed mirrored
+        attempts: 200,             // tries before the generator reports failure (1 to 10000)
+    ),
 )

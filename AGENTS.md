@@ -80,7 +80,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/editor_min_tier.rs`, `editor_panel/min_tier_field`: a placement's min tier (enemy, boss): draft edits, the Room tools field; `docs/run-and-profile.md`
 - `src/tuning_panel/difficulty.rs`: F4 Difficulty section (six numbers, read-out at the debug tier, Save); `hud_run`: the HUD tier; `docs/run-and-profile.md`
 - `src/seed.rs`, `game/seed_link`, `run/seed_line`, `tuning_panel/run/seed`: run seed, streams, result Seed line, F4 Seed row; `docs/variety.md`
-- `src/variety.rs`, `variety/flip`, `variety/room_flip`, `mirror`, `game/flip_link`, `tuning_panel/run/flip`, `enemy/variety`: picks, flips; `docs/variety.md`
+- `src/variety.rs`, `variety/flip`, `variety/room_flip`, `variety/generator`, `mirror`, `dungeon_gen`: flips, generator; `docs/variety.md`, `dungeon-gen.md`
 - `src/editor_variety.rs`, `editor_panel/variety_fields`, `editor_panel/flippable_field`: enemy group and chance, room Flippable box; `docs/variety.md`
 - `src/pause_menu.rs` (+ `pause_menu/`), `shop_menu` (+ `shop_menu/`), `keybinds` (+ `keybinds/`): pause menu, hub shop, rebindable controls; `docs/keybinds.md`
 - `src/room.rs`, `door_exit`, `ability`, `exit_lock`, `exit_link`, `exit_arrival`: rooms, door exits, abilities, locked exits, exit links; `docs/door-exits.md`

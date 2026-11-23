@@ -122,6 +122,24 @@ fn shipped_variety_loads_and_validates() {
 }
 
 #[test]
+fn shipped_variety_has_a_valid_generator_section() {
+    // The section ships with the file and passes the same checks as at start-up; what it says
+    // (whether it is on, how many rooms) is the owner's to edit, so no value is asserted.
+    let assets = assets();
+    let text = std::fs::read_to_string(assets.join(hollow_steps::variety::flip::FILE_NAME))
+        .expect("assets/variety.ron ships with the game");
+    assert!(
+        text.contains("generator:"),
+        "assets/variety.ron has a generator section"
+    );
+    let rules = hollow_steps::variety::VarietyRules::load(&assets).expect("shipped variety.ron");
+    rules
+        .generator
+        .validate()
+        .expect("the shipped generator section must be valid");
+}
+
+#[test]
 fn shipped_dungeon_has_no_problems() {
     // Opens the editor on the shipped rooms (custom rooms included) and runs Check dungeon, the
     // same check as its button, under the shipped run rules. It asserts nothing about content.
