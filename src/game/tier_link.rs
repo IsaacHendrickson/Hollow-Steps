@@ -12,7 +12,7 @@ use super::GameState;
 use crate::difficulty::{Difficulty, TierScale};
 use crate::room::Room;
 use crate::run::{CoinBonus, RunPhase};
-use crate::variety;
+use crate::variety::{self, RoomFlips};
 
 /// The tier a set of rooms was built at, and what it multiplies.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -28,6 +28,9 @@ pub(super) struct Layer {
     /// The run plays the dungeon mirrored (`world_load` flips every room but the hub). Kept with
     /// the layer so every rebuild during the run, F5 included, makes the same world.
     pub(super) flip: bool,
+    /// Which rooms marked `flippable` the run plays mirrored (`world_load`), kept with the layer
+    /// for the same reason as `flip`.
+    pub(super) room_flips: RoomFlips,
 }
 
 impl Layer {
@@ -38,6 +41,7 @@ impl Layer {
         scale: TierScale::NEUTRAL,
         seed: None,
         flip: false,
+        room_flips: RoomFlips::Off,
     };
 
     /// The same layer for a run with `seed`: the optional placements are decided by it.
@@ -51,6 +55,11 @@ impl Layer {
     /// The same layer for a run that plays the dungeon mirrored, or not.
     pub(super) fn with_flip(self, flip: bool) -> Self {
         Self { flip, ..self }
+    }
+
+    /// The same layer for a run that mirrors the flippable rooms `room_flips` says.
+    pub(super) fn with_room_flips(self, room_flips: RoomFlips) -> Self {
+        Self { room_flips, ..self }
     }
 
     /// Layers the tier over every room of a freshly built world.
@@ -120,6 +129,7 @@ impl TierState {
             scale: self.rules.scale(tier),
             seed: None,
             flip: false,
+            room_flips: RoomFlips::Off,
         }
     }
 }

@@ -149,7 +149,12 @@ pub(crate) fn thin(enemies: &mut Vec<Enemy>, room: RoomId, seed: u64) {
 }
 
 pub mod flip;
+pub mod room_flip;
 pub use flip::{decide_flip, FlipChoice, VarietyRules};
+pub(crate) use room_flip::is_false;
+pub use room_flip::{decide_room_flips, RoomFlips};
 
+#[cfg(test)]
+mod room_flip_tests;
 #[cfg(test)]
 mod tests;

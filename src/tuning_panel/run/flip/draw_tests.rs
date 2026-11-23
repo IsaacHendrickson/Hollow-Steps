@@ -89,3 +89,45 @@ fn clicking_the_choice_already_set_changes_nothing() {
     let text = frame(&ctx, vec![], &mut panel, &mut game);
     assert!(!text.contains("Flip choice set"), "{text}");
 }
+
+#[test]
+fn the_rooms_row_shows_three_radio_buttons_and_its_label() {
+    let scratch = Scratch::new(true);
+    let mut game = scratch.game();
+    let (ctx, _panel, text) = open_panel(&mut game);
+
+    assert!(text.contains("Flip rooms next run"), "{text}");
+    for name in ["room flip Auto", "room flip Never", "room flip Always"] {
+        rect_of(&ctx, name);
+    }
+    assert!(text.contains("mirrored by chance next run"), "{text}");
+    assert_eq!(game.room_flip_choice(), FlipChoice::Auto);
+}
+
+#[test]
+fn clicking_a_rooms_radio_button_sets_only_the_rooms_choice() {
+    let scratch = Scratch::new(true);
+    let mut game = scratch.game();
+    let (ctx, mut panel, _) = open_panel(&mut game);
+
+    click(
+        &ctx,
+        rect_of(&ctx, "room flip Always").center(),
+        &mut panel,
+        &mut game,
+    );
+    let text = frame(&ctx, vec![], &mut panel, &mut game);
+    assert_eq!(game.room_flip_choice(), FlipChoice::Always);
+    assert_eq!(game.flip_choice(), FlipChoice::Auto);
+    assert!(text.contains("Every room marked flippable"), "{text}");
+    assert!(text.contains("Flip rooms choice set"), "{text}");
+
+    click(
+        &ctx,
+        rect_of(&ctx, "room flip Never").center(),
+        &mut panel,
+        &mut game,
+    );
+    assert_eq!(game.room_flip_choice(), FlipChoice::Never);
+    assert_eq!(game.flip_choice(), FlipChoice::Auto);
+}

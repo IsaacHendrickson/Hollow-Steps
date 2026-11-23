@@ -28,6 +28,7 @@ impl RoomDraft {
         layout.map_cell = None; // a copied cell would put the new room on top of its template
         layout.piece = None; // a mark and its slots belong to the template, not to a new room
         layout.slots.clear();
+        layout.flippable = false; // a deliberate mark of the template, not of a new room
         Self {
             enemies: Vec::new(),
             boss: None,
@@ -341,6 +342,7 @@ impl RoomDraft {
             map_cell: None,
             piece: None,
             slots: Vec::new(),
+            flippable: self.layout.flippable,
             spawn: self.layout.spawn.into(),
             enemies: self
                 .enemies

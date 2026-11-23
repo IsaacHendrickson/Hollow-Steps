@@ -100,6 +100,10 @@ pub struct RoomLayout {
     /// Absent in older room files.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub slots: Vec<crate::piece::PickupSlot>,
+    /// A run's seed may play this room mirrored left to right (`crate::variety::room_flip`); the
+    /// editor and the Test room always show it as authored. Absent means no, and in older files.
+    #[serde(default, skip_serializing_if = "crate::variety::is_false")]
+    pub flippable: bool,
 }
 
 impl RoomLayout {
@@ -125,6 +129,7 @@ impl RoomLayout {
             map_cell: room.map_cell,
             piece: room.piece,
             slots: room.slots.clone(),
+            flippable: room.flippable,
             items: room
                 .items
                 .iter()
@@ -259,6 +264,7 @@ impl RoomLayout {
         room.map_cell = self.map_cell;
         room.piece = self.piece;
         room.slots = self.slots.clone();
+        room.flippable = self.flippable;
         Ok(())
     }
 }

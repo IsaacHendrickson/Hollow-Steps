@@ -177,6 +177,9 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - A flipped run builds every room but the hub from mirrored documents; plain loaders and the editor unchanged; `src/mirror/source.rs`; `src/game/world_load.rs`
 - Flipped run: hub exit arrives at the mirrored spot, F5 keeps the flip, Continue is unflipped; `src/game/flip_link.rs`; `flip_link/play_tests.rs`
 - F2 and Open room refuse in a flipped run, saying how out; hub, unflipped runs and the test room are unaffected; `src/game/flip_link.rs`
+- Room `flippable` mark (editor Seed flip box, undo, absent = no); a run's seed mirrors each marked room 50/50; `src/editor_panel/flippable_field.rs`
+- `variety.ron` `room_flip_percent` (default 50) and F4 Flip rooms next run; hub never mirrored; `src/variety/room_flip.rs`; `room_flip_tests.rs`
+- Rooms mirrored alone or with the dungeon (xor); map cell follows the dungeon; run closes the editor; `src/mirror/source.rs`; `game/flip_link/room_tests.rs`
 
 ## Dungeon pieces
 

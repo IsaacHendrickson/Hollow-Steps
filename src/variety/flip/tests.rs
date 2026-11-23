@@ -33,6 +33,7 @@ impl Drop for TempDir {
 fn rules(percent: f32) -> VarietyRules {
     VarietyRules {
         flip_percent: percent,
+        ..VarietyRules::default()
     }
 }
 

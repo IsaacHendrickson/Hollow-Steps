@@ -57,6 +57,13 @@ impl RoomDraft {
         Ok(())
     }
 
+    /// Marks the room as one a run's seed may play mirrored, or clears the mark. The draft and
+    /// Save always keep the room as authored; only a run mirrors it, and never the hub.
+    pub fn set_flippable(&mut self, flippable: bool) -> Result<(), String> {
+        self.layout.flippable = flippable;
+        Ok(())
+    }
+
     /// Every placement's group and chance obey their rules; the error names the placement.
     pub(crate) fn validate_variety(&self) -> Result<(), String> {
         self.enemies
