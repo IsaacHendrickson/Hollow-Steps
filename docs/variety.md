@@ -1,4 +1,4 @@
-# Variety: the run seed and the dungeon flip
+# Variety: the run seed, the dungeon flip and flippable rooms
 
 Every run has a **seed**, one `u64` that makes a run's random choices repeatable. The seed is
 the first thing that makes one run differ from the next without any file being edited. Optional
@@ -311,3 +311,74 @@ read is read by the builder itself, so every loading error is the plain one, wit
 6. Die in a flipped run, press Continue: the hub, and the next run with Never, are unflipped.
 7. F5 in the middle of a flipped run: the rooms stay mirrored.
 
+# Flippable rooms
+
+A room can be marked **flippable** in the room editor (Room tools, "Seed flip", the "Flippable"
+box; `flippable: true` in the room file, absent means no and older files load as no). A run's seed
+then decides, **for each marked room on its own**, whether that room is played mirrored left to
+right. The editor, Save, the Test room and the files always have the room as authored.
+
+**The draw.** `variety::RoomFlips::flips(room)` is `stream(seed, "flip-room", key of the room)`'s
+first number as a percent, under `room_flip_percent`. The key is the room's id, so the same seed
+always mirrors the same rooms, a room's draw does not move when rooms are added, and it shares no
+numbers with the dungeon flip (`flip`) or the enemy picks (`enemies`). `room_flip_percent` is a
+second number in `variety.ron`, 0 to 100, **50 when a file says nothing** (so a file from before
+it still loads); each marked room is mirrored in half of the runs by default. Both shipped and
+embedded files say `50.0`. Only marked rooms are ever asked, and **the hub is never mirrored**,
+marked or not.
+
+**With the whole-dungeon flip.** The two combine as an exclusive or: a room is mirrored when the
+dungeon flips **or** its own draw says so, **but not both**. A marked room whose draw says flip in
+a mirrored dungeon is therefore mirrored back. The reason is the odds: with "or", a marked room
+would be mirrored in three runs of four whenever the dungeon flips half the time, and with the
+exclusive or it is mirrored in half of them whatever the dungeon does (a test sweeps 200 seeds).
+The map follows the dungeon alone: a room's `map_cell` is a place on the map, not a part of the
+room, so a room mirrored by itself keeps its cell and only a flipped dungeon negates cells.
+
+**How it is built.** `mirror::FlippedDocuments::read_with(assets, hub, dungeon, rooms)` picks the
+set of rooms to mirror and hands it to `flip_world`, which was written for any set of rooms: it
+mirrors each one, mirrors the arrival `spawn` of every exit that leads into one, and moves gates
+and entrances with their exits. `world_load` calls it when the layer says to flip the dungeon or
+names some rooms (`Layer::room_flips`). Nothing is written and the loaders are the same ones.
+
+**Which rooms, per run.** `decide_room_flips(choice, rules, seed)` makes a `RoomFlips`, kept in the
+layer for the run's life (F5 rebuilds the same rooms):
+
+- **Auto** asks each marked room's draw against `room_flip_percent`;
+- **Never** mirrors no room, **Always** mirrors every marked room (F4's "Flip rooms next run").
+
+F4's Run (debug) section has the second row, "Flip rooms next run", beside "Flip next run", with
+a line saying what the next run does and how many rooms this run mirrored. It edits no file.
+
+**The editor.** Like a flipped dungeon, a run that mirrored at least one room closes the editor
+(F2 and Open room refuse, naming Flip rooms next run), because the editor reads the unmirrored
+files and Save would put them over the rooms being played. A run in which no room was mirrored
+(none is marked, or no draw said flip) leaves the editor available. `GameState::run_flipped` is
+true for either kind of run; `dungeon_flipped` and `flipped_room_count` tell them apart.
+
+**Known limits of a single mirrored room.**
+
+- A neighbour that is not mirrored still sends the player through the same wall as before, so the
+  mirrored room is entered from the side its authored layout enters from the other way round: leave
+  a room by its right exit, arrive in a mirrored room at its right side, beside the exit back, and
+  cross it right to left. Every arrival is a free spot beside the matching exit (a test checks
+  every exit), but a mirrored room is crossed against the direction of the rooms around it. Mark
+  rooms where that suits: a room whose exits are on the same side, a closet behind a door, a
+  boss arena, a vertical shaft.
+- Look and background are not mirrored (drawing only), as for the dungeon flip.
+- An enemy's first moments in a mirrored room are not the mirror of the original's (see above).
+- A dungeon check (`Check dungeon`) and the reach envelope work on the files as authored. They do
+  not see the mirrored rooms: a Dash gate is a claim about geometry, and the symmetry test
+  (`tests/flip.rs`) is what says the mirrored geometry plays alike.
+
+**Manual check.**
+
+1. Open a room in the editor, tick "Seed flip" > "Flippable", Save. F4, "Flip rooms next run":
+   **Always**, "Flip next run": **Never**. Start a run: that room is mirrored (exits on the other
+   sides), every other room is as authored, every exit leads to the right room.
+2. F4, "Flip rooms next run": **Never**: the run is as authored.
+3. **Auto** with `room_flip_percent` 50: start several runs with different F4 seeds. About half
+   mirror the room, and the same fixed seed gives the same answer.
+4. In a run that mirrored the room press F2: refused, with the reason. Abandon, Continue, F2: the
+   editor opens, and the room is as authored there.
+5. Mark the hub flippable: it is still never mirrored.

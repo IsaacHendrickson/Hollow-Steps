@@ -140,6 +140,8 @@ pub struct Room {
     /// The dungeon-piece mark and pickup slots (`crate::piece`), carried like `gates`.
     pub(crate) piece: Option<crate::piece::PieceInfo>,
     pub(crate) slots: Vec<crate::piece::PickupSlot>,
+    /// A run's seed may mirror this room (`crate::variety::room_flip`), carried like `piece`.
+    pub(crate) flippable: bool,
     /// Default player-center respawn point for this room.
     pub spawn: Vec2,
     pub enemies: Vec<Enemy>,
@@ -395,6 +397,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             map_cell: None,
             piece: None,
             slots: Vec::new(),
+            flippable: false,
             exits: vec![Exit {
                 edge: RoomEdge::Right,
                 offset: FLOOR_Y - 96.0,
@@ -438,6 +441,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             map_cell: None,
             piece: None,
             slots: Vec::new(),
+            flippable: false,
             exits: vec![
                 Exit {
                     edge: RoomEdge::Left,
@@ -475,6 +479,7 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             map_cell: None,
             piece: None,
             slots: Vec::new(),
+            flippable: false,
             spawn: Vec2::new(160.0, 436.0),
             enemies: Vec::new(),
             boss_special: None,

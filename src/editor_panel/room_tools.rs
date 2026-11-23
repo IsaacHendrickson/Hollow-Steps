@@ -5,8 +5,9 @@ use super::widgets::{
     panel_button, panel_combo, panel_input, panel_label, searchable_list, section,
 };
 use super::{
-    canvas_tools, door_panel, dungeon_panel, gate_panel, hazard_panel, history_panel, lock_panel,
-    look_panel, map_panel, min_tier_field, piece_panel, puzzle_panel, reach_panel, tool_panel,
+    canvas_tools, door_panel, dungeon_panel, flippable_field, gate_panel, hazard_panel,
+    history_panel, lock_panel, look_panel, map_panel, min_tier_field, piece_panel, puzzle_panel,
+    reach_panel, tool_panel,
 };
 use super::{EditorSession, EditorUi, Selection};
 use egui_macroquad::egui;
@@ -156,6 +157,7 @@ pub(super) fn draw_room_tools(
         panel_label(ui, "Purple: arrival spawn");
     });
     piece_panel::draw_piece_section(ui, editor, state);
+    flippable_field::draw_flippable(ui, editor, state);
     if let Some(Selection::Slot(i)) = state.selected {
         piece_panel::draw_slot_fields(ui, editor, state, i);
     }

@@ -17,12 +17,12 @@ use crate::room::{EnemyPlacement, RoomEnemies, RoomId};
 use crate::run::RunPhase;
 use crate::variety::FlipChoice;
 
-const ROOMS: [RoomId; 6] = [HUB, START, SECOND, BOSS, TOWER, CLOSET];
+pub(super) const ROOMS: [RoomId; 6] = [HUB, START, SECOND, BOSS, TOWER, CLOSET];
 
 /// A chaser patrolling the right half of the start room, so a flip puts it in the left half.
 const CHASER: &str = r#"(definition: "chase", patrol_left: 560.0, patrol_right: 800.0)"#;
 
-fn documents(with_enemy: bool) -> Vec<(RoomId, RoomEnemies)> {
+pub(super) fn documents(with_enemy: bool) -> Vec<(RoomId, RoomEnemies)> {
     let mut documents = fixture::dungeon(true);
     if with_enemy {
         let (_, start) = documents.iter_mut().find(|(id, _)| *id == START).unwrap();
@@ -31,7 +31,7 @@ fn documents(with_enemy: bool) -> Vec<(RoomId, RoomEnemies)> {
     documents
 }
 
-fn write_documents(scratch: &Scratch, documents: &[(RoomId, RoomEnemies)]) {
+pub(super) fn write_documents(scratch: &Scratch, documents: &[(RoomId, RoomEnemies)]) {
     for (id, document) in documents {
         let name = format!("rooms/{}", room_filename(*id));
         scratch.write(&name, &ron::to_string(document).unwrap());
@@ -51,14 +51,14 @@ fn dungeon_world(percent: f32) -> Scratch {
 }
 
 /// A game on `dungeon_world` in the hub, whose next runs do `choice`.
-fn game_with(scratch: &Scratch, choice: FlipChoice) -> GameState {
+pub(super) fn game_with(scratch: &Scratch, choice: FlipChoice) -> GameState {
     let mut game = game_in(scratch);
     game.set_flip_choice(choice);
     game
 }
 
 /// Walks out of the hub: a run starts and the player is in the start room.
-fn leave_the_hub(game: &mut GameState) {
+pub(super) fn leave_the_hub(game: &mut GameState) {
     game.update(walk(1.0), 10.0);
     assert!(game.run_in_progress(), "{:?}", game.run_message());
     assert_eq!(game.room().id, START);
@@ -70,17 +70,17 @@ fn flip_of(documents: &[(RoomId, RoomEnemies)]) -> Vec<(RoomId, RoomEnemies)> {
     flipped
 }
 
-fn layout_in(documents: &[(RoomId, RoomEnemies)], id: RoomId) -> RoomLayout {
+pub(super) fn layout_in(documents: &[(RoomId, RoomEnemies)], id: RoomId) -> RoomLayout {
     let (_, document) = documents.iter().find(|(room, _)| *room == id).unwrap();
     document.layout.clone().unwrap()
 }
 
-fn live_layout(game: &GameState, id: RoomId) -> RoomLayout {
+pub(super) fn live_layout(game: &GameState, id: RoomId) -> RoomLayout {
     let room = game.rooms.iter().find(|room| room.id == id).unwrap();
     RoomLayout::from_room(room)
 }
 
-fn assert_rooms_are(game: &GameState, expected: &[(RoomId, RoomEnemies)], what: &str) {
+pub(super) fn assert_rooms_are(game: &GameState, expected: &[(RoomId, RoomEnemies)], what: &str) {
     for id in ROOMS {
         assert_eq!(
             live_layout(game, id),

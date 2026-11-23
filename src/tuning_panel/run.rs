@@ -96,6 +96,7 @@ impl RunDebug {
         });
         self.draw_seed(ui, game);
         self.draw_flip(ui, game);
+        self.draw_room_flip(ui, game);
         let reset = ui.button("Reset profile");
         #[cfg(test)]
         ui.data_mut(|data| data.insert_temp(egui::Id::new("reset profile button"), reset.rect));

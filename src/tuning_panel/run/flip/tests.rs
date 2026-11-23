@@ -66,3 +66,56 @@ fn during_a_run_the_label_also_says_whether_that_run_is_flipped() {
     game.continue_after_result();
     assert!(!flip_label(&game).contains("This run"));
 }
+
+#[test]
+fn the_rooms_choice_is_its_own_and_never_edits_the_file() {
+    let (scratch, mut game) = game_with("50.0");
+    assert_eq!(game.room_flip_choice(), FlipChoice::Auto);
+    for choice in [FlipChoice::Always, FlipChoice::Never, FlipChoice::Auto] {
+        assert_eq!(set_room_flip_choice(&mut game, choice), Ok(()));
+        assert_eq!(game.room_flip_choice(), choice);
+        assert_eq!(
+            game.flip_choice(),
+            FlipChoice::Auto,
+            "the dungeon row is untouched"
+        );
+    }
+    let file = std::fs::read_to_string(scratch.0.join("variety.ron")).unwrap();
+    assert_eq!(file, "(flip_percent: 50.0)");
+}
+
+#[test]
+fn the_rooms_label_says_what_the_next_run_does_with_flippable_rooms() {
+    let (_scratch, mut game) = game_with("0.0");
+    // The file says nothing about rooms, so it is the default 50 percent.
+    assert_eq!(
+        room_flip_label(&game),
+        "Each room marked flippable is mirrored by chance next run: 50% (variety.ron)"
+    );
+    set_room_flip_choice(&mut game, FlipChoice::Never).unwrap();
+    assert_eq!(
+        room_flip_label(&game),
+        "No room marked flippable is mirrored next run"
+    );
+    set_room_flip_choice(&mut game, FlipChoice::Always).unwrap();
+    assert_eq!(
+        room_flip_label(&game),
+        "Every room marked flippable is mirrored next run"
+    );
+}
+
+#[test]
+fn a_run_that_mirrors_no_room_says_nothing_about_this_run() {
+    let (_scratch, mut game) = game_with("0.0");
+    set_room_flip_choice(&mut game, FlipChoice::Always).unwrap();
+    game.update(
+        hollow_steps::player::PlayerInput {
+            move_axis: 1.0,
+            ..Default::default()
+        },
+        10.0,
+    );
+    assert!(game.run_in_progress());
+    assert_eq!(game.flipped_room_count(), 0);
+    assert!(!room_flip_label(&game).starts_with("This run"));
+}

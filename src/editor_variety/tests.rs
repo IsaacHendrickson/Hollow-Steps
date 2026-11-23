@@ -1,4 +1,5 @@
 use super::*;
+use crate::editor::RoomLayout;
 use crate::room::{BossPlacement, EnemyPlacement, RoomEnemies};
 
 fn draft() -> RoomDraft {
@@ -138,4 +139,74 @@ fn group_and_chance_survive_moving_and_patrolling_the_enemy() {
     }
     assert_eq!(draft.enemy_group(0), Some(Some(5)));
     assert_eq!(draft.enemy_chance(1), Some(40));
+}
+
+// ---- the flippable mark ----
+
+fn layout_text(flippable: bool) -> String {
+    let mut layout = RoomLayout::from_room(&crate::room::test_rooms()[0]);
+    layout.flippable = flippable;
+    ron::to_string(&layout).unwrap()
+}
+
+#[test]
+fn a_room_is_not_flippable_until_it_is_marked() {
+    let mut draft = draft();
+    assert!(!draft.layout.flippable);
+    draft.set_flippable(true).unwrap();
+    assert!(draft.layout.flippable);
+    draft.set_flippable(false).unwrap();
+    assert!(!draft.layout.flippable);
+}
+
+#[test]
+fn the_mark_is_written_only_when_set_and_round_trips() {
+    let marked = layout_text(true);
+    assert!(marked.contains("flippable:true"), "{marked}");
+    let back: RoomLayout = ron::from_str(&marked).unwrap();
+    assert!(back.flippable);
+
+    let plain = layout_text(false);
+    assert!(!plain.contains("flippable"), "{plain}");
+    let back: RoomLayout = ron::from_str(&plain).unwrap();
+    assert!(!back.flippable);
+}
+
+#[test]
+fn an_older_room_file_without_the_field_loads_as_not_flippable() {
+    // A file written before the field existed is any layout text with no `flippable` in it.
+    let older: RoomLayout = ron::from_str(&layout_text(false)).unwrap();
+    assert!(!older.flippable);
+    assert_eq!(older, RoomLayout::from_room(&crate::room::test_rooms()[0]));
+}
+
+#[test]
+fn the_mark_survives_building_a_room_and_taking_a_layout_from_it() {
+    let mut draft = draft();
+    draft.set_flippable(true).unwrap();
+    let [mut room, ..] = crate::room::test_rooms();
+    draft.layout.apply(&mut room).unwrap();
+    assert!(room.flippable);
+    assert_eq!(RoomLayout::from_room(&room), draft.layout);
+}
+
+#[test]
+fn a_new_room_is_not_flippable_even_when_its_template_is() {
+    let mut template = RoomLayout::from_room(&crate::room::test_rooms()[0]);
+    template.flippable = true;
+    assert!(!RoomDraft::new_room(&template).layout.flippable);
+}
+
+#[test]
+fn mirroring_a_room_keeps_the_mark() {
+    let mut layout = RoomLayout::from_room(&crate::room::test_rooms()[0]);
+    layout.flippable = true;
+    assert!(crate::mirror::mirror_layout(&layout).flippable);
+}
+
+#[test]
+fn the_mark_is_not_a_validation_matter() {
+    let mut draft = draft();
+    draft.set_flippable(true).unwrap();
+    assert_eq!(draft.layout.validate_geometry(), Ok(()));
 }

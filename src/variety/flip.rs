@@ -3,8 +3,10 @@
 //! the run's seed.
 //!
 //! `data/variety.ron` is embedded; an `assets/variety.ron` replaces it whole (`assets::read_override`).
-//! Every field is required, unknown fields are refused and the number is validated when the game
-//! loads, like `difficulty.ron`. F5 does not re-read it, and the F4 row never writes it.
+//! `flip_percent` is required, `room_flip_percent` falls back to 50 when a file says nothing (so a
+//! file from before it still loads), unknown fields are refused and both numbers are validated
+//! when the game loads, like `difficulty.ron`. F5 does not re-read it, and the F4 rows never
+//! write it.
 use serde::Deserialize;
 
 use crate::assets::read_override;
@@ -16,6 +18,13 @@ const DEFAULTS: &str = include_str!("../../data/variety.ron");
 const LABEL: &str = "flip";
 /// The most a percent can be.
 pub const MAX_PERCENT: f32 = 100.0;
+/// What `room_flip_percent` is when a file does not say: each flippable room is mirrored in half
+/// of the runs.
+pub const DEFAULT_ROOM_FLIP_PERCENT: f32 = 50.0;
+
+fn default_room_flip_percent() -> f32 {
+    DEFAULT_ROOM_FLIP_PERCENT
+}
 
 /// What `variety.ron` says.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
@@ -24,6 +33,11 @@ pub struct VarietyRules {
     /// Percent of runs that play the dungeon mirrored left to right: a finite number from 0
     /// (never) to 100 (always).
     pub flip_percent: f32,
+    /// Percent of runs in which each room marked `flippable` is played mirrored, drawn for every
+    /// such room apart from the others (`room_flip`): a finite number from 0 (never) to 100
+    /// (always). 50 when the file says nothing.
+    #[serde(default = "default_room_flip_percent")]
+    pub room_flip_percent: f32,
 }
 
 impl Default for VarietyRules {
@@ -33,6 +47,15 @@ impl Default for VarietyRules {
 }
 
 impl VarietyRules {
+    /// The embedded defaults with `flip_percent` set, for tests.
+    #[cfg(test)]
+    pub(crate) fn default_with_percent(flip_percent: f32) -> Self {
+        Self {
+            flip_percent,
+            ..Self::default()
+        }
+    }
+
     /// Parses and validates a file's text.
     pub fn from_ron(text: &str) -> Result<Self, String> {
         let rules: Self = ron::from_str(text).map_err(|error| format!("variety: {error}"))?;
@@ -51,13 +74,18 @@ impl VarietyRules {
         }
     }
 
-    /// `flip_percent` is a finite number from 0 to 100. The error names the field.
+    /// `flip_percent` and `room_flip_percent` are finite numbers from 0 to 100. The error names
+    /// the field.
     pub fn validate(&self) -> Result<(), String> {
-        let percent = self.flip_percent;
-        if !percent.is_finite() || !(0.0..=MAX_PERCENT).contains(&percent) {
-            return Err(format!(
-                "flip_percent must be a number from 0 to 100, not {percent}"
-            ));
+        for (name, percent) in [
+            ("flip_percent", self.flip_percent),
+            ("room_flip_percent", self.room_flip_percent),
+        ] {
+            if !percent.is_finite() || !(0.0..=MAX_PERCENT).contains(&percent) {
+                return Err(format!(
+                    "{name} must be a number from 0 to 100, not {percent}"
+                ));
+            }
         }
         Ok(())
     }

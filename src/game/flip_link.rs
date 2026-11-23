@@ -10,15 +10,19 @@ use macroquad::math::Vec2;
 
 use super::GameState;
 use crate::room::Exit;
-use crate::variety::{decide_flip, FlipChoice, VarietyRules};
+use crate::variety::{decide_flip, decide_room_flips, FlipChoice, RoomFlips, VarietyRules};
 
-/// The rules, the F4 choice for the next run and the decision of the run in progress.
+/// The rules, the F4 choices for the next run and the decisions of the run in progress.
 #[derive(Debug, Default)]
 pub(super) struct FlipState {
     rules: VarietyRules,
     choice: FlipChoice,
-    /// The run in progress (or whose result screen is showing) was started flipped.
+    room_choice: FlipChoice,
+    /// The run in progress (or whose result screen is showing) was started with the whole
+    /// dungeon flipped.
     pub(super) current: bool,
+    /// How many rooms marked flippable the run mirrors on their own, apart from the dungeon.
+    pub(super) rooms: usize,
 }
 
 impl FlipState {
@@ -33,6 +37,22 @@ impl FlipState {
     /// Whether the run with `seed` flips, by the rules and the choice.
     pub(super) fn decide(&self, seed: u64) -> bool {
         decide_flip(self.choice, &self.rules, seed)
+    }
+
+    /// Which flippable rooms the run with `seed` mirrors, by the rules and the room choice.
+    pub(super) fn decide_rooms(&self, seed: u64) -> RoomFlips {
+        decide_room_flips(self.room_choice, &self.rules, seed)
+    }
+
+    /// The run's world differs from the room files: the dungeon or a room is mirrored.
+    pub(super) fn changes_world(&self) -> bool {
+        self.current || self.rooms > 0
+    }
+
+    /// Forgets the run's decisions (back in the hub).
+    pub(super) fn clear(&mut self) {
+        self.current = false;
+        self.rooms = 0;
     }
 }
 
@@ -53,11 +73,55 @@ impl GameState {
         self.run.flip.choice = choice;
     }
 
-    /// True while a run that started flipped is in progress, or its result screen is showing.
-    /// False in the hub, in a game with no hub and in a test room.
+    /// What F4's "Flip rooms next run" says about the rooms marked flippable. Not a file.
+    pub fn room_flip_choice(&self) -> FlipChoice {
+        self.run.flip.room_choice
+    }
+
+    /// Sets what the next runs do about the rooms marked flippable. A run already going keeps
+    /// its own decision.
+    pub fn set_room_flip_choice(&mut self, choice: FlipChoice) {
+        self.run.flip.room_choice = choice;
+    }
+
+    /// A run is in progress, or its result screen is showing (not a test room's).
+    fn live_run(&self) -> bool {
+        self.run_in_progress() || (self.test_run.is_none() && self.showing_result())
+    }
+
+    /// True while a run whose world is mirrored (the whole dungeon, or a room marked flippable)
+    /// is in progress, or its result screen is showing. False in the hub, in a game with no hub
+    /// and in a test room.
     pub fn run_flipped(&self) -> bool {
-        let live = self.run_in_progress() || (self.test_run.is_none() && self.showing_result());
-        live && self.run.flip.current
+        self.live_run() && self.run.flip.changes_world()
+    }
+
+    /// True while a run that started with the whole dungeon flipped is live (see `run_flipped`).
+    pub fn dungeon_flipped(&self) -> bool {
+        self.live_run() && self.run.flip.current
+    }
+
+    /// How many rooms marked flippable the live run mirrors by their own draw, apart from a
+    /// flipped dungeon; 0 in the hub, with no hub and in a test room.
+    pub fn flipped_room_count(&self) -> usize {
+        if self.live_run() {
+            self.run.flip.rooms
+        } else {
+            0
+        }
+    }
+
+    /// Records what the run that just started flipped: whether the dungeon, and how many of the
+    /// rooms (already built) marked flippable `rooms` mirrors on their own.
+    pub(super) fn record_flips(&mut self, dungeon: bool, rooms: RoomFlips) {
+        let hub = self.run.config.hub_room;
+        let count = self
+            .rooms
+            .iter()
+            .filter(|room| room.flippable && Some(room.id) != hub && rooms.flips(room.id))
+            .count();
+        self.run.flip.current = dungeon;
+        self.run.flip.rooms = count;
     }
 }
 
@@ -81,7 +145,7 @@ impl GameState {
     /// the rooms it builds are mirrored, so his old spot is no spot of theirs: he stands at the
     /// room's spawn instead. An unflipped run leaves him where he is, as it always did.
     pub(super) fn land_in_flipped_room(&mut self) {
-        if self.run.flip.current {
+        if self.run.flip.changes_world() {
             let (spawn, bounds) = (self.room().spawn, self.world_bounds());
             self.player.place_at(spawn, bounds);
         }
@@ -93,9 +157,10 @@ impl GameState {
     pub(super) fn refuse_editor_when_flipped(&self) -> Result<(), String> {
         if self.run_flipped() {
             return Err(
-                "this run is flipped (the dungeon is mirrored), and the editor works on the \
-                 unflipped files: abandon the run from the pause menu, or set Flip next run to \
-                 Never in F4 and start a new run, then open the editor"
+                "this run is flipped (the dungeon or some rooms are mirrored), and the editor \
+                 works on the unflipped files: abandon the run from the pause menu, or set Flip \
+                 next run and Flip rooms next run to Never in F4 and start a new run, then open \
+                 the editor"
                     .into(),
             );
         }
@@ -105,3 +170,5 @@ impl GameState {
 
 #[cfg(test)]
 mod play_tests;
+#[cfg(test)]
+mod room_tests;

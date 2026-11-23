@@ -1,7 +1,11 @@
 // How much a run varies from the authored dungeon (docs/variety.md). An assets/variety.ron
 // replaces this file whole; F5 does not re-read it, so restart the game after editing it.
-// This embedded default never flips: it keeps the dungeon exactly as it was authored.
+// This embedded default never flips the whole dungeon: it keeps the dungeon exactly as it was
+// authored. A room only varies if its author marked it flippable in the room editor.
 (
     flip_percent: 0.0,   // chance, in percent (0 to 100), that a run plays the whole dungeon mirrored
                          // left to right; the F4 window's "Flip next run" can force it either way
+    room_flip_percent: 50.0, // chance, in percent (0 to 100), that a room marked flippable is played
+                         // mirrored in a run, drawn for each such room apart from the others (the hub
+                         // is never mirrored); F4's "Flip rooms next run" can force it either way
 )

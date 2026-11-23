@@ -31,7 +31,7 @@ use crate::run::{CoinBonus, RunConfig, RunOutcome, RunPhase, RunResult};
 /// The loop's settings, the profile and where the player is in the loop.
 #[derive(Debug)]
 pub(super) struct RunState {
-    config: RunConfig,
+    pub(super) config: RunConfig,
     pub(super) profile: Profile,
     /// The file the profile is saved to; none until `use_profile_file`, so tests never touch a
     /// real config folder and nothing is saved before the file has been read.
@@ -41,7 +41,7 @@ pub(super) struct RunState {
     message: Option<String>,
     /// The seeds runs start with and the one of the run in progress (`seed_link`).
     pub(super) seeds: SeedState,
-    /// The flip's rules, F4's choice and whether this run is flipped (`flip_link`).
+    /// The flips' rules, F4's choices and what this run flipped (`flip_link`).
     pub(super) flip: FlipState,
 }
 
@@ -192,7 +192,7 @@ impl GameState {
         // The hub has no seed; `last_run_seed` still has the one that just ended.
         self.run.seeds.current = None;
         // And nothing in the hub is flipped.
-        self.run.flip.current = false;
+        self.run.flip.clear();
         self.run.message = None;
         self.discover_current_room();
         self.events.push(GameEvent::RoomEntered);
@@ -284,9 +284,11 @@ impl GameState {
         let (seed, source) = self.run.seeds.next_seed();
         // Decided once, from the seed, and kept for the run's life (`flip_link`).
         let flipped = self.run.flip.decide(seed);
-        self.reset_run_state(self.profile_layer().with_seed(seed).with_flip(flipped))?;
+        let rooms = self.run.flip.decide_rooms(seed);
+        let layer = self.profile_layer().with_seed(seed).with_flip(flipped);
+        self.reset_run_state(layer.with_room_flips(rooms))?;
         self.run.seeds.begin(seed, source);
-        self.run.flip.current = flipped;
+        self.record_flips(flipped, rooms);
         self.run.phase = RunPhase::Running;
         self.run.message = None;
         Ok(())
