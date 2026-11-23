@@ -30,6 +30,7 @@ pub mod dungeon_check;
 pub mod dungeon_map;
 pub mod editor;
 pub mod editor_charms;
+pub mod editor_draft;
 pub mod editor_files;
 pub mod editor_guard;
 pub mod editor_hazard;
