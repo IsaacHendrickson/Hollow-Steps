@@ -1,6 +1,6 @@
 //! The dungeon generator (`docs/dungeon-gen.md`): builds a dungeon from a pool of pieces
 //! (`docs/pieces.md`) and a seed, and proves it with the dungeon checker. Pure: no files, no game,
-//! no window. Nothing in the game calls it yet.
+//! no window. The game calls it when a run starts (`game::generate_link`).
 //!
 //! `generate(pieces, hub, config, rules, seed)` sorts the pieces by id, refuses a pool or rules
 //! that no seed could build from (`GenError`), then makes up to `rules.attempts` attempts. An

@@ -19,6 +19,7 @@ use crate::room::{RoomEdge, RoomEnemies};
 
 mod source;
 mod world;
+pub(crate) use source::room_ids;
 pub use source::FlippedDocuments;
 pub use world::flip_world;
 

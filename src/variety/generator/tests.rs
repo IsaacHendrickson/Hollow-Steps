@@ -153,3 +153,50 @@ fn flip_rules_are_still_checked_beside_the_section() {
     let error = VarietyRules::from_ron("(flip_percent: 120.0, generator: ())").unwrap_err();
     assert!(error.contains("flip_percent"), "{error}");
 }
+
+// ---- whether a run is generated ----
+
+#[test]
+fn never_plays_the_fixed_dungeon_and_always_asks_the_generator_whatever_the_rules_say() {
+    for enabled in [false, true] {
+        for ends in [false, true] {
+            let rules = GeneratorRules {
+                enabled,
+                ..GeneratorRules::default()
+            };
+            assert!(!decide_generation(GenerateChoice::Never, &rules, ends));
+            assert!(decide_generation(GenerateChoice::Always, &rules, ends));
+        }
+    }
+}
+
+#[test]
+fn auto_generates_only_when_the_rules_are_on_and_the_pool_has_a_start_and_a_boss() {
+    let rules = |enabled| GeneratorRules {
+        enabled,
+        ..GeneratorRules::default()
+    };
+    assert!(decide_generation(GenerateChoice::Auto, &rules(true), true));
+    assert!(!decide_generation(
+        GenerateChoice::Auto,
+        &rules(true),
+        false
+    ));
+    assert!(!decide_generation(
+        GenerateChoice::Auto,
+        &rules(false),
+        true
+    ));
+    assert!(!decide_generation(
+        GenerateChoice::Auto,
+        &rules(false),
+        false
+    ));
+}
+
+#[test]
+fn the_default_choice_is_auto_and_the_default_rules_leave_it_on_the_fixed_dungeon() {
+    assert_eq!(GenerateChoice::default(), GenerateChoice::Auto);
+    let rules = GeneratorRules::default();
+    assert!(!decide_generation(GenerateChoice::default(), &rules, true));
+}

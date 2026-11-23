@@ -1,6 +1,6 @@
 //! The dungeon generator's rules (`docs/dungeon-gen.md`): the `generator` section of
-//! `variety.ron`. This is only the numbers and their checks; `dungeon_gen` reads them. Nothing in
-//! the game switches the generator on yet, so `enabled` is stored and validated, not acted on.
+//! `variety.ron`. This is only the numbers and their checks; `dungeon_gen` reads them, and
+//! `enabled` is what `decide_generation` looks at when a run starts (`game::generate_link`).
 //!
 //! The section is optional in a file (a `variety.ron` from before it still loads, with the
 //! defaults below), and so is each field in it. Whole numbers are signed here so that a negative
@@ -63,7 +63,8 @@ impl CountRange {
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct GeneratorRules {
-    /// Whether a run is built by the generator. Off by default, and nothing reads it yet.
+    /// Whether a run is built by the generator when F4's "Generate next run" says Auto. Off by
+    /// default.
     pub enabled: bool,
     /// Rooms in a run, start and boss included: `MIN_ROOMS` to `MAX_ROOMS`.
     pub rooms: CountRange,
@@ -125,6 +126,27 @@ impl GeneratorRules {
     /// The tries the generator gets. Only meaningful once `validate` has passed.
     pub fn attempt_limit(&self) -> u32 {
         u32::try_from(self.attempts).unwrap_or(0)
+    }
+}
+
+/// What F4's "Generate next run" row says: the same three answers as the flip rows.
+pub type GenerateChoice = super::flip::FlipChoice;
+
+/// Whether the next run is built by the generator (`docs/dungeon-gen.md`). `Never` plays the
+/// fixed dungeon whatever the rules say. `Always` asks the generator even when the rules have it
+/// off or the pool has no Start or Boss piece, so a pool that cannot build comes back with the
+/// generator's own reason instead of a silent fixed dungeon. `Auto` generates when `enabled` is
+/// set in `variety.ron` and the pool has both a Start and a Boss piece (`pool_has_ends`), and
+/// plays the fixed dungeon otherwise.
+pub fn decide_generation(
+    choice: GenerateChoice,
+    rules: &GeneratorRules,
+    pool_has_ends: bool,
+) -> bool {
+    match choice {
+        GenerateChoice::Never => false,
+        GenerateChoice::Always => true,
+        GenerateChoice::Auto => rules.enabled && pool_has_ends,
     }
 }
 

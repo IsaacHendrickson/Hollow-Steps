@@ -8,12 +8,14 @@
 //! The flips are the same kind of thing: when the layer says flip the dungeon, or mirror some
 //! flippable rooms, the loaders are handed the room documents already mirrored
 //! (`mirror::FlippedDocuments`, never the hub) and build from them as they always do. The editor
-//! and the files never see it.
+//! and the files never see it. A generated run (`generated`) is the one world that is not the
+//! files' rooms: it is the plan's rooms, built here and checked the same way.
 use std::path::Path;
 
 use super::tier_link::Layer;
 use super::{terrain_link, GameState};
 use crate::charms::CharmCatalog;
+use crate::dungeon_gen::DungeonPlan;
 use crate::editor_files::{load_extra_rooms_from, read_document, ReadDocument};
 use crate::enemy::EnemyDefinitions;
 use crate::mirror::FlippedDocuments;
@@ -21,17 +23,25 @@ use crate::room::{load_rooms_from, Room, RoomId};
 use crate::terrain_styles::TerrainStyles;
 use crate::variety::RoomFlips;
 
+pub(super) mod generated;
+
 /// Every room built fresh from its file with the difficulty `layer` over it, and the terrain
 /// presets. When `layer.flip` is set every room but `hub` is built mirrored, and the flippable
 /// rooms `layer.room_flips` names are mirrored over that (a game with no hub passes `None`, and
-/// never sets either). Nothing is checked about the player or the run here; an
+/// never sets either). With a `plan` the world is the plan's instead: the rewired hub and the
+/// plan's rooms and no other (`generated`), and the flips do not apply, because the plan has
+/// already mirrored what it mirrors. Nothing is checked about the player or the run here; an
 /// error names the file that failed.
 pub(super) fn load_world(
     assets: &Path,
     charms: &CharmCatalog,
     layer: &Layer,
     hub: Option<RoomId>,
+    plan: Option<&DungeonPlan>,
 ) -> Result<(Vec<Room>, TerrainStyles), String> {
+    if let Some(plan) = plan {
+        return generated::load_generated(assets, charms, layer, plan);
+    }
     let mirrors = layer.flip || layer.room_flips != RoomFlips::Off;
     let flipped =
         mirrors.then(|| FlippedDocuments::read_with(assets, hub, layer.flip, layer.room_flips));

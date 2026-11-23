@@ -152,7 +152,7 @@ pub mod flip;
 pub mod generator;
 pub mod room_flip;
 pub use flip::{decide_flip, FlipChoice, VarietyRules};
-pub use generator::GeneratorRules;
+pub use generator::{decide_generation, GenerateChoice, GeneratorRules};
 pub(crate) use room_flip::is_false;
 pub use room_flip::{decide_room_flips, RoomFlips};
 

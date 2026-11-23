@@ -17,16 +17,19 @@ use std::path::PathBuf;
 use macroquad::math::Vec2;
 
 use super::flip_link::FlipState;
+use super::generate_link::GenerateState;
 use super::seed_link::SeedState;
 use super::tier_link::Layer;
 use super::{vitals_link, world_load, GameState};
 use crate::charms::CharmState;
+use crate::dungeon_gen::DungeonPlan;
 use crate::events::GameEvent;
 use crate::item::TakenItems;
 use crate::player::WorldBounds;
 use crate::profile::{self, Profile};
 use crate::room::{Exit, Room, RoomId};
 use crate::run::{CoinBonus, RunConfig, RunOutcome, RunPhase, RunResult};
+use crate::variety::RoomFlips;
 
 /// The loop's settings, the profile and where the player is in the loop.
 #[derive(Debug)]
@@ -43,6 +46,8 @@ pub(super) struct RunState {
     pub(super) seeds: SeedState,
     /// The flips' rules, F4's choices and what this run flipped (`flip_link`).
     pub(super) flip: FlipState,
+    /// F4's "Generate next run" and the plan of this run, if it is generated (`generate_link`).
+    pub(super) generate: GenerateState,
 }
 
 impl RunState {
@@ -68,6 +73,7 @@ impl RunState {
             message: None,
             seeds: SeedState::default(),
             flip: FlipState::default(),
+            generate: GenerateState::default(),
         };
         Ok((state, index))
     }
@@ -175,8 +181,8 @@ impl GameState {
         let (RunPhase::Result(_), Some(hub)) = (self.run.phase, self.run.config.hub_room) else {
             return;
         };
-        // Back in the hub nothing has a tier on it.
-        if let Err(error) = self.reset_run_state(Layer::BASE) {
+        // Back in the hub nothing has a tier on it, and the authored rooms are back.
+        if let Err(error) = self.reset_run_state(Layer::BASE, None) {
             self.run.message = Some(format!("Could not return to the hub: {error}"));
             return;
         }
@@ -228,20 +234,28 @@ impl GameState {
     /// (enemies, boss, coins, items, charms lying), owned charms back to the ones owned at the
     /// start, nothing taken, no coins, no items, full health and mana. Nothing changes if the
     /// rooms cannot be rebuilt. The rooms are rebuilt with `layer` over them and keep it until the
-    /// next rebuild: a run's tier, or none when the run is over. The player's place is left to the
-    /// caller.
-    fn reset_run_state(&mut self, layer: Layer) -> Result<(), String> {
+    /// next rebuild: a run's tier, or none when the run is over. With a `plan` the rooms are the
+    /// plan's (`world_load::generated`), and the run keeps it until the next reset. The player's
+    /// place is left to the caller; if the room he stands in is not in a generated world, the
+    /// start room is the one `current` points at.
+    fn reset_run_state(&mut self, layer: Layer, plan: Option<DungeonPlan>) -> Result<(), String> {
         let here = self.room().id;
         let hub = self.run.config.hub_room;
         let (rooms, terrain_styles) =
-            world_load::load_world(&self.assets, &self.charms, &layer, hub)?;
+            world_load::load_world(&self.assets, &self.charms, &layer, hub, plan.as_ref())?;
+        let start = self.run.config.start_room;
         let current = rooms
             .iter()
             .position(|room| room.id == here)
+            .or_else(|| {
+                plan.as_ref()
+                    .and_then(|_| rooms.iter().position(|room| room.id == start))
+            })
             .ok_or("the room being played is gone")?;
         self.rooms = rooms;
         self.terrain_styles = terrain_styles;
         self.tiers.layer = layer;
+        self.run.generate.plan = plan;
         self.current = current;
         // A new run has seen nothing yet.
         self.map.discovery.clear();
@@ -278,15 +292,23 @@ impl GameState {
     /// here, once, so the run plays at it from start to end, and so is the run's seed: the fixed
     /// one if F4 set it, otherwise the next from the source. The seed goes into the layer the
     /// rooms are built with, so it decides the optional enemy placements and every rebuild in
-    /// the run keeps its picks. The same seed decides whether the run flips (`flip_link`). A run
-    /// that cannot start takes no seed.
+    /// the run keeps its picks. The same seed decides whether the run flips (`flip_link`), unless
+    /// the run is generated: then the seed makes the dungeon (`generate_link`), the plan has
+    /// already mirrored what it mirrors, and no flip is drawn over it. A run that cannot start,
+    /// the generator's refusal included, takes no seed.
     fn start_run(&mut self) -> Result<(), String> {
         let (seed, source) = self.run.seeds.next_seed();
+        let plan = self.plan_run(seed)?;
+        let generated = plan.is_some();
         // Decided once, from the seed, and kept for the run's life (`flip_link`).
-        let flipped = self.run.flip.decide(seed);
-        let rooms = self.run.flip.decide_rooms(seed);
+        let flipped = !generated && self.run.flip.decide(seed);
+        let rooms = if generated {
+            RoomFlips::Off
+        } else {
+            self.run.flip.decide_rooms(seed)
+        };
         let layer = self.profile_layer().with_seed(seed).with_flip(flipped);
-        self.reset_run_state(layer.with_room_flips(rooms))?;
+        self.reset_run_state(layer.with_room_flips(rooms), plan)?;
         self.run.seeds.begin(seed, source);
         self.record_flips(flipped, rooms);
         self.run.phase = RunPhase::Running;

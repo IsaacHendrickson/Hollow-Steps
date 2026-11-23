@@ -7,17 +7,27 @@ use std::path::Path;
 
 use super::GameState;
 use crate::editor::room_filename;
-use crate::room::Room;
+use crate::room::{Room, RoomId};
 use crate::terrain_styles::TerrainStyles;
 
 /// Loads the presets from `assets` and checks that every room's style resolves against them.
 /// An error names each room file that does not (an unknown preset lists the known ones).
 pub(super) fn load(assets: &Path, rooms: &[Room]) -> Result<TerrainStyles, String> {
+    load_named(assets, rooms, &|id| id)
+}
+
+/// `load`, naming in an error the file of the room `file_of` gives for each room's id: a
+/// generated world's rooms are named by the piece they were built from, not by their own id.
+pub(super) fn load_named(
+    assets: &Path,
+    rooms: &[Room],
+    file_of: &dyn Fn(RoomId) -> RoomId,
+) -> Result<TerrainStyles, String> {
     let styles = TerrainStyles::load(assets)?;
     let errors: Vec<String> = rooms
         .iter()
         .filter_map(|room| {
-            let file = assets.join("rooms").join(room_filename(room.id));
+            let file = assets.join("rooms").join(room_filename(file_of(room.id)));
             let error = styles.resolve(&room.terrain_style).err()?;
             Some(format!("{}: {error}", file.display()))
         })

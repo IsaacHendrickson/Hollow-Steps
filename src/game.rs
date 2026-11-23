@@ -51,6 +51,9 @@ mod flip_link;
 mod flip_tests;
 #[cfg(test)]
 mod gate_tests;
+mod generate_link;
+#[cfg(test)]
+mod generate_tests;
 #[cfg(test)]
 mod hud_loss_tests;
 #[cfg(test)]
@@ -206,7 +209,7 @@ impl GameState {
         let flip = flip_link::FlipState::load(assets)?;
         // The hub, and a game with no hub, play with no tier on top.
         let (rooms, terrain_styles) =
-            world_load::load_world(assets, &charms, &tier_link::Layer::BASE, None)?;
+            world_load::load_world(assets, &charms, &tier_link::Layer::BASE, None, None)?;
         let (mut run, current) = run_link::RunState::start(run_config, &rooms)?;
         run.flip = flip;
         let mut player = Player::new(Vec2::new(180.0, 0.0), tuning.player);
