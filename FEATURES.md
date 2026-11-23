@@ -182,6 +182,9 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 
 - A room can be a dungeon piece (Start, Middle, Boss; weight 1-10) with up to 8 pickup slots (Key, Ability, Any); `src/piece.rs`; `piece/tests.rs`
 - Slots must be finite, inside, off solids and apart; Room and `from_room` carry mark and slots, the mirror flips slots; `src/piece.rs`; `src/mirror.rs`
+- Dungeon piece section: This room is a piece box, Role, Weight 1-10; one undo step each; `src/editor_panel/piece_panel.rs`; `piece_panel/tests.rs`
+- Add pickup slot, drag, Kind dropdown, Delete; a dashed teal ring with K, A or ? marks it; `src/editor_piece.rs`; `src/editor_visuals/slot_mark.rs`
+- Mark and slots survive Save and reload; unmarking keeps the slots; the Test room shows no slot as a pickup; the unsaved guard asks; `tests/pieces_editing.rs`
 
 ## Tests and CI
 
