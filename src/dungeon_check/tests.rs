@@ -536,3 +536,4 @@ fn every_problem_reads_as_a_sentence_that_names_what_to_look_at() {
 }
 
 mod double_jump;
+mod pieces;

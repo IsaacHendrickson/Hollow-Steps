@@ -11,6 +11,9 @@ use crate::editor::RoomLayout;
 use crate::item::ITEM_SIZE;
 use crate::terrain::Terrain;
 
+mod check;
+pub use check::pool_check;
+
 /// The lightest and heaviest a piece can be: how often a generator reaches for it.
 pub const MIN_WEIGHT: u8 = 1;
 pub const MAX_WEIGHT: u8 = 10;

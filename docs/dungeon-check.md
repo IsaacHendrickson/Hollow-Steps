@@ -33,7 +33,7 @@ cannot reach is really unreachable.
 | --- | --- |
 | run.ron names a room that is not a room | nothing else is checked |
 | The hub has no exit to the start room | the check starts at the spawn instead |
-| Room can never be reached | not the hub, not the final boss room |
+| Room can never be reached | not the hub, not the final boss room, not a dungeon piece (`docs/pieces.md`) |
 | The final boss room can never be reached | reported once, not also as unreachable |
 | Locked exit, no key can be reached | in a reachable room; its key lies nowhere the walk gets to |
 | Locked exit, the only key lies behind that same lock | told apart by walking again with that one lock open |
@@ -42,6 +42,12 @@ cannot reach is really unreachable.
 | Trap | an entrance the player can reach where no exit can be taken (below) |
 | A gate names an entrance the room does not have | `docs/gates.md`; changes no other result |
 | Two rooms have the same map cell | `docs/dungeon-map.md`; names both, one problem per room the map moved |
+| No piece has the Start (or Boss) role | the pool rules, last (below) |
+| A piece has no exit | names the room |
+| A piece has a locked exit, or holds a Key item | names the room; keys come from the generator through pickup slots |
+| `start_room` or `final_boss_room` is a piece of another role | names the room and the field |
+| A gate in a piece cannot be carried to another neighbour | the piece has no exit, or more than one, into the room the gate's arrival comes from |
+| A gate in a piece needs an ability and no other piece has an Ability or Any slot | names the room |
 
 ### Trap
 
@@ -51,6 +57,25 @@ what is held. A dead end whose way back is open is not one, an exit into the hub
 the final boss room is exempt (defeating its boss ends the run). Reported once per entrance, with the
 fewest abilities that get stuck there ("arriving at the arrival from First (right edge exit at 100) with no
 abilities, no exit can be taken").
+
+### Pieces
+
+A room marked as a dungeon piece (`docs/pieces.md`) is walked like any other room when the player
+can reach it: its items are picked up, its locks and gates count, a trap in it is a trap. It is
+only left out of "can never be reached", because a piece belongs to the pool a generator builds
+from, not to the fixed dungeon. After every other check, `piece::pool_check` (`src/piece/check.rs`,
+pure, `pool_check(rooms, config)`) checks the pool: the rooms that carry a mark. With no piece it
+returns nothing, so every result of a dungeon without pieces is the same as before. The rules, in
+this order, and in the order of the rooms within one rule:
+
+1. At least one Start piece and one Boss piece.
+2. Every piece has at least one exit.
+3. No piece has a locked exit or a Key item: keys come from the generator through pickup slots.
+4. A piece whose id is `start_room` or `final_boss_room` of `run.ron` has the matching role.
+5. Every gate in a piece that names an arrival can be carried to another neighbour: the piece has
+   exactly one exit into the room that arrival comes from (the port the player came in through).
+   A gate from the spawn belongs to the piece and always travels.
+6. A piece with a gate that needs an ability has another piece with an Ability or Any slot.
 
 ## Known limits
 
