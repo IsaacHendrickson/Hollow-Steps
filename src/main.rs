@@ -9,6 +9,7 @@ use hollow_steps::player::PlayerInput;
 use hollow_steps::player_body::PlayerBody;
 use hollow_steps::profile;
 use hollow_steps::search::SearchList;
+use hollow_steps::seed::SeedSource;
 use hollow_steps::terrain_style::TerrainLook;
 use hollow_steps::timestep::{FixedStep, InputLatch};
 use macroquad::prelude::*;
@@ -42,6 +43,14 @@ mod tuning_panel;
 mod upgrade_panel;
 use editor_ui::{draw_editor, EditorUi};
 use startup::{present, screen_camera};
+
+/// Where this launch's run seeds start: the system clock in nanoseconds (0 if the clock is set
+/// before 1970). The only place the game reads the clock for a seed.
+fn clock_start() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_nanos() as u64)
+}
 
 fn window_conf() -> Conf {
     Conf {
@@ -89,6 +98,9 @@ async fn main() {
             reload_result = Some(Err(error));
         }
     }
+    // The run seeds start from the system clock, read here and nowhere else, so a test (which
+    // never calls this) is never random. A fresh start every launch, the same seed on request.
+    game.use_seed_source(SeedSource::new(clock_start()));
     // The solids' draw list, rebuilt only when the room, its solids or its palette change.
     let mut terrain_look = TerrainLook::default();
     // The player's body; a load error is shown like a failed reload and keeps the plain box.

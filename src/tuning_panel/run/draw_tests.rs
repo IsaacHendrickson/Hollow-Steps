@@ -26,7 +26,7 @@ fn drawn_text(output: &egui::FullOutput) -> String {
     text
 }
 
-fn frame(
+pub(super) fn frame(
     ctx: &egui::Context,
     events: Vec<egui::Event>,
     panel: &mut TuningPanel,
@@ -46,7 +46,7 @@ fn frame(
     drawn_text(&output)
 }
 
-fn open_panel(game: &mut GameState) -> (egui::Context, TuningPanel, String) {
+pub(super) fn open_panel(game: &mut GameState) -> (egui::Context, TuningPanel, String) {
     let ctx = egui::Context::default();
     let mut panel = TuningPanel::default();
     panel.toggle();
@@ -57,7 +57,7 @@ fn open_panel(game: &mut GameState) -> (egui::Context, TuningPanel, String) {
     (ctx, panel, text)
 }
 
-fn rect_of(ctx: &egui::Context, name: &str) -> egui::Rect {
+pub(super) fn rect_of(ctx: &egui::Context, name: &str) -> egui::Rect {
     ctx.data(|data| data.get_temp(egui::Id::new(name)))
         .expect("widget was not drawn")
 }
@@ -75,7 +75,12 @@ fn pointer(at: egui::Pos2, pressed: Option<bool>) -> Vec<egui::Event> {
     events
 }
 
-fn click(ctx: &egui::Context, at: egui::Pos2, panel: &mut TuningPanel, game: &mut GameState) {
+pub(super) fn click(
+    ctx: &egui::Context,
+    at: egui::Pos2,
+    panel: &mut TuningPanel,
+    game: &mut GameState,
+) {
     frame(ctx, pointer(at, Some(true)), panel, game);
     frame(ctx, pointer(at, Some(false)), panel, game);
     frame(ctx, vec![], panel, game);

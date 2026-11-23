@@ -12,6 +12,7 @@ use super::GameState;
 use crate::difficulty::{Difficulty, TierScale};
 use crate::room::Room;
 use crate::run::{CoinBonus, RunPhase};
+use crate::variety;
 
 /// The tier a set of rooms was built at, and what it multiplies.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -21,6 +22,9 @@ pub(super) struct Layer {
     /// The tier that counts: `profile_tier`, but no more than `max_effective_tier`.
     pub(super) tier: u32,
     pub(super) scale: TierScale,
+    /// The run's seed, which decides the optional enemy placements (`crate::variety`). `None`
+    /// leaves every placement in: the hub, a test room, and a game with no hub.
+    pub(super) seed: Option<u64>,
 }
 
 impl Layer {
@@ -29,7 +33,16 @@ impl Layer {
         profile_tier: 0,
         tier: 0,
         scale: TierScale::NEUTRAL,
+        seed: None,
     };
+
+    /// The same layer for a run with `seed`: the optional placements are decided by it.
+    pub(super) fn with_seed(self, seed: u64) -> Self {
+        Self {
+            seed: Some(seed),
+            ..self
+        }
+    }
 
     /// Layers the tier over every room of a freshly built world.
     pub(super) fn apply(&self, rooms: &mut [Room]) {
@@ -39,9 +52,18 @@ impl Layer {
     }
 
     /// Layers the tier over one freshly built room: placements whose `min_tier` is above the
-    /// tier are left out (a boss left out locks no exit), the rest have their health scaled.
+    /// tier are left out (a boss left out locks no exit), then, for a run with a seed, the
+    /// optional placements the seed decides against (`variety::thin`; a boss is never touched),
+    /// and the rest have their health scaled.
     pub(super) fn apply_room(&self, room: &mut Room) {
+        if self.seed.is_some() {
+            // Numbered over every placement, before the tier leaves any out.
+            variety::mark_identities(&mut room.enemies);
+        }
         room.enemies.retain(|enemy| enemy.min_tier() <= self.tier);
+        if let Some(seed) = self.seed {
+            variety::thin(&mut room.enemies, room.id, seed);
+        }
         if room
             .boss_special
             .as_ref()
@@ -87,6 +109,7 @@ impl TierState {
             profile_tier: tier,
             tier: self.rules.effective_tier(tier),
             scale: self.rules.scale(tier),
+            seed: None,
         }
     }
 }

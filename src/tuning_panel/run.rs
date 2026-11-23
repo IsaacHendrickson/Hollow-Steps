@@ -3,7 +3,8 @@
 //! dungeon to the end. All three change the saved profile (`profile.ron`) at once.
 //!
 //! The logic is `set_coins`, `set_tier` and `reset_profile`, which only call
-//! `GameState::set_profile`; the widgets just feed them. Nothing here changes how a run plays.
+//! `GameState::set_profile`; the widgets just feed them. Nothing here changes the rules of a run.
+//! The Seed row (`seed`) only picks the seed the next runs start with; it is not in the profile.
 use egui_macroquad::egui;
 use hollow_steps::game::GameState;
 use hollow_steps::profile::Profile;
@@ -18,6 +19,8 @@ pub const MAX_COINS: u32 = 999_999;
 #[derive(Debug, Default)]
 pub struct RunDebug {
     last: Option<Result<&'static str, String>>,
+    /// What is typed in the Seed row's text box (`seed`).
+    seed_text: String,
 }
 
 /// Sets the difficulty tier (at most `MAX_TIER`) and saves the profile. Coins and clears stay.
@@ -90,6 +93,7 @@ impl RunDebug {
                 self.last = Some(set_tier(game, tier).map(|()| "Tier saved"));
             }
         });
+        self.draw_seed(ui, game);
         let reset = ui.button("Reset profile");
         #[cfg(test)]
         ui.data_mut(|data| data.insert_temp(egui::Id::new("reset profile button"), reset.rect));
@@ -110,5 +114,6 @@ impl RunDebug {
 
 #[cfg(test)]
 mod draw_tests;
+mod seed;
 #[cfg(test)]
 mod tests;

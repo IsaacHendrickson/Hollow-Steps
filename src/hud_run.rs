@@ -5,8 +5,8 @@
 use hollow_steps::charm_menu::{wrap_lines, InventoryLayout};
 use hollow_steps::game::GameState;
 use hollow_steps::run::{
-    hud_counter, inventory_coins, result_layout, result_lines_with_bonus, result_title, tier_label,
-    tier_label_origin, Counter, RunOutcome, RETURN_HINT, TIER_LABEL_SIZE,
+    hud_counter, inventory_coins, is_tier_line, result_layout, result_lines_with_seed,
+    result_title, tier_label, tier_label_origin, Counter, RunOutcome, RETURN_HINT, TIER_LABEL_SIZE,
 };
 use macroquad::prelude::*;
 
@@ -16,6 +16,8 @@ const HINT_SIZE: f32 = 24.0;
 const MESSAGE_SIZE: u16 = 18;
 const MESSAGE_LINES: usize = 2;
 const MESSAGE_STEP: f32 = 20.0;
+/// How the result screen's seed line begins (`hollow_steps::run::seed_line`).
+const SEED_PREFIX: &str = "Seed:";
 const WARNING: Color = Color::new(0.94, 0.78, 0.47, 1.0);
 
 /// Leaves the result screen on Enter or a left click and returns true when it was left.
@@ -76,7 +78,12 @@ pub fn draw_result(game: &GameState, view: Vec2) {
         return;
     };
     draw_rectangle(0.0, 0.0, view.x, view.y, Color::from_rgba(0, 0, 0, 200));
-    let lines = result_lines_with_bonus(&result, game.profile(), game.result_bonus());
+    let lines = result_lines_with_seed(
+        &result,
+        game.profile(),
+        game.result_bonus(),
+        game.run_seed(),
+    );
     let layout = result_layout(view, lines.len());
     let panel = layout.panel;
     draw_rectangle(
@@ -100,16 +107,16 @@ pub fn draw_result(game: &GameState, view: Vec2) {
         TITLE_SIZE,
         title_color,
     );
-    for (index, (line, at)) in lines.iter().zip(&layout.lines).enumerate() {
-        // After a clear the last line is the tier going up.
-        let raised = result.outcome == RunOutcome::Cleared && index == lines.len() - 1;
-        draw_text(
-            line,
-            at.x,
-            at.y,
-            LINE_SIZE,
-            if raised { GOLD } else { WHITE },
-        );
+    for (line, at) in lines.iter().zip(&layout.lines) {
+        // After a clear the tier going up is gold; the seed line under it is dimmer than the rest.
+        let color = if result.outcome == RunOutcome::Cleared && is_tier_line(line) {
+            GOLD
+        } else if line.starts_with(SEED_PREFIX) {
+            LIGHTGRAY
+        } else {
+            WHITE
+        };
+        draw_text(line, at.x, at.y, LINE_SIZE, color);
     }
     if let Some(message) = game.run_message() {
         let measure = |text: &str| measure_text(text, None, MESSAGE_SIZE, 1.0).width;

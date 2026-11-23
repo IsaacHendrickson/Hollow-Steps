@@ -295,7 +295,7 @@ impl RoomDraft {
     }
 
     pub fn validate_local(&self, definitions: &EnemyDefinitions) -> Result<(), String> {
-        self.layout.validate_geometry()?;
+        self.validate_layout_and_variety()?;
         for enemy in &self.enemies {
             let size = definitions.size(&enemy.definition)?;
             if size.y > self.layout.floor_y - self.layout.bounds.1 {
@@ -591,7 +591,7 @@ impl RoomDraft {
                             p.patrol_right,
                             self.layout.world_bounds(),
                         )
-                        .map(|enemy| enemy.with_min_tier(p.min_tier))
+                        .map(|enemy| enemy.with_placement(p))
                 })
                 .collect::<Result<_, _>>()?,
             exits: Vec::new(),

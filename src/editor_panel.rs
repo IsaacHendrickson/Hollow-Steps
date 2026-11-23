@@ -38,6 +38,7 @@ mod states;
 mod test_support;
 mod tool_panel;
 mod unsaved_dialog;
+mod variety_fields;
 mod visual_size_field;
 pub(crate) mod widgets;
 pub(super) use boss::{draw_boss_panel, BossPropertyUi};

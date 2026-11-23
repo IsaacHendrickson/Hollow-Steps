@@ -83,6 +83,9 @@ mod run_pause_tests;
 mod run_profile_tests;
 #[cfg(test)]
 mod run_tests;
+mod seed_link;
+#[cfg(test)]
+mod seed_tests;
 mod shop_link;
 #[cfg(test)]
 mod shop_tests;
@@ -98,6 +101,8 @@ mod tier_tests;
 mod upgrade_editor_link;
 #[cfg(test)]
 mod upgrade_tests;
+#[cfg(test)]
+mod variety_tests;
 mod vitals_link;
 #[cfg(test)]
 mod vitals_tests;

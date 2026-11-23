@@ -19,9 +19,10 @@ use crate::room::RoomId;
 
 pub use bonus::{result_lines_with_bonus, CoinBonus};
 pub use screen::{
-    hud_counter, inventory_coins, result_layout, result_lines, result_title, tier_label,
-    tier_label_origin, Counter, ResultLayout, RETURN_HINT, TIER_LABEL_SIZE,
+    hud_counter, inventory_coins, is_tier_line, result_layout, result_lines, result_title,
+    tier_label, tier_label_origin, Counter, ResultLayout, RETURN_HINT, TIER_LABEL_SIZE,
 };
+pub use seed_line::{result_lines_with_seed, seed_line};
 
 pub const FILE_NAME: &str = "run.ron";
 const DEFAULTS: &str = include_str!("../data/run.ron");
@@ -240,6 +241,7 @@ impl Profile {
 
 mod bonus;
 mod screen;
+mod seed_line;
 
 #[cfg(test)]
 mod tests;
