@@ -25,6 +25,9 @@ pub(super) struct Layer {
     /// The run's seed, which decides the optional enemy placements (`crate::variety`). `None`
     /// leaves every placement in: the hub, a test room, and a game with no hub.
     pub(super) seed: Option<u64>,
+    /// The run plays the dungeon mirrored (`world_load` flips every room but the hub). Kept with
+    /// the layer so every rebuild during the run, F5 included, makes the same world.
+    pub(super) flip: bool,
 }
 
 impl Layer {
@@ -34,6 +37,7 @@ impl Layer {
         tier: 0,
         scale: TierScale::NEUTRAL,
         seed: None,
+        flip: false,
     };
 
     /// The same layer for a run with `seed`: the optional placements are decided by it.
@@ -42,6 +46,11 @@ impl Layer {
             seed: Some(seed),
             ..self
         }
+    }
+
+    /// The same layer for a run that plays the dungeon mirrored, or not.
+    pub(super) fn with_flip(self, flip: bool) -> Self {
+        Self { flip, ..self }
     }
 
     /// Layers the tier over every room of a freshly built world.
@@ -110,6 +119,7 @@ impl TierState {
             tier: self.rules.effective_tier(tier),
             scale: self.rules.scale(tier),
             seed: None,
+            flip: false,
         }
     }
 }

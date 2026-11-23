@@ -7,6 +7,7 @@ use crate::behavior::read_ron;
 use crate::boss_definition::BossDefinitions;
 use crate::boss_special::BossSpecials;
 use crate::coin::{Coin, COIN_RADIUS};
+use crate::editor_files::ReadDocument;
 use crate::enemy::{Enemy, EnemyDefinitions};
 use crate::item::{Item, WorldItem, ITEM_SIZE};
 use crate::player::WorldBounds;
@@ -316,7 +317,17 @@ pub fn load_room_enemies(
     definitions: &EnemyDefinitions,
     bounds: WorldBounds,
 ) -> Result<Vec<Enemy>, String> {
-    let room: RoomEnemies = read_ron(path)?;
+    load_room_enemies_from(path, definitions, bounds, &read_ron::<RoomEnemies>)
+}
+
+/// `load_room_enemies` with the document coming from `read` (`editor_files::ReadDocument`).
+pub fn load_room_enemies_from(
+    path: &Path,
+    definitions: &EnemyDefinitions,
+    bounds: WorldBounds,
+    read: ReadDocument,
+) -> Result<Vec<Enemy>, String> {
+    let room = read(path)?;
     for (index, placement) in room.enemies.iter().enumerate() {
         let checked = placement.check_variety(index);
         checked.map_err(|error| format!("{}: {error}", path.display()))?;
@@ -475,6 +486,11 @@ pub(crate) fn default_rooms() -> [Room; 3] {
 }
 
 pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
+    load_rooms_from(assets, &read_ron::<RoomEnemies>)
+}
+
+/// `load_rooms` with the documents coming from `read` (`editor_files::ReadDocument`).
+pub fn load_rooms_from(assets: &Path, read: ReadDocument) -> Result<[Room; 3], String> {
     let definitions = EnemyDefinitions::load(assets)?;
     let bosses = BossDefinitions::load(assets)?;
     let mut errors = Vec::new();
@@ -484,11 +500,11 @@ pub fn load_rooms(assets: &Path) -> Result<[Room; 3], String> {
         .zip(["first.ron", "second.ron", "boss.ron"])
     {
         let path = assets.join("rooms").join(file);
-        match load_room_enemies(&path, &definitions, room.world_bounds()) {
+        match load_room_enemies_from(&path, &definitions, room.world_bounds(), read) {
             Ok(enemies) => room.enemies = enemies,
             Err(error) => errors.push(error),
         }
-        if let Ok(document) = read_ron::<RoomEnemies>(&path) {
+        if let Ok(document) = read(&path) {
             if let Some(layout) = document.layout {
                 match layout.apply(room) {
                     Ok(()) => {}

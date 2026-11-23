@@ -232,7 +232,9 @@ impl GameState {
     /// caller.
     fn reset_run_state(&mut self, layer: Layer) -> Result<(), String> {
         let here = self.room().id;
-        let (rooms, terrain_styles) = world_load::load_world(&self.assets, &self.charms, &layer)?;
+        let hub = self.run.config.hub_room;
+        let (rooms, terrain_styles) =
+            world_load::load_world(&self.assets, &self.charms, &layer, hub)?;
         let current = rooms
             .iter()
             .position(|room| room.id == here)
@@ -282,7 +284,7 @@ impl GameState {
         let (seed, source) = self.run.seeds.next_seed();
         // Decided once, from the seed, and kept for the run's life (`flip_link`).
         let flipped = self.run.flip.decide(seed);
-        self.reset_run_state(self.profile_layer().with_seed(seed))?;
+        self.reset_run_state(self.profile_layer().with_seed(seed).with_flip(flipped))?;
         self.run.seeds.begin(seed, source);
         self.run.flip.current = flipped;
         self.run.phase = RunPhase::Running;
@@ -306,6 +308,7 @@ impl GameState {
         let Some(mut target) = self.room_index(exit.target_room) else {
             return;
         };
+        let mut spawn = exit.spawn;
         // A locked exit asks for its key first; without it nothing else happens.
         if !self.pass_exit(exit) {
             return;
@@ -324,13 +327,16 @@ impl GameState {
                     return;
                 };
                 target = rebuilt;
+                // So is the arrival: `exit` is the old hub's, and a flipped run's start room is
+                // mirrored, which moved the arrival point in the rebuilt hub's exit.
+                spawn = self.rebuilt_arrival(&exit);
             } else if self.run.phase == RunPhase::Running && hub == Some(exit.target_room) {
                 self.enter_room(target, exit.spawn);
                 self.end_run(RunOutcome::Abandoned);
                 return;
             }
         }
-        self.enter_room(target, exit.spawn);
+        self.enter_room(target, spawn);
     }
 
     /// Puts the phase right with where the player is, at the start of a tick. The editor can
@@ -350,6 +356,8 @@ impl GameState {
                         let spawn = self.rooms[index].spawn;
                         self.enter_room(index, spawn);
                     }
+                } else {
+                    self.land_in_flipped_room();
                 }
             }
             RunPhase::Running if in_hub => self.end_run(RunOutcome::Abandoned),

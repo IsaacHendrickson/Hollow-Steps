@@ -16,7 +16,9 @@ use crate::gates::ExitRef;
 use crate::hazard_look::HazardFacing;
 use crate::room::{RoomEdge, RoomEnemies};
 
+mod source;
 mod world;
+pub use source::FlippedDocuments;
 pub use world::flip_world;
 
 #[cfg(test)]

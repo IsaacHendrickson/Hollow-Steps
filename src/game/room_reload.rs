@@ -27,8 +27,9 @@ impl GameState {
         let vitals = VitalsConfig::load(&self.assets)?;
         let charms = CharmCatalog::load(&self.assets, vitals.max_mana)?;
         let upgrades = UpgradeCatalog::load(&self.assets)?;
+        let hub = self.run_config().hub_room;
         let (rooms, terrain_styles) =
-            world_load::load_world(&self.assets, &charms, &self.tiers.layer)?;
+            world_load::load_world(&self.assets, &charms, &self.tiers.layer, hub)?;
         for mut reloaded in rooms {
             if let Some(current) = self.rooms.iter_mut().find(|room| room.id == reloaded.id) {
                 // Prefer exact placements before matching moved placements by name/occurrence.

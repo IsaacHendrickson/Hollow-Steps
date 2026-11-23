@@ -206,7 +206,7 @@ impl GameState {
         let flip = flip_link::FlipState::load(assets)?;
         // The hub, and a game with no hub, play with no tier on top.
         let (rooms, terrain_styles) =
-            world_load::load_world(assets, &charms, &tier_link::Layer::BASE)?;
+            world_load::load_world(assets, &charms, &tier_link::Layer::BASE, None)?;
         let (mut run, current) = run_link::RunState::start(run_config, &rooms)?;
         run.flip = flip;
         let mut player = Player::new(Vec2::new(180.0, 0.0), tuning.player);
@@ -364,6 +364,7 @@ impl GameState {
             return self.end_test_room();
         }
         if self.editor.take().is_none() {
+            self.refuse_editor_when_flipped()?;
             self.shop.close();
             self.map.open = false;
             self.editor = Some(EditorSession::open(&self.assets, self.room(), &self.rooms)?);
@@ -377,6 +378,7 @@ impl GameState {
         if self.test_run.is_some() {
             return Err("leave the test room (F2) before opening another room".into());
         }
+        self.refuse_editor_when_flipped()?;
         let index = self
             .rooms
             .iter()

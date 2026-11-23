@@ -6,7 +6,10 @@
 //! `variety.ron` is read at start-up and F5 does not re-read it, like `difficulty.ron`.
 use std::path::Path;
 
+use macroquad::math::Vec2;
+
 use super::GameState;
+use crate::room::Exit;
 use crate::variety::{decide_flip, FlipChoice, VarietyRules};
 
 /// The rules, the F4 choice for the next run and the decision of the run in progress.
@@ -57,3 +60,48 @@ impl GameState {
         live && self.run.flip.current
     }
 }
+
+impl GameState {
+    /// Where the player arrives after `exit` of the room being played, once the rooms have been
+    /// rebuilt: the `spawn` of the rebuilt room's exit with the same edge, offset or door and
+    /// target (the same exit by its `ExitRef`). `exit` is the copy from before the rebuild, whose
+    /// `spawn` is not mirrored. Falls back to that copy's `spawn` if the room has no such exit.
+    pub(super) fn rebuilt_arrival(&self, exit: &Exit) -> Vec2 {
+        let same = |other: &&Exit| {
+            other.target_room == exit.target_room
+                && other.edge == exit.edge
+                && other.offset == exit.offset
+                && other.door == exit.door
+        };
+        let rebuilt = self.room().exits.iter().find(same);
+        rebuilt.map_or(exit.spawn, |rebuilt| rebuilt.spawn)
+    }
+
+    /// A run can start with the player already outside the hub (the editor put him there), and
+    /// the rooms it builds are mirrored, so his old spot is no spot of theirs: he stands at the
+    /// room's spawn instead. An unflipped run leaves him where he is, as it always did.
+    pub(super) fn land_in_flipped_room(&mut self) {
+        if self.run.flip.current {
+            let (spawn, bounds) = (self.room().spawn, self.world_bounds());
+            self.player.place_at(spawn, bounds);
+        }
+    }
+
+    /// F2 and Open room refuse while the run in progress is flipped. The editor reads the room
+    /// files, so it would show the unflipped dungeon, and Save would put that over the flipped
+    /// rooms being played. The hub, an unflipped run and a test room are not affected.
+    pub(super) fn refuse_editor_when_flipped(&self) -> Result<(), String> {
+        if self.run_flipped() {
+            return Err(
+                "this run is flipped (the dungeon is mirrored), and the editor works on the \
+                 unflipped files: abandon the run from the pause menu, or set Flip next run to \
+                 Never in F4 and start a new run, then open the editor"
+                    .into(),
+            );
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod play_tests;

@@ -2,4 +2,5 @@
 mod dungeon;
 mod layout;
 mod rich;
+mod source;
 mod world;
