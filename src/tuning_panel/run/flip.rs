@@ -68,7 +68,12 @@ pub fn room_flip_label(game: &GameState) -> String {
 
 /// Draws one row of Auto, Never and Always radio buttons named `label` and returns the choice
 /// after any click. `id` names the buttons for the tests.
-fn choice_row(ui: &mut egui::Ui, label: &str, id: &str, before: FlipChoice) -> FlipChoice {
+pub(super) fn choice_row(
+    ui: &mut egui::Ui,
+    label: &str,
+    id: &str,
+    before: FlipChoice,
+) -> FlipChoice {
     let mut choice = before;
     ui.horizontal(|ui| {
         ui.add_sized([super::super::LABEL_WIDTH, 20.0], egui::Label::new(label));

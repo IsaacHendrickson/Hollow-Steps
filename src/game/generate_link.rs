@@ -47,6 +47,23 @@ impl GameState {
             .flatten()
     }
 
+    /// F2 and Open room refuse while the run in progress is generated, or flipped. The editor
+    /// reads the room files, so it would show rooms that are not the ones being played, and Save
+    /// would rebuild the world from the files and put them over the generated rooms. The hub, a
+    /// fixed unflipped run and a test room are not affected. The message says what to do, as the
+    /// flipped run's does.
+    pub(super) fn refuse_editor_during_run(&self) -> Result<(), String> {
+        if self.run_generated() {
+            return Err(
+                "this run is a generated dungeon, and the editor works on the room files, not on \
+                 the rooms being played: abandon the run from the pause menu, or set Generate \
+                 next run to Never in F4 and start a new run, then open the editor"
+                    .into(),
+            );
+        }
+        self.refuse_editor_when_flipped()
+    }
+
     /// The plan for the run that starts with `seed`, or `None` when the fixed dungeon is played.
     /// F4's choice and `variety.ron` decide (`decide_generation`); nothing is read from the room
     /// files unless one of them may say yes. A plan the generator cannot make comes back as its
