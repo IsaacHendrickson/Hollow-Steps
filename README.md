@@ -137,6 +137,13 @@ placement out of the room below that tier; the editor and Save always keep it. N
 is ever written to a room or definition file. Design note:
 [docs/run-and-profile.md](docs/run-and-profile.md).
 
+**Generated dungeons.** With pieces made in the editor and `generator.enabled` on in
+`assets/variety.ron`, each run builds its own dungeon from the run's seed (shown in the pause menu
+and on the result screen); `F4`'s **Generate next run** forces or forbids it, and the editor's
+**Preview generated dungeon** shows what a seed would build. The editor stays closed during a
+generated run. Design notes: [docs/dungeon-gen.md](docs/dungeon-gen.md),
+[docs/variety.md](docs/variety.md).
+
 **The upgrade shop.** In the hub, stand at the stall (it shows an "Up: shop" prompt) and press `Up`
 to spend banked coins on permanent upgrades: Vitality (+10 max health per level), Swift Feet (+5%
 move speed) and Keen Edge (+3 sword damage), each with a few levels that get dearer. The world

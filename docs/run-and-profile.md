@@ -151,6 +151,9 @@ room.** (On the result screen after Abandoned by an exit, the room is the hub an
 - A run start and a continue rebuild every room from its file with the same loader that start-up
   and F5 use. If that fails (a room file was edited into an invalid state), nothing changes: the
   player cannot leave the hub, or stays on the result screen, and a message says why.
+- A run's world need not be the authored rooms: when the generator is on, `start_run` builds the
+  hub plus a generated dungeon instead, keeps its plan for the run, and the hub phase and Continue
+  use the authored world again (`docs/dungeon-gen.md`, "A generated run"; `docs/variety.md`).
 - The editor can move the player to another room (Open room, or Save of a room): the next tick
   after it closes restores the invariant the same way an exit would, so opening the first room from
   the hub starts a run, and opening the hub during a run abandons it. A **test room** is a sandbox:
@@ -238,7 +241,7 @@ hard stop of the program (power loss, a crash) not banking the run.
 `permanent_effects`), `src/shop_menu.rs` (the shop's cursor, rows and layout),
 `src/game/shop_link.rs` (`GameState` owns the shop), `src/shop_input.rs`, `src/hud_shop.rs` and
 `src/scene_shop.rs` (the window, the keys and mouse, the marker), `src/game/run_link.rs`
-(`GameState` owns the phase and the profile), `src/game/world_load.rs` (the one world loader), `src/player/run_reset.rs` and
+(`GameState` owns the phase and the profile), `src/game/world_load.rs` (the one world loader; `world_load/generated.rs` builds a generated run's), `src/player/run_reset.rs` and
 `src/vitals/fill.rs` (the player and vitals reset), `src/run/screen.rs` (result screen text and layout, counter captions), `src/hud_run.rs` (drawing
 them and the key or click that leaves the result screen), `src/tuning_panel/run.rs` (F4 debug section), `src/difficulty.rs` (the tier rules), `src/game/tier_link.rs`
 (`GameState` holds the layer, the rules and the HUD tier), `src/enemy/tier.rs`, `src/boss_special/tier.rs`

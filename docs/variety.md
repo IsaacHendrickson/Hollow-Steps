@@ -2,7 +2,8 @@
 
 Every run has a **seed**, one `u64` that makes a run's random choices repeatable. The seed is
 the first thing that makes one run differ from the next without any file being edited. Optional
-enemy placements are the first thing that uses it.
+enemy placements are the first thing that uses it. The seed also decides a run's flip, its room
+flips and, when the generator is on, the whole dungeon (`docs/dungeon-gen.md`, "A generated run").
 
 ## The seed
 
@@ -60,6 +61,11 @@ refused with a message that says why.
     run: ...` in the hub afterwards, and says no run has started before the first one.
   - The row does not touch the profile. With no hub in `run.ron` the whole section only says there
     are no runs, so there is no row.
+- **Pause menu.** While a run is going, every screen of the pause menu shows `Seed <16 hex digits>`
+  in the top-left corner of the virtual screen, small and dim (`pause_menu::seed_label`, placed with
+  `camera::anchored`; it sits in the corner because the Settings panel is nearly as tall as the
+  screen). The hub, a test room and a game with no hub show nothing. The digits are what the F4 text
+  box and the preview's seed box read back.
 
 ## Optional enemy placements
 
@@ -310,6 +316,57 @@ read is read by the builder itself, so every loading error is the plain one, wit
    hub is unflipped and F2 opens the editor.
 6. Die in a flipped run, press Continue: the hub, and the next run with Never, are unflipped.
 7. F5 in the middle of a flipped run: the rooms stay mirrored.
+
+# Generated runs: the choice, the editor guard and the preview
+
+How a run is built from a plan is in `docs/dungeon-gen.md` ("A generated run"). This is the part
+that touches the F4 window, the editor and the pause menu.
+
+**F4 row.** The "Run (debug)" section has "Generate next run" with three radio buttons: **Auto**
+(the rules decide: `generator.enabled` on and a Start and a Boss piece in the pool), **Never** (the
+fixed dungeon) and **Always** (generate, or fail with the reason). The choice is
+`variety::GenerateChoice`, the same three-way type as the flip's (`FlipChoice`), and
+`variety::decide_generation(choice, rules, pool_has_ends)` is the pure function behind it. A line
+says what the next run will do and, during a run, whether this one is generated; changing it during
+a run changes only the runs after it. Like the flip rows it edits no file, is not saved in the
+profile and is back on Auto when the game starts. With no hub in `run.ron` there is no row.
+
+**The editor during a generated run.** While a run (or its result screen) is generated, F2 and Open
+room refuse, with the same mechanism as a flipped run's refusal and a message that says to abandon
+the run from the pause menu or to set Generate next run to Never in F4 and start a new run. The
+editor reads the files, so it would show rooms that are not the ones being played, and Save would
+put those over the files. The editor works in the hub, in a run that is not generated (Never, or
+the rules off) and in a test room. A run started by closing the editor outside the hub lands at
+the start room's spawn when that room is not in the generated world.
+
+## Preview generated dungeon
+
+The Room tools panel's **Dungeon piece** section ends with a **Preview generated dungeon** button
+that opens (and closes) a window. It is read-only: it writes no file and never touches the running
+game. It plans from copies of the session's rooms as the editor holds them, unsaved drafts
+included, with the rules of `run.ron` and `variety.ron` that the game gave the session.
+
+- **Seed box.** A text box for the seed (hex, 1 to 16 digits, either case, optional `0x`, spaces
+  around it ignored, `parse_seed`). A text that is not a seed says why and draws no dungeon until it
+  is fixed. **Roll next** puts the next seed in the box: the next number of the sequence run seeds
+  come from, started at the current seed (`dungeon_preview::next_seed`); from a box that holds no
+  seed it starts from the last good one. The box starts at the first seed of the default sequence.
+- **The plan.** One line (`Seed <hex>: N rooms, built on attempt K`), then the map drawn with the
+  Dungeon map window's drawing (`map_window::draw_map_canvas`): the hub and the plan's rooms in
+  their cells, **named by their piece**, with a locked exit tagged `Key N` between its two rooms. No
+  room is marked as the one being edited. Then **Keys and abilities**: one line per key and ability
+  lying in the dungeon, `Key 2 in Locksmith`, the start room first.
+- **No dungeon.** The text of the `GenError` (for example `the pool has no Boss piece`), or why the
+  hub is missing, in red. A note says when `generator.enabled` is off: the preview still builds,
+  but Auto runs play the fixed dungeon.
+- **Same seed, same map.** The map is `MapLayout::build` of the plan's rooms, the hub first, the
+  same function the run's map uses, so a run with the same seed and the same saved rooms shows the
+  same cells.
+
+The model is `dungeon_preview::DungeonPreview` (seed box, Roll next, a cached plan that is built
+again only when the seed or what the editor holds changes) and `outcome_for(seed, &inputs)`; the
+window (`editor_panel/preview_window.rs`) only draws it. Tests: `tests/dungeon_preview.rs` (the
+model), `editor_panel/panel_tests/preview.rs` (the window and the lock tags).
 
 # Flippable rooms
 

@@ -183,6 +183,16 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - `variety.ron` `generator`: enabled, rooms, spine, keys, mirror_percent, attempts; optional, validated; `src/variety/generator.rs`; `generator/tests.rs`
 - Dungeon generator: `generate(pieces, hub, config, rules, seed)` makes a `DungeonPlan` the checker passes; `src/dungeon_gen.rs`; `tests/dungeon_generator.rs`
 - Generator rules 1-11 checked on every plan, `GenError` for a pool that cannot work; `tests/support/plan_rules.rs`, `pieces.rs`; `docs/dungeon-gen.md`
+- A run can play a generated dungeon: the hub plus a plan's rooms, built from the piece files; `src/game/generate_link.rs`; `world_load/generated.rs`
+- Generated run: hub exit lands at the start room, the Boss piece clears it, F5 and Continue behave; `src/game/generate_tests.rs`
+- A generated run that cannot start says `Could not start the run: <reason>`, stays in the hub and uses no seed; `src/game/generate_link.rs`
+- F4 Generate next run: Auto (rules decide) / Never (fixed dungeon) / Always (generate or fail); `src/tuning_panel/run/generate.rs`; `variety/generator.rs`
+- F2 and Open room refuse during a generated run, saying how out; hub, Never runs and the test room are unaffected; `src/game/generate_link.rs`
+- Pause menu shows `Seed <hex>` in the corner during a run, the text the F4 and preview seed boxes read back; `src/pause_menu/seed.rs`
+- Editor Preview generated dungeon: seed box, Roll next, map by piece names with `Key N` on locks, key and ability list; `src/dungeon_preview.rs`
+- The preview is read-only, plans from unsaved drafts and shows the `GenError` text when there is none; `editor_panel/preview_window.rs`
+- Dungeon map window and preview tag a locked exit with its key number; `src/editor_panel/map_window.rs`; `editor_panel/panel_tests/preview.rs`
+- Shipped variety rules load; if the shipped rooms have pieces and the generator is on, seeds 0-49 generate clean plans; `tests/shipped_content.rs`
 
 ## Dungeon pieces
 
