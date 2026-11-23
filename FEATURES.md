@@ -186,6 +186,7 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - A run can play a generated dungeon: the hub plus a plan's rooms, built from the piece files; `src/game/generate_link.rs`; `world_load/generated.rs`
 - Generated run: hub exit lands at the start room, the Boss piece clears it, F5 and Continue behave; `src/game/generate_tests.rs`
 - A generated run that cannot start says `Could not start the run: <reason>`, stays in the hub and uses no seed; `src/game/generate_link.rs`
+- The hub shows why a run did not start (box at top center) until the next start or F4 choice; `src/hud_run.rs`; `src/game/generate_tests/more_tests.rs`
 - F4 Generate next run: Auto (rules decide) / Never (fixed dungeon) / Always (generate or fail); `src/tuning_panel/run/generate.rs`; `variety/generator.rs`
 - F2 and Open room refuse during a generated run, saying how out; hub, Never runs and the test room are unaffected; `src/game/generate_link.rs`
 - Pause menu shows `Seed <hex>` in the corner during a run, the text the F4 and preview seed boxes read back; `src/pause_menu/seed.rs`

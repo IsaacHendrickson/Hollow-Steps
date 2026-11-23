@@ -100,6 +100,14 @@ impl GameState {
         self.run_rules_apply() && self.run.phase == RunPhase::Hub
     }
 
+    /// Forgets the message left in the hub by a start that failed (`start_failure`). During a run
+    /// and on the result screen the message is not touched: it may be a profile that did not save.
+    pub(super) fn clear_hub_message(&mut self) {
+        if self.run.phase == RunPhase::Hub {
+            self.run.message = None;
+        }
+    }
+
     /// The result of the run that just ended, while its screen is showing.
     pub fn run_result(&self) -> Option<RunResult> {
         match self.run_phase()? {
