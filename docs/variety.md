@@ -221,3 +221,31 @@ still correct for any set of rooms, and the tests run all 32 sets of the fixture
   and after the flip, for a good dungeon and one made bad on purpose.
 - The fixture dungeon (`src/mirror/fixture.rs`) is built in code: a hub, a start room with a key,
   the Dash and a hazard, a locked exit with a Dash gate, a door, a top and a bottom exit.
+
+# Whether a run flips (`variety.ron`, F4)
+
+`data/variety.ron` is the embedded default and `assets/variety.ron` replaces it **whole** (read with
+`assets::read_override`, unknown fields refused, a bad file stops the game starting and the error
+names it). It has one number:
+
+| field | meaning |
+|---|---|
+| `flip_percent` | chance, 0 to 100 (finite), that a run plays the dungeon mirrored |
+
+The embedded default is `0.0` (never), so a game with no file plays as it always did. The shipped
+`assets/variety.ron` says `50.0`. F5 does not re-read it: restart the game after editing it.
+
+**The decision.** When a run starts, `variety::decide_flip` looks at F4's choice:
+
+- **Auto** flips when `stream(seed, "flip", 0).unit() * 100 < flip_percent`, so the same seed always
+  gives the same answer, and 0 never flips and 100 always does;
+- **Never** and **Always** ignore the file and the seed.
+
+The answer is kept in `RunState` until the run ends (the result screen still belongs to that run;
+the hub, a game with no hub and the test room are never flipped). Changing F4 during a run does not
+change that run, only the ones after it.
+
+**F4 row.** The "Run (debug)" section has "Flip next run" with three radio buttons (Auto, Never,
+Always) and a line saying what the next run will do and whether this one is flipped. It does not
+edit `variety.ron` and is not saved in the profile, so it is back on Auto the next time the game
+starts.

@@ -16,6 +16,7 @@ use std::path::PathBuf;
 
 use macroquad::math::Vec2;
 
+use super::flip_link::FlipState;
 use super::seed_link::SeedState;
 use super::tier_link::Layer;
 use super::{vitals_link, world_load, GameState};
@@ -40,6 +41,8 @@ pub(super) struct RunState {
     message: Option<String>,
     /// The seeds runs start with and the one of the run in progress (`seed_link`).
     pub(super) seeds: SeedState,
+    /// The flip's rules, F4's choice and whether this run is flipped (`flip_link`).
+    pub(super) flip: FlipState,
 }
 
 impl RunState {
@@ -64,6 +67,7 @@ impl RunState {
             phase: RunPhase::Hub,
             message: None,
             seeds: SeedState::default(),
+            flip: FlipState::default(),
         };
         Ok((state, index))
     }
@@ -187,6 +191,8 @@ impl GameState {
         self.run.phase = RunPhase::Hub;
         // The hub has no seed; `last_run_seed` still has the one that just ended.
         self.run.seeds.current = None;
+        // And nothing in the hub is flipped.
+        self.run.flip.current = false;
         self.run.message = None;
         self.discover_current_room();
         self.events.push(GameEvent::RoomEntered);
@@ -270,11 +276,15 @@ impl GameState {
     /// here, once, so the run plays at it from start to end, and so is the run's seed: the fixed
     /// one if F4 set it, otherwise the next from the source. The seed goes into the layer the
     /// rooms are built with, so it decides the optional enemy placements and every rebuild in
-    /// the run keeps its picks. A run that cannot start takes no seed.
+    /// the run keeps its picks. The same seed decides whether the run flips (`flip_link`). A run
+    /// that cannot start takes no seed.
     fn start_run(&mut self) -> Result<(), String> {
         let (seed, source) = self.run.seeds.next_seed();
+        // Decided once, from the seed, and kept for the run's life (`flip_link`).
+        let flipped = self.run.flip.decide(seed);
         self.reset_run_state(self.profile_layer().with_seed(seed))?;
         self.run.seeds.begin(seed, source);
+        self.run.flip.current = flipped;
         self.run.phase = RunPhase::Running;
         self.run.message = None;
         Ok(())

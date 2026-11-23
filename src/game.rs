@@ -46,6 +46,9 @@ mod event_tests;
 mod feel_tests;
 #[cfg(test)]
 mod flier_tests;
+mod flip_link;
+#[cfg(test)]
+mod flip_tests;
 #[cfg(test)]
 mod gate_tests;
 #[cfg(test)]
@@ -200,10 +203,12 @@ impl GameState {
         let run_config = RunConfig::load(assets)?;
         let upgrades = UpgradeCatalog::load(assets)?;
         let difficulty = Difficulty::load(assets)?;
+        let flip = flip_link::FlipState::load(assets)?;
         // The hub, and a game with no hub, play with no tier on top.
         let (rooms, terrain_styles) =
             world_load::load_world(assets, &charms, &tier_link::Layer::BASE)?;
-        let (run, current) = run_link::RunState::start(run_config, &rooms)?;
+        let (mut run, current) = run_link::RunState::start(run_config, &rooms)?;
+        run.flip = flip;
         let mut player = Player::new(Vec2::new(180.0, 0.0), tuning.player);
         player.place_at(rooms[current].spawn, rooms[current].world_bounds());
 

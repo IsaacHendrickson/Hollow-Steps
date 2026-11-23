@@ -172,6 +172,8 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Editor Group (None box, 1-9 drag) and Chance % rows under Min tier, one undo step each; `src/editor_panel/variety_fields.rs`; `src/editor_variety.rs`
 - Player is left-right symmetric, proved on the real `Player` (run, jump, air jump, dash, swing) against a mirror; `tests/flip.rs`
 - A room seen in a mirror: layout, patrols, boss, exits, gates, map cell; arrivals into flipped rooms; `src/mirror.rs`; `src/mirror/tests/`
+- `variety.ron` `flip_percent` (0-100; shipped 50): chance a run flips; `src/variety/flip.rs`; `src/variety/flip/tests.rs`; `tests/shipped_content.rs`
+- A run decides its flip at start from its seed; F4 Flip next run: Auto/Never/Always; `src/game/flip_link.rs`; `src/tuning_panel/run/flip.rs`
 
 ## Tests and CI
 
