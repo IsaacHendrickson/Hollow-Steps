@@ -26,6 +26,8 @@ impl RoomDraft {
         layout.exits.clear();
         layout.gates.clear(); // marks on the template's exits mean nothing in an empty room
         layout.map_cell = None; // a copied cell would put the new room on top of its template
+        layout.piece = None; // a mark and its slots belong to the template, not to a new room
+        layout.slots.clear();
         Self {
             enemies: Vec::new(),
             boss: None,
@@ -328,6 +330,8 @@ impl RoomDraft {
             background: Vec::new(),
             gates: Vec::new(),
             map_cell: None,
+            piece: None,
+            slots: Vec::new(),
             spawn: self.layout.spawn.into(),
             enemies: self
                 .enemies

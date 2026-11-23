@@ -92,6 +92,14 @@ pub struct RoomLayout {
     /// absent means placed by its exits, and in older room files.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub map_cell: Option<(i32, i32)>,
+    /// Marks the room as a piece of a dungeon a generator can build (`crate::piece`); the game
+    /// never reads it. Absent means the room is not one, and in older room files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub piece: Option<crate::piece::PieceInfo>,
+    /// Spots where the generator may put a key or an ability; kept when the mark is removed.
+    /// Absent in older room files.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub slots: Vec<crate::piece::PickupSlot>,
 }
 
 impl RoomLayout {
@@ -115,6 +123,8 @@ impl RoomLayout {
             terrain_style: room.terrain_style.clone(),
             gates: room.gates.clone(),
             map_cell: room.map_cell,
+            piece: room.piece,
+            slots: room.slots.clone(),
             items: room
                 .items
                 .iter()
@@ -219,6 +229,8 @@ impl RoomLayout {
         if let Some(cell) = self.map_cell {
             crate::dungeon_map::check_cell(cell)?;
         }
+        self.check_piece(&terrain)
+            .map_err(|error| error.to_string())?;
         self.validate_gates()
     }
 
@@ -245,6 +257,8 @@ impl RoomLayout {
         room.exits = self.exits.iter().map(ExitPlacement::exit).collect();
         room.gates = self.gates.clone();
         room.map_cell = self.map_cell;
+        room.piece = self.piece;
+        room.slots = self.slots.clone();
         Ok(())
     }
 }

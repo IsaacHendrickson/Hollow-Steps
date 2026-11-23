@@ -137,6 +137,9 @@ pub struct Room {
     /// Where the dungeon map puts the room (`crate::dungeon_map`); `None` places it by its exits.
     /// Carried like `gates`; the game's rules never read it.
     pub(crate) map_cell: Option<(i32, i32)>,
+    /// The dungeon-piece mark and pickup slots (`crate::piece`), carried like `gates`.
+    pub(crate) piece: Option<crate::piece::PieceInfo>,
+    pub(crate) slots: Vec<crate::piece::PickupSlot>,
     /// Default player-center respawn point for this room.
     pub spawn: Vec2,
     pub enemies: Vec<Enemy>,
@@ -390,6 +393,8 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             background: Vec::new(),
             gates: Vec::new(),
             map_cell: None,
+            piece: None,
+            slots: Vec::new(),
             exits: vec![Exit {
                 edge: RoomEdge::Right,
                 offset: FLOOR_Y - 96.0,
@@ -431,6 +436,8 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             background: Vec::new(),
             gates: Vec::new(),
             map_cell: None,
+            piece: None,
+            slots: Vec::new(),
             exits: vec![
                 Exit {
                     edge: RoomEdge::Left,
@@ -466,6 +473,8 @@ pub(crate) fn default_rooms() -> [Room; 3] {
             background: Vec::new(),
             gates: Vec::new(),
             map_cell: None,
+            piece: None,
+            slots: Vec::new(),
             spawn: Vec2::new(160.0, 436.0),
             enemies: Vec::new(),
             boss_special: None,

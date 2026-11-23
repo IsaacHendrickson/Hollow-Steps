@@ -89,6 +89,7 @@ Gameplay modules (pure rules, no rendering):
 - `src/hazard.rs`, `hazard_look`, `editor_hazard`, `scene_hazards`, `editor_panel/hazard_panel`: terrain hazards; `docs/hazards.md`
 - `src/puzzle.rs`, `editor_puzzle`, `scene_puzzles`, `game/world_puzzles`, `editor_panel/puzzle_panel`: breakable walls, switches, barriers; `docs/puzzles.md`
 - `src/editor.rs`, `editor_draft`, `editor_files`, `editor_session`, `editor_history`, `editor_guard`, `editor_look`: room editor: layout, files, undo, guard
+- `src/piece.rs` (+ `piece/`): dungeon pieces: a room's piece mark (role, weight) and its pickup slots, with their checks
 - `src/editor_terrain.rs`, `editor_tools`, `editor_view`: room editor terrain edits, tools, canvas zoom, pan and grid
 - `src/room_name.rs`, `room_size`, `editor_name`, `editor_inbound`, `editor_selection`: room name and size, inbound arrivals, canvas selection
 - `src/definition_editor.rs` (+ `definition_editor/`): pure entity and behavior edits, save planning, staged writes

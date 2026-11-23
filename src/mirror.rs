@@ -8,9 +8,10 @@
 //! twice gives the room back (exactly, for whole-number coordinates).
 //!
 //! What is mirrored: the spawn, terrain, hazards (their side too), breakables, switches,
-//! barriers, items, charms, every exit, the gates that name those exits, and the map cell. What is
-//! kept: the terrain look and the background (drawing only, a known limit). An exit's arrival
-//! `spawn` is a point in another room, so only `flip_world`, which knows that room, moves it.
+//! barriers, items, charms, pickup slots, every exit, the gates that name those exits, and the
+//! map cell. What is kept: the piece mark, the terrain look and the background (drawing only, a
+//! known limit). An exit's arrival `spawn` is a point in another room, so only `flip_world`,
+//! which knows that room, moves it.
 use crate::editor::{ExitPlacement, RoomLayout};
 use crate::gates::ExitRef;
 use crate::hazard_look::HazardFacing;
@@ -123,6 +124,10 @@ pub fn mirror_layout(layout: &RoomLayout) -> RoomLayout {
     }
     for charm in &mut room.charms {
         charm.position = axis.point(charm.position);
+    }
+    // The piece mark has no place in a room and stays; each pickup slot is a point like an item.
+    for slot in &mut room.slots {
+        slot.position = axis.point(slot.position);
     }
     room.exits = layout
         .exits

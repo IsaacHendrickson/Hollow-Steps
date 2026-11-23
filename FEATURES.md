@@ -178,6 +178,11 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Flipped run: hub exit arrives at the mirrored spot, F5 keeps the flip, Continue is unflipped; `src/game/flip_link.rs`; `flip_link/play_tests.rs`
 - F2 and Open room refuse in a flipped run, saying how out; hub, unflipped runs and the test room are unaffected; `src/game/flip_link.rs`
 
+## Dungeon pieces
+
+- A room can be a dungeon piece (Start, Middle, Boss; weight 1-10) with up to 8 pickup slots (Key, Ability, Any); `src/piece.rs`; `piece/tests.rs`
+- Slots must be finite, inside, off solids and apart; Room and `from_room` carry mark and slots, the mirror flips slots; `src/piece.rs`; `src/mirror.rs`
+
 ## Tests and CI
 
 - Fixture-based tests; only `tests/shipped_content.rs` reads `assets/` (load and validate); `tests/fixtures/`, `tests/support/mod.rs`

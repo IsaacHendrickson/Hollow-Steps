@@ -67,6 +67,7 @@ pub mod mirror;
 pub mod notice;
 pub mod particles;
 pub mod pause_menu;
+pub mod piece;
 pub mod player;
 pub mod player_body;
 pub mod player_editor;

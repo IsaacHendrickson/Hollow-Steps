@@ -307,3 +307,4 @@ Composition and front end:
 - `src/pause_input.rs`: Macroquad adapter for the open pause menu (keys, mouse, key binding)
 - `src/startup.rs`: Macroquad startup: loads the game, shows load errors (F5 retries)
 - `src/main.rs`: Macroquad window, key translation, drawing, frame scheduling; keep thin, no gameplay rules
+- `src/piece.rs`: dungeon pieces. `PieceRole` (Start, Middle, Boss), `PieceInfo` (role, weight 1 to 10, default 1), `SlotKind` (Key, Ability, Any), `PickupSlot` (position, kind), `PieceError` (one named error per rule) and `RoomLayout::check_piece` (weight; at most `MAX_SLOTS` = 8 slots; each slot finite, inside the room above the floor and outside every solid, the check an item gets; no two slots closer than an item). `RoomLayout::piece` and `slots` are absent in older room files; `Room` carries both like `gates`; `mirror_layout` keeps the mark and flips the slots.
