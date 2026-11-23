@@ -106,7 +106,8 @@ generator's work, and a later task.
 - Slots hold keys and abilities only. No coins and no charms.
 - A piece cannot hold a lock (rule 3): the generator places keys and decides what they open.
 - One-way links are not pieces' business yet: a piece's exits are counted as plain exits.
-- Nothing builds a dungeon from the pool, picks by weight, places an item in a slot or carries a gate
-  to a new neighbour. The rules only say a pool is fit to be built from; they do not prove a dungeon can
-  be assembled from it, or that it can be won.
+- The pool rules only say a pool is fit to be built from; they do not prove a dungeon can be assembled
+  from it, or that it can be won. `generate` (`docs/dungeon-gen.md`) builds from the pool by weight,
+  places items in slots and carries gates, and says in a `GenError` when it cannot. Nothing in the
+  game calls it yet.
 - A piece in a fixed dungeon is checked like any room, and the pool rules apply to it as well.
