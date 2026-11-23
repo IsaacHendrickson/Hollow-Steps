@@ -1,8 +1,9 @@
 //! The Dungeon map window of the editor (`docs/dungeon-map.md`): every room the session knows,
 //! saved or not, in the cell the map layout gives it, drawn with the same `MapGrid` as the map
 //! screen in play. The room being edited has a gold outline; a room that shares a cell with
-//! another, or that no exit leads to, says so. Clicking a room asks to open it, through the same
-//! unsaved-changes guard as the Open room button.
+//! another, or that no exit leads to, says so, and a locked exit carries its key number.
+//! Clicking a room asks to open it, through the same unsaved-changes guard as the Open room
+//! button. `draw_map_canvas` is shared with the generated dungeon preview (`preview_window`).
 use super::{EditorSession, EditorUi};
 use egui_macroquad::egui;
 use hollow_steps::dungeon_map::{EditorMap, EditorMapRoom, MapGrid, MapLink};
@@ -24,6 +25,10 @@ const LINK: egui::Color32 = egui::Color32::from_rgb(120, 128, 165);
 const CURRENT: egui::Color32 = egui::Color32::GOLD;
 const CONFLICT: egui::Color32 = egui::Color32::from_rgb(255, 140, 140);
 const NO_ENTRANCE: egui::Color32 = egui::Color32::from_rgb(255, 190, 110);
+const LOCK_FILL: egui::Color32 = egui::Color32::from_rgb(70, 56, 30);
+const LOCK_TEXT: egui::Color32 = egui::Color32::from_rgb(240, 200, 110);
+/// How far along a locked exit's line, from its own room, the key tag sits.
+const LOCK_ALONG: f32 = 0.38;
 
 /// Draws the window while it is open (and no exit link is in progress, when opening another
 /// room would break the flow). A click on another room sets `open` to it.
@@ -65,12 +70,34 @@ fn draw_map(ui: &mut egui::Ui, map: &EditorMap) -> Option<RoomId> {
         return None;
     }
     let size = ui.available_size().max(egui::vec2(200.0, 150.0));
-    let (response, painter) = ui.allocate_painter(size, egui::Sense::click());
+    draw_map_canvas(ui, map, size, true)
+}
+
+/// The map itself in a box of `size`: the links with the key number of each locked exit, then
+/// the rooms. The Dungeon map window and the generated dungeon preview both draw it. With
+/// `clickable` the room clicked this frame is returned and the pointer shows a hand over a
+/// room; without, it only names a room under the pointer.
+pub(super) fn draw_map_canvas(
+    ui: &mut egui::Ui,
+    map: &EditorMap,
+    size: egui::Vec2,
+    clickable: bool,
+) -> Option<RoomId> {
+    let sense = if clickable {
+        egui::Sense::click()
+    } else {
+        egui::Sense::hover()
+    };
+    let (response, painter) = ui.allocate_painter(size, sense);
     probe(ui, || (egui::Id::new("map window canvas"), response.rect));
     let grid = MapGrid::fit(to_rect(response.rect), &map.cells());
 
     for link in &map.links {
-        draw_link(&painter, &grid, link);
+        if let Some(tag) = draw_link(&painter, &grid, link) {
+            probe(ui, || {
+                (egui::Id::new(("map lock", link.from, link.to)), tag)
+            });
+        }
     }
     for room in &map.rooms {
         let rect = to_egui(grid.room_rect(room.cell));
@@ -81,10 +108,12 @@ fn draw_map(ui: &mut egui::Ui, map: &EditorMap) -> Option<RoomId> {
     let at = |pos: egui::Pos2| map.room_at(&grid, vec2(pos.x, pos.y));
     let hovered = response.hover_pos().and_then(at);
     if let Some(name) = hovered.and_then(|id| map.rooms.iter().find(|room| room.id == id)) {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        if clickable {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
         response.clone().on_hover_text(&name.name);
     }
-    if response.clicked() {
+    if clickable && response.clicked() {
         return response.interact_pointer_pos().and_then(at);
     }
     None
@@ -151,13 +180,15 @@ fn truncated(text: &str, size: f32, color: egui::Color32, width: f32) -> egui::t
     job
 }
 
-/// An exit between two rooms: a line from box to box, with a head at the target of a one-way one.
-fn draw_link(painter: &egui::Painter, grid: &MapGrid, link: &MapLink) {
+/// An exit between two rooms: a line from box to box, with a head at the target of a one-way
+/// one. A locked exit also gets a tag with its key number, a little way from its own room so the
+/// two exits of a pair do not sit on each other; the tag's rectangle is returned.
+fn draw_link(painter: &egui::Painter, grid: &MapGrid, link: &MapLink) -> Option<egui::Rect> {
     let from = grid.center(link.from_cell);
     let to = grid.center(link.to_cell);
     let length = (to - from).length();
     if length <= f32::EPSILON {
-        return;
+        return None;
     }
     let stroke = egui::Stroke::new(2.0_f32, LINK);
     painter.line_segment([to_pos(from), to_pos(to)], stroke);
@@ -174,6 +205,25 @@ fn draw_link(painter: &egui::Painter, grid: &MapGrid, link: &MapLink) {
             egui::Stroke::NONE,
         ));
     }
+    let key = link.lock?;
+    let galley = painter.layout_no_wrap(
+        format!("Key {key}"),
+        egui::FontId::proportional(TAG_SIZE),
+        LOCK_TEXT,
+    );
+    let tag = egui::Rect::from_center_size(
+        to_pos(from + (to - from) * LOCK_ALONG),
+        galley.size() + egui::vec2(8.0, 2.0),
+    );
+    painter.rect_filled(tag, egui::CornerRadius::same(3), LOCK_FILL);
+    painter.rect_stroke(
+        tag,
+        egui::CornerRadius::same(3),
+        egui::Stroke::new(1.0_f32, LOCK_TEXT),
+        egui::StrokeKind::Inside,
+    );
+    painter.galley(tag.center() - galley.size() / 2.0, galley, LOCK_TEXT);
+    Some(tag)
 }
 
 fn to_pos(point: Vec2) -> egui::Pos2 {

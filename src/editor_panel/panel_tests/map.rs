@@ -8,9 +8,9 @@ use hollow_steps::editor_history::undo_session;
 use hollow_steps::room::RoomId;
 
 /// Wide enough that the map window and the panel do not overlap, tall enough to need no scrolling.
-const SIZE: egui::Vec2 = egui::vec2(1200.0, 3200.0);
+pub(super) const SIZE: egui::Vec2 = egui::vec2(1200.0, 3200.0);
 
-fn run(
+pub(super) fn run(
     ctx: &egui::Context,
     events: Vec<egui::Event>,
     editor: &mut EditorSession,
@@ -28,7 +28,7 @@ fn run(
     (response.unwrap(), drawn_text(&output))
 }
 
-fn laid_out(editor: &mut EditorSession, state: &mut EditorUi) -> egui::Context {
+pub(super) fn laid_out(editor: &mut EditorSession, state: &mut EditorUi) -> egui::Context {
     let ctx = egui::Context::default();
     for _ in 0..4 {
         run(&ctx, vec![], editor, state);
@@ -36,12 +36,16 @@ fn laid_out(editor: &mut EditorSession, state: &mut EditorUi) -> egui::Context {
     ctx
 }
 
-fn text(ctx: &egui::Context, editor: &mut EditorSession, state: &mut EditorUi) -> String {
+pub(super) fn text(
+    ctx: &egui::Context,
+    editor: &mut EditorSession,
+    state: &mut EditorUi,
+) -> String {
     run(ctx, vec![], editor, state).1
 }
 
 /// Presses and releases at `at`; the response of the frame that saw the release.
-fn press(
+pub(super) fn press(
     ctx: &egui::Context,
     at: egui::Pos2,
     editor: &mut EditorSession,
@@ -56,7 +60,10 @@ fn press(
     released
 }
 
-fn probed(ctx: &egui::Context, id: impl std::hash::Hash + Send + Sync + 'static) -> egui::Rect {
+pub(super) fn probed(
+    ctx: &egui::Context,
+    id: impl std::hash::Hash + Send + Sync + 'static,
+) -> egui::Rect {
     ctx.data(|data| data.get_temp(egui::Id::new(id)))
         .expect("the widget was drawn")
 }

@@ -29,6 +29,7 @@ pub mod door_exit;
 pub mod dungeon_check;
 pub mod dungeon_gen;
 pub mod dungeon_map;
+pub mod dungeon_preview;
 pub mod editor;
 pub mod editor_charms;
 pub mod editor_draft;

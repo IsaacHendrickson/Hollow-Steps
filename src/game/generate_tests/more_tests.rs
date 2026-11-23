@@ -90,3 +90,23 @@ fn closing_the_editor_in_a_room_the_plan_lacks_starts_the_run_at_its_start_room(
     assert!((game.player.position().x - spawn.x).abs() < 1.0);
     assert!(game.room().bounds.contains(game.player.position()));
 }
+
+#[test]
+fn the_pause_menu_shows_the_runs_seed_only_while_a_run_is_going() {
+    let (_scratch, mut game) = game_with((0, 1));
+    assert_eq!(game.pause_seed_label(), None, "the hub has no seed");
+
+    begin(&mut game);
+    let seed = game.run_seed().expect("a run has a seed");
+    assert_eq!(
+        game.pause_seed_label(),
+        Some(format!("Seed {}", crate::seed::format_seed(seed)))
+    );
+    // The label is the seed the result screen and F4 show.
+    assert_eq!(game.run_seed(), game.last_run_seed());
+
+    game.abandon_run();
+    assert_eq!(game.pause_seed_label(), None, "the run is over");
+    game.continue_after_result();
+    assert_eq!(game.pause_seed_label(), None, "back in the hub");
+}

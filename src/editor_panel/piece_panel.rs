@@ -98,6 +98,7 @@ pub(super) fn draw_piece_section(
             panel_label(ui, "Not a piece: its slots are kept and do nothing.");
         }
         panel_label(ui, "Teal ring: pickup slot (K key, A ability, ? either)");
+        super::preview_window::draw_preview_button(ui, state);
     });
 }
 

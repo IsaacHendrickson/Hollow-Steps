@@ -30,6 +30,7 @@ mod name_dialog;
 #[cfg(test)]
 mod panel_tests;
 mod piece_panel;
+mod preview_window;
 pub(crate) mod property;
 mod puzzle_panel;
 mod reach_panel;
@@ -247,6 +248,7 @@ pub(super) fn draw_panel(
             });
         });
     map_window::draw_map_window(ctx, editor, state, &mut open);
+    preview_window::draw_preview_window(ctx, editor, state);
     PanelResponse {
         save,
         test,

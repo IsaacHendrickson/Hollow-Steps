@@ -5,15 +5,18 @@
 //! Settings screen lists the keybinds: a row per action with its primary and alternate key, a
 //! Reset keybinds button and Back. The menu only tracks which key slot is waiting for a key;
 //! `GameState` owns the bindings themselves and changes them (`game::keybind_link`). During a run
-//! the main screen also lists Abandon run, which asks for confirmation first.
+//! the main screen also lists Abandon run, which asks for confirmation first, and every screen
+//! shows the run's seed in the corner (`seed`).
 
 use crate::keybinds::{Action, Slot};
 
 mod layout;
+mod seed;
 
 pub use layout::{
     button_rects, item_at, panel_rect, slot_at, slot_rects, status_rect, title_baseline,
 };
+pub use seed::{seed_label, seed_origin, SEED_FONT_SIZE};
 
 /// A button of the pause menu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
