@@ -391,7 +391,7 @@ pub(crate) fn draw_editor(
     let drawn = editor_markers(editor, state.destination, state.selected);
     let previews = editor_visuals::visual_previews(editor, &drawn);
     editor_visuals::draw_visual_previews(&previews, state.selected, &canvas);
-    editor_visuals::draw_markers(&drawn, state.selected, &canvas);
+    editor_visuals::draw_markers(editor, &drawn, state.selected, &canvas);
     if let Some(settings) = state.player.canvas_preview() {
         editor_visuals::draw_player_preview(editor, settings, &canvas);
     }

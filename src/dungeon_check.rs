@@ -16,6 +16,7 @@ use crate::dungeon_map::{MapLayout, MapRoomInput};
 use crate::editor::RoomLayout;
 use crate::gates::{entrances_of, Entrance, ExitRef};
 use crate::item::Item;
+use crate::piece::pool_check;
 use crate::room::RoomId;
 use crate::room_name::room_title;
 use crate::run::RunConfig;
@@ -29,7 +30,8 @@ pub use problem::Problem;
 
 /// Checks the dungeon made of `rooms` (every room, the hub included) under the run rules
 /// `config`. Empty when nothing is wrong. The order is fixed: run rules, unreachable rooms, locks,
-/// key counts, abilities, traps, gates that name no entrance, rooms that share a map cell.
+/// key counts, abilities, traps, gates that name no entrance, rooms that share a map cell, and
+/// last the rules for a pool of pieces (`piece::pool_check`; nothing when no room is a piece).
 pub fn check(rooms: &[(RoomId, RoomLayout)], config: &RunConfig) -> Vec<Problem> {
     let graph = Graph::new(rooms, config);
     let mut problems = Vec::new();
@@ -44,6 +46,7 @@ pub fn check(rooms: &[(RoomId, RoomLayout)], config: &RunConfig) -> Vec<Problem>
     graph.traps(&starts, &mut problems);
     graph.orphan_gates(&mut problems);
     graph.map_cells(&mut problems);
+    problems.extend(pool_check(rooms, config));
     problems
 }
 
@@ -288,9 +291,12 @@ impl<'a> Graph<'a> {
 
     // ---- the rules ----
 
+    /// A room no walk reaches. Not the hub, and not a piece: it belongs to the pool a generator
+    /// builds from (`docs/pieces.md`), not to the fixed dungeon, so being out of reach is no
+    /// fault. A piece the walk does reach is walked like any room.
     fn unreachable(&self, walk: &Walk, problems: &mut Vec<Problem>) {
-        for (room, _) in self.rooms.iter().enumerate() {
-            if self.is_hub(room) || walk.room_reached(room) {
+        for (room, dungeon) in self.rooms.iter().enumerate() {
+            if self.is_hub(room) || dungeon.layout.is_piece() || walk.room_reached(room) {
                 continue;
             }
             problems.push(if self.boss == Some(room) {

@@ -28,6 +28,7 @@ mod movement_field;
 mod name_dialog;
 #[cfg(test)]
 mod panel_tests;
+mod piece_panel;
 pub(crate) mod property;
 mod puzzle_panel;
 mod reach_panel;

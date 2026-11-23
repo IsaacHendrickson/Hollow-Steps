@@ -165,14 +165,22 @@ pub(crate) fn draw_player_preview(
 }
 
 /// Paints the markers: filled boxes, except that an enemy's, the boss's or a hazard's box is
-/// only faintly filled so the picture drawn under it shows. The selected marker has a white outline.
+/// only faintly filled so the picture drawn under it shows, and a pickup slot is a dashed ring
+/// with its kind's letter. The selected marker has a white outline.
 pub(crate) fn draw_markers(
+    editor: &EditorSession,
     markers: &[(Selection, Rect, Color)],
     selected: Option<Selection>,
     canvas: &CanvasView,
 ) {
     for (selection, rect, color) in markers {
         let r = canvas.rect(*rect);
+        if let Selection::Slot(index) = selection {
+            if let Some(slot) = editor.draft.slot(*index) {
+                slot_mark::draw(r, slot.kind, *color, selected == Some(*selection));
+            }
+            continue;
+        }
         let alpha = if matches!(
             selection,
             Selection::Enemy(_) | Selection::Boss | Selection::Hazard(_)
@@ -200,5 +208,6 @@ pub(crate) fn draw_markers(
     }
 }
 
+mod slot_mark;
 #[cfg(test)]
 mod tests;

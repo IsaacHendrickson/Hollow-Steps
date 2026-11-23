@@ -1,4 +1,5 @@
-//! The markers the editor draws and hit-tests on the canvas: enemies, the boss, items, charms, hazards, exits,
+//! The markers the editor draws and hit-tests on the canvas: enemies, the boss, items, charms, pickup slots,
+//! hazards, exits,
 //! the room spawn, the selected enemy's patrol handles, the arrival points of other rooms' exits
 //! that lead here, or the arrival point of one exit.
 use hollow_steps::editor::{EditorSession, Selection};
@@ -8,6 +9,8 @@ use macroquad::prelude::*;
 
 /// The hazard marker's color (magenta, apart from the red enemies).
 const HAZARD: Color = Color::new(0.95, 0.2, 0.75, 1.0);
+/// The pickup slot ring's color (teal, apart from the gold items).
+const SLOT: Color = Color::new(0.2, 0.85, 0.8, 1.0);
 
 pub(crate) fn editor_markers(
     editor: &EditorSession,
@@ -73,6 +76,13 @@ pub(crate) fn editor_markers(
             Selection::Charm(i),
             body(charm.position.into(), CHARM_SIZE),
             Color::from_rgba(r, g, b, 255),
+        ));
+    }
+    for (i, slot) in editor.draft.layout.slots.iter().enumerate() {
+        markers.push((
+            Selection::Slot(i),
+            body(slot.position.into(), ITEM_SIZE),
+            SLOT,
         ));
     }
     for (i, hazard) in editor.draft.layout.hazards.iter().enumerate() {

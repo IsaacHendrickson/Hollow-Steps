@@ -2,6 +2,7 @@
 //! Rooms are named by their display name (their own name, or `First`, `Room 3`).
 use crate::ability::Ability;
 use crate::exit_lock::{lock_label, FIRST_KEY, LAST_KEY};
+use crate::piece::PieceRole;
 use crate::room::RoomId;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -45,6 +46,32 @@ pub enum Problem {
         second: String,
         cell: (i32, i32),
     },
+    /// The pool of pieces has none with this role; it needs a Start one and a Boss one
+    /// (`docs/pieces.md`).
+    NoPieceWithRole { role: PieceRole },
+    /// A piece with no exit: nothing can be built onward from it.
+    PieceWithoutExit { room: String },
+    /// A piece with a locked exit; keys come from the generator through pickup slots.
+    PieceLockedExit { room: String, exit: String, key: u8 },
+    /// A piece that holds a Key item; keys come from the generator through pickup slots.
+    PieceHoldsKey { room: String, key: u8 },
+    /// The room `run.ron` names as `field` is a piece of another role than that field needs.
+    PieceRoleMismatch {
+        room: String,
+        field: &'static str,
+        role: PieceRole,
+        expected: PieceRole,
+    },
+    /// A gate in a piece names an arrival that cannot be carried to another neighbour: the piece
+    /// has `exits` exits into `neighbour`, and it needs exactly one.
+    PieceGateCannotTravel {
+        room: String,
+        gate: String,
+        neighbour: String,
+        exits: usize,
+    },
+    /// A piece with a gate that needs an ability, and no other piece has an Ability or Any slot.
+    PieceAbilityWithoutSlot { room: String },
 }
 
 fn names(abilities: &[Ability]) -> String {
@@ -130,6 +157,54 @@ impl Problem {
                 cell: (x, y),
             } => format!(
                 "{first} and {second} both have the map cell ({x}, {y}); the map moves {second}"
+            ),
+            Self::NoPieceWithRole { role } => format!(
+                "No piece has the {} role; a pool needs at least one Start piece and one Boss piece",
+                role.name()
+            ),
+            Self::PieceWithoutExit { room } => {
+                format!("{room}: a piece needs at least one exit, and this one has none")
+            }
+            Self::PieceLockedExit {
+                room,
+                exit,
+                key: id,
+            } => format!(
+                "{room}: a piece cannot have a locked exit, but its {exit} is locked by {}; \
+                 keys come from the generator through pickup slots",
+                key(*id)
+            ),
+            Self::PieceHoldsKey { room, key: id } => format!(
+                "{room}: a piece cannot hold a Key item ({}); keys come from the generator \
+                 through pickup slots, so add a Key or Any slot instead",
+                key(*id)
+            ),
+            Self::PieceRoleMismatch {
+                room,
+                field,
+                role,
+                expected,
+            } => format!(
+                "{room}: run.ron's {field} is a {} piece, but it must be a {} piece",
+                role.name(),
+                expected.name()
+            ),
+            Self::PieceGateCannotTravel {
+                room,
+                gate,
+                neighbour,
+                exits,
+            } => format!(
+                "{room}: the gate {gate} cannot be carried to another neighbour: the piece has {} \
+                 into {neighbour}, and needs exactly one, the port the player comes in through",
+                match exits {
+                    0 => "no exit".to_owned(),
+                    count => format!("{count} exits"),
+                }
+            ),
+            Self::PieceAbilityWithoutSlot { room } => format!(
+                "{room}: a gate in this piece needs an ability, but no other piece has an \
+                 Ability or Any pickup slot"
             ),
         }
     }

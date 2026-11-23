@@ -104,7 +104,7 @@ fn wheel_and_scrollbar_move_controls_and_resize_clamps_scroll() {
         metrics(&ctx)
     );
     // Taller than the whole panel, so the saved scroll must clamp back to the top.
-    let expanded = egui::vec2(1920.0, 2000.0);
+    let expanded = egui::vec2(1920.0, 2400.0);
     for _ in 0..3 {
         frame(&ctx, expanded, vec![], editor, &mut state);
     }
