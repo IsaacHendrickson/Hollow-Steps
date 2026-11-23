@@ -16,6 +16,7 @@ use std::path::PathBuf;
 
 use macroquad::math::Vec2;
 
+use super::seed_link::SeedState;
 use super::tier_link::Layer;
 use super::{vitals_link, world_load, GameState};
 use crate::charms::CharmState;
@@ -37,6 +38,8 @@ pub(super) struct RunState {
     phase: RunPhase,
     /// What went wrong last (a profile that did not save, a world that did not rebuild).
     message: Option<String>,
+    /// The seeds runs start with and the one of the run in progress (`seed_link`).
+    pub(super) seeds: SeedState,
 }
 
 impl RunState {
@@ -60,6 +63,7 @@ impl RunState {
             profile_path: None,
             phase: RunPhase::Hub,
             message: None,
+            seeds: SeedState::default(),
         };
         Ok((state, index))
     }
@@ -181,6 +185,8 @@ impl GameState {
         self.player.respawn(spawn, bounds);
         self.refill_vitals();
         self.run.phase = RunPhase::Hub;
+        // The hub has no seed; `last_run_seed` still has the one that just ended.
+        self.run.seeds.current = None;
         self.run.message = None;
         self.discover_current_room();
         self.events.push(GameEvent::RoomEntered);
@@ -261,9 +267,12 @@ impl GameState {
     }
 
     /// Starts a run: the state is reset and the phase is Running. The profile's tier is read
-    /// here, once, so the run plays at it from start to end.
+    /// here, once, so the run plays at it from start to end, and so is the run's seed: the fixed
+    /// one if F4 set it, otherwise the next from the source. A run that cannot start takes none.
     fn start_run(&mut self) -> Result<(), String> {
+        let (seed, source) = self.run.seeds.next_seed();
         self.reset_run_state(self.profile_layer())?;
+        self.run.seeds.begin(seed, source);
         self.run.phase = RunPhase::Running;
         self.run.message = None;
         Ok(())

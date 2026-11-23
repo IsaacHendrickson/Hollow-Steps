@@ -161,6 +161,11 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - F4 Difficulty section: six numbers, read-out, Save writes difficulty.ron; `src/tuning_panel/difficulty.rs`; `difficulty/tests.rs`, `difficulty/draw_tests.rs`
 - Rules set in F4 apply at the next run only, saved staged; HUD "Tier N"; `src/game/tier_link.rs`, `src/run/screen.rs`; `src/game/difficulty_tests.rs`
 
+## Run seed and variety
+
+- Run seed: `SeedSource` (SplitMix64, clock at start-up), `stream(seed, label, key)`, 16-hex `format_seed`/`parse_seed`; `src/seed.rs`; `src/seed/tests.rs`
+- A run takes a seed at start (can be fixed), kept to the result screen, none in hub or test room, not saved; `src/game/seed_link.rs`; `src/game/seed_tests.rs`
+
 ## Tests and CI
 
 - Fixture-based tests; only `tests/shipped_content.rs` reads `assets/` (load and validate); `tests/fixtures/`, `tests/support/mod.rs`

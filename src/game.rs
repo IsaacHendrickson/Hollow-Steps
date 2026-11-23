@@ -83,6 +83,9 @@ mod run_pause_tests;
 mod run_profile_tests;
 #[cfg(test)]
 mod run_tests;
+mod seed_link;
+#[cfg(test)]
+mod seed_tests;
 mod shop_link;
 #[cfg(test)]
 mod shop_tests;

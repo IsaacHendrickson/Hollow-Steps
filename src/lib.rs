@@ -81,6 +81,7 @@ pub mod room_name;
 pub mod room_size;
 pub mod run;
 pub mod search;
+pub mod seed;
 pub mod shop_menu;
 pub mod snapshot_history;
 pub mod sound;
