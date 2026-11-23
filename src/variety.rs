@@ -148,5 +148,8 @@ pub(crate) fn thin(enemies: &mut Vec<Enemy>, room: RoomId, seed: u64) {
     enemies.retain(|_| stays.next().unwrap_or(true));
 }
 
+pub mod flip;
+pub use flip::{decide_flip, FlipChoice, VarietyRules};
+
 #[cfg(test)]
 mod tests;

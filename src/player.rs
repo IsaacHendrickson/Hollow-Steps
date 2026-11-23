@@ -248,8 +248,9 @@ impl Player {
         &self.collected_items
     }
 
-    /// Takes `item` into the inventory, and grants the ability it gives, if any.
-    pub(crate) fn collect_item(&mut self, item: Item) {
+    /// Takes `item` into the inventory, and grants the ability it gives, if any. Public so a
+    /// test outside the crate can give a bare `Player` its abilities (`tests/flip.rs`).
+    pub fn collect_item(&mut self, item: Item) {
         if let Some(ability) = item.grants() {
             self.abilities.grant(ability);
         }

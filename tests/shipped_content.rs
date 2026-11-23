@@ -109,6 +109,19 @@ fn shipped_difficulty_loads_and_validates() {
 }
 
 #[test]
+fn shipped_variety_loads_and_validates() {
+    // Only that the file ships and passes the same checks as at start-up; it asserts no numbers.
+    let assets = assets();
+    assert!(
+        assets
+            .join(hollow_steps::variety::flip::FILE_NAME)
+            .is_file(),
+        "assets/variety.ron ships with the game"
+    );
+    hollow_steps::variety::VarietyRules::load(&assets).expect("shipped variety.ron must load");
+}
+
+#[test]
 fn shipped_dungeon_has_no_problems() {
     // Opens the editor on the shipped rooms (custom rooms included) and runs Check dungeon, the
     // same check as its button, under the shipped run rules. It asserts nothing about content.

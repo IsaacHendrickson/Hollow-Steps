@@ -16,6 +16,7 @@ use std::path::PathBuf;
 
 use macroquad::math::Vec2;
 
+use super::flip_link::FlipState;
 use super::seed_link::SeedState;
 use super::tier_link::Layer;
 use super::{vitals_link, world_load, GameState};
@@ -40,6 +41,8 @@ pub(super) struct RunState {
     message: Option<String>,
     /// The seeds runs start with and the one of the run in progress (`seed_link`).
     pub(super) seeds: SeedState,
+    /// The flip's rules, F4's choice and whether this run is flipped (`flip_link`).
+    pub(super) flip: FlipState,
 }
 
 impl RunState {
@@ -64,6 +67,7 @@ impl RunState {
             phase: RunPhase::Hub,
             message: None,
             seeds: SeedState::default(),
+            flip: FlipState::default(),
         };
         Ok((state, index))
     }
@@ -187,6 +191,8 @@ impl GameState {
         self.run.phase = RunPhase::Hub;
         // The hub has no seed; `last_run_seed` still has the one that just ended.
         self.run.seeds.current = None;
+        // And nothing in the hub is flipped.
+        self.run.flip.current = false;
         self.run.message = None;
         self.discover_current_room();
         self.events.push(GameEvent::RoomEntered);
@@ -226,7 +232,9 @@ impl GameState {
     /// caller.
     fn reset_run_state(&mut self, layer: Layer) -> Result<(), String> {
         let here = self.room().id;
-        let (rooms, terrain_styles) = world_load::load_world(&self.assets, &self.charms, &layer)?;
+        let hub = self.run.config.hub_room;
+        let (rooms, terrain_styles) =
+            world_load::load_world(&self.assets, &self.charms, &layer, hub)?;
         let current = rooms
             .iter()
             .position(|room| room.id == here)
@@ -270,11 +278,15 @@ impl GameState {
     /// here, once, so the run plays at it from start to end, and so is the run's seed: the fixed
     /// one if F4 set it, otherwise the next from the source. The seed goes into the layer the
     /// rooms are built with, so it decides the optional enemy placements and every rebuild in
-    /// the run keeps its picks. A run that cannot start takes no seed.
+    /// the run keeps its picks. The same seed decides whether the run flips (`flip_link`). A run
+    /// that cannot start takes no seed.
     fn start_run(&mut self) -> Result<(), String> {
         let (seed, source) = self.run.seeds.next_seed();
-        self.reset_run_state(self.profile_layer().with_seed(seed))?;
+        // Decided once, from the seed, and kept for the run's life (`flip_link`).
+        let flipped = self.run.flip.decide(seed);
+        self.reset_run_state(self.profile_layer().with_seed(seed).with_flip(flipped))?;
         self.run.seeds.begin(seed, source);
+        self.run.flip.current = flipped;
         self.run.phase = RunPhase::Running;
         self.run.message = None;
         Ok(())
@@ -296,6 +308,7 @@ impl GameState {
         let Some(mut target) = self.room_index(exit.target_room) else {
             return;
         };
+        let mut spawn = exit.spawn;
         // A locked exit asks for its key first; without it nothing else happens.
         if !self.pass_exit(exit) {
             return;
@@ -314,13 +327,16 @@ impl GameState {
                     return;
                 };
                 target = rebuilt;
+                // So is the arrival: `exit` is the old hub's, and a flipped run's start room is
+                // mirrored, which moved the arrival point in the rebuilt hub's exit.
+                spawn = self.rebuilt_arrival(&exit);
             } else if self.run.phase == RunPhase::Running && hub == Some(exit.target_room) {
                 self.enter_room(target, exit.spawn);
                 self.end_run(RunOutcome::Abandoned);
                 return;
             }
         }
-        self.enter_room(target, exit.spawn);
+        self.enter_room(target, spawn);
     }
 
     /// Puts the phase right with where the player is, at the start of a tick. The editor can
@@ -340,6 +356,8 @@ impl GameState {
                         let spawn = self.rooms[index].spawn;
                         self.enter_room(index, spawn);
                     }
+                } else {
+                    self.land_in_flipped_room();
                 }
             }
             RunPhase::Running if in_hub => self.end_run(RunOutcome::Abandoned),

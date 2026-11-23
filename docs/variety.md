@@ -1,4 +1,4 @@
-# Variety: the run seed
+# Variety: the run seed and the dungeon flip
 
 Every run has a **seed**, one `u64` that makes a run's random choices repeatable. The seed is
 the first thing that makes one run differ from the next without any file being edited. Optional
@@ -150,3 +150,164 @@ message line. The Test room plays every placement.
 8. In the hub, and in the editor, and in **Test room**: all five placements are there.
 9. Open the room in the editor during a run and Save: the file still has all five placements.
 10. Un-fix the seed: each new run takes the next seed, and the result screen shows a different one.
+
+# The dungeon flip
+
+The same fixed dungeon can be played **mirrored left to right**, so one dungeon plays as two. This
+section is the pure half: a room seen in a mirror (`src/mirror.rs`, `src/mirror/world.rs`). Nothing
+there reads a file, a seed or the game; `game::world_load` calls it when a run is flipped.
+
+## The symmetry assumption
+
+A flipped room only plays the same as the original if **the player is left-right symmetric**: the
+same run, jump, air jump, dash and nail swing, mirrored. That is an assumption about `Player`, so it
+is proved, not trusted: `tests/flip.rs` steps the real `Player` through a scripted sequence on a
+small world and on its mirror with every move input mirrored, and asserts at every tick (within
+1e-3) that x and horizontal velocity are negated, y and vertical velocity are the same, and
+grounded, facing and the strike hitbox agree. **If that test ever fails, the flip must not ship**:
+something in the player now treats left and right differently. Re-run it after any change to
+`player.rs`, collision or the dash.
+
+One thing that is not symmetric by construction: an enemy starts at the **left end of its patrol**
+facing right (`Enemy::from_definition`). A flipped placement swaps its ends, so it starts at the
+mirror of the original's *right* end. Its patrol and everything after the first moments are mirrored.
+
+## A room in a mirror (`mirror_layout`, `mirror_document`)
+
+The mirror is the vertical line through the middle of the room's `bounds`, so a room maps onto
+itself: a point `x` goes to `2 * bounds.x + bounds.w - x`, a rectangle by its far edge, y never
+changes, and `bounds`, `floor_y` and the name stay. Mirroring twice gives the room back (exactly,
+for whole-number coordinates).
+
+| Moved | How |
+|---|---|
+| spawn, items, charms | the point is mirrored |
+| terrain, hazards, breakables, switches, barriers | the rectangle is mirrored by its far edge |
+| a hazard's `facing` | Left and Right swap (Up and Down stay) |
+| an edge exit on Left or Right | the edges swap; the offset (from the top) stays |
+| an edge exit on Top or Bottom | `offset` becomes `bounds.w - offset - length` |
+| a door | its rectangle is mirrored |
+| a gate's `exit` | follows its exit (the exit is looked up in the room, a reference has no length) |
+| `map_cell` | the column is negated, the row stays |
+| an enemy's patrol | the ends swap and are mirrored: the left end is the mirror of the old right end |
+| the boss | its position is mirrored |
+
+**Not moved:** the terrain look and the background layers (drawing only, a known limit), and an
+exit's arrival `spawn`: that is a point in *another* room, which only `flip_world` can mirror. A
+document with no `layout` has no bounds, so `mirror_document` returns it unchanged.
+
+## A whole dungeon (`flip_world`)
+
+`flip_world(&mut documents, flipped)` mirrors every room `flipped` names and makes the links agree:
+
+- the `spawn` of every exit that leads into a flipped room is mirrored in **that room's** bounds, so
+  the player still arrives beside the matching exit (an exit into its own room is mirrored once);
+- a gate's `Entrance::Arrival` follows the exit it names when that exit's room is flipped. The exit
+  is looked up in its room **as it was before the flip**, because a top or bottom exit needs its
+  length.
+
+The game flips every room except the hub together, because a room mirrored alone would break the
+dungeon (you would leave through one wall and arrive at the neighbour's same wall). The function is
+still correct for any set of rooms, and the tests run all 32 sets of the fixture dungeon.
+
+## What the tests prove
+
+- `src/mirror/tests/layout.rs`: one test per kind of thing moved, the four edges and a door, patrols
+  and the boss, mirroring twice (exact for whole numbers, within 1e-3 otherwise).
+- `src/mirror/tests/world.rs`: arrivals into flipped rooms are free spots **and** the spot beside
+  the matching exit, gates and entrances still agree with the exits, flipped rooms pass
+  `RoomLayout::validate_geometry`, flipping twice gives the dungeon back.
+- `src/mirror/tests/dungeon.rs`: the dungeon check gives the same number and kinds of problems before
+  and after the flip, for a good dungeon and one made bad on purpose.
+- The fixture dungeon (`src/mirror/fixture.rs`) is built in code: a hub, a start room with a key,
+  the Dash and a hazard, a locked exit with a Dash gate, a door, a top and a bottom exit.
+
+# Whether a run flips (`variety.ron`, F4)
+
+`data/variety.ron` is the embedded default and `assets/variety.ron` replaces it **whole** (read with
+`assets::read_override`, unknown fields refused, a bad file stops the game starting and the error
+names it). It has one number:
+
+| field | meaning |
+|---|---|
+| `flip_percent` | chance, 0 to 100 (finite), that a run plays the dungeon mirrored |
+
+The embedded default is `0.0` (never), so a game with no file plays as it always did. The shipped
+`assets/variety.ron` says `50.0`. F5 does not re-read it: restart the game after editing it.
+
+**The decision.** When a run starts, `variety::decide_flip` looks at F4's choice:
+
+- **Auto** flips when `stream(seed, "flip", 0).unit() * 100 < flip_percent`, so the same seed always
+  gives the same answer, and 0 never flips and 100 always does;
+- **Never** and **Always** ignore the file and the seed.
+
+The answer is kept in `RunState` until the run ends (the result screen still belongs to that run;
+the hub, a game with no hub and the test room are never flipped). Changing F4 during a run does not
+change that run, only the ones after it.
+
+**F4 row.** The "Run (debug)" section has "Flip next run" with three radio buttons (Auto, Never,
+Always) and a line saying what the next run will do and whether this one is flipped. It does not
+edit `variety.ron` and is not saved in the profile, so it is back on Auto the next time the game
+starts.
+
+# A flipped run in play
+
+`world_load::load_world` is where it happens, and the only place. When the run's `Layer` says
+`flip`, `mirror::FlippedDocuments::read` reads every room file (the three fixed rooms and every
+`room_<n>.ron`), runs `flip_world` over all of them but the hub's, and the same room builders as
+ever (`room::load_rooms_from`, `editor_files::load_extra_rooms_from`) build from those documents.
+Nothing else about building a room changed: the plain `load_rooms` and `load_extra_rooms` call the
+`_from` versions with a reader that reads the file, so the editor sees exactly what it always did,
+and the difficulty layer goes on top of the flipped rooms as before. A file the flip could not
+read is read by the builder itself, so every loading error is the plain one, with the same words.
+
+- **Start of a run.** `start_run` decides, builds the world with the flip in the layer, and keeps
+  the layer for the run. `use_exit` then takes the arrival point from the **rebuilt** hub's exit
+  (the same exit: same edge and offset, or the same door), not from the copy it was called with,
+  because `flip_world` moved that point into the mirrored start room.
+- **F5.** The reload uses the held layer, so a mid-run F5 flips again the same way. In the hub the
+  layer is `BASE`, so nothing flips.
+- **Never flipped.** The hub (its walls, spawn and the side its door is on), a game with no hub, and
+  the world after the result screen's Continue (`continue_after_result` rebuilds with `BASE`). The
+  result screen itself still shows the frozen flipped world, so it counts as a flipped run for the
+  editor's refusal and for F5.
+- **The editor.** While a run (or its result screen) is flipped, F2 and Open room refuse, with a
+  message that says to abandon the run from the pause menu or to set Flip next run to Never in F4.
+  The editor reads the files, so it would show the unflipped dungeon and Save would put that over
+  the flipped rooms being played. Everything else is untouched: the editor works in the hub and in
+  an unflipped run, and a test room plays the files as they are. Re-applying the flip in Save would
+  be a small change (Save rebuilds its rooms with the held layer already), but the editor would still
+  show unflipped rooms, so the refusal is the rule.
+- **A run started from the editor.** Open room in the hub can leave the player in another room, and
+  the run starts when the editor closes. When that run is flipped the player is put at the room's
+  (mirrored) spawn, because the spot he stood on belongs to the unflipped room.
+- **The map.** It is built from the live rooms, so it shows the mirror image with no code of its
+  own: each room's `map_cell` is negated in x by the mirror, the hub's is not, and rooms without a
+  cell are placed from the exits, which are mirrored.
+
+## Known limits
+
+- The hub is never flipped, and its door keeps its side. The player can therefore arrive on the far
+  side of the start room, and the start room's way back to the hub is on the other wall.
+- The look and background (terrain style, background layers) are not mirrored; they are drawing
+  only.
+- A flipped run closes the editor (see above), until the run ends or is abandoned.
+- Enemies start at the left end of their patrol, facing right, so a mirrored patrol begins at the
+  mirror of the old *right* end: the first moments of a room are not the mirror of the original.
+- Rooms with no `layout` (a legacy placement file) cannot be mirrored and are left as they are,
+  with the arrival points into them. Every shipped room has a layout.
+
+## Manual check
+
+1. F4, Run (debug), Flip next run: **Always**. Walk out of the hub: the run starts, every room is
+   a mirror image of the editor's (exits, hazards, terrain, doors, enemies), the hub did not change,
+   and every exit leads to the right room and lands you beside the exit you came through.
+2. F4, Flip next run: **Never**. Abandon, return to the hub, start a run: everything is as authored.
+3. **Auto** with `flip_percent` 50: start several runs with different seeds; about half flip, and
+   the same fixed seed gives the same answer.
+4. In a flipped run open the map (M): it is the mirror image of the authored one.
+5. In a flipped run press F2: refused, with the reason. Abandon from the pause menu, Continue: the
+   hub is unflipped and F2 opens the editor.
+6. Die in a flipped run, press Continue: the hub, and the next run with Never, are unflipped.
+7. F5 in the middle of a flipped run: the rooms stay mirrored.
+

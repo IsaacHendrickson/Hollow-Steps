@@ -170,6 +170,13 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Optional placements: enemy `group` (1-9, one member stays) and `chance` (0-100, default 100); a run's seed decides; `src/variety.rs`; `src/variety/tests.rs`
 - Only a run's rooms are thinned, min tier first: not the hub, test room, loaders or Save; F5 keeps the picks; `src/game/tier_link.rs`; `game/variety_tests.rs`
 - Editor Group (None box, 1-9 drag) and Chance % rows under Min tier, one undo step each; `src/editor_panel/variety_fields.rs`; `src/editor_variety.rs`
+- Player is left-right symmetric, proved on the real `Player` (run, jump, air jump, dash, swing) against a mirror; `tests/flip.rs`
+- A room seen in a mirror: layout, patrols, boss, exits, gates, map cell; arrivals into flipped rooms; `src/mirror.rs`; `src/mirror/tests/`
+- `variety.ron` `flip_percent` (0-100; shipped 50): chance a run flips; `src/variety/flip.rs`; `src/variety/flip/tests.rs`; `tests/shipped_content.rs`
+- A run decides its flip at start from its seed; F4 Flip next run: Auto/Never/Always; `src/game/flip_link.rs`; `src/tuning_panel/run/flip.rs`
+- A flipped run builds every room but the hub from mirrored documents; plain loaders and the editor unchanged; `src/mirror/source.rs`; `src/game/world_load.rs`
+- Flipped run: hub exit arrives at the mirrored spot, F5 keeps the flip, Continue is unflipped; `src/game/flip_link.rs`; `flip_link/play_tests.rs`
+- F2 and Open room refuse in a flipped run, saying how out; hub, unflipped runs and the test room are unaffected; `src/game/flip_link.rs`
 
 ## Tests and CI
 

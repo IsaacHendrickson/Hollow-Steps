@@ -7,6 +7,16 @@ use crate::editor::{RoomDraft, RoomLayout};
 use crate::enemy::EnemyDefinitions;
 use crate::room::{Room, RoomEnemies, RoomId};
 
+/// Where the loaders get a room's document from, given its file's path. The plain loaders read
+/// the file (`read_document`); the flipped dungeon hands out documents it has already flipped
+/// (`mirror::FlippedDocuments`). Everything after that, building the room, is the same code.
+pub type ReadDocument<'a> = &'a dyn Fn(&Path) -> Result<RoomEnemies, String>;
+
+/// Reads a room document from its file: what the plain loaders and the editor use.
+pub fn read_document(path: &Path) -> Result<RoomEnemies, String> {
+    read_ron(path)
+}
+
 pub fn room_filename(id: RoomId) -> String {
     match id {
         RoomId::First => "first.ron".into(),
@@ -58,6 +68,15 @@ pub fn load_extra_rooms(
     assets: &Path,
     definitions: &EnemyDefinitions,
 ) -> Result<Vec<Room>, String> {
+    load_extra_rooms_from(assets, definitions, &read_document)
+}
+
+/// `load_extra_rooms` with the documents coming from `read` instead of straight from the files.
+pub fn load_extra_rooms_from(
+    assets: &Path,
+    definitions: &EnemyDefinitions,
+    read: ReadDocument,
+) -> Result<Vec<Room>, String> {
     let mut rooms = Vec::new();
     let bosses = crate::boss_definition::BossDefinitions::load(assets)?;
     for path in ron_files(&assets.join("rooms"))? {
@@ -72,7 +91,7 @@ pub fn load_extra_rooms(
             if stem != format!("room_{id}") {
                 return Err(bad_room_file_name(&path));
             }
-            let document: RoomEnemies = read_ron(&path)?;
+            let document = read(&path)?;
             let layout = document
                 .layout
                 .ok_or_else(|| format!("{}: new room needs layout", path.display()))?;
