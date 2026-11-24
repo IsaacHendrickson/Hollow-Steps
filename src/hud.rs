@@ -159,6 +159,7 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
     hud_run::draw_tier(game, view);
     draw_boss_hud(room, view);
     crate::hud_notice::draw_notice(game, view);
+    hud_run::draw_start_failure(game, view);
 }
 
 fn draw_boss_hud(room: &Room, view: Vec2) {

@@ -2,6 +2,7 @@
 //! that leaves it, and the coin counters of the HUD and the inventory. The text and the
 //! layout are pure (`hollow_steps::run`); everything here is in virtual-screen coordinates.
 
+use hollow_steps::camera::{anchored, Anchor};
 use hollow_steps::charm_menu::{wrap_lines, InventoryLayout};
 use hollow_steps::game::GameState;
 use hollow_steps::run::{
@@ -16,6 +17,13 @@ const HINT_SIZE: f32 = 24.0;
 const MESSAGE_SIZE: u16 = 18;
 const MESSAGE_LINES: usize = 2;
 const MESSAGE_STEP: f32 = 20.0;
+/// The hub's "Could not start the run" banner: how far below the top edge it hangs (under the
+/// lock notice), its widest, how much margin it keeps at each side, and its padding and lines.
+const FAILURE_TOP: f32 = 150.0;
+const FAILURE_MAX_WIDTH: f32 = 720.0;
+const FAILURE_MARGIN: f32 = 40.0;
+const FAILURE_PADDING: f32 = 14.0;
+const FAILURE_LINES: usize = 4;
 /// How the result screen's seed line begins (`hollow_steps::run::seed_line`).
 const SEED_PREFIX: &str = "Seed:";
 const WARNING: Color = Color::new(0.94, 0.78, 0.47, 1.0);
@@ -69,6 +77,37 @@ pub fn draw_inventory_coins(game: &GameState, layout: &InventoryLayout) {
         let width = measure_text(&banked, None, 22, 1.0).width;
         let x = layout.coins.x + layout.text_width - width;
         draw_text(&banked, x, layout.coins.y, 22.0, LIGHTGRAY);
+    }
+}
+
+/// Why a run did not start, in the hub it sent the player back to (`GameState::start_failure`):
+/// a box at the top center with the whole message wrapped. Draws nothing when there is none.
+pub fn draw_start_failure(game: &GameState, view: Vec2) {
+    let Some(message) = game.start_failure() else {
+        return;
+    };
+    let width = (view.x - FAILURE_MARGIN * 2.0).min(FAILURE_MAX_WIDTH);
+    let text_width = width - FAILURE_PADDING * 2.0;
+    let measure = |text: &str| measure_text(text, None, MESSAGE_SIZE, 1.0).width;
+    let wrapped = wrap_lines(message, text_width, FAILURE_LINES, &measure);
+    let height = FAILURE_PADDING * 2.0 + wrapped.len() as f32 * MESSAGE_STEP;
+    let at = anchored(
+        view,
+        Anchor::TopCenter,
+        vec2(width, height),
+        vec2(0.0, FAILURE_TOP),
+    );
+    draw_rectangle(at.x, at.y, width, height, Color::from_rgba(22, 24, 40, 230));
+    draw_rectangle_lines(at.x, at.y, width, height, 2.0, WARNING);
+    for (index, line) in wrapped.iter().enumerate() {
+        let y = at.y + FAILURE_PADDING + (index as f32 + 0.8) * MESSAGE_STEP;
+        draw_text(
+            line,
+            at.x + FAILURE_PADDING,
+            y,
+            f32::from(MESSAGE_SIZE),
+            WARNING,
+        );
     }
 }
 

@@ -28,9 +28,20 @@ impl GameState {
     }
 
     /// Sets what the next runs do (F4's "Generate next run"). A run already going keeps its own
-    /// dungeon.
+    /// dungeon. In the hub the reason an earlier start failed (`start_failure`) is about the old
+    /// choice, so it goes.
     pub fn set_generate_choice(&mut self, choice: GenerateChoice) {
         self.run.generate.choice = choice;
+        self.clear_hub_message();
+    }
+
+    /// Why the last attempt to start a run failed ("Could not start the run: the pool has no
+    /// Start piece"), while the player is back in the hub after it. The hub shows it, because
+    /// the player is put back at the hub's spawn and would not otherwise know the door did not
+    /// open a dungeon. The next start or a new "Generate next run" choice clears it. During a run
+    /// and on its result screen the message is the result screen's own (`run_message`).
+    pub fn start_failure(&self) -> Option<&str> {
+        self.in_hub().then(|| self.run_message()).flatten()
     }
 
     /// True while a run built by the generator is in progress, or its result screen is showing.

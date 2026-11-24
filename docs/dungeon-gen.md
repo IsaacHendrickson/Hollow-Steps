@@ -150,7 +150,8 @@ generated world. An error names the piece file it came from.
 - **Failure.** When the generator gives no plan (or a file cannot be read) the run does not start:
   the message is `Could not start the run: <GenError>`, the player stays in the hub in the authored
   world, and **no seed is used up**. This only happens with Always (Auto with no Start or no Boss
-  piece plays the fixed dungeon).
+  piece plays the fixed dungeon). The hub draws the message in a box at the top center
+  (`GameState::start_failure`) until the next start or a new Generate next run choice.
 - **The editor.** While a run is generated (and on its result screen), F2 and Open room refuse
   (`docs/variety.md`, "The editor during a generated run"). Test room is unaffected.
 
@@ -173,7 +174,8 @@ build, from the pieces as the editor holds them.
 8. Press F5 in the middle of a run: the dungeon stays the same.
 9. F4, Generate next run: **Never**. Start a run: the old fixed dungeon is back.
 10. Generate next run: **Always** with the pieces' Boss deleted (or the pool removed): the run does
-    not start, the message says why, and the next seed is unchanged.
+    not start, the player is back at the hub spawn with the reason in a box on screen, and the next
+    seed is unchanged.
 
 ## Known limits
 

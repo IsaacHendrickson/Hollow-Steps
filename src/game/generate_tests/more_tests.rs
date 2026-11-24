@@ -362,3 +362,30 @@ fn no_plan_has_a_map_conflict_over_a_hundred_seeds() {
         game.continue_after_result();
     }
 }
+
+#[test]
+fn a_failed_start_leaves_its_reason_to_show_in_the_hub_until_the_choice_changes() {
+    // The player is sent back to the hub spawn when the generator refuses; without the reason on
+    // screen that looks like the door does nothing.
+    let scratch = world(100.0);
+    let mut game = game_in(&scratch);
+    game.set_generate_choice(GenerateChoice::Always);
+    assert_eq!(game.start_failure(), None, "nothing before an attempt");
+
+    game.update(walk(1.0), 10.0);
+    assert!(game.in_hub() && !game.run_in_progress());
+    let reason = game.start_failure().expect("the hub shows why");
+    assert!(reason.starts_with("Could not start the run: "), "{reason}");
+    assert!(reason.contains("no Start piece"), "{reason}");
+
+    // Another try with the same choice says it again, and a new choice clears the old reason.
+    game.update(walk(1.0), 10.0);
+    assert!(game.start_failure().is_some());
+    game.set_generate_choice(GenerateChoice::Never);
+    assert_eq!(game.start_failure(), None);
+
+    // A start that works leaves nothing to show, and neither does a run in progress or its result.
+    begin(&mut game);
+    assert!(game.run_in_progress());
+    assert_eq!(game.start_failure(), None);
+}
