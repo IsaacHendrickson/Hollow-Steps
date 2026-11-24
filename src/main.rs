@@ -340,7 +340,13 @@ async fn main() {
         if game.shop_open() {
             hud_shop::draw_shop(&game, view);
         }
-        hud::draw_pause_menu(game.pause_menu(), game.keybinds(), view);
+        let pause_seed = game.pause_seed_label();
+        hud::draw_pause_menu(
+            game.pause_menu(),
+            game.keybinds(),
+            pause_seed.as_deref(),
+            view,
+        );
         hud_run::draw_result(&game, view);
         if let Some(result) = &reload_result {
             hud::draw_reload_result(

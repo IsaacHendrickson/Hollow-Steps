@@ -153,3 +153,47 @@ fn shipped_dungeon_has_no_problems() {
         text.join("\n")
     );
 }
+
+#[test]
+fn shipped_variety_rules_load_and_any_shipped_pieces_generate_clean_dungeons() {
+    // The shipped variety rules load. If the shipped rooms hold a Start and a Boss piece and the
+    // generator is on (the case where a run is generated), seeds 0 to 49 each give a plan whose
+    // Check dungeon is empty. It asserts nothing about content, and with no pieces, or with the
+    // generator off, it only checks that the rules load.
+    let assets = assets();
+    let rules = hollow_steps::variety::VarietyRules::load(&assets)
+        .expect("shipped variety.ron must load")
+        .generator;
+    let mut game = GameState::try_new(&assets).expect("shipped rooms must load");
+    game.toggle_editor().expect("the editor must open");
+    let inputs = game.editor().expect("editor is open").preview_inputs();
+    let has = |role| {
+        inputs
+            .pieces
+            .iter()
+            .any(|(_, layout)| layout.piece.is_some_and(|piece| piece.role == role))
+    };
+    let has_ends =
+        has(hollow_steps::piece::PieceRole::Start) && has(hollow_steps::piece::PieceRole::Boss);
+    let generates = hollow_steps::variety::decide_generation(
+        hollow_steps::variety::GenerateChoice::Auto,
+        &rules,
+        has_ends,
+    );
+    if !generates {
+        return;
+    }
+    let hub = inputs.hub.as_ref().expect("the hub room must exist");
+    for seed in 0..50 {
+        let plan =
+            hollow_steps::dungeon_gen::generate(&inputs.pieces, hub, &inputs.config, &rules, seed)
+                .unwrap_or_else(|error| panic!("seed {seed}: {error}"));
+        let problems = hollow_steps::dungeon_check::check(&plan.catalog(), &inputs.config);
+        let text: Vec<_> = problems.iter().map(|problem| problem.text()).collect();
+        assert!(
+            problems.is_empty(),
+            "seed {seed}: Check dungeon found:\n{}",
+            text.join("\n")
+        );
+    }
+}

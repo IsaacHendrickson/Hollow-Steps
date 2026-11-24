@@ -85,7 +85,7 @@ impl GameState {
     }
 
     /// A run is in progress, or its result screen is showing (not a test room's).
-    fn live_run(&self) -> bool {
+    pub(super) fn live_run(&self) -> bool {
         self.run_in_progress() || (self.test_run.is_none() && self.showing_result())
     }
 
@@ -142,10 +142,10 @@ impl GameState {
     }
 
     /// A run can start with the player already outside the hub (the editor put him there), and
-    /// the rooms it builds are mirrored, so his old spot is no spot of theirs: he stands at the
-    /// room's spawn instead. An unflipped run leaves him where he is, as it always did.
+    /// the rooms it builds are mirrored or generated, so his old spot is no spot of theirs: he
+    /// stands at the room's spawn instead. A plain run leaves him where he is, as it always did.
     pub(super) fn land_in_flipped_room(&mut self) {
-        if self.run.flip.changes_world() {
+        if self.run.flip.changes_world() || self.run.generate.plan.is_some() {
             let (spawn, bounds) = (self.room().spawn, self.world_bounds());
             self.player.place_at(spawn, bounds);
         }

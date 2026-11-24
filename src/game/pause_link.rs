@@ -3,12 +3,18 @@
 
 use super::GameState;
 use crate::keybinds::{Action, Slot};
-use crate::pause_menu::{PauseItem, PauseMenu, PauseOutcome};
+use crate::pause_menu::{seed_label, PauseItem, PauseMenu, PauseOutcome};
 
 impl GameState {
     /// The pause menu, for drawing.
     pub fn pause_menu(&self) -> &PauseMenu {
         &self.pause_menu
+    }
+
+    /// The pause menu's seed line ("Seed <hex>") while a run is going; `None` in the hub, in a
+    /// test room and in a game with no hub.
+    pub fn pause_seed_label(&self) -> Option<String> {
+        seed_label(self.run_in_progress(), self.run_seed())
     }
 
     /// True while the world stands still for the inventory, the map, the hub's shop, the pause

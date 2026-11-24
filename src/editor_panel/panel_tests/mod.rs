@@ -13,6 +13,7 @@ mod entity;
 mod layout;
 mod link;
 mod map;
+mod preview;
 
 type ScrollMetrics = (egui::Rect, egui::Vec2, egui::Vec2, egui::Id);
 

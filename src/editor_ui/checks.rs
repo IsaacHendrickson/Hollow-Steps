@@ -1,9 +1,11 @@
 //! The editor window's two checks beside the room: what the last Check dungeon found
 //! (`docs/dungeon-check.md`) and the Reach preview (`docs/reach.md`), and whether the Dungeon map
-//! window is open (`docs/dungeon-map.md`). The preview's interval is
+//! window is open (`docs/dungeon-map.md`) and the generated dungeon preview (`docs/dungeon-gen.md`).
+//! The Reach preview's interval is
 //! measured on the real player, which takes a moment, so it is measured only while the Reach
 //! toggle is on and again only when the numbers behind it change (`ReachKey`).
 use hollow_steps::ability::Ability;
+use hollow_steps::dungeon_preview::DungeonPreview;
 use hollow_steps::editor::{EditorSession, Selection};
 use hollow_steps::editor_view::CanvasView;
 use hollow_steps::reach::{outline_label, outlines, Interval, ReachKey};
@@ -31,6 +33,10 @@ pub(crate) struct ChecksUi {
     pub(crate) reach: bool,
     /// The Dungeon map window is open. Opening another room closes it.
     pub(crate) map_window: bool,
+    /// The Preview generated dungeon window is open (`editor_panel::preview_window`).
+    pub(crate) preview_window: bool,
+    /// Its seed box and the plan it last built; it keeps them while the window is closed.
+    pub(crate) preview: DungeonPreview,
     /// The interval and the numbers it was measured from.
     pub(crate) measured: Option<(ReachKey, Interval)>,
 }

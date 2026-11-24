@@ -12,8 +12,8 @@ use hollow_steps::hud_layout::{boss_caption, boss_fill};
 use hollow_steps::keybinds::{hint_line, key_label, Action, Keybinds, Slot};
 use hollow_steps::particles::ParticleConfig;
 use hollow_steps::pause_menu::{
-    button_rects, panel_rect, slot_rects, status_rect, title_baseline, PauseItem, PauseMenu,
-    PauseScreen,
+    button_rects, panel_rect, seed_origin, slot_rects, status_rect, title_baseline, PauseItem,
+    PauseMenu, PauseScreen, SEED_FONT_SIZE,
 };
 use hollow_steps::room::Room;
 use hollow_steps::room_name::room_title;
@@ -159,6 +159,7 @@ pub fn draw_hud(game: &GameState, hud: &Hud, view: Vec2) {
     hud_run::draw_tier(game, view);
     draw_boss_hud(room, view);
     crate::hud_notice::draw_notice(game, view);
+    hud_run::draw_start_failure(game, view);
 }
 
 fn draw_boss_hud(room: &Room, view: Vec2) {
@@ -264,8 +265,9 @@ pub fn draw_inventory(game: &GameState, view: Vec2) {
 
 /// The pause menu over the frozen picture: a dim veil, the panel, its title and the buttons of
 /// the open screen with the selected one lit. Draws nothing while the menu is closed. The
-/// layout comes from `pause_menu`, which the mouse hit-testing uses too.
-pub fn draw_pause_menu(menu: &PauseMenu, binds: &Keybinds, view: Vec2) {
+/// layout comes from `pause_menu`, which the mouse hit-testing uses too. `seed` is the run's
+/// seed line (`GameState::pause_seed_label`), drawn small in the corner on every screen.
+pub fn draw_pause_menu(menu: &PauseMenu, binds: &Keybinds, seed: Option<&str>, view: Vec2) {
     let Some(screen) = menu.screen() else { return };
     draw_rectangle(0.0, 0.0, view.x, view.y, Color::from_rgba(0, 0, 0, 180));
     let panel = panel_rect(screen, view);
@@ -306,6 +308,24 @@ pub fn draw_pause_menu(menu: &PauseMenu, binds: &Keybinds, view: Vec2) {
     if screen == PauseScreen::Settings {
         draw_settings_status(menu, view);
     }
+    if let Some(label) = seed {
+        draw_pause_seed(label, view);
+    }
+}
+
+/// The seed line in the corner of the paused screen, in the dim colour of the result screen's.
+fn draw_pause_seed(label: &str, view: Vec2) {
+    let width = measure_text(label, None, SEED_FONT_SIZE, 1.0).width;
+    let size = Vec2::new(width, f32::from(SEED_FONT_SIZE));
+    let origin = seed_origin(view, size);
+    let rect = Rect::new(origin.x, origin.y, size.x, size.y);
+    draw_text(
+        label,
+        rect.x,
+        centered_baseline(rect.center().y, SEED_FONT_SIZE),
+        f32::from(SEED_FONT_SIZE),
+        LIGHTGRAY,
+    );
 }
 
 fn draw_pause_button(rect: Rect, selected: bool) {

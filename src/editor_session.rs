@@ -63,6 +63,9 @@ pub struct EditorSession {
     /// The run rules (`run.ron`), which Check dungeon reads; `GameState` gives them when the
     /// session opens (`game::dungeon_link`).
     pub run: crate::run::RunConfig,
+    /// The generator rules (`variety.ron`), which the dungeon preview reads; `GameState` gives
+    /// them with `run` (`game::dungeon_link`).
+    pub generator: crate::variety::GeneratorRules,
 }
 
 impl EditorSession {
@@ -171,6 +174,7 @@ impl EditorSession {
             parked: Vec::new(),
             link: None,
             run: crate::run::RunConfig::default(),
+            generator: crate::variety::GeneratorRules::default(),
         })
     }
 

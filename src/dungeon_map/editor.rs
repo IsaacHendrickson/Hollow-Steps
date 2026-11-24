@@ -66,6 +66,16 @@ pub struct EditorMap {
 impl EditorMap {
     /// The map of `layout` as the window shows it, with `current` highlighted.
     pub fn new(layout: &MapLayout, current: RoomId) -> Self {
+        Self::marking(layout, |id| id == current)
+    }
+
+    /// The map of `layout` with no room highlighted: a map of rooms nobody is editing (the
+    /// generated dungeon preview).
+    pub fn plain(layout: &MapLayout) -> Self {
+        Self::marking(layout, |_| false)
+    }
+
+    fn marking(layout: &MapLayout, is_current: impl Fn(RoomId) -> bool) -> Self {
         Self {
             rooms: layout
                 .rooms
@@ -74,7 +84,7 @@ impl EditorMap {
                     id: room.id,
                     name: room.name.clone(),
                     cell: room.cell,
-                    current: room.id == current,
+                    current: is_current(room.id),
                     conflict: layout.in_conflict(room.id),
                     no_entrance: !layout.has_entrance(room.id),
                 })

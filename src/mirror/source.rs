@@ -98,7 +98,7 @@ impl FlippedDocuments {
 /// The ids of the rooms that have files in `rooms`: the three fixed ones, then every
 /// `room_<n>.ron` named the way the loader insists on (a number with no leading zeros). Other
 /// names are the loader's to refuse.
-fn room_ids(rooms: &Path) -> Vec<RoomId> {
+pub(crate) fn room_ids(rooms: &Path) -> Vec<RoomId> {
     let mut ids = vec![RoomId::First, RoomId::Second, RoomId::Boss];
     for path in ron_files(rooms).unwrap_or_default() {
         let stem = path.file_stem().and_then(|s| s.to_str());
