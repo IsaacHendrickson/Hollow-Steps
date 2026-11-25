@@ -1,0 +1,60 @@
+(
+    enemies: [
+        (
+            definition: "chase",
+            patrol_left: 300.0,
+            patrol_right: 460.0,
+        ),
+    ],
+    boss: None,
+    layout: Some((
+        name: Some("Two Ways Up"),
+        bounds: (0.0, 0.0, 960.0, 460.0),
+        floor_y: 460.0,
+        spawn: (160.0, 436.0),
+        items: [
+            (
+                item: AmberShard,
+                position: (610.0, 380.0),
+            ),
+            (
+                item: AmberShard,
+                position: (740.0, 310.0),
+            ),
+            (
+                item: AmberShard,
+                position: (890.0, 240.0),
+            ),
+        ],
+        exits: [
+            (
+                edge: Left,
+                offset: 364.0,
+                length: 96.0,
+                target_room: Custom(3),
+                spawn: (910.0, 412.0),
+            ),
+            (
+                edge: Right,
+                offset: 364.0,
+                length: 96.0,
+                target_room: Custom(5),
+                spawn: (50.0, 412.0),
+            ),
+            (
+                edge: Right,
+                offset: 140.0,
+                length: 96.0,
+                target_room: Custom(5),
+                spawn: (50.0, 188.0),
+            ),
+        ],
+        terrain: [
+            (560.0, 390.0, 100.0, 20.0),
+            (690.0, 320.0, 100.0, 20.0),
+            (820.0, 250.0, 140.0, 20.0),
+        ],
+        terrain_style: (preset: "cave", seed_offset: 47),
+        piece: Some((role: Middle, weight: 2)),
+    )),
+)
