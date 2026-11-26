@@ -2,28 +2,32 @@
     enemies: [
         (
             definition: "chase",
-            patrol_left: 300.0,
-            patrol_right: 460.0,
+            patrol_left: 400.0,
+            patrol_right: 560.0,
         ),
     ],
     boss: None,
     layout: Some((
-        name: Some("Two Ways Up"),
+        name: Some("Stepping Stones"),
         bounds: (0.0, 0.0, 960.0, 460.0),
         floor_y: 460.0,
         spawn: (160.0, 436.0),
         items: [
             (
                 item: AmberShard,
-                position: (610.0, 380.0),
+                position: (260.0, 380.0),
             ),
             (
                 item: AmberShard,
-                position: (740.0, 310.0),
+                position: (440.0, 310.0),
             ),
             (
                 item: AmberShard,
-                position: (890.0, 240.0),
+                position: (620.0, 380.0),
+            ),
+            (
+                item: AmberShard,
+                position: (800.0, 310.0),
             ),
         ],
         exits: [
@@ -31,30 +35,24 @@
                 edge: Left,
                 offset: 364.0,
                 length: 96.0,
-                target_room: Custom(3),
+                target_room: Custom(101),
                 spawn: (910.0, 412.0),
             ),
             (
                 edge: Right,
                 offset: 364.0,
                 length: 96.0,
-                target_room: Custom(5),
+                target_room: Custom(103),
                 spawn: (50.0, 412.0),
-            ),
-            (
-                edge: Right,
-                offset: 140.0,
-                length: 96.0,
-                target_room: Custom(5),
-                spawn: (50.0, 188.0),
             ),
         ],
         terrain: [
-            (560.0, 390.0, 100.0, 20.0),
-            (690.0, 320.0, 100.0, 20.0),
-            (820.0, 250.0, 140.0, 20.0),
+            (200.0, 390.0, 120.0, 20.0),
+            (380.0, 320.0, 120.0, 20.0),
+            (560.0, 390.0, 120.0, 20.0),
+            (740.0, 320.0, 120.0, 20.0),
         ],
-        terrain_style: (preset: "cave", seed_offset: 47),
-        piece: Some((role: Middle, weight: 2)),
+        terrain_style: (preset: "cave", seed_offset: 23),
+        piece: Some((role: Middle, weight: 3)),
     )),
 )

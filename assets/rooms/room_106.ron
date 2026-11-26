@@ -31,7 +31,7 @@
                 edge: Left,
                 offset: 364.0,
                 length: 96.0,
-                target_room: Custom(2),
+                target_room: Custom(102),
                 spawn: (910.0, 412.0),
             ),
         ],
