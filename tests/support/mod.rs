@@ -6,6 +6,8 @@ pub fn fixture_assets() -> PathBuf {
 }
 
 #[allow(dead_code)]
+pub mod path;
+#[allow(dead_code)]
 pub mod pieces;
 #[allow(dead_code)]
 pub mod plan_rules;
