@@ -197,3 +197,45 @@ fn shipped_variety_rules_load_and_any_shipped_pieces_generate_clean_dungeons() {
         );
     }
 }
+
+#[test]
+fn shipped_rooms_render_in_the_room_preview() {
+    // Every shipped room loads the way the game loads it and prints as text at the default cell,
+    // whose size is chosen from the widest of them. It asserts nothing about what a room holds.
+    use hollow_steps::room_preview::{self, load, Ruler};
+    let assets = assets();
+    let rooms = load::load_all(&assets).expect("shipped rooms must load");
+    assert!(!rooms.is_empty(), "the shipped rooms are listed");
+    let ruler = Ruler::shipped(&assets).expect("the shipped tuning must give a ruler");
+    let cell = room_preview::default_cell(load::widest(&rooms));
+    for loaded in &rooms {
+        let scene = loaded.scene();
+        let label = room_preview::room_label(loaded.id);
+        let cell =
+            room_preview::check_cell(&scene, cell).unwrap_or_else(|e| panic!("{label}: {e}"));
+        assert!(
+            room_preview::columns(loaded.room.bounds.w, cell) <= room_preview::DEFAULT_MAX_COLUMNS,
+            "{label} is within 200 characters at the default cell"
+        );
+        let text = room_preview::render(&scene, &ruler, cell);
+        assert!(
+            text.starts_with(&format!("Room {label}")),
+            "{label}: {text}"
+        );
+        assert!(
+            text.contains("Placed things") && text.contains("Legend"),
+            "{label}"
+        );
+        // Loading one room by its id gives the same picture as loading them all.
+        let again = load::load_one(&assets, loaded.id).unwrap_or_else(|e| panic!("{label}: {e}"));
+        assert_eq!(
+            room_preview::render(&again.scene(), &ruler, cell),
+            text,
+            "{label}"
+        );
+    }
+    let config = hollow_steps::run::RunConfig::load(&assets).expect("shipped run.ron must load");
+    if let Some(hub) = config.hub_room {
+        assert_eq!(load::parse_id(&assets, "hub"), Ok(hub));
+    }
+}

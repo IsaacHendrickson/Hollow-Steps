@@ -85,6 +85,7 @@ pub mod reach;
 pub mod room;
 pub mod room_charms;
 pub mod room_name;
+pub mod room_preview;
 pub mod room_size;
 pub mod run;
 pub mod search;
