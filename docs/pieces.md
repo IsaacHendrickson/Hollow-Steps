@@ -101,6 +101,34 @@ generator's work, and a later task.
 5. Unmark one room: its slots are still there (select one) and no longer count in the check.
 6. Press Test room on a room with slots: no slot shows as a pickup.
 
+## The shipped pool
+
+`assets/rooms/room_101.ron` to `room_108.ron` are a starter pool, enough for the generator to run
+(`rooms.min` is 6, so a Start, a Boss and at least four Middle pieces are the least that works). They
+sit beside the fixed dungeon (`First`, `Second`, `Boss`), which they do not change: a fixed run never
+reaches them, and Check dungeon does not report them as unreachable. Each is an ordinary room, so it
+can be edited, renamed or deleted in the editor like any other. Their numbers start at 101 on purpose:
+the editor gives a new room the lowest free number, so rooms you make by hand fill 1, 2, 3 and never
+meet these. They are placeholders: platforms, shards and one enemy each, no hazards, no gates and no
+authored locks or keys.
+
+| Room | Piece | Weight | Ports | Slots |
+| --- | --- | --- | --- | --- |
+| `room_101` Gatehouse | Start | 1 | Right | none |
+| `room_102` Stepping Stones | Middle | 3 | Left, Right | none |
+| `room_103` Long Hall | Middle | 3 | Left, Right | none |
+| `room_104` Two Ways Up | Middle | 2 | Left, Right, Right (upper) | none |
+| `room_105` Cavern Split | Middle | 2 | Left, Right, Left (upper) | none |
+| `room_106` Shard Cache | Middle | 2 | Left | Key, Any |
+| `room_107` Watch Ledge | Middle | 2 | Left | Key |
+| `room_108` Warden's Hall | Boss | 1 | Left | none (Ash Warden) |
+
+The exits of these rooms are linked among themselves only so the authored world loads; the
+generator rewires them. To play them, set `generator.enabled: true` in `assets/variety.ron` or choose
+**Generate next run: Always** in F4 (`docs/dungeon-gen.md`). With eight pieces a run has 6 to 8 rooms,
+and the dead ends (`room_106`, `room_107`, the only Key slots) decide whether a lock can be placed. Add
+more Middle pieces to widen the variety (`docs/variety.md`).
+
 ## Known limits
 
 - Slots hold keys and abilities only. No coins and no charms.
