@@ -209,3 +209,5 @@ One line per feature (160 characters at most): what; module(s); test file(s). Ke
 - Fixture-based tests; only `tests/shipped_content.rs` reads `assets/` (load and validate); `tests/fixtures/`, `tests/support/mod.rs`
 - CI: fmt, test, Clippy on Linux and Windows for PRs and `main`; `.github/workflows/ci.yml`
 - MIT `LICENSE` and a minimum Rust version (`rust-version` in `Cargo.toml`, named in the README); no test
+- Room preview: a room as text with the real reach ruler, a table and a legend; `src/room_preview.rs`; `tests/room_preview.rs`, `tests/shipped_content.rs`
+- Path replay: an input script on the real Player in a room: reaches, blocked, needs an ability or key; `tests/support/path.rs`; `tests/path_replay.rs`
