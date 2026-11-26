@@ -3,7 +3,7 @@
     ],
     boss: Some((
         definition: "Ash Warden",
-        position: (560.0, 436.0),
+        position: (539.4, 413.7),
     )),
     layout: Some((
         name: Some("Warden's Hall"),
